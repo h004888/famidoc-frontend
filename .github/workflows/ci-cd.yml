@@ -1,0 +1,69 @@
+name: Frontend CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - dev
+      - main
+  push:
+    branches:
+      - dev
+      - main
+      - hungpx
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: 🧪 Quality Gate (Lint & Vitest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Unit Tests
+        run: npm run test
+
+  deploy:
+    name: 🚀 Trigger Dokploy Deploy
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call Dokploy Webhook
+        env:
+          DOKPLOY_WEBHOOK_URL: ${{ secrets.DOKPLOY_WEBHOOK_URL }}
+        run: |
+          if [ -z "$DOKPLOY_WEBHOOK_URL" ]; then
+            echo "::error::Secret DOKPLOY_WEBHOOK_URL chưa được cấu hình trong GitHub Settings!"
+            exit 1
+          fi
+
+          echo "Đang kích hoạt Dokploy Deployment Webhook..."
+          HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DOKPLOY_WEBHOOK_URL")
+          HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
+          HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
+
+          echo "Response Body: $HTTP_BODY"
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "✅ Kích hoạt Dokploy Deploy thành công!"
+          else
+            echo "::error::Deploy webhook thất bại với mã HTTP $HTTP_STATUS"
+            exit 1
+          fi
