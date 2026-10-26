@@ -54,7 +54,10 @@ jobs:
           fi
 
           echo "Đang kích hoạt Dokploy Deployment Webhook..."
-          HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DOKPLOY_WEBHOOK_URL")
+          HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DOKPLOY_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-GitHub-Event: push" \
+            -d "{\"ref\":\"${{ github.ref }}\"}")
           HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
           HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
 
