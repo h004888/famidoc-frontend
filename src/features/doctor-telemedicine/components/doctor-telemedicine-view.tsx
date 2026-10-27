@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { DoctorNav } from '@/components/layout';
 
 export function DoctorTelemedicineView() {
+  const router = useRouter();
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -135,7 +137,7 @@ export function DoctorTelemedicineView() {
                 type="button"
                 onClick={() => {
                   if (confirm('Bạn có muốn kết thúc ca tư vấn trực tuyến và chuyển sang ký đơn thuốc?')) {
-                    window.location.href = '/doctor/encounters';
+                    router.push('/doctor/encounters');
                   }
                 }}
                 className="px-5 h-11 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
@@ -215,4 +217,5 @@ export function DoctorTelemedicineView() {
     </div>
   );
 }
+
 

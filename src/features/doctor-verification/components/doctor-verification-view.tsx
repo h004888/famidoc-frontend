@@ -4,11 +4,11 @@ import React, { useState } from 'react';
 import { DoctorNav } from '@/components/layout';
 
 export function DoctorVerificationView() {
-  const [cchnNumber, setCchnNumber] = useState('004128/BYT-CCHN');
-  const [issueDate, setIssueDate] = useState('15/06/2012');
-  const [issuingAuthority, setIssuingAuthority] = useState('Cục Quản lý Khám chữa bệnh - Bộ Y Tế');
-  const [scopeOfPractice, setScopeOfPractice] = useState('Khám bệnh, chữa bệnh Nội khoa & Y học gia đình');
-  const [selectedHospital, setSelectedHospital] = useState('BV Đại học Y Dược TP.HCM');
+  const cchnNumber = '004128/BYT-CCHN';
+  const issueDate = '15/06/2012';
+  const issuingAuthority = 'Cục Quản lý Khám chữa bệnh - Bộ Y Tế';
+  const scopeOfPractice = 'Khám bệnh, chữa bệnh Nội khoa & Y học gia đình';
+  const selectedHospital = 'BV Đại học Y Dược TP.HCM';
   const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   return (
@@ -156,7 +156,7 @@ export function DoctorVerificationView() {
           <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <h3 className="font-bold text-base text-[#0f172a] flex items-center gap-2 border-b border-slate-100 pb-3">
               <span className="material-symbols-outlined text-[#2563eb]">folder_special</span>
-              Văn Bằng &amp; Hồ Sơ Đã Nộp ({4})
+              Văn Bằng &amp; Hồ Sơ Đã Nộp (4)
             </h3>
 
             <div className="space-y-3 text-xs">

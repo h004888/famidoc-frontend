@@ -132,7 +132,7 @@ export function ChronicCareView() {
               <button
                 key={r.id}
                 type="button"
-                onClick={() => setTimeRange(r.id as any)}
+                onClick={() => setTimeRange(r.id as '7d' | '30d' | '90d')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                   timeRange === r.id
                     ? 'bg-white text-[#2563eb] shadow-xs font-bold'
@@ -467,4 +467,5 @@ export function ChronicCareView() {
     </div>
   );
 }
+
 

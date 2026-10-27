@@ -204,7 +204,7 @@ export function FamilyAppointmentsView() {
               <button
                 key={t.id}
                 type="button"
-                onClick={() => setActiveTab(t.id as any)}
+                onClick={() => setActiveTab(t.id as 'upcoming' | 'completed' | 'all')}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                   activeTab === t.id
                     ? 'bg-[#2563eb] text-white shadow-xs'
@@ -541,4 +541,5 @@ export function FamilyAppointmentsView() {
     </div>
   );
 }
+
 
