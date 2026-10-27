@@ -12,7 +12,7 @@ const NAV_LINKS = [
 ];
 
 function PublicNav() {
-  const pathname = (typeof usePathname === 'function' ? usePathname() : '') || '/';
+  const pathname = usePathname() || '/';
 
   return (
     <nav className="hidden lg:flex items-center gap-1.5" aria-label="Điều hướng chính">
@@ -105,4 +105,5 @@ export function PublicHeader() {
     </header>
   );
 }
+
 
