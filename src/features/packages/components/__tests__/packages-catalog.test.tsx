@@ -9,6 +9,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
   }),
+  usePathname: () => '/packages',
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
@@ -43,3 +45,4 @@ describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
     expect(screen.getByRole('heading', { level: 3, name: /Chăm Sóc Cơ Bản/i })).toBeInTheDocument();
   });
 });
+

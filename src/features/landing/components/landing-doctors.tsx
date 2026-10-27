@@ -77,7 +77,7 @@ export function LandingDoctors() {
           </div>
 
           <Link
-            href="/doctor"
+            href="/doctors"
             className="text-xs font-bold text-[#0037c1] flex items-center gap-1 hover:underline"
           >
             <span>Xem toàn bộ 1.200+ bác sĩ</span>
@@ -178,3 +178,4 @@ export function LandingDoctors() {
     </section>
   );
 }
+
