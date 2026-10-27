@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 
 export function DoctorDashboardView() {
-  const [activeQueue] = useState<'pending' | 'in_progress' | 'signed'>('pending');
+  const [_activeQueue] = useState<'pending' | 'in_progress' | 'signed'>('pending');
 
   const patients = [
     {
@@ -216,3 +216,4 @@ export function DoctorDashboardView() {
     </div>
   );
 }
+

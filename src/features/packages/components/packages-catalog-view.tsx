@@ -145,7 +145,7 @@ export function PackagesCatalogView() {
 
   // Filter logic
   const filteredPackages = useMemo(() => {
-    let result = PACKAGES_DATA.filter((pkg) => {
+    const result = PACKAGES_DATA.filter((pkg) => {
       // 1. Search keyword
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
