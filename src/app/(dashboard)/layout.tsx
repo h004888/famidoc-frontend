@@ -1,58 +1,69 @@
 import React from 'react';
 import Link from 'next/link';
+import { DashboardSidebar } from '@/components/layout';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-background text-on-background">
-      {/* Top Navbar */}
-      <header className="flex justify-between items-center w-full px-4 sm:px-6 lg:px-8 h-16 sticky top-0 z-40 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary-container text-white flex items-center justify-center font-bold text-base shadow-sm">
-              F
-            </div>
-            <span className="font-bold text-lg text-primary tracking-tight">FamiDoc<span className="text-[#fa8c16]">.Pro</span></span>
-          </Link>
+    <div className="min-h-screen flex flex-col lg:flex-row bg-[#f8fafc] text-slate-900 antialiased font-sans">
+      {/* Thanh điều hướng nằm dọc bên trái */}
+      <DashboardSidebar />
 
-          <nav className="hidden md:flex items-center gap-2 lg:gap-4 text-xs font-semibold">
-            <Link href="/family" className="px-3 py-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
-              Gia đình
-            </Link>
-            <Link href="/doctor" className="px-3 py-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
-              Bác sĩ
-            </Link>
-            <Link href="/facility" className="px-3 py-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
-              Cơ sở y tế
-            </Link>
-            <Link href="/packages" className="px-3 py-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
-              Gói dịch vụ
-            </Link>
-            <Link href="/settings" className="px-3 py-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
-              Cài đặt &amp; Bảo mật
-            </Link>
-          </nav>
-        </div>
+      {/* Vùng nội dung chính bên phải */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top bar hỗ trợ nhanh */}
+        <header className="h-14 sm:h-16 bg-white border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20 shadow-2xs">
+          <div className="flex items-center gap-3">
+            <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              FamiDoc Enterprise Suite
+            </span>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <button className="p-2 rounded-full hover:bg-surface-container-low text-on-surface-variant" aria-label="Thông báo">
-            <span className="material-symbols-outlined text-[20px]">notifications</span>
-          </button>
-          <Link href="/settings" className="flex items-center gap-2 text-xs font-semibold text-on-surface hover:text-primary">
-            <div className="w-8 h-8 rounded-full bg-primary-container text-white flex items-center justify-center font-bold">
-              NA
-            </div>
-            <span className="hidden sm:inline">Nguyễn Văn An</span>
-          </Link>
-        </div>
-      </header>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/packages"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-blue-600 bg-slate-50 hover:bg-blue-50/60 rounded-xl border border-slate-200 transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">visibility</span>
+              <span>Xem Bảng giá Gói</span>
+            </Link>
 
-      <main className="flex-1">
-        {children}
-      </main>
+            <button
+              className="p-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors relative"
+              aria-label="Thông báo hệ thống"
+            >
+              <span className="material-symbols-outlined text-[20px]">notifications</span>
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white"></span>
+            </button>
 
-      <footer className="py-4 text-center text-xs text-outline border-t border-outline-variant bg-surface-container-lowest">
-        © 2026 FamiDoc Pro Healthcare Platform. Chuẩn Bộ Y Tế &amp; HIPAA.
-      </footer>
+            <div className="h-6 w-px bg-slate-200"></div>
+
+            <Link
+              href="/settings"
+              className="flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-blue-600"
+            >
+              <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-500/20">
+                AD
+              </div>
+              <span className="hidden md:inline font-bold">Ban Quản Trị</span>
+            </Link>
+          </div>
+        </header>
+
+        {/* Nội dung trang */}
+        <main className="flex-1">
+          {children}
+        </main>
+
+        {/* Footer tinh gọn */}
+        <footer className="py-3 px-4 sm:px-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400 border-t border-slate-200 bg-white">
+          <span>© 2026 FamiDoc Pro Healthcare Platform • Chuẩn Bộ Y Tế &amp; HIPAA</span>
+          <div className="flex items-center gap-4">
+            <Link href="/contact" className="hover:text-blue-600 transition-colors">Trung tâm Hỗ trợ</Link>
+            <Link href="/settings" className="hover:text-blue-600 transition-colors">Bảo mật</Link>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }
