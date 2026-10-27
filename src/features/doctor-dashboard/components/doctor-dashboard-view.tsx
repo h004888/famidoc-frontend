@@ -2,9 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { DoctorNav } from '@/components/layout';
 
 export function DoctorDashboardView() {
+  const router = useRouter();
   const [_activeQueue] = useState<'pending' | 'in_progress' | 'signed'>('pending');
 
   const patients = [
@@ -190,13 +192,14 @@ export function DoctorDashboardView() {
                   </p>
                   <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-200/60">
                     <span className="text-slate-400 font-mono text-[11px]">{p.time}</span>
-                    <Link
-                      href="/doctor/encounters"
-                      className="px-3 py-1.5 bg-[#2563eb] text-white rounded-lg text-xs font-semibold hover:bg-[#1d4ed8] transition-colors flex items-center gap-1 shadow-xs"
+                    <button
+                      type="button"
+                      onClick={() => router.push('/doctor/encounters')}
+                      className="px-3 py-2 bg-[#2563eb] text-white rounded-lg text-xs font-semibold hover:bg-[#1d4ed8] transition-colors min-h-[40px] flex items-center justify-center gap-1 shadow-xs cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[14px]">edit_document</span>
                       <span>Mở Phiếu khám</span>
-                    </Link>
+                    </button>
                   </div>
                 </div>
               ))}

@@ -1,7 +1,13 @@
 import React from 'react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { DoctorDashboardView } from '../doctor-dashboard-view';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+  usePathname: () => '/doctor',
+  useSearchParams: () => new URLSearchParams(),
+}));
 
 describe('UT-CMP-15: DoctorDashboardView Touch Target & Accessibility', () => {
   it('renders "Mở Phiếu khám" button with accessible touch target styling', () => {
