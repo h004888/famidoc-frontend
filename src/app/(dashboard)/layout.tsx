@@ -14,12 +14,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <span className="font-bold text-lg text-primary tracking-tight">FamiDoc<span className="text-[#fa8c16]">.Pro</span></span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-4 text-xs font-semibold">
+          <nav className="hidden md:flex items-center gap-2 lg:gap-4 text-xs font-semibold">
             <Link href="/family" className="px-3 py-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
               Gia đình
             </Link>
             <Link href="/doctor" className="px-3 py-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
               Bác sĩ
+            </Link>
+            <Link href="/facility" className="px-3 py-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
+              Cơ sở y tế
             </Link>
             <Link href="/packages" className="px-3 py-1.5 rounded-lg hover:bg-surface-container text-on-surface-variant hover:text-primary transition-colors">
               Gói dịch vụ
@@ -31,7 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <div className="flex items-center gap-3">
-          <button className="p-2 rounded-full hover:bg-surface-container-low text-on-surface-variant">
+          <button className="p-2 rounded-full hover:bg-surface-container-low text-on-surface-variant" aria-label="Thông báo">
             <span className="material-symbols-outlined text-[20px]">notifications</span>
           </button>
           <Link href="/settings" className="flex items-center gap-2 text-xs font-semibold text-on-surface hover:text-primary">
