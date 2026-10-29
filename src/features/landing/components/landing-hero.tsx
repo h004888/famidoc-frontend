@@ -65,12 +65,8 @@ const HERO_SLIDES: SlideData[] = [
 ];
 
 export function LandingHero() {
-  const [specialty, setSpecialty] = useState('Chuyên khoa: Bác sĩ Gia đình');
-  const [location, setLocation] = useState('TP. Hồ Chí Minh');
-  const [mode, setMode] = useState('Khám tại nhà riêng');
   const [activeSlide, setActiveSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto slide interval
@@ -91,16 +87,6 @@ export function LandingHero() {
 
   const handleNextSlide = () => {
     setActiveSlide((prev) => (prev + 1) % HERO_SLIDES.length);
-  };
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSearching(true);
-    setTimeout(() => {
-      setIsSearching(false);
-      const target = document.getElementById('bac-si') || document.getElementById('mang-luoi-bac-si');
-      target?.scrollIntoView({ behavior: 'smooth' });
-    }, 350);
   };
 
   const currentSlide = HERO_SLIDES[activeSlide] ?? HERO_SLIDES[0]!;

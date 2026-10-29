@@ -47,17 +47,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sync state từ cookies/localStorage khi mount
   useEffect(() => {
-    const session = getStoredAuthSession();
-    if (session.role && session.token) {
-      setRole(session.role);
-      setUser(session.user || DEFAULT_USERS[session.role]);
-      setIsAuthenticated(true);
-    } else {
-      setRole('FAMILY');
-      setUser(null);
-      setIsAuthenticated(false);
-    }
-    setIsLoading(false);
+    const timer = setTimeout(() => {
+      const session = getStoredAuthSession();
+      if (session.role && session.token) {
+        setRole(session.role);
+        setUser(session.user || DEFAULT_USERS[session.role]);
+        setIsAuthenticated(true);
+      } else {
+        setRole('FAMILY');
+        setUser(null);
+        setIsAuthenticated(false);
+      }
+      setIsLoading(false);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const login = async (selectedRole: LoginRole) => {

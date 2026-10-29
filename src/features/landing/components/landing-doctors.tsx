@@ -65,6 +65,7 @@ export function LandingDoctors() {
   const [selectedSlot, setSelectedSlot] = useState(TIME_SLOTS[0]);
   const [phone, setPhone] = useState('');
   const [modalSuccess, setModalSuccess] = useState(false);
+  const [bookingCode, setBookingCode] = useState('');
 
   const handleBooking = (docName: string) => {
     setBookedDoctor(docName);
@@ -80,6 +81,7 @@ export function LandingDoctors() {
 
   const handleConfirmModalBooking = (e: React.FormEvent) => {
     e.preventDefault();
+    setBookingCode(`FMD-${Math.floor(100000 + Math.random() * 900000)}`);
     setModalSuccess(true);
     setTimeout(() => {
       setSelectedDoctorForModal(null);
@@ -239,7 +241,7 @@ export function LandingDoctors() {
                   <strong>{selectedSlot}</strong> đã được lưu. Trợ lý y tế sẽ liên hệ số {phone || 'của bạn'} để hoàn tất hồ sơ.
                 </p>
                 <div className="pt-2">
-                  <span className="inline-block text-[11px] text-slate-400 font-mono">Mã cuộc hẹn: #FMD-{Math.floor(100000 + Math.random() * 900000)}</span>
+                  <span className="inline-block text-[11px] text-slate-400 font-mono">Mã cuộc hẹn: #{bookingCode}</span>
                 </div>
               </div>
             ) : (
