@@ -12,8 +12,8 @@ export function LoginForm() {
   const isRegisteredSuccess = searchParams.get('registered') === 'true';
 
   const [role, setRole] = useState<LoginRole>('FAMILY');
-  const [phone, setPhone] = useState('0912345678');
-  const [password, setPassword] = useState('Password123');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -109,28 +109,8 @@ export function LoginForm() {
           </p>
         </div>
 
-        {/* Bộ Chọn Vai Trò (sr-only duy trì A11y & thỏa mãn UT-CMP-02) */}
-        <div className="sr-only" aria-label="Bộ chọn vai trò đăng nhập">
-          {roles.map((r) => {
-            const isActive = role === r.id;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => handleSelectRole(r.id as LoginRole)}
-                className={`role-btn ${isActive ? 'active' : ''}`}
-              >
-                <span className="material-symbols-outlined text-[18px] mb-0.5 leading-none">
-                  {r.icon}
-                </span>
-                <span>{r.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
         {/* Bảng chọn Vai trò & Tự động điền tài khoản mẫu */}
-        <div className="mb-6">
+        <div className="mb-6" aria-label="Bộ chọn vai trò đăng nhập">
           <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
             1. Chọn vai trò đăng nhập (Tự động điền tài khoản mẫu):
           </label>
@@ -142,7 +122,7 @@ export function LoginForm() {
                   key={r.id}
                   type="button"
                   onClick={() => handleSelectRole(r.id as LoginRole)}
-                  className={`p-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center text-center gap-1.5 transition-all cursor-pointer ${
+                  className={`role-btn p-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center text-center gap-1.5 transition-all cursor-pointer ${
                     isActive
                       ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-xs ring-2 ring-blue-500/20'
                       : 'border-slate-200 text-slate-600 hover:bg-slate-50'
