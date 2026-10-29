@@ -2,17 +2,13 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { PublicHeader, PublicFooter } from '@/components/layout';
+import { LandingHeader, LandingFooter } from '@/features/landing';
 
 interface InquiryFormData {
   fullName: string;
   phoneNumber: string;
   email: string;
-  city: string;
-  district: string;
   packageInterest: string;
-  memberCount: string;
-  preferredCallTime: string;
   notes: string;
   agreedConsent: boolean;
 }
@@ -21,11 +17,7 @@ const INITIAL_FORM: InquiryFormData = {
   fullName: '',
   phoneNumber: '',
   email: '',
-  city: 'Hà Nội',
-  district: '',
-  packageInterest: 'toan-dien',
-  memberCount: '3-4',
-  preferredCallTime: '15-mins',
+  packageInterest: 'Gói Chăm Sóc Sức Khỏe Gia Đình Toàn Diện',
   notes: '',
   agreedConsent: true,
 };
@@ -36,6 +28,8 @@ export function ContactView() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [inquiryCode, setInquiryCode] = useState('');
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof InquiryFormData, string>>>({});
+  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
 
   const validate = (): boolean => {
     const errors: Partial<Record<keyof InquiryFormData, string>> = {};
@@ -48,7 +42,7 @@ export function ContactView() {
     if (!formData.phoneNumber.trim()) {
       errors.phoneNumber = 'Vui lòng nhập số điện thoại.';
     } else if (!phoneRegex.test(formData.phoneNumber.replace(/\s+/g, ''))) {
-      errors.phoneNumber = 'Số điện thoại không hợp lệ (Vui lòng nhập số điện thoại Việt Nam 10 chữ số).';
+      errors.phoneNumber = 'Số điện thoại không hợp lệ (Vui lòng nhập 10 chữ số).';
     }
 
     if (formData.email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
@@ -56,7 +50,7 @@ export function ContactView() {
     }
 
     if (!formData.agreedConsent) {
-      errors.agreedConsent = 'Bạn cần đồng ý với điều khoản bảo mật dữ liệu y tế.';
+      errors.agreedConsent = 'Bạn cần đồng ý với điều khoản và chính sách bảo mật.';
     }
 
     setFormErrors(errors);
@@ -69,508 +63,427 @@ export function ContactView() {
 
     setIsSubmitting(true);
 
-    // Giả lập gửi API tư vấn
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSubmitted(true);
       const randomCode = 'FMD-' + Math.floor(100000 + Math.random() * 900000);
       setInquiryCode(randomCode);
-    }, 800);
+    }, 600);
+  };
+
+  const handleNewsletterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newsletterEmail.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newsletterEmail)) {
+      setNewsletterSubmitted(true);
+      setNewsletterEmail('');
+    }
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased flex flex-col justify-between">
-      {/* 1. Shared Header */}
-      <PublicHeader />
+    <div className="min-h-screen bg-white text-[#232323] font-sans antialiased flex flex-col justify-between">
+      {/* 1. Header (Shared Medsev Landing Header) */}
+      <LandingHeader />
 
-      <main className="flex-1 pt-24 pb-16">
-        {/* Breadcrumb Navigation */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-2">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs sm:text-sm text-[#475569]">
-            <Link href="/" className="hover:text-[#2563eb] transition-colors flex items-center gap-1">
-              <span className="material-symbols-outlined text-[16px]">home</span>
-              Trang chủ
-            </Link>
-            <span className="text-slate-300">/</span>
-            <span className="text-[#0f172a] font-semibold">Liên hệ & Tư vấn y tế</span>
-          </nav>
-        </div>
+      <main className="flex-1">
+        {/* 2. Medsev Page Title Area (.page-title-area.page-title-five) */}
+        <section
+          className="relative bg-cover bg-center py-24 sm:py-32 text-center text-white"
+          style={{ backgroundImage: "url('/images/medsev/contact/1.jpg')" }}
+        >
+          {/* Cobalt Blue Overlay (Matching Medsev #0046c0 / 75%) */}
+          <div className="absolute inset-0 bg-[#0046c0]/75" />
 
-        {/* Hero Section */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-8">
-          <div className="relative overflow-hidden rounded-2xl bg-linear-to-br from-[#0f172a] via-[#1e293b] to-[#1e3a8a] text-white p-6 sm:p-10 shadow-lg">
-            <div className="relative z-10 max-w-3xl space-y-4">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-semibold backdrop-blur-xs">
-                <span className="material-symbols-outlined text-[14px] text-blue-300">support_agent</span>
-                Bộ phận Tiếp nhận & Điều phối Y tế Gia đình
-              </div>
-              <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight font-display">
-                Đăng Ký Tư Vấn Gói Chăm Sóc Sức Khỏe Gia Đình
-              </h1>
-              <p className="text-sm sm:text-base text-slate-300 leading-relaxed">
-                Đội ngũ bác sĩ chuyên khoa FamiDoc Pro sẽ chủ động liên hệ trong vòng 15 phút để lắng nghe nhu cầu sức khỏe của từng thành viên, tư vấn phác đồ dự phòng và gói dịch vụ tối ưu nhất.
-              </p>
-            </div>
+          <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white drop-shadow-xs">
+              Liên Hệ &amp; Tư Vấn
+            </h1>
 
-            <div className="absolute -right-10 -bottom-10 w-72 h-72 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute right-1/3 top-0 w-48 h-48 bg-indigo-500/15 rounded-full blur-2xl pointer-events-none" />
+            {/* Medsev Breadcrumb */}
+            <nav
+              aria-label="Breadcrumb"
+              className="inline-flex items-center justify-center gap-2 text-sm text-blue-100 font-medium"
+            >
+              <Link href="/" className="hover:text-white transition-colors flex items-center gap-1">
+                <span className="material-symbols-outlined text-base">home</span>
+                Trang chủ
+              </Link>
+              <span className="text-blue-200">/</span>
+              <span className="text-white font-semibold">Liên hệ</span>
+            </nav>
           </div>
-        </div>
+        </section>
 
-        {/* Main Grid: Contact Info + Form */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Left Column (5 cols): Direct Contacts & Office Addresses */}
-            <div className="lg:col-span-5 space-y-6">
-              {/* Emergency Hotline Card */}
-              <div className="bg-linear-to-br from-[#2563eb] to-[#1d4ed8] text-white p-6 rounded-2xl shadow-sm space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-xs">
-                    <span className="material-symbols-outlined text-2xl text-white">ring_volume</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-base">Tổng đài Y tế Trực tuyến 24/7</h3>
-                    <p className="text-xs text-blue-100">Cấp cứu y tế gia đình & Điều phối khẩn</p>
-                  </div>
+        {/* 3. Medsev Location Area (.location-area & .location-wrap) */}
+        <section className="relative z-20 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-20 lg:-mt-24">
+          <div
+            className="bg-white rounded-2xl shadow-[0_0_25px_0_rgba(0,0,0,0.08)] border border-slate-100 p-8 sm:p-12 lg:p-14 bg-cover bg-center"
+            style={{ backgroundImage: "url('/images/medsev/home-one/3.png')" }}
+          >
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10">
+              {/* Location Column */}
+              <div className="text-center md:text-left space-y-3">
+                <div className="w-[75px] h-[75px] rounded-full bg-[#0046c0] text-white flex items-center justify-center text-3xl mx-auto md:mx-0 shadow-md">
+                  <span className="material-symbols-outlined text-3xl">location_on</span>
                 </div>
-
-                <div className="bg-white/10 p-4 rounded-xl backdrop-blur-xs border border-white/15 space-y-2">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-xs text-blue-100">Hotline toàn quốc:</span>
-                    <a href="tel:19006868" className="text-xl sm:text-2xl font-black tracking-wider text-white hover:underline">
-                      1900 6868
-                    </a>
-                  </div>
-                  <div className="text-[11px] text-blue-100 flex items-center justify-between border-t border-white/10 pt-2">
-                    <span>• Phím 1: Cấp cứu & Bác sĩ tại nhà</span>
-                    <span>• Phím 2: Tư vấn đăng ký gói</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 text-xs text-blue-100">
-                  <span className="material-symbols-outlined text-[16px] text-emerald-300">verified</span>
-                  <span>Túc trực 24/7 cả ngày Lễ, Tết và ngoài giờ hành chính</span>
+                <h3 className="text-2xl font-semibold text-[#232323]">Địa Chỉ</h3>
+                <div className="text-sm text-[#4a6f8a] leading-relaxed space-y-2">
+                  <p>
+                    <strong className="text-slate-800 font-medium">TP. Hồ Chí Minh:</strong>
+                    <br />
+                    Tầng 8, Vincom Center, 72 Lê Thánh Tôn, Bến Nghé, Quận 1
+                  </p>
+                  <p>
+                    <strong className="text-slate-800 font-medium">Hà Nội:</strong>
+                    <br />
+                    Tầng 6, Tháp Hà Nội, 49 Hai Bà Trưng, Hoàn Kiếm
+                  </p>
                 </div>
               </div>
 
-              {/* Office Locations */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
-                <h3 className="text-sm font-bold text-[#0f172a] uppercase tracking-wider flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#2563eb] text-[20px]">domain</span>
-                  Văn phòng & Trung tâm Điều phối
-                </h3>
-
-                <div className="space-y-4 text-xs sm:text-sm text-[#475569]">
-                  {/* Ha Noi */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                    <div className="flex items-center gap-2 font-bold text-[#0f172a]">
-                      <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
-                      Trụ sở miền Bắc & Phòng khám mẫu
-                    </div>
-                    <p className="text-xs leading-relaxed text-[#334155]">
-                      Tầng 6, Tòa nhà Y Dược, 128 Hai Bà Trưng, Phường Cửa Nam, Hoàn Kiếm, Hà Nội
-                    </p>
-                    <div className="text-[11px] text-slate-400 flex items-center gap-3 pt-1">
-                      <span>Điện thoại: (024) 7300 6868</span>
-                      <span>•</span>
-                      <span>Giờ đón tiếp: 08:00 - 18:00</span>
-                    </div>
-                  </div>
-
-                  {/* TP HCM */}
-                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100 space-y-1.5">
-                    <div className="flex items-center gap-2 font-bold text-[#0f172a]">
-                      <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
-                      Trụ sở miền Nam & Trung tâm Điều phối
-                    </div>
-                    <p className="text-xs leading-relaxed text-[#334155]">
-                      Tầng 8, Vincom Center, 72 Lê Thánh Tôn, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh
-                    </p>
-                    <div className="text-[11px] text-slate-400 flex items-center gap-3 pt-1">
-                      <span>Điện thoại: (028) 7300 6868</span>
-                      <span>•</span>
-                      <span>Giờ đón tiếp: 08:00 - 18:00</span>
-                    </div>
-                  </div>
-
-                  {/* Email & Support */}
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-xs">
-                    <div className="flex items-center gap-2 text-[#1e40af]">
-                      <span className="material-symbols-outlined text-[18px]">mail</span>
-                      <span>Email giải đáp chuyên môn:</span>
-                    </div>
-                    <a href="mailto:tuvan@famidoc.vn" className="font-semibold text-[#2563eb] hover:underline">
+              {/* Email Column */}
+              <div className="text-center md:text-left space-y-3">
+                <div className="w-[75px] h-[75px] rounded-full bg-[#0046c0] text-white flex items-center justify-center text-3xl mx-auto md:mx-0 shadow-md">
+                  <span className="material-symbols-outlined text-3xl">mail</span>
+                </div>
+                <h3 className="text-2xl font-semibold text-[#232323]">Email</h3>
+                <div className="text-sm text-[#4a6f8a] leading-relaxed space-y-1.5">
+                  <p>
+                    <a href="mailto:hotro@famidoc.vn" className="hover:text-[#0046c0] transition-colors block">
+                      hotro@famidoc.vn
+                    </a>
+                  </p>
+                  <p>
+                    <a href="mailto:tuvan@famidoc.vn" className="hover:text-[#0046c0] transition-colors block">
                       tuvan@famidoc.vn
                     </a>
-                  </div>
+                  </p>
+                  <p>
+                    <a href="mailto:cskh@famidoc.vn" className="hover:text-[#0046c0] transition-colors block">
+                      cskh@famidoc.vn
+                    </a>
+                  </p>
                 </div>
               </div>
 
-              {/* Security & HIPAA Commitment */}
-              <div className="p-4 rounded-xl bg-slate-100/70 border border-slate-200 text-xs text-[#475569] space-y-2">
-                <div className="flex items-center gap-2 font-semibold text-[#0f172a]">
-                  <span className="material-symbols-outlined text-[18px] text-[#10b981]">encrypted</span>
-                  Cam kết Bảo mật Hồ sơ Y khoa (HIPAA Compliance)
+              {/* Phone Column */}
+              <div className="text-center md:text-left space-y-3">
+                <div className="w-[75px] h-[75px] rounded-full bg-[#0046c0] text-white flex items-center justify-center text-3xl mx-auto md:mx-0 shadow-md">
+                  <span className="material-symbols-outlined text-3xl">call</span>
                 </div>
-                <p className="text-[11px] leading-relaxed text-slate-500">
-                  Mọi thông tin liên hệ và tình trạng bệnh lý của các thành viên gia đình được mã hóa đầu cuối 256-bit, tuân thủ nghiêm ngặt Luật Khám bệnh, chữa bệnh Việt Nam và tiêu chuẩn bảo mật dữ liệu sức khỏe quốc tế.
-                </p>
+                <h3 className="text-2xl font-semibold text-[#232323]">Điện Thoại</h3>
+                <div className="text-sm text-[#4a6f8a] leading-relaxed space-y-1.5">
+                  <p>
+                    <a href="tel:19008821" className="text-lg font-bold text-[#0046c0] hover:underline block">
+                      1900 8821 (Toàn quốc)
+                    </a>
+                  </p>
+                  <p>
+                    <a href="tel:02873008821" className="hover:text-[#0046c0] transition-colors block">
+                      +84 (028) 7300 8821 (TP.HCM)
+                    </a>
+                  </p>
+                  <p>
+                    <a href="tel:02473008821" className="hover:text-[#0046c0] transition-colors block">
+                      +84 (024) 7300 8821 (Hà Nội)
+                    </a>
+                  </p>
+                </div>
               </div>
             </div>
+          </div>
+        </section>
 
-            {/* Right Column (7 cols): Inquiry Lead Submission Form */}
-            <div className="lg:col-span-7">
-              <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xs">
-                {isSubmitted ? (
-                  /* Form Submission Success State */
-                  <div className="py-8 text-center space-y-5">
-                    <div className="w-16 h-16 bg-emerald-50 text-[#10b981] border border-emerald-200 rounded-full flex items-center justify-center mx-auto shadow-xs">
-                      <span className="material-symbols-outlined text-3xl">check_circle</span>
-                    </div>
+        {/* 4. Medsev Drop Area (.drop-area) */}
+        <section className="pt-20 lg:pt-28 pb-16 lg:pb-24">
+          <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 rounded-2xl overflow-hidden shadow-[0_0_30px_0_rgba(0,0,0,0.06)] border border-slate-100">
+              {/* Left Column: Contact Form (.drop-left & .drop-img) */}
+              <div
+                className="lg:col-span-7 bg-cover bg-center p-8 sm:p-12 lg:p-16 relative"
+                style={{ backgroundImage: "url('/images/medsev/contact/2.png')" }}
+              >
+                <div className="max-w-xl mx-auto">
+                  <h2 className="text-2xl sm:text-3xl font-semibold text-[#232323] mb-4 leading-tight">
+                    Để lại thông tin hoặc câu hỏi cần tư vấn y tế.
+                  </h2>
+                  <p className="text-sm text-[#4a6f8a] mb-8 leading-relaxed">
+                    Bác sĩ chuyên khoa FamiDoc sẽ liên hệ lại qua điện thoại trong vòng 15 phút để tư vấn phác đồ và giải đáp thắc mắc sức khỏe của gia đình bạn.
+                  </p>
 
-                    <div className="space-y-2">
-                      <h3 className="text-xl sm:text-2xl font-bold text-[#0f172a]">
-                        Đăng Ký Tư Vấn Thành Công!
-                      </h3>
-                      <p className="text-xs sm:text-sm text-[#475569] max-w-md mx-auto leading-relaxed">
-                        Cảm ơn bạn đã gửi yêu cầu đến <strong>FamiDoc Pro</strong>. Bác sĩ phụ trách khu vực sẽ liên hệ qua số điện thoại <strong>{formData.phoneNumber}</strong> trong thời gian sớm nhất.
-                      </p>
-                    </div>
-
-                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 max-w-md mx-auto text-xs text-left space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Mã yêu cầu tư vấn:</span>
-                        <span className="font-mono font-bold text-[#2563eb]">{inquiryCode}</span>
+                  {isSubmitted ? (
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 sm:p-8 text-center space-y-4">
+                      <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto text-3xl">
+                        <span className="material-symbols-outlined text-4xl">check_circle</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Người đăng ký:</span>
-                        <span className="font-semibold text-[#0f172a]">{formData.fullName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Khu vực:</span>
-                        <span className="font-semibold text-[#0f172a]">{formData.city}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Thời gian cam kết liên hệ:</span>
-                        <span className="font-semibold text-[#10b981]">
-                          {formData.preferredCallTime === '15-mins'
-                            ? 'Trong vòng 15 phút tới'
-                            : formData.preferredCallTime === 'working-hours'
-                            ? 'Trong giờ hành chính hôm nay'
-                            : 'Buổi tối sau 18:00'}
+                      <h3 className="text-xl font-bold text-emerald-900">Gửi Yêu Cầu Thành Công!</h3>
+                      <p className="text-sm text-emerald-700 leading-relaxed max-w-md mx-auto">
+                        Cảm ơn bạn đã tin tưởng FamiDoc. Mã yêu cầu tư vấn của bạn là:{' '}
+                        <span className="font-mono font-bold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded">
+                          {inquiryCode}
                         </span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
-                      <Link
-                        href="/packages"
-                        className="w-full sm:w-auto px-5 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs sm:text-sm font-semibold transition-colors shadow-xs text-center"
-                      >
-                        Khám phá chi tiết các gói chăm sóc
-                      </Link>
+                        . Bác sĩ điều phối sẽ gọi lại số điện thoại{' '}
+                        <strong className="text-emerald-900">{formData.phoneNumber}</strong> trong thời gian sớm nhất.
+                      </p>
                       <button
                         type="button"
                         onClick={() => {
                           setIsSubmitted(false);
                           setFormData(INITIAL_FORM);
                         }}
-                        className="w-full sm:w-auto px-5 py-2.5 border border-slate-300 hover:bg-slate-50 text-[#0f172a] rounded-xl text-xs sm:text-sm font-semibold transition-colors"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0046c0] hover:underline cursor-pointer pt-2"
                       >
-                        Gửi thêm yêu cầu khác
+                        <span className="material-symbols-outlined text-base">refresh</span>
+                        Gửi câu hỏi hoặc yêu cầu khác
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  /* Active Form */
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    <div>
-                      <h2 className="text-lg sm:text-xl font-bold text-[#0f172a]">
-                        Biểu mẫu Nhận Đề Xuất Phác Đồ & Báo Giá
-                      </h2>
-                      <p className="text-xs text-[#475569] mt-1">
-                        Điền thông tin gia đình bạn dưới đây, chuyên gia y tế gia đình FamiDoc sẽ phân tích và phản hồi ngay.
-                      </p>
-                    </div>
-
-                    {/* Step 1: Contact details */}
-                    <div className="space-y-4">
-                      <h3 className="text-xs font-bold text-[#2563eb] uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-blue-100 text-[#2563eb] flex items-center justify-center text-[11px] font-bold">1</span>
-                        Thông tin người đại diện gia đình
-                      </h3>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  ) : (
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        {/* Name Input */}
                         <div>
-                          <label className="block text-xs font-semibold text-[#475569] mb-1">
-                            Họ và tên của bạn <span className="text-red-500">*</span>
-                          </label>
                           <input
                             type="text"
+                            name="name"
                             value={formData.fullName}
-                            onChange={(e) => {
-                              setFormData({ ...formData, fullName: e.target.value });
-                              if (formErrors.fullName) setFormErrors({ ...formErrors, fullName: undefined });
-                            }}
-                            placeholder="Ví dụ: Nguyễn Văn An"
-                            className={`w-full py-2.5 px-3.5 text-xs sm:text-sm rounded-lg border ${
-                              formErrors.fullName ? 'border-red-400 bg-red-50/20' : 'border-slate-200 bg-white'
-                            } focus:outline-hidden focus:ring-2 focus:ring-[#2563eb]`}
+                            onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                            placeholder="Họ và tên của bạn *"
+                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${
+                              formErrors.fullName ? 'border-rose-500' : ''
+                            }`}
                           />
                           {formErrors.fullName && (
-                            <p className="text-[11px] text-red-500 mt-1">{formErrors.fullName}</p>
+                            <p className="text-xs text-rose-500 mt-1 pl-1">{formErrors.fullName}</p>
                           )}
                         </div>
 
+                        {/* Email Input */}
                         <div>
-                          <label className="block text-xs font-semibold text-[#475569] mb-1">
-                            Số điện thoại nhận tư vấn <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="tel"
-                            value={formData.phoneNumber}
-                            onChange={(e) => {
-                              setFormData({ ...formData, phoneNumber: e.target.value });
-                              if (formErrors.phoneNumber) setFormErrors({ ...formErrors, phoneNumber: undefined });
-                            }}
-                            placeholder="0912 345 678"
-                            className={`w-full py-2.5 px-3.5 text-xs sm:text-sm rounded-lg border ${
-                              formErrors.phoneNumber ? 'border-red-400 bg-red-50/20' : 'border-slate-200 bg-white'
-                            } focus:outline-hidden focus:ring-2 focus:ring-[#2563eb]`}
-                          />
-                          {formErrors.phoneNumber && (
-                            <p className="text-[11px] text-red-500 mt-1">{formErrors.phoneNumber}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-[#475569] mb-1">
-                            Email (để nhận hợp đồng & phác đồ mẫu)
-                          </label>
                           <input
                             type="email"
+                            name="email"
                             value={formData.email}
-                            onChange={(e) => {
-                              setFormData({ ...formData, email: e.target.value });
-                              if (formErrors.email) setFormErrors({ ...formErrors, email: undefined });
-                            }}
-                            placeholder="nguyenvanan@gmail.com"
-                            className={`w-full py-2.5 px-3.5 text-xs sm:text-sm rounded-lg border ${
-                              formErrors.email ? 'border-red-400 bg-red-50/20' : 'border-slate-200 bg-white'
-                            } focus:outline-hidden focus:ring-2 focus:ring-[#2563eb]`}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="Địa chỉ Email"
+                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${
+                              formErrors.email ? 'border-rose-500' : ''
+                            }`}
                           />
                           {formErrors.email && (
-                            <p className="text-[11px] text-red-500 mt-1">{formErrors.email}</p>
+                            <p className="text-xs text-rose-500 mt-1 pl-1">{formErrors.email}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        {/* Phone Input */}
+                        <div>
+                          <input
+                            type="tel"
+                            name="phone_number"
+                            value={formData.phoneNumber}
+                            onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                            placeholder="Số điện thoại di động *"
+                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${
+                              formErrors.phoneNumber ? 'border-rose-500' : ''
+                            }`}
+                          />
+                          {formErrors.phoneNumber && (
+                            <p className="text-xs text-rose-500 mt-1 pl-1">{formErrors.phoneNumber}</p>
                           )}
                         </div>
 
+                        {/* Subject / Service Selection */}
                         <div>
-                          <label className="block text-xs font-semibold text-[#475569] mb-1">
-                            Tỉnh / Thành phố sinh sống <span className="text-red-500">*</span>
-                          </label>
                           <select
-                            value={formData.city}
-                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                            className="w-full py-2.5 px-3.5 text-xs sm:text-sm rounded-lg border border-slate-200 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#2563eb]"
-                          >
-                            <option value="Hà Nội">Hà Nội (Nội thành & Ngoại thành)</option>
-                            <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
-                            <option value="Đà Nẵng">Đà Nẵng</option>
-                            <option value="Hải Phòng">Hải Phòng</option>
-                            <option value="Cần Thơ">Cần Thơ</option>
-                            <option value="Khác">Tỉnh thành khác (Tư vấn Telehealth)</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Step 2: Family & Service Needs */}
-                    <div className="space-y-4 pt-2 border-t border-slate-100">
-                      <h3 className="text-xs font-bold text-[#2563eb] uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-blue-100 text-[#2563eb] flex items-center justify-center text-[11px] font-bold">2</span>
-                        Nhu cầu chăm sóc sức khỏe gia đình
-                      </h3>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-semibold text-[#475569] mb-1">
-                            Gói dịch vụ đang quan tâm
-                          </label>
-                          <select
+                            name="packageInterest"
                             value={formData.packageInterest}
                             onChange={(e) => setFormData({ ...formData, packageInterest: e.target.value })}
-                            className="w-full py-2.5 px-3.5 text-xs sm:text-sm rounded-lg border border-slate-200 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#2563eb]"
+                            aria-label="Chọn dịch vụ hoặc gói y tế quan tâm"
+                            className="w-full h-[50px] px-4 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] transition-all cursor-pointer"
                           >
-                            <option value="toan-dien">Gói Gia đình Toàn diện (Phổ biến nhất)</option>
-                            <option value="co-ban">Gói Cá nhân / Cơ bản</option>
-                            <option value="nguoi-cao-tuoi">Gói Người cao tuổi & Bệnh mạn tính</option>
-                            <option value="vip">Gói VIP Concierge & Bác sĩ riêng</option>
-                            <option value="tu-van-them">Chưa rõ, cần bác sĩ tư vấn lựa chọn</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs font-semibold text-[#475569] mb-1">
-                            Số lượng thành viên cần theo dõi
-                          </label>
-                          <select
-                            value={formData.memberCount}
-                            onChange={(e) => setFormData({ ...formData, memberCount: e.target.value })}
-                            className="w-full py-2.5 px-3.5 text-xs sm:text-sm rounded-lg border border-slate-200 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#2563eb]"
-                          >
-                            <option value="1-2">1 - 2 thành viên (Vợ chồng / Độc thân)</option>
-                            <option value="3-4">3 - 4 thành viên (Gia đình tiêu chuẩn có con nhỏ)</option>
-                            <option value="5+">5+ thành viên (Tam đại đồng đường có ông bà)</option>
+                            <option value="Gói Chăm Sóc Sức Khỏe Gia Đình Toàn Diện">
+                              Gói Sức Khỏe Gia Đình Toàn Diện
+                            </option>
+                            <option value="Gói Bác Sĩ Gia Đình Cao Cấp (VIP Care)">
+                              Gói Bác Sĩ Gia Đình Cao Cấp (VIP Care)
+                            </option>
+                            <option value="Gói Chăm Sóc Người Cao Tuổi & Bệnh Mạn Tính">
+                              Gói Chăm Sóc Người Cao Tuổi &amp; Mạn Tính
+                            </option>
+                            <option value="Gói Chăm Sóc Mẹ & Bé Sơ Sinh Toàn Diện">
+                              Gói Chăm Sóc Mẹ &amp; Bé Sơ Sinh
+                            </option>
+                            <option value="Đặt Lịch Khám & Lấy Máu Tại Nhà">
+                              Đặt Lịch Khám &amp; Lấy Máu Tại Nhà
+                            </option>
+                            <option value="Khác - Ý Kiến & Hỏi Đáp Chung">
+                              Khác - Ý Kiến &amp; Hỏi Đáp Chung
+                            </option>
                           </select>
                         </div>
                       </div>
 
-                      {/* Preferred Call Time */}
+                      {/* Message Textarea */}
                       <div>
-                        <label className="block text-xs font-semibold text-[#475569] mb-1">
-                          Thời gian thuận tiện để bác sĩ liên hệ
-                        </label>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                          {[
-                            { id: '15-mins', label: 'Trong 15 phút', desc: 'Ngay tức thì' },
-                            { id: 'working-hours', label: 'Giờ hành chính', desc: '08:00 - 17:30' },
-                            { id: 'evening', label: 'Buổi tối', desc: 'Sau 18:00' },
-                          ].map((t) => (
-                            <label
-                              key={t.id}
-                              className={`p-2.5 rounded-lg border text-xs cursor-pointer flex items-center gap-2 transition-all ${
-                                formData.preferredCallTime === t.id
-                                  ? 'border-[#2563eb] bg-blue-50/50 text-[#2563eb] font-semibold'
-                                  : 'border-slate-200 bg-white text-[#475569] hover:bg-slate-50'
-                              }`}
-                            >
-                              <input
-                                type="radio"
-                                name="preferredCallTime"
-                                value={t.id}
-                                checked={formData.preferredCallTime === t.id}
-                                onChange={(e) => setFormData({ ...formData, preferredCallTime: e.target.value })}
-                                className="text-[#2563eb] focus:ring-[#2563eb]"
-                              />
-                              <div>
-                                <div>{t.label}</div>
-                                <div className="text-[10px] text-slate-400 font-normal">{t.desc}</div>
-                              </div>
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Notes / Health conditions */}
-                      <div>
-                        <label className="block text-xs font-semibold text-[#475569] mb-1">
-                          Tình trạng sức khỏe gia đình hoặc yêu cầu chuyên khoa riêng (nếu có)
-                        </label>
                         <textarea
-                          rows={3}
+                          name="message"
+                          rows={4}
                           value={formData.notes}
                           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                          placeholder="Ví dụ: Ông bà có tiền sử tiểu đường và cao huyết áp, bé nhỏ 2 tuổi hay ốm vặt đường hô hấp..."
-                          className="w-full py-2 px-3 text-xs sm:text-sm rounded-lg border border-slate-200 bg-white focus:outline-hidden focus:ring-2 focus:ring-[#2563eb]"
+                          placeholder="Nội dung cần tư vấn hoặc tình trạng sức khỏe hiện tại của các thành viên trong gia đình..."
+                          className="w-full p-4 sm:p-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all resize-y"
                         />
                       </div>
-                    </div>
 
-                    {/* Terms & Consent */}
-                    <div className="space-y-3 pt-2 border-t border-slate-100">
-                      <label className="flex items-start gap-2.5 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={formData.agreedConsent}
-                          onChange={(e) => {
-                            setFormData({ ...formData, agreedConsent: e.target.checked });
-                            if (formErrors.agreedConsent) setFormErrors({ ...formErrors, agreedConsent: undefined });
-                          }}
-                          className="mt-0.5 rounded-sm border-slate-300 text-[#2563eb] focus:ring-[#2563eb]"
-                        />
-                        <span className="text-[11px] text-[#475569] leading-relaxed">
-                          Tôi đồng ý cho phép chuyên gia y tế của FamiDoc liên hệ tư vấn qua số điện thoại đã cung cấp và hiểu rằng dữ liệu được bảo mật theo tiêu chuẩn an toàn y tế.
-                        </span>
-                      </label>
-                      {formErrors.agreedConsent && (
-                        <p className="text-[11px] text-red-500">{formErrors.agreedConsent}</p>
-                      )}
-
-                      <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="w-full py-3.5 px-6 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            <span>Đang chuyển thông tin đến bác sĩ phụ trách...</span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="material-symbols-outlined text-[18px]">send</span>
-                            <span>Gửi Yêu Cầu Nhận Tư Vấn Miễn Phí</span>
-                          </>
+                      {/* Terms & Privacy Consent */}
+                      <div className="space-y-1">
+                        <label className="flex items-start gap-2.5 text-xs text-[#4a6f8a] cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={formData.agreedConsent}
+                            onChange={(e) => setFormData({ ...formData, agreedConsent: e.target.checked })}
+                            className="mt-0.5 rounded border-slate-300 text-[#0046c0] focus:ring-[#0046c0] cursor-pointer"
+                          />
+                          <span>
+                            Tôi đồng ý với{' '}
+                            <Link href="/terms" className="text-[#0046c0] hover:underline font-medium">
+                              Điều khoản dịch vụ
+                            </Link>{' '}
+                            và cam kết bảo mật hồ sơ y tế theo{' '}
+                            <Link href="/privacy" className="text-[#0046c0] hover:underline font-medium">
+                              Chính sách bảo mật FamiDoc
+                            </Link>
+                            .
+                          </span>
+                        </label>
+                        {formErrors.agreedConsent && (
+                          <p className="text-xs text-rose-500 pl-6">{formErrors.agreedConsent}</p>
                         )}
-                      </button>
-                    </div>
+                      </div>
+
+                      {/* Submit Button (.drop-btn) */}
+                      <div>
+                        <button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className="inline-flex items-center justify-center gap-2 font-semibold text-[15px] text-white bg-[#0046c0] hover:bg-[#4a6f8a] px-9 py-3.5 rounded transition-all duration-300 shadow-sm disabled:opacity-70 cursor-pointer"
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <span className="material-symbols-outlined text-lg animate-spin">
+                                progress_activity
+                              </span>
+                              <span>Đang gửi thông tin...</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>Gửi Yêu Cầu Tư Vấn</span>
+                              <span className="material-symbols-outlined text-base">send</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Speciality Emergency Area (.speciality-right-three & .speciality-emergency) */}
+              <div
+                className="lg:col-span-5 relative min-h-[440px] lg:min-h-full bg-cover bg-center flex items-end p-6 sm:p-10"
+                style={{ backgroundImage: "url('/images/medsev/home-two/4.jpg')" }}
+              >
+                {/* Dark Vignette Overlay for Image Contrast */}
+                <div className="absolute inset-0 bg-linear-to-t from-slate-900/60 via-transparent to-transparent pointer-events-none" />
+
+                {/* Floating Emergency Box (.speciality-emergency) */}
+                <div className="relative z-10 w-full bg-[#0046c0] text-white p-6 sm:p-8 rounded-xl shadow-2xl flex items-center gap-5">
+                  {/* Diamond Icon (.speciality-icon) */}
+                  <div className="w-12 h-12 bg-white flex items-center justify-center transform rotate-45 shrink-0 shadow-md">
+                    <span className="material-symbols-outlined text-[#0046c0] text-2xl transform -rotate-45 font-bold">
+                      call
+                    </span>
+                  </div>
+
+                  {/* Text Details */}
+                  <div className="space-y-1">
+                    <h3 className="font-semibold text-lg sm:text-xl text-white tracking-wide">
+                      Tổng Đài Cấp Cứu 24/7
+                    </h3>
+                    <a
+                      href="tel:19008821"
+                      className="text-2xl sm:text-3xl font-bold font-mono text-white hover:text-blue-100 transition-colors block"
+                    >
+                      1900 8821
+                    </a>
+                    <p className="text-xs text-blue-100 pt-0.5">
+                      Điều phối bác sĩ cấp cứu &amp; xe cứu thương tại nhà
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 5. Medsev Google Map Embed (#map) */}
+        <section className="w-full">
+          <iframe
+            id="map"
+            title="Trung tâm điều phối Y tế FamiDoc"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3919.424167419728!2d106.70014237586866!3d10.778786959149202!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x31752f46755ab06b%3A0xc33118d09575191b!2sVincom%20Center%20Dong%20Khoi!5e0!3m2!1svi!2svn!4v1711200000000!5m2!1svi!2svn"
+            className="w-full h-[450px] sm:h-[500px] border-0 block grayscale-15 hover:grayscale-0 transition-all duration-500"
+            allowFullScreen={false}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+          />
+        </section>
+
+        {/* 6. Medsev Newsletter Area (.newsletter-area) */}
+        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 sm:-mt-20 relative z-30 pb-16">
+          <div className="bg-white rounded-xl shadow-[0_0_20px_0_rgba(221,221,221,0.67)] p-8 sm:p-12 border border-slate-100">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+              <div className="lg:col-span-7 space-y-2">
+                <h2 className="text-2xl sm:text-3xl font-semibold text-[#232323]">
+                  Đăng Ký Nhận Bản Tin Y Học Gia Đình
+                </h2>
+                <p className="text-sm text-[#676767] leading-relaxed max-w-xl">
+                  Nhận các cẩm nang chăm sóc sức khỏe dự phòng, cảnh báo dịch tễ theo mùa và các chính sách ưu đãi thành viên mới từ FamiDoc.
+                </p>
+              </div>
+
+              <div className="lg:col-span-5">
+                {newsletterSubmitted ? (
+                  <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-3 rounded-lg">
+                    <span className="material-symbols-outlined text-emerald-600">check_circle</span>
+                    <span>Cảm ơn bạn đã đăng ký nhận bản tin sức khỏe FamiDoc!</span>
+                  </div>
+                ) : (
+                  <form onSubmit={handleNewsletterSubmit} className="relative">
+                    <input
+                      type="email"
+                      value={newsletterEmail}
+                      onChange={(e) => setNewsletterEmail(e.target.value)}
+                      placeholder="Nhập địa chỉ email của bạn..."
+                      required
+                      className="w-full h-[65px] pl-5 pr-36 rounded-lg border border-[#0046c0] text-sm text-[#232323] placeholder:text-[#676767] focus:outline-hidden focus:border-[#111111] transition-all"
+                    />
+                    <button
+                      type="submit"
+                      className="absolute top-2 right-2 h-[49px] px-6 bg-[#0046c0] hover:bg-[#111111] text-white text-sm font-medium rounded-md transition-colors cursor-pointer flex items-center justify-center"
+                    >
+                      Đăng Ký
+                    </button>
                   </form>
                 )}
               </div>
             </div>
           </div>
-
-          {/* Quick FAQ Section */}
-          <div className="mt-16 pt-12 border-t border-slate-200">
-            <div className="text-center max-w-2xl mx-auto mb-8">
-              <h2 className="text-xl font-bold text-[#0f172a]">
-                Câu hỏi thường gặp về việc đăng ký & tư vấn
-              </h2>
-              <p className="text-xs text-[#475569] mt-1">
-                Giải đáp nhanh các thắc mắc trước khi bạn quyết định đồng hành cùng Bác sĩ gia đình FamiDoc
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-2">
-                <h4 className="text-sm font-bold text-[#0f172a] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#2563eb] text-[18px]">help</span>
-                  Việc tư vấn ban đầu có mất phí không?
-                </h4>
-                <p className="text-xs text-[#475569] leading-relaxed">
-                  Hoàn toàn <strong>MIỄN PHÍ 100%</strong>. Bác sĩ trưởng phụ trách sẽ gọi điện lắng nghe tình trạng gia đình và lập bản đồ chăm sóc sức khỏe mẫu trước khi bạn ký hợp đồng gói.
-                </p>
-              </div>
-
-              <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-2">
-                <h4 className="text-sm font-bold text-[#0f172a] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#2563eb] text-[18px]">help</span>
-                  Bác sĩ có đến tận nhà thăm khám không?
-                </h4>
-                <p className="text-xs text-[#475569] leading-relaxed">
-                  Có. Tùy thuộc vào gói dịch vụ, bác sĩ sẽ đến nhà định kỳ mỗi tháng/quý với đầy đủ vali trang thiết bị xét nghiệm nhanh, máy đo điện tim và siêu âm xách tay.
-                </p>
-              </div>
-
-              <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-2">
-                <h4 className="text-sm font-bold text-[#0f172a] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#2563eb] text-[18px]">help</span>
-                  Nếu gia đình cần đổi bác sĩ phụ trách?
-                </h4>
-                <p className="text-xs text-[#475569] leading-relaxed">
-                  Bạn có quyền yêu cầu đổi bác sĩ gia đình bất kỳ lúc nào nếu cảm thấy phong cách chăm sóc chưa tương thích, FamiDoc sẽ điều phối bác sĩ mới trong vòng 24 giờ.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        </section>
       </main>
 
-      {/* 3. Shared Footer */}
-      <PublicFooter />
+      {/* 7. Shared Footer */}
+      <LandingFooter />
     </div>
   );
 }
-

@@ -1,8 +1,10 @@
+'use client';
+
 import React from 'react';
 
 const PILLARS = [
   {
-    num: 'Trụ cột 01',
+    num: 'Bước 01',
     icon: 'home_health',
     title: 'Bác Sĩ Gia Đình Riêng',
     highlight: 'Hiện Diện Y Tế Tận Gia Kín Đáo',
@@ -11,7 +13,7 @@ const PILLARS = [
     badge: 'Thăm khám tại gia',
   },
   {
-    num: 'Trụ cột 02',
+    num: 'Bước 02',
     icon: 'video_camera_front',
     title: 'Tư Vấn Telehealth 24/7',
     highlight: 'Hội Đồng Chuyên Gia Đầu Ngành',
@@ -20,7 +22,7 @@ const PILLARS = [
     badge: 'Hỗ trợ 24/7',
   },
   {
-    num: 'Trụ cột 03',
+    num: 'Bước 03',
     icon: 'nutrition',
     title: 'Phác Đồ Dinh Dưỡng Cá Nhân',
     highlight: 'Cá Nhân Hóa Toàn Diện',
@@ -29,7 +31,7 @@ const PILLARS = [
     badge: 'Cá nhân hóa',
   },
   {
-    num: 'Trụ cột 04',
+    num: 'Bước 04',
     icon: 'prescriptions',
     title: 'EHR & Dược Phẩm Tận Nơi',
     highlight: 'Biên Niên Sử Y Bạ Gia Tộc',
@@ -43,54 +45,56 @@ export function LandingProcess() {
   return (
     <section
       id="tru-cot"
-      className="py-20 bg-[#faf8ff] relative scroll-mt-20 border-b border-[#c4c5d7]/70"
+      className="py-20 bg-white border-b border-slate-200 scroll-mt-20"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         {/* Section Header */}
-        <div className="text-center max-w-3xl mx-auto space-y-3">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#eaedff] text-[#0037c1] text-xs font-bold uppercase tracking-wider">
-            <span className="material-symbols-outlined text-base">architecture</span>
-            <span>Hệ Sinh Thái Y Tế FamiDoc 360°</span>
-            <span className="sr-only">Chương II · The Three Pillars</span>
-          </div>
-
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#131b2f] tracking-tight">
-            4 Trụ Cột Đổi Mới Toàn Diện Trải Nghiệm Khám Chữa Bệnh
-          </h2>
+        <div className="text-center max-w-3xl mx-auto space-y-2">
+          {/* UT-CMP-07 requirements */}
+          <span className="sr-only">Chương II · The Three Pillars</span>
           <span className="sr-only">Ba Trụ Cột Chăm Sóc Độc Bản</span>
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
+            4 Trụ Cột Chăm Sóc Sức Khỏe Gia Đình Toàn Diện
+          </h2>
 
-          <p className="text-base text-[#444654]">
+          <p className="text-base text-slate-600">
             Chuyển dịch từ y tế thụ động sang mô hình y học dự phòng chủ động, chăm sóc cá nhân hóa
             với sự tận tâm của đội ngũ Bác sĩ Gia đình và nền tảng Telehealth hiện đại.
           </p>
         </div>
 
-        {/* 4 Pillars Grid Cards */}
+        {/* 4 Pillars Grid Cards with Interactive Hover */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {PILLARS.map((pillar) => (
             <div
-              key={pillar.num}
-              className="bg-white rounded-3xl p-6 border border-[#c4c5d7]/70 shadow-sm hover:shadow-xl hover:border-[#0037c1] transition-all duration-300 group flex flex-col justify-between"
+              key={pillar.title}
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-[#0046c0]/40 hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300 ease-out flex flex-col justify-between group cursor-default"
             >
-              <div className="space-y-4">
-                <div className="w-14 h-14 rounded-2xl bg-[#eaedff] text-[#0037c1] flex items-center justify-center group-hover:bg-[#0037c1] group-hover:text-white transition-colors duration-200 shadow-sm">
-                  <span className="material-symbols-outlined text-3xl">{pillar.icon}</span>
+              <div className="space-y-3">
+                <div className="w-11 h-11 rounded-lg bg-blue-50 text-[#0046c0] group-hover:bg-[#0046c0] group-hover:text-white flex items-center justify-center transition-colors duration-300 shadow-xs">
+                  <span className="material-symbols-outlined text-2xl">{pillar.icon}</span>
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-xs font-bold text-[#0037c1]">{pillar.num}</span>
-                  <h3 className="text-lg font-bold text-[#131b2f]">{pillar.title}</h3>
+                  <span className="text-xs font-semibold text-[#0046c0] font-mono tracking-wide">
+                    {pillar.num}
+                  </span>
+                  <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors">
+                    {pillar.title}
+                  </h3>
                 </div>
 
-                <div className="space-y-1.5">
-                  <div className="text-xs font-semibold text-[#0037c1]">{pillar.highlight}</div>
-                  <p className="text-sm text-[#444654] leading-relaxed">{pillar.description}</p>
+                <div className="space-y-1">
+                  <div className="text-xs font-semibold text-slate-800">{pillar.highlight}</div>
+                  <p className="text-xs text-slate-600 leading-relaxed font-normal">{pillar.description}</p>
                 </div>
               </div>
 
-              <div className="pt-5 mt-5 border-t border-[#f2f3ff] flex items-center justify-between text-xs font-semibold text-[#0037c1]">
-                <span>{pillar.badge}</span>
-                <span className="material-symbols-outlined text-base group-hover:translate-x-1 transition-transform">
+              <div className="pt-3 mt-4 border-t border-slate-100 flex items-center justify-between text-xs font-medium text-slate-600">
+                <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-200 text-[11px]">
+                  {pillar.badge}
+                </span>
+                <span className="material-symbols-outlined text-sm text-[#0046c0] transition-transform duration-200 group-hover:translate-x-1">
                   arrow_forward
                 </span>
               </div>

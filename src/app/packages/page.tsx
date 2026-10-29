@@ -1,5 +1,6 @@
 import { Metadata } from 'next';
 import { PackagesCatalogView } from '@/features/packages';
+import { LandingFloatingActions } from '@/features/landing';
 
 export const metadata: Metadata = {
   title: 'Tra Cứu Gói Chăm Sóc Sức Khỏe Gia Đình | FamiDoc Pro',
@@ -7,6 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function PackagesPage() {
-  return <PackagesCatalogView />;
+  return (
+    <>
+      <PackagesCatalogView />
+      <LandingFloatingActions />
+    </>
+  );
 }
-

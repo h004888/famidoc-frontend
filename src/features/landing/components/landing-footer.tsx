@@ -15,7 +15,7 @@ export function LandingFooter() {
               <img
                 alt="FamiDoc Logo"
                 className="h-10 w-auto object-contain"
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP2vLQlo-MlGsI60EM5op1cowa65mzi3lQCTKVDEhd4eOaX_AXD-_4doTHhY3JsZHdyJlWx3ltpzrzhvAPzoe5ZPqr69VWvahuedT5UOCn908_fbKE8Sx-szaLJm6wj50WPDvkCB5G_09YUJCBIM-OfKscXyFy5UKaO3_PBYaH8q_K5KgYZnyl7ZZy4kUUbwsud2gALiXSlvdTtGhcubqJgE8TlyaZjRsXyjKcmN3QCFaCti5EqT90rByysgWpb4D_Qoc"
+                src="/images/FamiDoc Healthcare Logo.png"
               />
             </Link>
 

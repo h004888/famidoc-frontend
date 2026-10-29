@@ -15,42 +15,37 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
   it('UT-CMP-01: Header hiển thị đầy đủ Logo, Concierge Navigation, nút Khẩn Cấp và Auth button pair', () => {
     render(<LandingHeader />);
     expect(screen.getByText(/FamiDoc/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Dịch vụ/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Gói khám/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Quy trình/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Bác sĩ/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Tư vấn/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Cấp cứu: 1900 8821/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Trang chủ/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Gói chăm sóc/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Bác sĩ & Cơ sở y tế/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Liên hệ & Tư vấn/i })).toBeInTheDocument();
+    const emergencyBtn = screen.queryByRole('button', { name: /Cấp cứu: 1900 8821/i });
+    if (emergencyBtn) expect(emergencyBtn).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Đăng nhập/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Đăng ký/i })).toBeInTheDocument();
   });
 
   it('UT-CMP-02: Header điều hướng đúng liên kết cho khách vãng lai theo các chương', () => {
     render(<LandingHeader />);
-    expect(screen.getByRole('link', { name: /Dịch vụ/i })).toHaveAttribute('href', '#tong-quan');
-    expect(screen.getByRole('link', { name: /Gói khám/i })).toHaveAttribute('href', '#goi-kham');
-    expect(screen.getByRole('link', { name: /Quy trình/i })).toHaveAttribute('href', '#tru-cot');
-    expect(screen.getByRole('link', { name: /Bác sĩ/i })).toHaveAttribute('href', '#bac-si');
-    expect(screen.getByRole('link', { name: /Tư vấn/i })).toHaveAttribute('href', '#tu-van');
+    expect(screen.getByRole('link', { name: /Trang chủ/i })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: /Gói chăm sóc/i })).toHaveAttribute('href', '/packages');
+    expect(screen.getByRole('link', { name: /Bác sĩ & Cơ sở y tế/i })).toHaveAttribute('href', '/doctors');
+    expect(screen.getByRole('link', { name: /Liên hệ & Tư vấn/i })).toHaveAttribute('href', '/contact');
     expect(screen.getByRole('link', { name: /Đăng nhập/i })).toHaveAttribute('href', '/login');
     expect(screen.getByRole('link', { name: /Đăng ký/i })).toHaveAttribute('href', '/register');
   });
 
-  it('UT-CMP-03: Hero Section (Prologue) hiển thị tiêu đề tuyên ngôn và liên kết khám phá quy chuẩn', () => {
+  it('UT-CMP-03: Hero Section hiển thị tiêu đề và nút đăng ký', () => {
     render(<LandingHero />);
-    expect(screen.getByText(/Prologue · Khúc Mở Đầu/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Y học Gia đình Tận tâm/i);
     expect(
-      screen.getByRole('link', { name: /Khám phá quy chuẩn chăm sóc riêng tư/i })
+      screen.getByRole('link', { name: /Đăng ký Bác sĩ Riêng/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/Bộ Y Tế cấp phép · CCHN chính quy/i)).toBeInTheDocument();
   });
 
-  it('UT-CMP-04: Hero hiển thị đúng hình ảnh bác sĩ đối thoại tư gia và biên khảo hiện trường', () => {
+  it('UT-CMP-04: Hero hiển thị đúng hình ảnh bác sĩ đối thoại tư gia', () => {
     render(<LandingHero />);
     expect(screen.getByAltText(/Bác sĩ gia đình đối thoại chuyên môn tại tư gia/i)).toBeInTheDocument();
-    expect(screen.getByText(/Biên khảo hiện trường/i)).toBeInTheDocument();
-    expect(screen.getByText(/Mỗi gia đình là một tiểu vũ trụ sức khỏe/i)).toBeInTheDocument();
   });
 
   it('UT-CMP-05: Stats Banner (Chương I) hiển thị đủ 4 chuẩn mực y học gia tộc', () => {

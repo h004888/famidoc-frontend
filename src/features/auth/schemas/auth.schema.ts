@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const loginRoleSchema = z.enum(['PATIENT', 'DOCTOR', 'FAMILY', 'ADMIN']);
+export const loginRoleSchema = z.enum(['PATIENT', 'DOCTOR', 'FACILITY', 'FAMILY', 'ADMIN']);
 export type LoginRole = z.infer<typeof loginRoleSchema>;
 
 export const loginSchema = z.object({
