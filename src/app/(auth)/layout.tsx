@@ -15,7 +15,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             <img
               alt="FamiDoc Logo"
               className="h-12 w-auto object-contain"
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuB09IDlcE5GcUZmtrA1bkMmfDry7h-cK33XseWir7o6mnTYMx2xntl3SIR6kUS6OF_vJ6zIiWLaa8fz6jOvRMIKQKhGP7ORv8VpNap5fvewTq1Q0AcgY_VrW02vvJENJsm-ZG1zY2XiAec3_JZT7VQKo7TAejrHsWoby6YyJJOJjMLDxQ6ei9iuTFBTzhsv1pVsqQFlmBfYLknc-kE2R7e5jI8QPbxAOIELT1EzDzyJYpKlpDPWZqtPO9hfXxjIqB7R1qw"
+              src="/images/FamiDoc Healthcare Logo.png"
             />
           </Link>
 
@@ -63,7 +63,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 <img
                   alt="FamiDoc Logo"
                   className="h-10 w-auto object-contain"
-                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuB09IDlcE5GcUZmtrA1bkMmfDry7h-cK33XseWir7o6mnTYMx2xntl3SIR6kUS6OF_vJ6zIiWLaa8fz6jOvRMIKQKhGP7ORv8VpNap5fvewTq1Q0AcgY_VrW02vvJENJsm-ZG1zY2XiAec3_JZT7VQKo7TAejrHsWoby6YyJJOJjMLDxQ6ei9iuTFBTzhsv1pVsqQFlmBfYLknc-kE2R7e5jI8QPbxAOIELT1EzDzyJYpKlpDPWZqtPO9hfXxjIqB7R1qw"
+                  src="/images/FamiDoc Healthcare Logo.png"
                 />
               </div>
               <p className="font-body-sm text-xs sm:text-sm text-on-surface-variant leading-relaxed max-w-sm">

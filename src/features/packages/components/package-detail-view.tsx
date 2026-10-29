@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { PublicHeader, PublicFooter } from '@/components/layout';
+import { LandingHeader, LandingFooter } from '@/features/landing';
 
 export interface PackageDetailViewProps {
   packageId?: string;
@@ -42,15 +42,15 @@ const PACKAGE_DETAILS: Record<string, PackageDetailConfig> = {
     popularBadge: '★ Được 68% gia đình lựa chọn',
     code: 'SCR-07',
     heroImg:
-      'https://lh3.googleusercontent.com/aida-public/AB6AXuBw1lMd6A0AXEzU8KHQvTBOSOTzXLu0MFYilpqVisvBK_PJXDHLoApN1HpyCl1vnq8z1MUq2_Ps45wj8mTsxSVsY74fo3WdQk5Axl_enmr0v27hsS-gOMDH0UuA3ZL9PNN5LpBRn1pW3A8xUvlpwwFg79r1mlbdblYOY9PGHkmW8PYRSaJt2pDwD9KdhQIRUrwptOtrijWhvX8A7Khj037MrP2lWrvWHdeO3VQNlMA',
+      '/images/medsev/home-one/4.jpg',
     price: '4.245.000 đ',
     originalPrice: '4.715.000 đ',
     monthlyEquiv: '~ 1.415.000 đ / tháng cho cả gia đình 4 người',
     periodText: 'Đồng Hành 3 Tháng',
     savingBadge: 'Tiết kiệm 10%',
     metrics: [
-      { label: 'Lượt khám tại nhà', value: '05 lượt', desc: 'Bác sĩ CKI tận nơi', color: 'text-[#1d4ed8]' },
-      { label: 'Tư vấn Telehealth', value: '20 lượt', desc: 'WebRTC 24/7 trực tuyến', color: 'text-[#2563eb]' },
+      { label: 'Lượt khám tại nhà', value: '05 lượt', desc: 'Bác sĩ CKI tận nơi', color: 'text-[#003899]' },
+      { label: 'Tư vấn Telehealth', value: '20 lượt', desc: 'WebRTC 24/7 trực tuyến', color: 'text-[#0046c0]' },
       { label: 'Quy mô bảo vệ', value: '4 người', desc: 'Hồ sơ gia đình liên thông', color: 'text-[#0f172a]' },
       { label: 'Ưu đãi xét nghiệm', value: '-15%', desc: 'Giao thuốc tận nhà 2h', color: 'text-[#ea580c]', border: 'border-amber-100', bg: 'bg-[#fffbeb]' },
     ],
@@ -59,7 +59,7 @@ const PACKAGE_DETAILS: Record<string, PackageDetailConfig> = {
       title: 'Bác sĩ phụ trách chính',
       exp: '15 năm kinh nghiệm Y học Gia đình',
       avatar:
-        'https://lh3.googleusercontent.com/aida-public/AB6AXuCxoRgWslNSRQ1P3B1gmIcRkCOnj-XQIOwK4o3LC0pU-IVJyi-dwQ8O8Dr8jdthrl-7OvNZKjPhC3NtbjEizOGr4PE-RqUi6EPARnJ6YZwI5u-eAIPrqxkSZPgMdKVj5tbZrCn3LxNfCOLuvsYepcjyibHaTnLR8CljbMjvtVPjqUP9ydSs2iJ3_xtGRWP0KvAkfJ4M-DB9lPofaYjSPWZKnmxbX8elnq_hbG90cPw',
+        '/images/medsev/home-one/doctor/1.jpg',
     },
     homeVisits: {
       count: '5 Lượt Toàn Diện',
@@ -129,15 +129,15 @@ const PACKAGE_DETAILS: Record<string, PackageDetailConfig> = {
     tag: '1 Tháng Khởi Đầu Thử Nghiệm',
     code: 'SCR-06-BASIC',
     heroImg:
-      'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1200&auto=format&fit=crop&q=80',
+      '/images/medsev/home-one/1.jpg',
     price: '1.490.000 đ',
     originalPrice: '1.690.000 đ',
     monthlyEquiv: '1.490.000 đ / tháng cho cá nhân hoặc cặp đôi',
     periodText: 'Kỳ hạn 1 Tháng',
     savingBadge: 'Linh hoạt hàng tháng',
     metrics: [
-      { label: 'Lượt khám tại nhà', value: '03 lượt', desc: 'Bác sĩ Tổng quát', color: 'text-[#1d4ed8]' },
-      { label: 'Tư vấn Telehealth', value: '05 lượt', desc: 'Video call HD', color: 'text-[#2563eb]' },
+      { label: 'Lượt khám tại nhà', value: '03 lượt', desc: 'Bác sĩ Tổng quát', color: 'text-[#003899]' },
+      { label: 'Tư vấn Telehealth', value: '05 lượt', desc: 'Video call HD', color: 'text-[#0046c0]' },
       { label: 'Quy mô bảo vệ', value: '2 người', desc: 'Cá nhân & Cặp đôi', color: 'text-[#0f172a]' },
       { label: 'Ưu đãi xét nghiệm', value: '-10%', desc: 'Giao thuốc GPP 2h', color: 'text-[#ea580c]', border: 'border-amber-100', bg: 'bg-[#fffbeb]' },
     ],
@@ -145,7 +145,7 @@ const PACKAGE_DETAILS: Record<string, PackageDetailConfig> = {
       name: 'ThS.BS Trần Thu Hà',
       title: 'Bác sĩ Chuyên khoa Gia đình',
       exp: '10 năm kinh nghiệm Nhi khoa & Đa khoa',
-      avatar: 'https://images.unsplash.com/photo-1594824813583-f368097b693e?w=150&auto=format&fit=crop&q=80',
+      avatar: '/images/medsev/home-one/doctor/2.jpg',
     },
     homeVisits: {
       count: '3 Lượt Khởi Đầu',
@@ -197,15 +197,15 @@ const PACKAGE_DETAILS: Record<string, PackageDetailConfig> = {
     tag: '12 Tháng Đồng Hành Chuyên Sâu',
     code: 'SCR-06-ELDERLY',
     heroImg:
-      'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=1200&auto=format&fit=crop&q=80',
+      '/images/medsev/home-one/6.jpg',
     price: '16.490.000 đ',
     originalPrice: '20.600.000 đ',
     monthlyEquiv: '~ 1.374.000 đ / tháng (Tặng máy Omron Bluetooth)',
     periodText: 'Kỳ hạn 12 Tháng',
     savingBadge: 'Tiết kiệm 20%',
     metrics: [
-      { label: 'Lượt khám tại nhà', value: '20 lượt', desc: 'Bác sĩ Lão khoa tận nơi', color: 'text-[#1d4ed8]' },
-      { label: 'Tư vấn Telehealth', value: '96 lượt', desc: 'Theo dõi sinh tồn tuần', color: 'text-[#2563eb]' },
+      { label: 'Lượt khám tại nhà', value: '20 lượt', desc: 'Bác sĩ Lão khoa tận nơi', color: 'text-[#003899]' },
+      { label: 'Tư vấn Telehealth', value: '96 lượt', desc: 'Theo dõi sinh tồn tuần', color: 'text-[#0046c0]' },
       { label: 'Quy mô bảo vệ', value: '6 người', desc: 'Hồ sơ đa thế hệ', color: 'text-[#0f172a]' },
       { label: 'Xét nghiệm tại nhà', value: '2 đợt', desc: 'Máu & sinh hóa định kỳ', color: 'text-[#ea580c]', border: 'border-orange-100', bg: 'bg-orange-50' },
     ],
@@ -213,7 +213,7 @@ const PACKAGE_DETAILS: Record<string, PackageDetailConfig> = {
       name: 'PGS.TS Nguyễn Trọng Nghĩa',
       title: 'Bác sĩ Trưởng Hội đồng Lão khoa',
       exp: '28 năm kinh nghiệm Tim mạch & Lão khoa',
-      avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=150&auto=format&fit=crop&q=80',
+      avatar: '/images/medsev/home-one/doctor/3.jpg',
     },
     homeVisits: {
       count: '20 Lượt Chuyên Sâu',
@@ -263,15 +263,15 @@ const PACKAGE_DETAILS: Record<string, PackageDetailConfig> = {
     tag: 'VIP Concierge Thượng Lưu',
     code: 'SCR-06-VIP',
     heroImg:
-      'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=1200&auto=format&fit=crop&q=80',
+      '/images/medsev/home-one/slider/1.png',
     price: '28.900.000 đ',
     originalPrice: '35.000.000 đ',
     monthlyEquiv: 'Đặc quyền quản gia y tế tư gia 24/7',
     periodText: 'Kỳ hạn 12 Tháng VIP',
     savingBadge: 'Đặc quyền độc bản',
     metrics: [
-      { label: 'Khám tại nhà', value: 'Không giới hạn', desc: 'Bác sĩ Trưởng khoa đến tận nơi', color: 'text-[#1d4ed8]' },
-      { label: 'Tư vấn Telehealth', value: '24/7 Hotline', desc: 'Đường truyền vệ tinh riêng', color: 'text-[#2563eb]' },
+      { label: 'Khám tại nhà', value: 'Không giới hạn', desc: 'Bác sĩ Trưởng khoa đến tận nơi', color: 'text-[#003899]' },
+      { label: 'Tư vấn Telehealth', value: '24/7 Hotline', desc: 'Đường truyền vệ tinh riêng', color: 'text-[#0046c0]' },
       { label: 'Quy mô bảo vệ', value: 'Đại gia đình', desc: 'Không giới hạn nhân khẩu', color: 'text-[#0f172a]' },
       { label: 'Cấp cứu VIP', value: 'Phản ứng nhanh', desc: 'Xe cứu thương ICU chuyên dụng', color: 'text-[#ea580c]', border: 'border-amber-200', bg: 'bg-amber-50' },
     ],
@@ -279,7 +279,7 @@ const PACKAGE_DETAILS: Record<string, PackageDetailConfig> = {
       name: 'GS.TS Phạm Hoàng Long',
       title: 'Giám đốc Y khoa FamiDoc VIP',
       exp: '32 năm kinh nghiệm quản trị y tế quốc tế',
-      avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?w=150&auto=format&fit=crop&q=80',
+      avatar: '/images/medsev/home-one/doctor/1.jpg',
     },
     homeVisits: {
       count: 'Không Giới Hạn',
@@ -347,22 +347,22 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
   };
 
   return (
-    <div className="bg-[#f8fafc] text-[#0f172a] font-sans antialiased min-h-screen selection:bg-blue-100 selection:text-[#1d4ed8]">
-      {/* 1. SHARED UNIFIED PUBLIC HEADER */}
-      <PublicHeader />
+    <div className="bg-slate-50 text-[#0f172a] font-sans antialiased min-h-screen selection:bg-blue-100 selection:text-[#003899]">
+      {/* 1. SHARED UNIFIED HEADER */}
+      <LandingHeader />
 
       {/* 2. MAIN BODY */}
-      <main className="w-full pt-20 bg-[#f8fafc] min-h-[calc(100vh-320px)]">
+      <main className="w-full bg-slate-50 min-h-[calc(100vh-320px)]">
         <div className="flex flex-col w-full">
           {/* Breadcrumbs & Quick Nav */}
-          <section className="w-full bg-[#f1f5f9] py-2.5 px-4 sm:px-6 lg:px-8 border-b border-slate-200">
+          <section className="w-full bg-slate-100 py-2.5 px-4 sm:px-6 lg:px-8 border-b border-slate-200">
             <div className="max-w-[1440px] mx-auto flex flex-wrap items-center justify-between gap-2">
               <nav className="flex items-center gap-1.5 text-xs text-[#475569] font-medium">
-                <Link className="hover:text-[#2563eb] transition-colors flex items-center gap-1" href="/">
+                <Link className="hover:text-[#0046c0] transition-colors flex items-center gap-1" href="/">
                   <span className="material-symbols-outlined text-sm">home</span> Trang chủ
                 </Link>
                 <span>/</span>
-                <Link className="hover:text-[#2563eb] transition-colors" href="/packages">
+                <Link className="hover:text-[#0046c0] transition-colors" href="/packages">
                   Gói chăm sóc
                 </Link>
                 <span>/</span>
@@ -372,7 +372,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
               </nav>
 
               <Link
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#2563eb] hover:text-[#1d4ed8] transition-colors bg-white px-3.5 py-1.5 rounded-full shadow-xs border border-slate-200"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-[#0046c0] hover:text-[#003899] transition-colors bg-white px-3.5 py-1.5 rounded-full shadow-xs border border-slate-200"
                 href="/packages"
               >
                 <span className="material-symbols-outlined text-[16px]">arrow_back</span>
@@ -389,8 +389,8 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                 {/* 2.2 Thông tin tổng quan về gói */}
                 <div className="bg-white rounded-2xl p-5 sm:p-8 shadow-sm flex flex-col gap-4 border border-slate-200/80">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-[#1d4ed8] border border-blue-200">
-                      <span className="w-2 h-2 rounded-full bg-[#2563eb] animate-pulse" />
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-[#003899] border border-blue-200">
+                      <span className="w-2 h-2 rounded-full bg-[#0046c0] animate-pulse" />
                       {pkg.tag}
                     </span>
                     {pkg.popularBadge && (
@@ -402,7 +402,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       </span>
                     )}
                     <span className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600">
-                      <span className="material-symbols-outlined text-[14px] text-[#2563eb]">verified</span>
+                      <span className="material-symbols-outlined text-[14px] text-[#0046c0]">verified</span>
                       Mã hồ sơ: {pkg.code}
                     </span>
                   </div>
@@ -446,7 +446,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                         key={idx}
                         className={`p-3.5 rounded-xl flex flex-col gap-1 border ${
                           m.border || 'border-slate-100'
-                        } ${m.bg || 'bg-[#f8fafc]'}`}
+                        } ${m.bg || 'bg-slate-50'}`}
                       >
                         <span className="text-xs font-medium text-slate-500">{m.label}</span>
                         <span className={`text-xl font-bold ${m.color}`}>{m.value}</span>
@@ -460,23 +460,23 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                 <div className="bg-white rounded-2xl p-5 sm:p-8 shadow-sm flex flex-col gap-4 border border-slate-200/80">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-6 rounded-full bg-[#2563eb]" />
+                      <span className="w-2.5 h-6 rounded-full bg-[#0046c0]" />
                       <h2 className="text-lg sm:text-xl font-bold text-[#0f172a]">Quyền lợi y tế cốt lõi của gói</h2>
                     </div>
-                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-[#1d4ed8]">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-[#003899]">
                       Bảo chứng lâm sàng FamiDoc
                     </span>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Bento 1: Home Visit */}
-                    <div className="rounded-xl p-5 flex flex-col justify-between gap-4 border border-slate-100 bg-[#f8fafc]">
+                    <div className="rounded-xl p-5 flex flex-col justify-between gap-4 border border-slate-100 bg-slate-50">
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
-                          <span className="p-2 rounded-lg bg-blue-100 text-[#1d4ed8]">
+                          <span className="p-2 rounded-lg bg-blue-100 text-[#003899]">
                             <span className="material-symbols-outlined text-2xl">home_health</span>
                           </span>
-                          <span className="text-xs font-bold px-3 py-1 rounded-full shadow-xs bg-white text-[#2563eb] border border-blue-200">
+                          <span className="text-xs font-bold px-3 py-1 rounded-full shadow-xs bg-white text-[#0046c0] border border-blue-200">
                             {pkg.homeVisits.count}
                           </span>
                         </div>
@@ -486,7 +486,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       <div className="p-3 rounded-lg bg-white text-xs border border-slate-200/60 flex flex-col gap-1.5">
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Điều kiện đặt lịch:</span>
-                          <span className="font-semibold text-[#1d4ed8]">{pkg.homeVisits.advanceNotice}</span>
+                          <span className="font-semibold text-[#003899]">{pkg.homeVisits.advanceNotice}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Can thiệp khẩn cấp:</span>
@@ -500,13 +500,13 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                     </div>
 
                     {/* Bento 2: Telehealth */}
-                    <div className="rounded-xl p-5 flex flex-col justify-between gap-4 border border-slate-100 bg-[#f8fafc]">
+                    <div className="rounded-xl p-5 flex flex-col justify-between gap-4 border border-slate-100 bg-slate-50">
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
-                          <span className="p-2 rounded-lg bg-blue-50 text-[#2563eb]">
+                          <span className="p-2 rounded-lg bg-blue-50 text-[#0046c0]">
                             <span className="material-symbols-outlined text-2xl">video_camera_front</span>
                           </span>
-                          <span className="text-xs font-bold px-3 py-1 rounded-full shadow-xs bg-white text-[#1d4ed8] border border-blue-200">
+                          <span className="text-xs font-bold px-3 py-1 rounded-full shadow-xs bg-white text-[#003899] border border-blue-200">
                             {pkg.telehealth.count}
                           </span>
                         </div>
@@ -524,13 +524,13 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Đường truyền bảo mật:</span>
-                          <span className="font-semibold text-[#2563eb]">{pkg.telehealth.security}</span>
+                          <span className="font-semibold text-[#0046c0]">{pkg.telehealth.security}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Bento 3: Family Quota & EHR */}
-                    <div className="rounded-xl p-5 flex flex-col justify-between gap-4 border border-slate-100 bg-[#f8fafc]">
+                    <div className="rounded-xl p-5 flex flex-col justify-between gap-4 border border-slate-100 bg-slate-50">
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
                           <span className="p-2 rounded-lg bg-amber-100 text-[#d97706]">
@@ -546,7 +546,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       <div className="p-3 rounded-lg bg-white text-xs border border-slate-200/60 flex flex-col gap-1.5">
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Hồ sơ liên thông:</span>
-                          <span className="font-semibold text-[#2563eb]">{pkg.familyQuota.standards}</span>
+                          <span className="font-semibold text-[#0046c0]">{pkg.familyQuota.standards}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Thêm thành viên:</span>
@@ -560,13 +560,13 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                     </div>
 
                     {/* Bento 4: Hospital Access */}
-                    <div className="rounded-xl p-5 flex flex-col justify-between gap-4 border border-slate-100 bg-[#f8fafc]">
+                    <div className="rounded-xl p-5 flex flex-col justify-between gap-4 border border-slate-100 bg-slate-50">
                       <div className="flex flex-col gap-2">
                         <div className="flex items-center justify-between">
-                          <span className="p-2 rounded-lg bg-blue-50 text-[#1d4ed8]">
+                          <span className="p-2 rounded-lg bg-blue-50 text-[#003899]">
                             <span className="material-symbols-outlined text-2xl">local_hospital</span>
                           </span>
-                          <span className="text-xs font-bold px-3 py-1 rounded-full shadow-xs bg-white text-[#1d4ed8] border border-blue-200">
+                          <span className="text-xs font-bold px-3 py-1 rounded-full shadow-xs bg-white text-[#003899] border border-blue-200">
                             {pkg.hospitalAccess.tag}
                           </span>
                         </div>
@@ -576,7 +576,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       <div className="p-3 rounded-lg bg-white text-xs border border-slate-200/60 flex flex-col gap-1.5">
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Thời gian chờ:</span>
-                          <span className="font-semibold text-[#1d4ed8]">{pkg.hospitalAccess.waitTime}</span>
+                          <span className="font-semibold text-[#003899]">{pkg.hospitalAccess.waitTime}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500">Chụp chiếu kỹ thuật cao:</span>
@@ -595,7 +595,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                 <div className="bg-white rounded-2xl p-5 sm:p-8 shadow-sm flex flex-col gap-4 border border-slate-200/80">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-6 rounded-full bg-[#2563eb]" />
+                      <span className="w-2.5 h-6 rounded-full bg-[#0046c0]" />
                       <h2 className="text-lg sm:text-xl font-bold text-[#0f172a]">Bảng đối chiếu quyền lợi tiêu chuẩn</h2>
                     </div>
                     <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-600">
@@ -606,7 +606,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
-                        <tr className="font-semibold bg-[#f8fafc] text-[#0f172a]">
+                        <tr className="font-semibold bg-slate-50 text-[#0f172a]">
                           <th className="py-3 px-3.5 rounded-l-lg">Hạng mục quyền lợi</th>
                           <th className="py-3 px-3.5">Định mức gói</th>
                           <th className="py-3 px-3.5">Phạm vi phục vụ</th>
@@ -635,14 +635,14 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                 {/* 2.6 Điều kiện và quy định sử dụng gói */}
                 <div className="bg-white rounded-2xl p-5 sm:p-8 shadow-sm flex flex-col gap-4 border border-slate-200/80">
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-6 rounded-full bg-[#2563eb]" />
+                    <span className="w-2.5 h-6 rounded-full bg-[#0046c0]" />
                     <h2 className="text-lg sm:text-xl font-bold text-[#0f172a]">Quy định và điều kiện sử dụng gói</h2>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-xl flex flex-col gap-1.5 border border-slate-100 bg-[#f8fafc]">
+                    <div className="p-4 rounded-xl flex flex-col gap-1.5 border border-slate-100 bg-slate-50">
                       <div className="flex items-center gap-2 font-semibold text-sm text-[#0f172a]">
-                        <span className="material-symbols-outlined text-lg text-[#2563eb]">fact_check</span>
+                        <span className="material-symbols-outlined text-lg text-[#0046c0]">fact_check</span>
                         Kích hoạt &amp; Chữ ký số
                       </div>
                       <p className="text-xs text-[#475569] leading-relaxed">
@@ -651,9 +651,9 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl flex flex-col gap-1.5 border border-slate-100 bg-[#f8fafc]">
+                    <div className="p-4 rounded-xl flex flex-col gap-1.5 border border-slate-100 bg-slate-50">
                       <div className="flex items-center gap-2 font-semibold text-sm text-[#0f172a]">
-                        <span className="material-symbols-outlined text-lg text-[#2563eb]">event_available</span>
+                        <span className="material-symbols-outlined text-lg text-[#0046c0]">event_available</span>
                         Quy trình khấu trừ lượt khám
                       </div>
                       <p className="text-xs text-[#475569] leading-relaxed">
@@ -662,9 +662,9 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl flex flex-col gap-1.5 border border-slate-100 bg-[#f8fafc]">
+                    <div className="p-4 rounded-xl flex flex-col gap-1.5 border border-slate-100 bg-slate-50">
                       <div className="flex items-center gap-2 font-semibold text-sm text-[#0f172a]">
-                        <span className="material-symbols-outlined text-lg text-[#2563eb]">edit_calendar</span>
+                        <span className="material-symbols-outlined text-lg text-[#0046c0]">edit_calendar</span>
                         Đổi hoặc Hủy lịch hẹn
                       </div>
                       <p className="text-xs text-[#475569] leading-relaxed">
@@ -673,7 +673,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       </p>
                     </div>
 
-                    <div className="p-4 rounded-xl flex flex-col gap-1.5 border border-slate-100 bg-[#f8fafc]">
+                    <div className="p-4 rounded-xl flex flex-col gap-1.5 border border-slate-100 bg-slate-50">
                       <div className="flex items-center gap-2 font-semibold text-sm text-[#0f172a]">
                         <span className="material-symbols-outlined text-lg text-[#ea580c]">shield_with_heart</span>
                         Phạm vi loại trừ y khoa
@@ -690,7 +690,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                 <div className="bg-white rounded-2xl p-5 sm:p-8 shadow-sm flex flex-col gap-4 border border-slate-200/80">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-6 rounded-full bg-[#2563eb]" />
+                      <span className="w-2.5 h-6 rounded-full bg-[#0046c0]" />
                       <h2 className="text-lg sm:text-xl font-bold text-[#0f172a]">Câu hỏi thường gặp về gói (FAQ)</h2>
                     </div>
                     <span className="text-xs text-[#475569]">Giải đáp y khoa 24/7</span>
@@ -702,7 +702,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       return (
                         <div
                           key={idx}
-                          className="rounded-xl bg-[#f8fafc] p-4 cursor-pointer hover:bg-slate-100 transition-colors border border-slate-100"
+                          className="rounded-xl bg-slate-50 p-4 cursor-pointer hover:bg-slate-100 transition-colors border border-slate-100"
                           onClick={() => toggleFaq(idx)}
                         >
                           <div className="flex items-center justify-between gap-3">
@@ -731,7 +731,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
               <div className="lg:col-span-4 sticky top-24 flex flex-col gap-4">
                 <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-lg flex flex-col gap-4 border-2 border-blue-500/20">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-[#1d4ed8]">
+                    <span className="text-xs font-semibold px-3 py-1 rounded-full bg-blue-50 text-[#003899]">
                       {pkg.periodText}
                     </span>
                     <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-[#b45309] border border-amber-200">
@@ -745,7 +745,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#0f172a]">{pkg.price}</span>
                       <span className="text-xs line-through text-slate-400">{pkg.originalPrice}</span>
                     </div>
-                    <span className="text-xs font-medium mt-1 text-[#2563eb]">{pkg.monthlyEquiv}</span>
+                    <span className="text-xs font-medium mt-1 text-[#0046c0]">{pkg.monthlyEquiv}</span>
                   </div>
 
                   <div className="flex flex-col gap-2 pt-3 border-t border-slate-100 text-xs text-[#1e293b]">
@@ -785,14 +785,14 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                     <button
                       type="button"
                       onClick={() => router.push(`/register?packageId=${pkg.id}`)}
-                      className="w-full font-semibold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm text-white bg-[#2563eb] hover:bg-[#1d4ed8] shadow-[0_4px_14px_rgba(37,99,235,0.35)]"
+                      className="w-full font-semibold py-3 px-4 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 text-sm text-white bg-[#0046c0] hover:bg-[#003899] shadow-[0_4px_14px_rgba(37,99,235,0.35)]"
                     >
                       <span className="material-symbols-outlined text-lg">assignment_turned_in</span>
                       <span>Đăng ký gói chăm sóc này</span>
                     </button>
                     <a
                       href="tel:19006868"
-                      className="w-full font-semibold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-xs border border-blue-200 bg-blue-50 text-[#1d4ed8] hover:bg-blue-100"
+                      className="w-full font-semibold py-2.5 px-4 rounded-xl transition-all flex items-center justify-center gap-2 text-xs border border-blue-200 bg-blue-50 text-[#003899] hover:bg-blue-100"
                     >
                       <span className="material-symbols-outlined text-base">support_agent</span>
                       <span>Nhận tư vấn từ Bác sĩ Trưởng khoa (Miễn phí)</span>
@@ -803,7 +803,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                     className="flex items-center justify-center gap-1.5 text-xs transition-colors text-center font-medium pt-1 text-slate-500 hover:text-blue-600"
                     href="/doctors"
                   >
-                    <span className="material-symbols-outlined text-sm text-[#2563eb]">medical_services</span>
+                    <span className="material-symbols-outlined text-sm text-[#0046c0]">medical_services</span>
                     <span>Xem bác sĩ phụ trách và cơ sở y tế liên kết</span>
                   </Link>
 
@@ -828,7 +828,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                   <div className="flex flex-col min-w-0">
                     <span className="text-xs text-slate-500">{pkg.doctor.title}</span>
                     <span className="text-sm font-bold text-[#0f172a] truncate">{pkg.doctor.name}</span>
-                    <span className="text-[11px] truncate font-medium text-[#2563eb]">{pkg.doctor.exp}</span>
+                    <span className="text-[11px] truncate font-medium text-[#0046c0]">{pkg.doctor.exp}</span>
                   </div>
                 </div>
               </div>
@@ -930,9 +930,10 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
         </div>
       </main>
 
-      {/* 3. SHARED UNIFIED PUBLIC FOOTER */}
-      <PublicFooter />
+      {/* 3. SHARED UNIFIED FOOTER */}
+      <LandingFooter />
     </div>
   );
 }
+
 

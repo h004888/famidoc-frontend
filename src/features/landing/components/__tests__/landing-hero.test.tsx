@@ -11,11 +11,10 @@ describe('UT-CMP-01: LandingHero Component (High-End Concierge Medical)', () => 
     expect(heading).toHaveTextContent(/Y học Gia đình Tận tâm/i);
   });
 
-  it('renders prologue exploration link and accredited badge', () => {
+  it('renders call to action link for registering family doctor', () => {
     render(<LandingHero />);
     expect(
-      screen.getByRole('link', { name: /Khám phá quy chuẩn chăm sóc riêng tư/i })
+      screen.getByRole('link', { name: /Đăng ký Bác sĩ Riêng/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/Bộ Y Tế cấp phép · CCHN chính quy/i)).toBeInTheDocument();
   });
 });

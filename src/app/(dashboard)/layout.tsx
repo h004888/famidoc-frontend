@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { DashboardSidebar } from '@/components/layout';
+import { DashboardSidebar, DashboardTopbarUser } from '@/components/layout';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -38,15 +38,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             <div className="h-6 w-px bg-slate-200"></div>
 
-            <Link
-              href="/settings"
-              className="flex items-center gap-2 text-xs font-semibold text-slate-700 hover:text-blue-600"
-            >
-              <div className="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs ring-2 ring-blue-500/20">
-                AD
-              </div>
-              <span className="hidden md:inline font-bold">Ban Quản Trị</span>
-            </Link>
+            <DashboardTopbarUser />
           </div>
         </header>
 
@@ -57,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Footer tinh gọn */}
         <footer className="py-3 px-4 sm:px-8 text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400 border-t border-slate-200 bg-white">
-          <span>© 2026 FamiDoc Pro Healthcare Platform • Chuẩn Bộ Y Tế &amp; HIPAA</span>
+          <span>© 2026 FamiDoc Healthcare Platform • Chuẩn Bộ Y Tế &amp; HIPAA</span>
           <div className="flex items-center gap-4">
             <Link href="/contact" className="hover:text-blue-600 transition-colors">Trung tâm Hỗ trợ</Link>
             <Link href="/settings" className="hover:text-blue-600 transition-colors">Bảo mật</Link>

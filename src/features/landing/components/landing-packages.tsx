@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 
 interface PackageItem {
@@ -10,8 +10,10 @@ interface PackageItem {
   altName: string;
   popular?: boolean;
   price: string;
+  annualPrice?: string;
   periodText: string;
   subPrice: string;
+  annualSubPrice?: string;
   features: { text: string; strong?: boolean; highlighted?: boolean }[];
   ctaText: string;
 }
@@ -23,8 +25,10 @@ const PACKAGES: PackageItem[] = [
     name: 'Chăm Sóc Cơ Bản',
     altName: 'Gói Trải Nghiệm',
     price: '1.490.000đ',
+    annualPrice: '1.290.000đ',
     periodText: '/kỳ',
     subPrice: 'Tương đương 1.490.000đ / tháng',
+    annualSubPrice: 'Tiết kiệm 200.000đ / tháng khi thanh toán năm',
     features: [
       { text: 'Quy mô: 2 thành viên gia đình', strong: true },
       { text: '3 lượt bác sĩ khám tận nhà' },
@@ -41,8 +45,10 @@ const PACKAGES: PackageItem[] = [
     altName: 'Gói Đồng Hành',
     popular: true,
     price: '4.245.000đ',
+    annualPrice: '3.600.000đ',
     periodText: '/kỳ',
     subPrice: 'Khoảng 1.415.000đ / tháng (Tiết kiệm hơn)',
+    annualSubPrice: 'Khoảng 1.200.000đ / tháng (Ưu đãi gia đình)',
     features: [
       { text: 'Quy mô: 4 thành viên gia đình', strong: true, highlighted: true },
       { text: '5 lượt bác sĩ khám tận nhà' },
@@ -58,150 +64,164 @@ const PACKAGES: PackageItem[] = [
     badge: 'Kỳ hạn 12 Tháng',
     name: 'Chăm Sóc Người Cao Tuổi',
     altName: 'Gói Toàn Diện Đại Gia Đình',
-    price: '16.490.000đ',
+    price: '14.900.000đ',
+    annualPrice: '12.900.000đ',
     periodText: '/kỳ',
-    subPrice: 'Chỉ ~1.374.167đ / tháng (Ưu đãi cao nhất)',
+    subPrice: 'Khoảng 1.241.000đ / tháng (Ưu đãi tối đa)',
+    annualSubPrice: 'Khoảng 1.075.000đ / tháng (Trọn vẹn 365 ngày)',
     features: [
-      { text: 'Quy mô: 6 thành viên (bao gồm người cao tuổi)', strong: true },
-      { text: '20 lượt bác sĩ khám chuyên sâu tận nhà' },
-      { text: '96 lượt tư vấn video call không giới hạn giờ' },
-      { text: 'Hội đồng bác sĩ chuyên khoa & Lão khoa đồng hành' },
-      { text: 'Lấy mẫu xét nghiệm tổng quát định kỳ tại nhà' },
-      { text: 'Ưu tiên tiếp đón phòng khám đối tác & giao thuốc 2h' },
+      { text: 'Quy mô: Người cao tuổi / Đại gia đình', strong: true },
+      { text: '12 lượt bác sĩ khám tận nhà (1 lượt/tháng)' },
+      { text: 'Tư vấn video call không giới hạn lượt' },
+      { text: 'Bác sĩ Tim Mạch / Lão Khoa theo dõi riêng' },
+      { text: 'Xét nghiệm máu & điện tim ECG định kỳ tại nhà' },
+      { text: 'Hỗ trợ kết nối điều phối cấp cứu ưu tiên 24/7' },
     ],
     ctaText: 'Chọn gói này',
   },
   {
     id: 'ROYAL',
-    badge: 'Đặc Quyền VIP',
+    badge: 'Kỳ hạn VIP 12 Tháng',
     name: 'Gia Đình Hoàng Gia',
-    altName: 'Gói Concierge Độc Bản',
-    price: '28.900.000đ',
-    periodText: '/năm',
-    subPrice: 'Trọn gói y tế tư gia cao cấp không giới hạn',
+    altName: 'Gói Thượng Lưu Concierge',
+    price: '29.900.000đ',
+    annualPrice: '25.900.000đ',
+    periodText: '/kỳ',
+    subPrice: 'Đặc quyền chăm sóc sức khỏe riêng biệt',
+    annualSubPrice: 'Đặc quyền hội chẩn giáo sư chuyên biệt 24/7',
     features: [
-      { text: 'Quy mô: Không giới hạn thành viên đại gia đình', strong: true },
-      { text: 'Bác sĩ Trưởng khoa phụ trách riêng 24/7' },
-      { text: 'Khám chuyên sâu tại gia không giới hạn lượt' },
-      { text: 'Hội đồng Giáo sư đầu ngành cố vấn chuyên biệt' },
-      { text: 'Điều phối xe cấp cứu chuyên dụng ưu tiên số 1' },
-      { text: 'Bảo lãnh viện phí quốc tế & quản trị y bạ số' },
+      { text: 'Quy mô: Toàn bộ thành viên gia đình (lên đến 8 người)', strong: true },
+      { text: 'Khám tận nhà không giới hạn theo chỉ định' },
+      { text: 'Hội đồng PGS, TS đầu ngành hội chẩn riêng' },
+      { text: 'Điều phối xe cấp cứu chuyên dụng phục vụ riêng' },
+      { text: 'Giao thuốc hỏa tốc & Miễn phí xét nghiệm cơ bản' },
     ],
-    ctaText: 'Chọn gói này',
+    ctaText: 'Đăng ký ngay',
   },
 ];
 
 export function LandingPackages() {
+  const [isAnnual, setIsAnnual] = useState(false);
+
   return (
-    <section
-      id="goi-kham"
-      className="py-20 bg-white border-y border-[#c4c5d7]/70 scroll-mt-20"
-    >
+    <section id="bang-gia" className="py-20 bg-white border-b border-slate-200 scroll-mt-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         {/* Section Header */}
-        <div className="text-center max-w-2xl mx-auto space-y-3">
-          <span className="px-3.5 py-1 rounded-full bg-[#eaedff] text-[#0037c1] text-xs font-bold uppercase tracking-wider inline-block">
-            Gói Chăm Sóc Sức Khỏe Gia Đình
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-[#131b2f] tracking-tight">
-            Minh Bạch Chi Phí - Quyền Lợi Toàn Diện
+        <div className="text-center max-w-3xl mx-auto space-y-4">
+          <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
+            Gói Chăm Sóc Sức Khỏe Gia Đình &amp; Bảng Giá
           </h2>
-          <p className="text-sm sm:text-base text-[#444654]">
-            Linh hoạt lựa chọn theo quy mô gia đình. Đổi hoặc hủy gói bất kỳ lúc nào với quỹ hoàn tiền cam kết.
+
+          <p className="text-base text-slate-600">
+            Lựa chọn gói dịch vụ phù hợp với quy mô và tình trạng sức khỏe của từng gia đình. Không phát sinh phụ phí ẩn.
           </p>
+
+          {/* Interactive Billing Mode Toggle */}
+          <div className="inline-flex items-center gap-3 p-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setIsAnnual(false)}
+              className={`px-4 py-1.5 rounded-full transition-all cursor-pointer ${
+                !isAnnual
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Gói Tiêu Chuẩn Theo Kỳ
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsAnnual(true)}
+              className={`px-4 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+                isAnnual
+                  ? 'bg-[#0046c0] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <span>Thanh Toán Năm</span>
+              <span className="text-[10px] font-bold bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded-full uppercase">
+                -15%
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Pricing Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-          {PACKAGES.map((pkg) => (
-            <div
-              key={pkg.id}
-              className={`rounded-3xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-200 relative ${
-                pkg.popular
-                  ? 'bg-white border-2 border-[#0037c1] shadow-glow-cobalt lg:-translate-y-2'
-                  : 'bg-[#faf8ff] border border-[#c4c5d7]/80 hover:shadow-lg hover:border-[#0037c1]'
-              }`}
-            >
-              {/* Popular Tag */}
-              {pkg.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-[#0037c1] via-[#1554e8] to-[#0037c1] text-white text-[11px] font-extrabold px-4 py-1 rounded-full shadow-md tracking-wider uppercase flex items-center gap-1.5 whitespace-nowrap">
-                  <span className="material-symbols-filled text-xs text-[#fa8c16]">star</span>
-                  <span>Phổ biến nhất</span>
-                </div>
-              )}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {PACKAGES.map((pkg) => {
+            const displayPrice = isAnnual && pkg.annualPrice ? pkg.annualPrice : pkg.price;
+            const displaySub = isAnnual && pkg.annualSubPrice ? pkg.annualSubPrice : pkg.subPrice;
 
-              <div className="space-y-5">
-                <div>
-                  <span
-                    className={`px-3 py-1 rounded-full text-[11px] font-bold border inline-block ${
-                      pkg.popular
-                        ? 'bg-[#fff7e6] text-[#fa8c16] border-[#ffd591]'
-                        : 'bg-[#eaedff] text-[#0037c1] border-[#eaedff]'
-                    }`}
-                  >
-                    {pkg.badge}
-                  </span>
-                  <h3 className="text-xl font-bold text-[#131b2f] mt-3">{pkg.name}</h3>
-                  <p className="text-xs text-[#747686] mt-0.5">{pkg.altName}</p>
-                </div>
-
-                {/* Price Display */}
-                <div className="py-2.5 border-y border-[#eaedff]">
-                  <div className="text-2xl sm:text-3xl font-extrabold text-[#0037c1]">
-                    {pkg.price}
-                    <span className="text-xs text-[#747686] font-normal">{pkg.periodText}</span>
-                  </div>
-                  <div className="text-xs text-[#52c41a] font-bold mt-0.5">{pkg.subPrice}</div>
-                </div>
-
-                {/* Feature Checklist */}
-                <ul className="space-y-2.5 text-xs text-[#444654]">
-                  {pkg.features.map((feat, idx) => (
-                    <li
-                      key={idx}
-                      className={`flex items-start gap-2 ${
-                        feat.highlighted ? 'font-bold text-[#0037c1]' : ''
-                      }`}
-                    >
-                      <span className="material-symbols-filled text-[#52c41a] text-base shrink-0">
-                        check_circle
-                      </span>
-                      <span>{feat.text}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Action Button */}
-              <Link
-                href={`/register?packageId=${pkg.id}`}
-                className={`mt-8 w-full py-3.5 rounded-xl font-bold text-xs text-center transition-all ${
+            return (
+              <div
+                key={pkg.id}
+                className={`rounded-xl p-6 flex flex-col justify-between relative bg-white hover:-translate-y-2 hover:shadow-xl transition-all duration-300 ease-out group cursor-default ${
                   pkg.popular
-                    ? 'bg-gradient-to-r from-[#0037c1] to-[#1c55d9] hover:from-[#00258b] hover:to-[#0037c1] text-white shadow-md hover:scale-[1.02] active:scale-95'
-                    : 'border-2 border-[#0037c1] text-[#0037c1] hover:bg-[#0037c1] hover:text-white'
+                    ? 'border-2 border-[#0046c0] shadow-md ring-4 ring-[#0046c0]/10'
+                    : 'border border-slate-200 hover:border-blue-300'
                 }`}
               >
-                {pkg.ctaText}
-              </Link>
-            </div>
-          ))}
-        </div>
+                {/* Popular Badge */}
+                {pkg.popular && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#0046c0] text-white text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs">verified</span>
+                    <span>Phổ biến nhất</span>
+                  </div>
+                )}
 
-        {/* Transparent Policy Strip */}
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#f2f3ff] border border-[#eaedff] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-[#444654]">
-          <div className="flex items-center gap-2 font-medium">
-            <span className="material-symbols-outlined text-[#0037c1] text-lg shrink-0">info</span>
-            <span>
-              <strong>Quy định minh bạch:</strong> Hạn mức lượt khám và video tư vấn được dùng chung
-              linh hoạt cho cả gia đình trong suốt cả kỳ hạn.
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#c4c5d7]/50 text-[#0037c1] font-semibold shrink-0 shadow-sm">
-            <span className="material-symbols-outlined text-base text-[#fa8c16]">group_add</span>
-            <span>
-              Thêm thành viên: <strong>75.000đ</strong>/người/tháng
-            </span>
-          </div>
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <div className="text-xs font-semibold text-[#0046c0]">{pkg.badge}</div>
+                    <h3 className="text-lg font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors">
+                      {pkg.name}
+                    </h3>
+                    <div className="text-xs text-slate-500">{pkg.altName}</div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight animate-fade-in key={displayPrice}">
+                        {displayPrice}
+                      </span>
+                      <span className="text-xs text-slate-500 font-medium">{pkg.periodText}</span>
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">{displaySub}</div>
+                  </div>
+
+                  {/* Features List */}
+                  <ul className="space-y-2.5 pt-3 border-t border-slate-100 text-xs leading-relaxed text-slate-700">
+                    {pkg.features.map((f, fIdx) => (
+                      <li key={fIdx} className="flex items-start gap-2">
+                        <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">
+                          check
+                        </span>
+                        <span className={f.strong ? 'font-semibold text-slate-900' : 'text-slate-600'}>
+                          {f.text}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Action Button */}
+                <div className="pt-6 mt-6 border-t border-slate-100">
+                  <Link
+                    href={`/register?packageId=${pkg.id}`}
+                    className={`w-full py-2.5 rounded-lg font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all duration-200 shadow-xs cursor-pointer ${
+                      pkg.popular
+                        ? 'bg-[#0046c0] hover:bg-[#003899] text-white hover:shadow-md'
+                        : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-300 hover:border-slate-400'
+                    }`}
+                  >
+                    <span>{pkg.ctaText}</span>
+                    <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
+                      arrow_forward
+                    </span>
+                  </Link>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

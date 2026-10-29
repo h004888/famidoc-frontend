@@ -2,37 +2,49 @@ import {
   LandingHeader,
   LandingHero,
   LandingStats,
+  LandingAbout,
+  LandingServices,
   LandingProcess,
-  LandingPackages,
   LandingDoctors,
+  LandingPackages,
   LandingCtaBanner,
   LandingFooter,
+  LandingFloatingActions,
 } from '@/features/landing';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-[#faf8ff] text-[#131b2f] font-sans antialiased selection:bg-[#dde1ff] selection:text-[#00258b] overflow-x-hidden">
+    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden">
       <LandingHeader />
       <main className="flex-1">
-        {/* Sảnh Đón & Tuyên Ngôn Y Đức: Hero & Quick Doctor Finder */}
+        {/* 1. Medsev Hero Banner & Quick Doctor Finder */}
         <LandingHero />
 
-        {/* Số Liệu & Bảo Chứng: Stats Banner 50k+ Gia Đình & 1.200+ Bác Sĩ */}
+        {/* 2. Medsev Counter: Số Liệu & Thành Tựu Y Khoa */}
         <LandingStats />
 
-        {/* 4 Trụ Cột Đổi Mới Toàn Diện Trải Nghiệm Khám Chữa Bệnh */}
+        {/* 3. Medsev About: Giới Thiệu Hệ Thống FamiDoc */}
+        <LandingAbout />
+
+        {/* 4. Medsev Services: 8 Chuyên Khoa & Dịch Vụ Khám Chữa Bệnh */}
+        <LandingServices />
+
+        {/* 5. FamiDoc 4 Trụ Cột Đổi Mới Chăm Sóc Y Tế Gia Đình */}
         <LandingProcess />
 
-        {/* Mạng Lưới Bác Sĩ Tiêu Biểu & Trưởng Khoa Quản Nhiệm */}
+        {/* 6. Medsev Doctors: Đội Ngũ Bác Sĩ Tiêu Biểu */}
         <LandingDoctors />
 
-        {/* Gói Chăm Sóc Sức Khỏe Gia Đình & Minh Bạch Chi Phí */}
+        {/* 7. FamiDoc Care Packages: Gói Chăm Sóc Sức Khỏe Gia Đình */}
         <LandingPackages />
 
-        {/* Tiêu Chuẩn Bảo Mật & Đăng Ký Tư Vấn Đồng Hành */}
+        {/* 8. Medsev Consultation & Hotline Cấp Cứu 24/7 */}
         <LandingCtaBanner />
       </main>
       <LandingFooter />
+
+      {/* Interactive Floating Quick Actions (Emergency Hotline & Back To Top) */}
+      <LandingFloatingActions />
     </div>
   );
 }

@@ -2,11 +2,12 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { loginSchema, LoginRole } from '../schemas/auth.schema';
+import { useAuth } from '../context/auth-context';
 
 export function LoginForm() {
-  const router = useRouter();
+  const { login } = useAuth();
   const searchParams = useSearchParams();
   const isRegisteredSuccess = searchParams.get('registered') === 'true';
 
@@ -17,21 +18,36 @@ export function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
+  const [demoSelectedText, setDemoSelectedText] = useState<string>('Hộ Gia đình (Chủ hộ)');
 
   const roles = [
-    { id: 'FAMILY', label: 'Bệnh nhân / Gia đình', icon: 'diversity_1' },
-    { id: 'DOCTOR', label: 'Bác sĩ gia đình', icon: 'stethoscope' },
-    { id: 'ADMIN', label: 'Quản trị viên', icon: 'shield_person' },
+    { id: 'FAMILY', label: 'Bệnh nhân / Gia đình', icon: 'diversity_1', defaultPhone: '0912345678', target: '/family' },
+    { id: 'DOCTOR', label: 'Bác sĩ gia đình', icon: 'stethoscope', defaultPhone: '0988123789', target: '/doctor' },
+    { id: 'FACILITY', label: 'Cơ sở y tế / Bệnh viện', icon: 'local_hospital', defaultPhone: '0903888777', target: '/facility' },
+    { id: 'ADMIN', label: 'Quản trị viên', icon: 'shield_person', defaultPhone: '0901888999', target: '/admin' },
   ];
+
+  const handleSelectRole = (selectedRoleId: LoginRole) => {
+    setRole(selectedRoleId);
+    setErrors({});
+    const matched = roles.find((r) => r.id === selectedRoleId);
+    if (matched) {
+      setPhone(matched.defaultPhone);
+      setPassword('Password123');
+      setDemoSelectedText(matched.label);
+    }
+  };
 
   const getAccountPlaceholder = () => {
     switch (role) {
       case 'DOCTOR':
-        return 'Mã số chứng chỉ hành nghề hoặc email BS';
+        return '0988 123 789 (Bác sĩ CCHN)';
+      case 'FACILITY':
+        return '0903 888 777 (Đại diện Bệnh viện)';
       case 'ADMIN':
-        return 'Tài khoản định danh Quản trị viên Cục/Bộ';
+        return '0901 888 999 (Super Admin)';
       default:
-        return '0912 345 678 hoặc bacsi@famidoc.vn';
+        return '0912 345 678 (Chủ hộ gia đình)';
     }
   };
 
@@ -51,19 +67,19 @@ export function LoginForm() {
     }
 
     setLoading(true);
+    try {
+      await login(role, phone, password);
+    } catch {
+      setLoading(false);
+    }
     setTimeout(() => {
       setLoading(false);
-      if (role === 'DOCTOR') {
-        router.push('/doctor');
-      } else {
-        router.push('/family');
-      }
-    }, 600);
+    }, 2500);
   };
 
   return (
     <div className="w-full max-w-[560px] relative z-10">
-      {/* Main Login Card theo đúng chuẩn mẫu ảnh */}
+      {/* Main Login Card */}
       <div className="bg-surface-container-lowest border border-outline-variant/60 rounded-xl shadow-lg p-6 sm:p-10">
         {/* Welcome banner when redirected from successful registration (FL-01) */}
         {isRegisteredSuccess && (
@@ -80,37 +96,55 @@ export function LoginForm() {
         <div className="text-center mb-6">
           <div className="flex items-center justify-center mb-4">
             <img
-              src="https://lh3.googleusercontent.com/aida-public/AB6AXuCt-vzMo2gxX54KOPUo4tPgX402IJTtiFQscOxDNCgwzS3tszKS2D8WpNwK5b9z8NSchFF1kcog-BVtAntikoInOqjs_B3XXU2YfpS0L2jcrzBQp7HIgKsj6WKFtKwb2yFlvRRjkvnmw17iKI0cAIYtkShrDjxPQRraHIPHZcB9q8RumBGKZtTF7Mds_napL90_2margF2T1BE0nd5yK_5HYVh-qF19NnqJcBY1HoEjrlsUrBv-XzWR0EaKARSa7mPXnng"
+              src="/images/FamiDoc Healthcare Logo.png"
               alt="FamiDoc Logo"
-              className="h-14 w-auto object-contain"
+              className="h-16 w-auto object-contain drop-shadow-xs"
             />
           </div>
           <h1 className="font-headline-md text-headline-md text-on-surface tracking-tight text-2xl sm:text-3xl font-semibold">
             Đăng nhập FamiDoc
           </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant mt-2 max-w-md mx-auto text-sm leading-relaxed">
+          <p className="font-body-md text-body-md text-on-surface-variant mt-2 max-w-md mx-auto text-sm leading-relaxed" suppressHydrationWarning>
             Kết nối hồ sơ sức khỏe gia đình và cổng nghiệp vụ y tế chuyên nghiệp
           </p>
         </div>
 
-        {/* Bộ Chọn Vai Trò (sr-only duy trì A11y & thỏa mãn UT-CMP-02) */}
-        <div className="sr-only" aria-label="Bộ chọn vai trò đăng nhập">
-          {roles.map((r) => {
-            const isActive = role === r.id;
-            return (
-              <button
-                key={r.id}
-                type="button"
-                onClick={() => setRole(r.id as LoginRole)}
-                className={`role-btn ${isActive ? 'active' : ''}`}
-              >
-                <span className="material-symbols-outlined text-[18px] mb-0.5 leading-none">
-                  {r.icon}
-                </span>
-                <span>{r.label}</span>
-              </button>
-            );
-          })}
+        {/* Bảng chọn Vai trò & Tự động điền tài khoản mẫu */}
+        <div className="mb-6" aria-label="Bộ chọn vai trò đăng nhập">
+          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+            1. Chọn vai trò đăng nhập (Tự động điền tài khoản mẫu):
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {roles.map((r) => {
+              const isActive = role === r.id;
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => handleSelectRole(r.id as LoginRole)}
+                  className={`role-btn p-2.5 rounded-xl border text-xs font-semibold flex flex-col items-center text-center gap-1.5 transition-all cursor-pointer ${
+                    isActive
+                      ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-xs ring-2 ring-blue-500/20'
+                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className={`material-symbols-outlined text-[22px] ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+                    {r.icon}
+                  </span>
+                  <span className="leading-tight text-[11px] font-bold line-clamp-1">{r.label}</span>
+                  <span className="text-[10px] text-slate-400 font-mono">{r.target}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-2.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 flex items-center justify-between" suppressHydrationWarning>
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-blue-600 text-[16px]">info</span>
+              <span>Đang chọn: <strong>{demoSelectedText}</strong></span>
+            </span>
+            <span className="font-mono text-[11px] text-slate-500">Mật khẩu: Password123</span>
+          </div>
         </div>
 
         {/* Form Đăng Nhập */}
@@ -121,11 +155,11 @@ export function LoginForm() {
               htmlFor="login-phone"
               className="block font-label-lg text-label-lg text-on-surface mb-1.5 text-sm font-semibold"
             >
-              Số điện thoại hoặc Email tài khoản
+              2. Số điện thoại đăng nhập
             </label>
             <div className="relative rounded-lg">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-outline text-[#747686]">
-                <span className="material-symbols-outlined text-xl">alternate_email</span>
+                <span className="material-symbols-outlined text-xl">phone_iphone</span>
               </div>
               <input
                 id="login-phone"
@@ -134,7 +168,7 @@ export function LoginForm() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder={getAccountPlaceholder()}
-                className={`w-full h-11 pl-11 pr-4 bg-surface-container-lowest border rounded-lg text-body-md font-body-md text-on-surface focus:outline-none focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all placeholder:text-outline/70 ${
+                className={`w-full h-11 pl-11 pr-4 bg-surface-container-lowest border rounded-lg text-body-md font-body-md text-on-surface focus:outline-none focus:border-primary-container focus:ring-2 focus:ring-primary-container/20 transition-all font-mono placeholder:text-outline/70 ${
                   errors.phone
                     ? 'border-[#ba1a1a] ring-1 ring-[#ba1a1a]'
                     : 'border-outline-variant hover:border-[#747686] focus:border-[#0037c1]'
@@ -205,7 +239,7 @@ export function LoginForm() {
                 className="w-4 h-4 rounded text-[#0037c1] border-outline-variant focus:ring-[#0037c1]/30 cursor-pointer"
               />
               <span className="font-body-sm text-xs sm:text-sm text-on-surface-variant">
-                Ghi nhớ đăng nhập trong 30 ngày
+                Ghi nhớ đăng nhập
               </span>
             </label>
             <Link
@@ -216,7 +250,7 @@ export function LoginForm() {
             </Link>
           </div>
 
-          {/* Nút Đăng Nhập Chính (Cobalt Blue #0037c1) */}
+          {/* Nút Đăng Nhập Chính */}
           <button
             type="submit"
             disabled={loading}
@@ -227,7 +261,7 @@ export function LoginForm() {
                 <span className="animate-spin material-symbols-outlined text-[18px]">
                   progress_activity
                 </span>
-                <span>Đang xác thực tài khoản...</span>
+                <span>Đang kết nối phân hệ {role}...</span>
               </>
             ) : (
               <>
@@ -246,7 +280,7 @@ export function LoginForm() {
             <div className="flex-grow border-t border-outline-variant/60" />
           </div>
 
-          {/* Nút Đăng Nhập Google Duy Nhất (Chuẩn Ảnh Mẫu) */}
+          {/* Nút Đăng Nhập Google Duy Nhất */}
           <div className="w-full">
             <button
               type="button"
@@ -285,17 +319,6 @@ export function LoginForm() {
             >
               Đăng ký ngay
             </Link>
-          </p>
-          <p className="font-body-sm text-xs text-on-surface-variant/80 mt-2.5 pt-2 border-t border-outline-variant/30 flex items-center justify-center flex-wrap gap-1">
-            <span>Bạn là nhân viên y tế hoặc đối tác?</span>
-            <button
-              type="button"
-              onClick={() => setRole('DOCTOR')}
-              className="font-label-md text-xs text-[#0037c1] hover:text-[#00258b] hover:underline font-semibold inline-flex items-center gap-0.5 cursor-pointer"
-            >
-              <span>Đăng nhập Cổng Bác sĩ / CSYT / Quản trị</span>
-              <span className="material-symbols-outlined text-xs leading-none">arrow_outward</span>
-            </button>
           </p>
         </div>
       </div>

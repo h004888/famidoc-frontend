@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DoctorDirectoryView } from '@/features/doctors';
+import { LandingFloatingActions } from '@/features/landing';
 
 export const metadata: Metadata = {
   title: 'Danh mục Bác sĩ & Cơ sở Y tế Đối tác | FamiDoc Pro',
@@ -8,6 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function DoctorsPage() {
-  return <DoctorDirectoryView />;
+  return (
+    <>
+      <DoctorDirectoryView />
+      <LandingFloatingActions />
+    </>
+  );
 }
-

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ContactView } from '@/features/contact';
+import { LandingFloatingActions } from '@/features/landing';
 
 export const metadata: Metadata = {
   title: 'Liên Hệ & Đăng Ký Tư Vấn Gói Dịch Vụ | FamiDoc Pro',
@@ -8,5 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function ContactPage() {
-  return <ContactView />;
+  return (
+    <>
+      <ContactView />
+      <LandingFloatingActions />
+    </>
+  );
 }
