@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // 1. Bỏ qua các file tĩnh, api, hình ảnh
@@ -74,6 +74,9 @@ export function middleware(request: NextRequest) {
   return NextResponse.next();
 }
 
+// Giữ thêm alias export default để hỗ trợ mọi cách import
+export default proxy;
+
 function redirectUserToRoleHome(role: string, request: NextRequest) {
   let targetPath = '/family';
   if (role === 'DOCTOR') targetPath = '/doctor';
@@ -83,7 +86,7 @@ function redirectUserToRoleHome(role: string, request: NextRequest) {
   return NextResponse.redirect(new URL(targetPath, request.url));
 }
 
-// Cấu hình matcher cho middleware
+// Cấu hình matcher cho proxy
 export const config = {
   matcher: [
     '/admin/:path*',
@@ -94,3 +97,4 @@ export const config = {
     '/register',
   ],
 };
+

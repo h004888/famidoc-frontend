@@ -94,32 +94,48 @@ export function LandingHero() {
   return (
     <section
       id="tong-quan"
-      className="pt-8 pb-16 lg:pt-14 lg:pb-20 bg-slate-50 border-b border-slate-200 scroll-mt-20 overflow-hidden"
+      className="relative bg-cover bg-center pt-16 pb-24 sm:pt-20 sm:pb-28 lg:pt-24 lg:pb-32 text-white scroll-mt-20 overflow-hidden"
+      style={{ backgroundImage: "url('/images/medsev/home-one/1.jpg')" }}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
-          {/* Left: Authentic Medical Headline & Doctor Search */}
-          <div className="lg:col-span-7 space-y-6">
+      {/* Medsev Signature Cobalt Blue Overlay (#0046c0 / 80%) */}
+      <div className="absolute inset-0 bg-[#0046c0]/85 backdrop-brightness-95" />
 
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-slate-900 tracking-tight leading-tight">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
+          {/* Left: Authentic Medical Headline & Action Buttons */}
+          <div className="lg:col-span-7 space-y-6">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-blue-100 text-xs font-semibold">
+              <span className="material-symbols-outlined text-sm text-blue-200">verified</span>
+              <span>Bộ Y Tế Cấp Phép • Bác Sĩ Gia Đình Chuẩn Quốc Tế</span>
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[46px] font-bold text-white tracking-tight leading-tight drop-shadow-xs">
               Chăm sóc Y học Gia đình Tận tâm, <br className="hidden sm:block" />
               Chuẩn Y Khoa Toàn Diện
             </h1>
 
-            <p className="text-base sm:text-lg text-slate-600 leading-relaxed max-w-2xl font-normal">
+            <p className="text-base sm:text-lg text-blue-100 leading-relaxed max-w-2xl font-normal">
               Gắn kết trực tiếp mỗi gia đình với một Bác sĩ Chuyên khoa gia đình riêng. Khám bệnh chu
               đáo tận nhà, tư vấn Telehealth trực tuyến 24/7 và đồng hành chăm sóc sức khỏe toàn diện
               cho cả gia đình.
             </p>
 
-            {/* Medsev Style Flat Action Buttons */}
-            <div className="flex flex-wrap items-center gap-3 pt-1">
+            {/* Medsev Style Action Buttons */}
+            <div className="flex flex-wrap items-center gap-4 pt-2">
               <Link
                 href="/register"
-                className="px-6 py-3 rounded-md bg-[#0046c0] hover:bg-[#003899] text-white text-sm font-medium transition-all duration-200 shadow-sm hover:shadow hover:-translate-y-0.5 flex items-center gap-2 cursor-pointer"
+                className="px-7 py-3.5 rounded-lg bg-white hover:bg-slate-100 text-[#0046c0] text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">person_add</span>
                 <span>Đăng ký Bác sĩ Riêng</span>
+              </Link>
+
+              <Link
+                href="/packages"
+                className="px-7 py-3.5 rounded-lg border-2 border-white/90 text-white hover:bg-white hover:text-[#0046c0] text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[20px]">inventory_2</span>
+                <span>Xem Gói Chăm Sóc</span>
               </Link>
             </div>
           </div>
@@ -127,12 +143,12 @@ export function LandingHero() {
           {/* Right: Interactive Medical Case Slider */}
           <div className="lg:col-span-5">
             <div
-              className="bg-white rounded-lg p-4 border border-slate-200 space-y-4 shadow-sm hover:shadow-md transition-shadow relative"
+              className="bg-white rounded-2xl p-4 sm:p-5 border border-white/40 shadow-2xl space-y-4 relative text-slate-900"
               onMouseEnter={() => setIsPaused(true)}
               onMouseLeave={() => setIsPaused(false)}
             >
               {/* Slider Image Box */}
-              <div className="relative rounded overflow-hidden aspect-[4/3] bg-slate-100 group">
+              <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-slate-100 group shadow-inner">
                 {/* Primary Slide Image */}
                 <img
                   key={currentSlide.id}
@@ -141,7 +157,7 @@ export function LandingHero() {
                   src={currentSlide.sceneImg}
                 />
 
-                {/* Slider Navigation Arrows (Subtle & Clinical) */}
+                {/* Slider Navigation Arrows */}
                 <div className="absolute top-3 right-3 flex items-center gap-1 bg-slate-900/60 backdrop-blur-xs p-1 rounded-md text-white">
                   <button
                     type="button"
@@ -165,6 +181,37 @@ export function LandingHero() {
                 </div>
               </div>
 
+              {/* Slider Info Content */}
+              <div className="space-y-3 px-1">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <img
+                      src={currentSlide.doctorAvatar}
+                      alt={currentSlide.doctor}
+                      className="w-10 h-10 rounded-full object-cover border-2 border-blue-100 shadow-xs"
+                    />
+                    <div>
+                      <div className="text-xs font-bold text-slate-900">{currentSlide.doctor}</div>
+                      <div className="text-[11px] text-[#0046c0] font-medium">{currentSlide.doctorUnit}</div>
+                    </div>
+                  </div>
+                  <span className="text-[11px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
+                    {currentSlide.status}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
+                  <div className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs text-[#0046c0]">calendar_today</span>
+                    <span>Lịch khám: <strong>{currentSlide.nextVisit}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs text-amber-500">star</span>
+                    <span>Đánh giá: <strong>{currentSlide.rating}</strong></span>
+                  </div>
+                </div>
+              </div>
+
               {/* Slider Dots Indicator */}
               <div className="flex items-center justify-center gap-1.5 pt-1">
                 {HERO_SLIDES.map((slide, idx) => (
@@ -173,10 +220,11 @@ export function LandingHero() {
                     type="button"
                     onClick={() => setActiveSlide(idx)}
                     aria-label={`Chuyển đến ca khám ${idx + 1}`}
-                    className={`h-1.5 rounded-full transition-all cursor-pointer ${activeSlide === idx
-                      ? 'w-6 bg-[#0046c0]'
-                      : 'w-2 bg-slate-200 hover:bg-slate-300'
-                      }`}
+                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                      activeSlide === idx
+                        ? 'w-6 bg-[#0046c0]'
+                        : 'w-2 bg-slate-200 hover:bg-slate-300'
+                    }`}
                   />
                 ))}
               </div>
@@ -187,4 +235,3 @@ export function LandingHero() {
     </section>
   );
 }
-

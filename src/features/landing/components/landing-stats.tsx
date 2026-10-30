@@ -100,9 +100,9 @@ export function LandingStats() {
     <section
       ref={sectionRef}
       id="gia-toc"
-      className="py-12 bg-white border-b border-slate-200/80 relative z-20 scroll-mt-20"
+      className="relative z-20 -mt-12 sm:-mt-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 scroll-mt-20"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="bg-white rounded-2xl shadow-[0_10px_35px_0_rgba(0,0,0,0.08)] border border-slate-100 p-6 sm:p-8">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
           {/* Stat 1: 50.000+ */}
           <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-1 transition-all duration-300 group cursor-default">
