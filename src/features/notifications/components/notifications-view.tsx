@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 
+export type NotificationChannel = 'in_app' | 'sms' | 'zalo' | 'email';
+
 export interface NotificationItem {
   id: string;
   category: 'clinical' | 'telemetry' | 'financial' | 'system';
@@ -10,7 +12,7 @@ export interface NotificationItem {
   message: string;
   timestamp: string;
   isRead: boolean;
-  channels: ('in_app' | 'sms' | 'zalo' | 'email')[];
+  channels: NotificationChannel[];
   linkHref?: string;
   linkLabel?: string;
   severity?: 'info' | 'warning' | 'urgent';
@@ -105,7 +107,7 @@ export function NotificationsView() {
       selectedCategory === 'all' || item.category === selectedCategory;
     const matchChannel =
       selectedChannel === 'all' ||
-      item.channels.includes(selectedChannel as any);
+      item.channels.includes(selectedChannel as NotificationChannel);
     return matchCategory && matchChannel;
   });
 
