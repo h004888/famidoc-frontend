@@ -154,7 +154,7 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
 }
 
-html {
+html[data-scroll-behavior="smooth"] {
   scroll-behavior: smooth;
 }
 
