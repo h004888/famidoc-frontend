@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { FacilityNav } from '@/components/layout';
 
 export function FacilityDashboardView() {
   const stats = [
@@ -38,10 +37,10 @@ export function FacilityDashboardView() {
     },
     {
       title: 'Doanh thu B2B tạm tính',
-      value: '342.800.000 đ',
-      subtitle: 'Tỷ lệ 70% cơ sở y tế (Tháng 10)',
+      value: '416.256.900 đ',
+      subtitle: 'Tỷ lệ 85% CSYT (15% Phí nền tảng CFG-03)',
       change: '+18.5%',
-      period: 'Escrow sẵn sàng',
+      period: 'Đối soát ngày 05 hàng tháng',
       icon: 'payments',
       iconBg: 'bg-amber-50 text-amber-600',
       badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -86,8 +85,6 @@ export function FacilityDashboardView() {
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      {/* Sub-navigation */}
-      <FacilityNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Facility Header Banner phong cách Preclinic */}

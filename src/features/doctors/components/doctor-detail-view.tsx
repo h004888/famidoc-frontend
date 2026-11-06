@@ -728,42 +728,6 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack }: Doc
             </div>
           </div>
         </section>
-
-        {/* 5. MEDSEV NEWSLETTER AREA */}
-        <section className="bg-slate-50 border-t border-slate-200 py-16 mt-20">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-2xl p-8 sm:p-12 shadow-[0_4px_25px_0_rgba(0,0,0,0.06)] border border-slate-100 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-7 space-y-2">
-                <span className="text-xs font-bold text-[#0046c0] uppercase tracking-wider">
-                  Bản Tin Y Khoa Định Kỳ
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                  Đăng Ký Nhận Bản Tin Y Học Gia Đình
-                </h2>
-                <p className="text-sm text-slate-500 leading-relaxed">
-                  Cập nhật phác đồ phòng bệnh mùa dịch, kiến thức dinh dưỡng đa thế hệ và hướng dẫn chăm sóc sức khỏe thường thức từ các bác sĩ đầu ngành.
-                </p>
-              </div>
-
-              <div className="lg:col-span-5">
-                <form onSubmit={(e) => e.preventDefault()} className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="email"
-                    required
-                    placeholder="Nhập email của bạn..."
-                    className="flex-1 px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:border-[#0046c0] text-sm text-slate-900 placeholder:text-slate-400"
-                  />
-                  <button
-                    type="submit"
-                    className="px-6 py-3 bg-[#0046c0] hover:bg-[#003899] text-white font-semibold text-sm rounded-lg transition-colors shadow-xs shrink-0 cursor-pointer"
-                  >
-                    Đăng ký ngay
-                  </button>
-                </form>
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
 
       {/* 6. UNIFIED MEDSEV FOOTER */}

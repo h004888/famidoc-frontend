@@ -1,7 +1,6 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
-import { AdminNav } from '@/components/layout';
 
 interface LegalContract {
   id: string;
@@ -104,7 +103,6 @@ export function AdminContractsView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <AdminNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}

@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FacilityNav } from '@/components/layout';
 
 interface AppointmentCoordination {
   id: string;
@@ -144,7 +143,6 @@ export function FacilityCoordinationView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <FacilityNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Top Header */}

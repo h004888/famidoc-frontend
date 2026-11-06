@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { DoctorNav } from '@/components/layout';
 
 interface PrescriptionItem {
   id: string;
@@ -52,6 +51,17 @@ export function DoctorEncountersView() {
     e.preventDefault();
     if (!drugName.trim()) return;
 
+    // Kiểm tra an toàn dị ứng & tương tác thuốc (MSG22 & GB-10)
+    const lowerName = drugName.toLowerCase();
+    if (lowerName.includes('penicillin') || lowerName.includes('amoxicillin') || lowerName.includes('augmentin')) {
+      const overrideReason = prompt(
+        `[CẢNH BÁO AN TOÀN MSG22 / GB-10]\nPhát hiện xung đột nghiêm trọng: Thuốc "${drugName}" thuộc nhóm dị ứng Penicillin của bệnh nhân!\n\nNếu có chỉ định lâm sàng bắt buộc, vui lòng nhập lý do ghi đè (Clinical Override Reason) hoặc bấm Cancel để hủy:`
+      );
+      if (!overrideReason) {
+        return; // Hủy không thêm thuốc
+      }
+    }
+
     const newDrug: PrescriptionItem = {
       id: `rx-${Date.now()}`,
       name: drugName,
@@ -84,8 +94,6 @@ export function DoctorEncountersView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      {/* Sub-navigation */}
-      <DoctorNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Patient Identity Top Bar */}

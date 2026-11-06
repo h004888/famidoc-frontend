@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { FacilityNav } from '@/components/layout';
 
 interface RevenueCycle {
   id: string;
@@ -17,33 +16,33 @@ interface RevenueCycle {
 const REVENUE_CYCLES: RevenueCycle[] = [
   {
     id: 'REV-2026-10-YDUOC',
-    monthYear: 'Tháng 10/2026 (Kỳ 1 & 2)',
+    monthYear: 'Tháng 10/2026 (Trọn kỳ)',
     totalEncounters: 1420,
     grossAmount: 489714000,
-    facilityShareRate: 70,
-    facilityShareAmount: 342800000,
+    facilityShareRate: 85,
+    facilityShareAmount: 416256900,
     escrowStatus: 'pending_signature',
-    reconcileDate: '25/10/2026',
+    reconcileDate: '05/11/2026',
   },
   {
     id: 'REV-2026-09-YDUOC',
     monthYear: 'Tháng 09/2026 (Trọn kỳ)',
     totalEncounters: 1280,
     grossAmount: 441000000,
-    facilityShareRate: 70,
-    facilityShareAmount: 308700000,
+    facilityShareRate: 85,
+    facilityShareAmount: 374850000,
     escrowStatus: 'paid',
-    reconcileDate: '30/09/2026',
+    reconcileDate: '05/10/2026',
   },
   {
     id: 'REV-2026-08-YDUOC',
     monthYear: 'Tháng 08/2026 (Trọn kỳ)',
     totalEncounters: 1150,
     grossAmount: 395000000,
-    facilityShareRate: 70,
-    facilityShareAmount: 276500000,
+    facilityShareRate: 85,
+    facilityShareAmount: 335750000,
     escrowStatus: 'paid',
-    reconcileDate: '31/08/2026',
+    reconcileDate: '05/09/2026',
   },
 ];
 
@@ -83,7 +82,6 @@ export function FacilityRevenueView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <FacilityNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Top Header */}
@@ -93,13 +91,13 @@ export function FacilityRevenueView() {
               Đối soát Doanh thu B2B &amp; Giải ngân Escrow
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Phân bổ doanh thu theo tỷ lệ cam kết 70% Cơ sở y tế - 30% Nền tảng với biên bản ký số bảo mật
+              Phân bổ doanh thu theo tỷ lệ cam kết 85% Cơ sở y tế - 15% Nền tảng (CFG-03, BR-14) với đối soát tự động ngày 05 hàng tháng
             </p>
           </div>
 
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
             <span className="material-symbols-outlined text-[16px]">verified</span>
-            <span>Hợp đồng đối tác B2B-2026: 70% / 30%</span>
+            <span>Hợp đồng đối tác B2B-2026: 85% / 15% (CFG-03)</span>
           </div>
         </div>
 
@@ -112,9 +110,9 @@ export function FacilityRevenueView() {
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-blue-200 shadow-xs bg-linear-to-br from-white to-blue-50/30">
-            <span className="text-xs font-bold text-blue-600 uppercase">Doanh thu B2B thực nhận (70%)</span>
-            <div className="text-2xl font-bold text-blue-700 mt-2">342.800.000 đ</div>
-            <div className="text-xs text-blue-600/80 mt-1 font-semibold">Chuyển trực tiếp vào tài khoản BV</div>
+            <span className="text-xs font-bold text-blue-600 uppercase">Doanh thu B2B thực nhận (85%)</span>
+            <div className="text-2xl font-bold text-blue-700 mt-2">416.256.900 đ</div>
+            <div className="text-xs text-blue-600/80 mt-1 font-semibold">Quyết toán ngày 05/11/2026</div>
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">

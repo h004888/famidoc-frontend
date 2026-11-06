@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { DoctorNav } from '@/components/layout';
 
 export function DoctorDashboardView() {
   const router = useRouter();
@@ -86,8 +85,6 @@ export function DoctorDashboardView() {
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      {/* Sub-navigation */}
-      <DoctorNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Doctor Preclinic Profile Banner */}

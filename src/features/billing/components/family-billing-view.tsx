@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { FamilyNav } from '@/components/layout';
+import React, { useState, useEffect } from 'react';
 
 interface Invoice {
   id: string;
@@ -42,6 +41,26 @@ export function FamilyBillingView() {
   const [isCopied, setIsCopied] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 phút (CFG-05)
+
+  const handleOpenQrModal = () => {
+    setTimeLeft(15 * 60);
+    setShowQrModal(true);
+  };
+
+  useEffect(() => {
+    if (!showQrModal) return;
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [showQrModal]);
+
+  const formatCountdown = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   const copyToClipboard = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -60,8 +79,6 @@ export function FamilyBillingView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      {/* Sub-navigation */}
-      <FamilyNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header */}
@@ -82,7 +99,7 @@ export function FamilyBillingView() {
 
           <button
             type="button"
-            onClick={() => setShowQrModal(true)}
+            onClick={handleOpenQrModal}
             className="px-5 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs flex items-center gap-2 transition-all cursor-pointer self-start md:self-auto"
           >
             <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
@@ -305,19 +322,54 @@ export function FamilyBillingView() {
               <button
                 type="button"
                 onClick={() => setShowQrModal(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
+                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer hover:bg-slate-200"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <img
-                src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=00020101021238580010A000000727012600069704220112FMD882195303704540742450005802VN62190815FMD%20FAM882196304E1F2"
-                alt="QR Modal"
-                className="w-48 h-48 mx-auto object-contain"
-              />
+            {/* 15-Minute Countdown Indicator (CFG-05 & JOB-01) */}
+            <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
+              timeLeft > 120
+                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                : timeLeft > 0
+                ? 'bg-rose-50 text-rose-800 border-rose-200'
+                : 'bg-slate-100 text-slate-600 border-slate-300'
+            }`}>
+              <div className="flex items-center gap-1.5 font-medium">
+                <span className="material-symbols-outlined text-[16px]">
+                  {timeLeft > 0 ? 'hourglass_top' : 'error'}
+                </span>
+                <span>{timeLeft > 0 ? 'Hiệu lực mã QR (CFG-05):' : 'Phiên thanh toán hết hạn:'}</span>
+              </div>
+              <span className="font-mono font-bold text-sm">
+                {formatCountdown(timeLeft)}
+              </span>
             </div>
+
+            {timeLeft > 0 ? (
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+                <img
+                  src="https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=00020101021238580010A000000727012600069704220112FMD882195303704540742450005802VN62190815FMD%20FAM882196304E1F2"
+                  alt="QR Modal"
+                  className="w-48 h-48 mx-auto object-contain"
+                />
+              </div>
+            ) : (
+              <div className="p-6 bg-slate-50 rounded-xl border border-dashed border-rose-300 text-center space-y-2">
+                <span className="material-symbols-outlined text-rose-500 text-3xl">timer_off</span>
+                <p className="text-xs text-rose-600 font-semibold">
+                  Mã VietQR đã hết hạn 15 phút (JOB-01). Vui lòng tạo phiên thanh toán mới.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setTimeLeft(15 * 60)}
+                  className="px-4 py-1.5 bg-[#2563eb] text-white rounded-lg text-xs font-bold hover:bg-[#1d4ed8]"
+                >
+                  Tạo mã mới
+                </button>
+              </div>
+            )}
 
             <div className="text-xs space-y-1">
               <div className="font-bold text-base text-[#0f172a]">4.245.000đ</div>
@@ -326,8 +378,9 @@ export function FamilyBillingView() {
 
             <button
               type="button"
+              disabled={timeLeft === 0}
               onClick={handleVerifyPayment}
-              className="w-full py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+              className="w-full py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Xác nhận đã chuyển khoản
             </button>

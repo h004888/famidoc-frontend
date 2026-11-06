@@ -256,11 +256,10 @@ export function LandingDoctors() {
                         key={slot}
                         type="button"
                         onClick={() => setSelectedSlot(slot)}
-                        className={`p-2 rounded text-xs text-left transition-all cursor-pointer ${
-                          selectedSlot === slot
+                        className={`p-2 rounded text-xs text-left transition-all cursor-pointer ${selectedSlot === slot
                             ? 'bg-[#0046c0] text-white font-medium shadow-xs'
                             : 'bg-slate-50 text-slate-700 border border-slate-200 hover:border-blue-300'
-                        }`}
+                          }`}
                       >
                         {slot}
                       </button>

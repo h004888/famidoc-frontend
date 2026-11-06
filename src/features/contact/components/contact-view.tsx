@@ -28,8 +28,6 @@ export function ContactView() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [inquiryCode, setInquiryCode] = useState('');
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof InquiryFormData, string>>>({});
-  const [newsletterEmail, setNewsletterEmail] = useState('');
-  const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
 
   const validate = (): boolean => {
     const errors: Partial<Record<keyof InquiryFormData, string>> = {};
@@ -69,14 +67,6 @@ export function ContactView() {
       const randomCode = 'FMD-' + Math.floor(100000 + Math.random() * 900000);
       setInquiryCode(randomCode);
     }, 600);
-  };
-
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newsletterEmail.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newsletterEmail)) {
-      setNewsletterSubmitted(true);
-      setNewsletterEmail('');
-    }
   };
 
   return (
@@ -247,9 +237,8 @@ export function ContactView() {
                             value={formData.fullName}
                             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                             placeholder="Họ và tên của bạn *"
-                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${
-                              formErrors.fullName ? 'border-rose-500' : ''
-                            }`}
+                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${formErrors.fullName ? 'border-rose-500' : ''
+                              }`}
                           />
                           {formErrors.fullName && (
                             <p className="text-xs text-rose-500 mt-1 pl-1">{formErrors.fullName}</p>
@@ -264,9 +253,8 @@ export function ContactView() {
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             placeholder="Địa chỉ Email"
-                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${
-                              formErrors.email ? 'border-rose-500' : ''
-                            }`}
+                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${formErrors.email ? 'border-rose-500' : ''
+                              }`}
                           />
                           {formErrors.email && (
                             <p className="text-xs text-rose-500 mt-1 pl-1">{formErrors.email}</p>
@@ -283,9 +271,8 @@ export function ContactView() {
                             value={formData.phoneNumber}
                             onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                             placeholder="Số điện thoại di động *"
-                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${
-                              formErrors.phoneNumber ? 'border-rose-500' : ''
-                            }`}
+                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${formErrors.phoneNumber ? 'border-rose-500' : ''
+                              }`}
                           />
                           {formErrors.phoneNumber && (
                             <p className="text-xs text-rose-500 mt-1 pl-1">{formErrors.phoneNumber}</p>
@@ -437,48 +424,6 @@ export function ContactView() {
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
-        </section>
-
-        {/* 6. Medsev Newsletter Area (.newsletter-area) */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 sm:-mt-20 relative z-30 pb-16">
-          <div className="bg-white rounded-xl shadow-[0_0_20px_0_rgba(221,221,221,0.67)] p-8 sm:p-12 border border-slate-100">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-7 space-y-2">
-                <h2 className="text-2xl sm:text-3xl font-semibold text-[#232323]">
-                  Đăng Ký Nhận Bản Tin Y Học Gia Đình
-                </h2>
-                <p className="text-sm text-[#676767] leading-relaxed max-w-xl">
-                  Nhận các cẩm nang chăm sóc sức khỏe dự phòng, cảnh báo dịch tễ theo mùa và các chính sách ưu đãi thành viên mới từ FamiDoc.
-                </p>
-              </div>
-
-              <div className="lg:col-span-5">
-                {newsletterSubmitted ? (
-                  <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-3 rounded-lg">
-                    <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-                    <span>Cảm ơn bạn đã đăng ký nhận bản tin sức khỏe FamiDoc!</span>
-                  </div>
-                ) : (
-                  <form onSubmit={handleNewsletterSubmit} className="relative">
-                    <input
-                      type="email"
-                      value={newsletterEmail}
-                      onChange={(e) => setNewsletterEmail(e.target.value)}
-                      placeholder="Nhập địa chỉ email của bạn..."
-                      required
-                      className="w-full h-[65px] pl-5 pr-36 rounded-lg border border-[#0046c0] text-sm text-[#232323] placeholder:text-[#676767] focus:outline-hidden focus:border-[#111111] transition-all"
-                    />
-                    <button
-                      type="submit"
-                      className="absolute top-2 right-2 h-[49px] px-6 bg-[#0046c0] hover:bg-[#111111] text-white text-sm font-medium rounded-md transition-colors cursor-pointer flex items-center justify-center"
-                    >
-                      Đăng Ký
-                    </button>
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
         </section>
       </main>
 

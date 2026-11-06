@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AdminNav } from '@/components/layout';
 
 interface SystemUser {
   id: string;
@@ -152,7 +151,6 @@ export function AdminUsersView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <AdminNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
@@ -169,21 +167,19 @@ export function AdminUsersView() {
           <div className="flex items-center gap-2 bg-slate-200/60 p-1 rounded-xl">
             <button
               onClick={() => setActiveTab('users')}
-              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-                activeTab === 'users'
-                  ? 'bg-white text-indigo-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${activeTab === 'users'
+                ? 'bg-white text-indigo-600 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               Danh sách Người dùng ({users.length})
             </button>
             <button
               onClick={() => setActiveTab('audit_logs')}
-              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${
-                activeTab === 'audit_logs'
-                  ? 'bg-white text-indigo-600 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${activeTab === 'audit_logs'
+                ? 'bg-white text-indigo-600 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+                }`}
             >
               Audit Logs Bảo mật ({auditLogs.length})
             </button>
@@ -304,11 +300,10 @@ export function AdminUsersView() {
                         <td className="py-3.5 px-4 text-right">
                           <button
                             onClick={() => handleToggleSuspend(u.id)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                              u.status === 'suspended'
-                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                                : 'bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700'
-                            }`}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${u.status === 'suspended'
+                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                              : 'bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700'
+                              }`}
                           >
                             {u.status === 'suspended' ? 'Mở khóa' : 'Khóa truy cập'}
                           </button>

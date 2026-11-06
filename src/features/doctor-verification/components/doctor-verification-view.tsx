@@ -1,7 +1,6 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
-import { DoctorNav } from '@/components/layout';
 
 export function DoctorVerificationView() {
   const cchnNumber = '004128/BYT-CCHN';
@@ -13,8 +12,6 @@ export function DoctorVerificationView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      {/* Sub-navigation */}
-      <DoctorNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header */}

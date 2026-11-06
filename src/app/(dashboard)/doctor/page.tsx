@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { DoctorDashboardView } from '@/features/doctor-dashboard';
 
 export default function DoctorPage() {

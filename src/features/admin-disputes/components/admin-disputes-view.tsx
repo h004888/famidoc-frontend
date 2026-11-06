@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AdminNav } from '@/components/layout';
 
 interface DisputeCase {
   id: string;
@@ -10,14 +9,14 @@ interface DisputeCase {
   respondent: string; // Doctor or Facility
   incidentType: 'late_arrival' | 'clinical_issue' | 'pricing_escrow' | 'attitude';
   description: string;
-  escrowAmount: number;
+  remedyCategory: string;
   evidence: {
     gpsVerifiedTime?: string;
     telehealthLogDuration?: string;
     soapSignedDate?: string;
   };
   severity: 'urgent' | 'standard';
-  status: 'pending_hearing' | 'resolved_refund_full' | 'resolved_refund_partial' | 'resolved_dismissed';
+  status: 'pending_hearing' | 'resolved_warning' | 'resolved_reassign' | 'resolved_dismissed';
   slaHoursLeft: number;
 }
 
@@ -28,8 +27,8 @@ const INITIAL_DISPUTES: DisputeCase[] = [
     familyHead: 'Bà Trần Thị Lan',
     respondent: 'BS. Hoàng Gia Bảo / BV ĐH Y Dược',
     incidentType: 'late_arrival',
-    description: 'Bác sĩ đến trễ hơn 45 phút so với giờ hẹn khám tại nhà mà không thông báo trước. Gia đình yêu cầu hủy gói và hoàn 100% tiền tạm giữ.',
-    escrowAmount: 1200000,
+    description: 'Bác sĩ đến trễ hơn 45 phút so với giờ hẹn khám tại nhà mà không thông báo trước. Gia đình đề nghị lập biên bản và đổi bác sĩ quản nhiệm.',
+    remedyCategory: 'Chế tài phi tài chính (BF-06)',
     evidence: {
       gpsVerifiedTime: 'GPS check-in lúc 15:47 (Lịch hẹn 15:00)',
       soapSignedDate: 'Chưa có phiếu khám',
@@ -45,7 +44,7 @@ const INITIAL_DISPUTES: DisputeCase[] = [
     respondent: 'Phòng khám Đa khoa Quốc tế',
     incidentType: 'pricing_escrow',
     description: 'Thu thêm 350.000 đ tiền kim lấy máu và găng tay y tế sai quy định hợp đồng trọn gói đã cam kết.',
-    escrowAmount: 850000,
+    remedyCategory: 'Cảnh cáo & Yêu cầu hoàn trả phí thu sai',
     evidence: {
       telehealthLogDuration: 'Tư vấn trước khám 12 phút',
       soapSignedDate: 'Phiếu SOAP đã khóa lúc 10:30',
@@ -61,13 +60,13 @@ const INITIAL_DISPUTES: DisputeCase[] = [
     respondent: 'BS.CKII Trần Thanh Mai',
     incidentType: 'clinical_issue',
     description: 'Thắc mắc về chỉ định xét nghiệm men gan tăng cao nhưng bác sĩ chưa giải thích cặn kẽ toa thuốc điều trị.',
-    escrowAmount: 650000,
+    remedyCategory: 'Tư vấn bổ sung EMR',
     evidence: {
       telehealthLogDuration: 'WebRTC video call 24 phút lưu trên hệ thống',
       soapSignedDate: 'Phiếu SOAP mã 1NF đã ký số SHA-256',
     },
     severity: 'standard',
-    status: 'resolved_refund_partial',
+    status: 'resolved_reassign',
     slaHoursLeft: 0,
   },
 ];
@@ -75,26 +74,22 @@ const INITIAL_DISPUTES: DisputeCase[] = [
 export function AdminDisputesView() {
   const [cases, setCases] = useState<DisputeCase[]>(INITIAL_DISPUTES);
   const [selectedCase, setSelectedCase] = useState<DisputeCase | null>(null);
-  const [rulingDecision, setRulingDecision] = useState<'refund_full' | 'refund_partial' | 'dismiss'>('refund_full');
+  const [rulingDecision, setRulingDecision] = useState<'warning' | 'reassign' | 'dismiss'>('warning');
   const [rulingReason, setRulingReason] = useState('');
   const [notification, setNotification] = useState('');
-
-  const formatVND = (num: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
-  };
 
   const handleOpenHearing = (item: DisputeCase) => {
     setSelectedCase(item);
     setRulingReason('');
-    setRulingDecision('refund_full');
+    setRulingDecision('warning');
   };
 
   const handleExecuteRuling = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCase) return;
 
-    let newStatus: DisputeCase['status'] = 'resolved_refund_full';
-    if (rulingDecision === 'refund_partial') newStatus = 'resolved_refund_partial';
+    let newStatus: DisputeCase['status'] = 'resolved_warning';
+    if (rulingDecision === 'reassign') newStatus = 'resolved_reassign';
     if (rulingDecision === 'dismiss') newStatus = 'resolved_dismissed';
 
     setCases((prev) =>
@@ -103,24 +98,23 @@ export function AdminDisputesView() {
       )
     );
 
-    setNotification(`Đã ban hành Phán quyết Trọng tài cho vụ việc ${selectedCase.id}`);
+    setNotification(`Đã ban hành Quyết định xử lý Trọng tài (chế tài phi tài chính BF-06) cho vụ việc ${selectedCase.id}`);
     setSelectedCase(null);
     setTimeout(() => setNotification(''), 3000);
   };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <AdminNav />
-
+      
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-              Trọng tài Sự cố &amp; Phân xử Tranh chấp Escrow
+              Trọng tài Sự cố &amp; Phân xử Khiếu nại (BF-06 &amp; GB-12)
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Phán quyết độc lập dựa trên nhật ký hệ thống GPS, EMR SOAP và kiểm soát quỹ tiền ký quỹ đảm bảo
+              Phán quyết độc lập dựa trên nhật ký hệ thống GPS, EMR SOAP và cam kết dịch vụ (Chế tài phi tài chính: Cảnh cáo, Đổi bác sĩ, Đình chỉ)
             </p>
           </div>
 
@@ -185,8 +179,8 @@ export function AdminDisputesView() {
                 </div>
 
                 <div className="mt-3 pt-2 border-t border-slate-100 text-xs flex justify-between items-center">
-                  <span className="text-slate-500">Tiền Escrow tạm giữ:</span>
-                  <span className="font-bold text-indigo-700">{formatVND(c.escrowAmount)}</span>
+                  <span className="text-slate-500">Hình thức xử lý:</span>
+                  <span className="font-bold text-indigo-700">{c.remedyCategory}</span>
                 </div>
               </div>
 
@@ -197,14 +191,14 @@ export function AdminDisputesView() {
                       Chờ ra phán quyết
                     </span>
                   )}
-                  {c.status === 'resolved_refund_full' && (
-                    <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                      Đã hoàn tiền 100%
+                  {c.status === 'resolved_warning' && (
+                    <span className="text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
+                      Đã cảnh cáo kỷ luật
                     </span>
                   )}
-                  {c.status === 'resolved_refund_partial' && (
+                  {c.status === 'resolved_reassign' && (
                     <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                      Đã hòa giải 50%
+                      Đã đổi Bác sĩ quản nhiệm
                     </span>
                   )}
                   {c.status === 'resolved_dismissed' && (
@@ -242,7 +236,7 @@ export function AdminDisputesView() {
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-rose-600 text-[22px]">gavel</span>
-                  <h3 className="font-bold text-slate-900 text-base">Hội đồng Trọng tài FamiDoc Pro</h3>
+                  <h3 className="font-bold text-slate-900 text-base">Hội đồng Trọng tài FamiDoc Pro (BF-06)</h3>
                 </div>
                 <button
                   onClick={() => setSelectedCase(null)}
@@ -257,7 +251,7 @@ export function AdminDisputesView() {
                   <div className="flex justify-between">
                     <span className="font-bold text-slate-900">{selectedCase.id}</span>
                     <span className="font-bold text-indigo-700">
-                      Escrow: {formatVND(selectedCase.escrowAmount)}
+                      {selectedCase.remedyCategory}
                     </span>
                   </div>
                   <div>Nguyên đơn: <strong>{selectedCase.familyHead}</strong> ({selectedCase.familyId})</div>
@@ -295,20 +289,20 @@ export function AdminDisputesView() {
                 {/* Ruling Selection */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Lựa chọn Phán quyết Trọng tài &amp; Giải ngân Escrow:
+                    Lựa chọn Chế tài Phán quyết Phi tài chính (Quy định GB-12 &amp; BF-06):
                   </label>
                   <div className="space-y-2">
                     <label className="flex items-start gap-2.5 p-2.5 border rounded-xl text-xs cursor-pointer hover:bg-slate-50">
                       <input
                         type="radio"
                         name="ruling"
-                        checked={rulingDecision === 'refund_full'}
-                        onChange={() => setRulingDecision('refund_full')}
+                        checked={rulingDecision === 'warning'}
+                        onChange={() => setRulingDecision('warning')}
                         className="mt-0.5 text-indigo-600"
                       />
                       <div>
-                        <div className="font-bold text-slate-900">Hoàn tiền 100% cho Gia đình</div>
-                        <div className="text-slate-500">Phạt vi phạm cam kết SLA đối với Bác sĩ/Bệnh viện</div>
+                        <div className="font-bold text-slate-900">Cảnh cáo vi phạm &amp; Trừ điểm SLA Bác sĩ</div>
+                        <div className="text-slate-500">Ghi nhận biên bản vi phạm kỷ luật gửi Cơ sở Y tế chủ quản</div>
                       </div>
                     </label>
 
@@ -316,13 +310,13 @@ export function AdminDisputesView() {
                       <input
                         type="radio"
                         name="ruling"
-                        checked={rulingDecision === 'refund_partial'}
-                        onChange={() => setRulingDecision('refund_partial')}
+                        checked={rulingDecision === 'reassign'}
+                        onChange={() => setRulingDecision('reassign')}
                         className="mt-0.5 text-indigo-600"
                       />
                       <div>
-                        <div className="font-bold text-slate-900">Hòa giải hoàn 50% &amp; Khám bù</div>
-                        <div className="text-slate-500">Lỗi khách quan thời tiết/giao thông, hỗ trợ cả hai bên</div>
+                        <div className="font-bold text-slate-900">Điều chuyển Bác sĩ Quản nhiệm khác</div>
+                        <div className="text-slate-500">Chỉ định bác sĩ mới cùng chuyên khoa phụ trách hộ gia đình</div>
                       </div>
                     </label>
 
@@ -335,8 +329,8 @@ export function AdminDisputesView() {
                         className="mt-0.5 text-indigo-600"
                       />
                       <div>
-                        <div className="font-bold text-slate-900">Bác bỏ khiếu nại - Giải ngân 100% CSYT</div>
-                        <div className="text-slate-500">Bác sĩ thực hiện đúng quy trình chuyên môn y tế</div>
+                        <div className="font-bold text-slate-900">Bác bỏ khiếu nại (Không có vi phạm)</div>
+                        <div className="text-slate-500">Bác sĩ thực hiện đúng chuẩn chuyên môn và thời gian thỏa thuận</div>
                       </div>
                     </label>
                   </div>
