@@ -109,7 +109,7 @@ export function LandingDoctors() {
             href="/doctors"
             className="text-xs sm:text-sm font-semibold text-[#0046c0] hover:text-[#003899] flex items-center gap-1.5 py-1 group"
           >
-            <span>Xem toàn bộ bác sĩ</span>
+            <span>Xem toàn bộ 1.200+ bác sĩ</span>
             <span className="material-symbols-outlined text-base transition-transform group-hover:translate-x-1">
               arrow_forward
             </span>
