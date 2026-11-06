@@ -1,8 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { FamilyNav } from '@/components/layout';
 
 interface MemberProfile {
   id: string;
@@ -196,9 +195,6 @@ export function FamilyMembersView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      {/* Sub-navigation */}
-      <FamilyNav />
-
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">

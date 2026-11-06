@@ -3,7 +3,7 @@ import {
   LandingHero,
   LandingStats,
   LandingAbout,
-  LandingServices,
+  // LandingServices,
   LandingProcess,
   LandingDoctors,
   LandingPackages,
@@ -27,10 +27,10 @@ export default function HomePage() {
         <LandingAbout />
 
         {/* 4. Medsev Services: 8 Chuyên Khoa & Dịch Vụ Khám Chữa Bệnh */}
-        <LandingServices />
+        {/* <LandingServices /> */}
 
         {/* 5. FamiDoc 4 Trụ Cột Đổi Mới Chăm Sóc Y Tế Gia Đình */}
-        <LandingProcess />
+        {/* <LandingProcess /> */}
 
         {/* 6. Medsev Doctors: Đội Ngũ Bác Sĩ Tiêu Biểu */}
         <LandingDoctors />

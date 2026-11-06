@@ -1,9 +1,8 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { DoctorNav } from '@/components/layout';
 
 export function DoctorTelemedicineView() {
   const router = useRouter();
@@ -14,8 +13,6 @@ export function DoctorTelemedicineView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      {/* Sub-navigation */}
-      <DoctorNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header Room Info */}

@@ -1,8 +1,7 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
-import Link from 'next/link';
-import { FamilyNav } from '@/components/layout';
+import Link from 'next/link';;
 
 interface VitalRecord {
   id: string;
@@ -69,8 +68,6 @@ export function ChronicCareView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      {/* Sub-navigation */}
-      <FamilyNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header & Controls */}

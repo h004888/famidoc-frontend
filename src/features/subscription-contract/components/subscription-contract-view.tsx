@@ -2,15 +2,14 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { FamilyNav } from '@/components/layout';
+import { ContractSigningWizard } from './contract-signing-wizard';
 
 export function SubscriptionContractView() {
   const [activeTab, setActiveTab] = useState<'contract' | 'benefits' | 'upgrade'>('contract');
+  const [isSigningWizardOpen, setIsSigningWizardOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      {/* Sub-navigation */}
-      <FamilyNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header Bar */}
@@ -29,7 +28,15 @@ export function SubscriptionContractView() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5 self-start md:self-auto">
+          <div className="flex flex-wrap items-center gap-2.5 self-start md:self-auto">
+            <button
+              type="button"
+              onClick={() => setIsSigningWizardOpen(true)}
+              className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">edit_document</span>
+              <span>Ký Hợp Đồng Mới (SCR-15)</span>
+            </button>
             <button
               type="button"
               onClick={() => alert('Đang tải file hợp đồng PDF có chứng thư ký số HSM TSA...')}
@@ -40,7 +47,7 @@ export function SubscriptionContractView() {
             </button>
             <Link
               href="/family/billing"
-              className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-[#0f172a] rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
             >
               <span className="material-symbols-outlined text-[16px]">receipt_long</span>
               <span>Lịch sử thanh toán</span>
@@ -137,11 +144,10 @@ export function SubscriptionContractView() {
               key={t.id}
               type="button"
               onClick={() => setActiveTab(t.id as 'contract' | 'benefits')}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                activeTab === t.id
-                  ? 'bg-[#2563eb] text-white shadow-xs'
-                  : 'text-[#475569] hover:bg-slate-100'
-              }`}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${activeTab === t.id
+                ? 'bg-[#2563eb] text-white shadow-xs'
+                : 'text-[#475569] hover:bg-slate-100'
+                }`}
             >
               <span className="material-symbols-outlined text-[16px]">{t.icon}</span>
               <span>{t.label}</span>
@@ -331,26 +337,36 @@ export function SubscriptionContractView() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-3">
               <h4 className="font-bold text-sm text-[#0f172a] flex items-center gap-2">
                 <span className="material-symbols-outlined text-emerald-600">health_and_safety</span>
-                Chính Sách Chuyển Đổi &amp; Hoàn Phí Cam Kết
+                Chính Sách Đổi Bác Sĩ &amp; Quy Chế Vòng Đời Hợp Đồng (GB-12 &amp; BF-06)
               </h4>
               <ul className="text-xs text-[#475569] space-y-2 leading-relaxed">
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-600 font-bold">•</span>
-                  <span>Gia đình có quyền yêu cầu đổi Bác sĩ quản nhiệm nếu cảm thấy phong cách chăm sóc chưa tương thích (hoàn toàn miễn phí).</span>
+                  <span>Gia đình có quyền yêu cầu điều chuyển Bác sĩ quản nhiệm khác qua trung tâm điều phối CSYT nếu chuyên khoa chưa tương thích.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-600 font-bold">•</span>
-                  <span>Chính sách hoàn tiền 100% trong vòng 30 ngày đầu tiên nếu không hài lòng về chất lượng phục vụ của bác sĩ hoặc nền tảng.</span>
+                  <span>Quy định GB-12: Hệ thống ghi nhận lý do chấm dứt và đóng quyền truy cập dịch vụ, phiên bản này không thực hiện hoàn tiền hay bồi thường tài chính trực tiếp trên ứng dụng.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="text-emerald-600 font-bold">•</span>
-                  <span>Số lượt khám chưa sử dụng hết trong kỳ hạn sẽ được bảo lưu cộng dồn khi gia hạn hợp đồng năm tiếp theo.</span>
+                  <span>Quy định BF-06 &amp; BR-06: Mỗi hộ duy trì duy nhất 1 hợp đồng Active. Số lượt khám chưa sử dụng không cộng dồn sang gói mới; việc nâng cấp/gia hạn tạo hợp đồng kế tiếp độc lập sau khi hợp đồng hiện tại đáo hạn.</span>
                 </li>
               </ul>
             </div>
           </div>
         )}
       </main>
+
+      {/* Sequential 4-Party Digital Contract Signing Wizard (SCR-15 / Wireframe III.5.1) */}
+      {isSigningWizardOpen && (
+        <ContractSigningWizard
+          packageName="Gói Gia Đình Toàn Diện VIP (12 Tháng)"
+          packagePrice="9.600.000 đ"
+          doctorName="BS. CKII Lê Hoàng Nam"
+          onClose={() => setIsSigningWizardOpen(false)}
+        />
+      )}
     </div>
   );
 }

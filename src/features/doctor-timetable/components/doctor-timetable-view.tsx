@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { DoctorNav } from '@/components/layout';
 
 interface TimeSlot {
   time: string;
@@ -55,8 +54,6 @@ export function DoctorTimetableView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      {/* Sub-navigation */}
-      <DoctorNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header & Controls */}

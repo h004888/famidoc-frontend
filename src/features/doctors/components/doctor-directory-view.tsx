@@ -402,11 +402,10 @@ export function DoctorDirectoryView() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('doctors')}
-                  className={`px-5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-                    activeTab === 'doctors'
-                      ? 'bg-[#0046c0] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'doctors'
+                    ? 'bg-[#0046c0] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   <span className="material-symbols-outlined text-lg">stethoscope</span>
                   <span>Đội ngũ Bác sĩ ({filteredDoctors.length})</span>
@@ -414,30 +413,38 @@ export function DoctorDirectoryView() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('facilities')}
-                  className={`px-5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2 ${
-                    activeTab === 'facilities'
-                      ? 'bg-[#0046c0] text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'facilities'
+                    ? 'bg-[#0046c0] text-white shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   <span className="material-symbols-outlined text-lg">local_hospital</span>
                   <span>Cơ sở &amp; Bệnh viện ({filteredFacilities.length})</span>
                 </button>
               </div>
 
-              {/* City Quick Filter */}
-              <div className="hidden sm:flex items-center gap-2 text-xs">
-                <span className="text-slate-500 font-medium">Khu vực:</span>
-                <select
-                  value={selectedCity}
-                  onChange={(e) => setSelectedCity(e.target.value)}
-                  className="py-1.5 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 bg-slate-50 focus:outline-none focus:border-[#0046c0]"
+              {/* City Quick Filter & Smart Matching Wizard Button (SCR-06) */}
+              <div className="flex items-center gap-2 text-xs">
+                <Link
+                  href="/doctors/matching"
+                  className="px-3.5 py-1.5 rounded-lg bg-linear-to-r from-[#2563eb] to-[#0046c0] hover:from-[#1d4ed8] hover:to-[#003899] text-white font-bold flex items-center gap-1.5 shadow-xs transition-all"
                 >
-                  <option value="all">Tất cả tỉnh thành</option>
-                  <option value="Hà Nội">Hà Nội</option>
-                  <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
-                  <option value="Đà Nẵng">Đà Nẵng</option>
-                </select>
+                  <span className="material-symbols-outlined text-[16px]">smart_toy</span>
+                  <span>Smart Matching Wizard (SCR-06)</span>
+                </Link>
+                <div className="hidden sm:flex items-center gap-2">
+                  <span className="text-slate-500 font-medium">Khu vực:</span>
+                  <select
+                    value={selectedCity}
+                    onChange={(e) => setSelectedCity(e.target.value)}
+                    className="py-1.5 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 bg-slate-50 focus:outline-none focus:border-[#0046c0]"
+                  >
+                    <option value="all">Tất cả tỉnh thành</option>
+                    <option value="Hà Nội">Hà Nội</option>
+                    <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
+                    <option value="Đà Nẵng">Đà Nẵng</option>
+                  </select>
+                </div>
               </div>
             </div>
 
@@ -749,42 +756,6 @@ export function DoctorDirectoryView() {
                 )}
               </div>
             )}
-          </div>
-        </section>
-
-        {/* 5. MEDSEV NEWSLETTER AREA (Matching .newsletter-area in doctor.html) */}
-        <section className="bg-slate-50 border-t border-slate-200 py-16">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-2xl p-8 sm:p-12 shadow-[0_4px_25px_0_rgba(0,0,0,0.06)] border border-slate-100 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-7 space-y-2">
-                <span className="text-xs font-bold text-[#0046c0] uppercase tracking-wider">
-                  Bản Tin Y Khoa Định Kỳ
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                  Đăng Ký Nhận Bản Tin Y Học Gia Đình
-                </h2>
-                <p className="text-sm text-slate-500 leading-relaxed">
-                  Cập nhật phác đồ phòng bệnh mùa dịch, kiến thức dinh dưỡng đa thế hệ và hướng dẫn chăm sóc sức khỏe thường thức từ các bác sĩ đầu ngành.
-                </p>
-              </div>
-
-              <div className="lg:col-span-5">
-                <form onSubmit={(e) => e.preventDefault()} className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="email"
-                    required
-                    placeholder="Nhập email của bạn..."
-                    className="flex-1 px-4 py-3 rounded-lg border border-slate-300 focus:outline-none focus:border-[#0046c0] text-sm text-slate-900 placeholder:text-slate-400"
-                  />
-                  <button
-                    type="submit"
-                    className="px-6 py-3 bg-[#0046c0] hover:bg-[#003899] text-white font-semibold text-sm rounded-lg transition-colors shadow-xs shrink-0 cursor-pointer"
-                  >
-                    Đăng ký ngay
-                  </button>
-                </form>
-              </div>
-            </div>
           </div>
         </section>
       </main>

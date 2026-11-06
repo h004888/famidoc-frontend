@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
+import { ContractSigningWizard } from '@/features/subscription-contract';
 
 export interface PackageDetailViewProps {
   packageId?: string;
@@ -338,6 +339,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
   const [leadSuccess, setLeadSuccess] = useState(false);
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
+  const [showSigningWizard, setShowSigningWizard] = useState(false);
 
   const pkg = PACKAGE_DETAILS[packageId] || PACKAGE_DETAILS['pkg-toan-dien'];
 
@@ -449,13 +451,14 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <a
-                    href="#dang-ky-tu-van"
-                    className="flex-1 sm:flex-none py-3.5 px-6 rounded-lg bg-[#0046c0] hover:bg-[#111111] text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+                  <button
+                    type="button"
+                    onClick={() => setShowSigningWizard(true)}
+                    className="flex-1 sm:flex-none py-3.5 px-6 rounded-lg bg-[#0046c0] hover:bg-[#111111] text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-base">assignment</span>
-                    <span>Đăng Ký Gói</span>
-                  </a>
+                    <span>Ký Hợp Đồng Gói Khám (SCR-15)</span>
+                  </button>
 
                   <a
                     href="tel:19008821"
@@ -687,9 +690,8 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                       <button
                         type="button"
                         onClick={() => toggleFaq(idx)}
-                        className={`w-full py-3.5 px-5 text-left text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 cursor-pointer transition-colors ${
-                          isOpen ? 'bg-[#0046c0] text-white' : 'text-slate-800 hover:bg-slate-50'
-                        }`}
+                        className={`w-full py-3.5 px-5 text-left text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 cursor-pointer transition-colors ${isOpen ? 'bg-[#0046c0] text-white' : 'text-slate-800 hover:bg-slate-50'
+                          }`}
                       >
                         <span>{faq.question}</span>
                         <span className="material-symbols-outlined text-lg shrink-0">
@@ -767,52 +769,20 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
             </div>
           </div>
         </section>
-
-        {/* 5. MEDSEV NEWSLETTER AREA (.newsletter-area) */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mb-16 relative z-30 pb-16">
-          <div className="bg-white rounded-2xl shadow-[0_0_25px_0_rgba(221,221,221,0.67)] p-8 sm:p-12 border border-slate-100">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-7 space-y-2">
-                <h2 className="text-2xl sm:text-3xl font-semibold text-[#232323]">
-                  Đăng Ký Nhận Bản Tin Y Học Gia Đình
-                </h2>
-                <p className="text-sm text-[#676767] leading-relaxed max-w-xl">
-                  Nhận các cẩm nang chăm sóc sức khỏe dự phòng, cảnh báo dịch tễ theo mùa và các chính sách ưu đãi thành viên mới từ FamiDoc.
-                </p>
-              </div>
-
-              <div className="lg:col-span-5">
-                {newsletterSubmitted ? (
-                  <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-3 rounded-lg">
-                    <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-                    <span>Cảm ơn bạn đã đăng ký nhận bản tin sức khỏe FamiDoc!</span>
-                  </div>
-                ) : (
-                  <form onSubmit={handleNewsletterSubmit} className="relative">
-                    <input
-                      type="email"
-                      value={newsletterEmail}
-                      onChange={(e) => setNewsletterEmail(e.target.value)}
-                      placeholder="Nhập địa chỉ email của bạn..."
-                      required
-                      className="w-full h-[65px] pl-5 pr-36 rounded-lg border border-[#0046c0] text-sm text-[#232323] placeholder:text-[#676767] focus:outline-hidden focus:border-[#111111] transition-all"
-                    />
-                    <button
-                      type="submit"
-                      className="absolute top-2 right-2 h-[49px] px-6 bg-[#0046c0] hover:bg-[#111111] text-white text-sm font-medium rounded-md transition-colors cursor-pointer flex items-center justify-center"
-                    >
-                      Đăng Ký
-                    </button>
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
-        </section>
       </main>
 
       {/* 6. SHARED UNIFIED FOOTER */}
       <LandingFooter />
+
+      {/* 7. SEQUENTIAL 4-PARTY CONTRACT SIGNING WIZARD MODAL (SCR-15 / Wireframe III.5.1) */}
+      {showSigningWizard && (
+        <ContractSigningWizard
+          packageName={pkg.name}
+          packagePrice={pkg.price}
+          doctorName={pkg.doctor.name}
+          onClose={() => setShowSigningWizard(false)}
+        />
+      )}
     </div>
   );
 }

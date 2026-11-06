@@ -1,7 +1,6 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
-import { FacilityNav } from '@/components/layout';
 
 interface DoctorStaff {
   id: string;
@@ -142,7 +141,6 @@ export function FacilityStaffView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <FacilityNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Top Header */}
@@ -261,13 +259,12 @@ export function FacilityStaffView() {
                           </div>
                           <div className="w-24 mx-auto bg-slate-100 rounded-full h-1.5 mt-1">
                             <div
-                              className={`h-1.5 rounded-full ${
-                                capPercent > 90
+                              className={`h-1.5 rounded-full ${capPercent > 90
                                   ? 'bg-rose-500'
                                   : capPercent > 70
-                                  ? 'bg-amber-500'
-                                  : 'bg-emerald-500'
-                              }`}
+                                    ? 'bg-amber-500'
+                                    : 'bg-emerald-500'
+                                }`}
                               style={{ width: `${capPercent}%` }}
                             ></div>
                           </div>

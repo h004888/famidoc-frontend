@@ -108,9 +108,8 @@ export function DashboardSidebar() {
     <div className="flex flex-col h-full bg-white text-slate-700 font-sans border-r border-slate-200/90">
       {/* Brand Header: Không có nút mũi tên, căn giữa logo khi thu nhỏ */}
       <div
-        className={`flex items-center h-16 border-b border-slate-100 shrink-0 bg-white transition-all ${
-          isCollapsedState ? 'justify-center px-2' : 'justify-start px-4'
-        }`}
+        className={`flex items-center h-16 border-b border-slate-100 shrink-0 bg-white transition-all ${isCollapsedState ? 'justify-center px-2' : 'justify-start px-4'
+          }`}
       >
         <Link href="/" className="flex items-center group overflow-hidden" title="Trang chủ FamiDoc">
           {isCollapsedState ? (
@@ -172,11 +171,10 @@ export function DashboardSidebar() {
                     setSelectedClinic(clinic);
                     setClinicDropdownOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors ${
-                    selectedClinic.id === clinic.id
-                      ? 'bg-[#2E37A4] text-white font-semibold'
-                      : 'hover:bg-slate-50 text-slate-700'
-                  }`}
+                  className={`w-full flex items-center justify-between p-2 rounded-lg text-left text-xs transition-colors ${selectedClinic.id === clinic.id
+                    ? 'bg-[#2E37A4] text-white font-semibold'
+                    : 'hover:bg-slate-50 text-slate-700'
+                    }`}
                 >
                   <div className="truncate">
                     <div className="font-semibold truncate">{clinic.name}</div>
@@ -196,34 +194,9 @@ export function DashboardSidebar() {
         </div>
       )}
 
-      {/* Role Badge Indicator */}
-      {!isCollapsedState ? (
-        <div className="px-3 pt-3 pb-1">
-          <div className="px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between text-xs">
-            <span className="text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[16px] text-[#2E37A4]">verified_user</span>
-              {currentMenu.title}
-            </span>
-            <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase ${currentMenu.badgeColor}`}>
-              {currentMenu.badge}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <div className="py-2.5 flex justify-center border-b border-slate-100 text-[#2E37A4]">
-          <span className="material-symbols-outlined text-[18px]" title={currentMenu.title}>verified_user</span>
-        </div>
-      )}
-
       {/* Nav Items List */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4 scrollbar-thin scrollbar-thumb-slate-200">
         <div className="space-y-1">
-          {!isCollapsedState && (
-            <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Menu Nghiệp Vụ Chính
-            </div>
-          )}
-
           <div className="space-y-1">
             {currentMenu.items.map((item) => {
               const isActive = item.exact
@@ -235,19 +208,17 @@ export function DashboardSidebar() {
                   href={item.href}
                   onClick={() => setMobileMenuOpen(false)}
                   title={isCollapsedState ? item.label : undefined}
-                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all group ${
-                    isActive
-                      ? 'bg-[#2E37A4] text-white font-bold shadow-sm shadow-[#2E37A4]/25 ring-1 ring-[#2E37A4]'
-                      : 'text-slate-600 hover:text-[#2E37A4] hover:bg-slate-50 hover:pl-3.5'
-                  } ${isCollapsedState ? 'justify-center px-2 hover:pl-2' : ''}`}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all group ${isActive
+                    ? 'bg-[#2E37A4] text-white font-bold shadow-sm shadow-[#2E37A4]/25 ring-1 ring-[#2E37A4]'
+                    : 'text-slate-600 hover:text-[#2E37A4] hover:bg-slate-50 hover:pl-3.5'
+                    } ${isCollapsedState ? 'justify-center px-2 hover:pl-2' : ''}`}
                 >
                   <div className="flex items-center gap-3 truncate">
                     <span
-                      className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
-                        isActive
-                          ? 'text-white'
-                          : 'text-slate-400 group-hover:text-[#2E37A4]'
-                      }`}
+                      className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${isActive
+                        ? 'text-white'
+                        : 'text-slate-400 group-hover:text-[#2E37A4]'
+                        }`}
                     >
                       {item.icon}
                     </span>
@@ -255,11 +226,10 @@ export function DashboardSidebar() {
                   </div>
                   {!isCollapsedState && item.badge && (
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 transition-colors ${
-                        isActive
-                          ? 'bg-white/20 text-white'
-                          : item.badgeColor || 'bg-slate-100 text-slate-600 group-hover:bg-[#2E37A4]/10 group-hover:text-[#2E37A4]'
-                      }`}
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 transition-colors ${isActive
+                        ? 'bg-white/20 text-white'
+                        : item.badgeColor || 'bg-slate-100 text-slate-600 group-hover:bg-[#2E37A4]/10 group-hover:text-[#2E37A4]'
+                        }`}
                     >
                       {item.badge}
                     </span>
@@ -272,25 +242,18 @@ export function DashboardSidebar() {
 
         {/* Global Settings & Utilities */}
         <div className="pt-2 border-t border-slate-100 space-y-1">
-          {!isCollapsedState && (
-            <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Hệ Thống &amp; Tiện Ích
-            </div>
-          )}
           <Link
             href="/packages"
             onClick={() => setMobileMenuOpen(false)}
             title={isCollapsedState ? 'Danh mục Gói Dịch vụ' : undefined}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all group ${
-              pathname === '/packages'
-                ? 'bg-[#2E37A4] text-white font-bold shadow-sm shadow-[#2E37A4]/25 ring-1 ring-[#2E37A4]'
-                : 'text-slate-600 hover:text-[#2E37A4] hover:bg-slate-50 hover:pl-3.5'
-            } ${isCollapsedState ? 'justify-center px-2 hover:pl-2' : ''}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all group ${pathname === '/packages'
+              ? 'bg-[#2E37A4] text-white font-bold shadow-sm shadow-[#2E37A4]/25 ring-1 ring-[#2E37A4]'
+              : 'text-slate-600 hover:text-[#2E37A4] hover:bg-slate-50 hover:pl-3.5'
+              } ${isCollapsedState ? 'justify-center px-2 hover:pl-2' : ''}`}
           >
             <span
-              className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
-                pathname === '/packages' ? 'text-white' : 'text-slate-400 group-hover:text-[#2E37A4]'
-              }`}
+              className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${pathname === '/packages' ? 'text-white' : 'text-slate-400 group-hover:text-[#2E37A4]'
+                }`}
             >
               inventory_2
             </span>
@@ -301,16 +264,14 @@ export function DashboardSidebar() {
             href="/settings"
             onClick={() => setMobileMenuOpen(false)}
             title={isCollapsedState ? 'Cài đặt & Hồ sơ BHYT' : undefined}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all group ${
-              pathname === '/settings'
-                ? 'bg-[#2E37A4] text-white font-bold shadow-sm shadow-[#2E37A4]/25 ring-1 ring-[#2E37A4]'
-                : 'text-slate-600 hover:text-[#2E37A4] hover:bg-slate-50 hover:pl-3.5'
-            } ${isCollapsedState ? 'justify-center px-2 hover:pl-2' : ''}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all group ${pathname === '/settings'
+              ? 'bg-[#2E37A4] text-white font-bold shadow-sm shadow-[#2E37A4]/25 ring-1 ring-[#2E37A4]'
+              : 'text-slate-600 hover:text-[#2E37A4] hover:bg-slate-50 hover:pl-3.5'
+              } ${isCollapsedState ? 'justify-center px-2 hover:pl-2' : ''}`}
           >
             <span
-              className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
-                pathname === '/settings' ? 'text-white' : 'text-slate-400 group-hover:text-[#2E37A4]'
-              }`}
+              className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${pathname === '/settings' ? 'text-white' : 'text-slate-400 group-hover:text-[#2E37A4]'
+                }`}
             >
               settings
             </span>
@@ -325,9 +286,8 @@ export function DashboardSidebar() {
           <Link
             href="/settings"
             title={user?.name}
-            className={`flex items-center gap-2.5 p-1 rounded-xl hover:bg-white border border-transparent hover:border-slate-200/80 transition-all flex-1 min-w-0 ${
-              isCollapsedState ? 'justify-center' : ''
-            }`}
+            className={`flex items-center gap-2.5 p-1 rounded-xl hover:bg-white border border-transparent hover:border-slate-200/80 transition-all flex-1 min-w-0 ${isCollapsedState ? 'justify-center' : ''
+              }`}
           >
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center font-bold text-xs ring-2 ring-[#2E37A4]/20 shrink-0">
               {user?.avatarText || 'FD'}
@@ -395,9 +355,8 @@ export function DashboardSidebar() {
         }}
       >
         <div
-          className={`h-full absolute top-0 left-0 bg-white transition-all duration-300 ease-in-out border-r border-slate-200/90 overflow-hidden ${
-            isHovered ? 'w-64 shadow-2xl z-40' : 'w-20 shadow-xs'
-          }`}
+          className={`h-full absolute top-0 left-0 bg-white transition-all duration-300 ease-in-out border-r border-slate-200/90 overflow-hidden ${isHovered ? 'w-64 shadow-2xl z-40' : 'w-20 shadow-xs'
+            }`}
         >
           {renderSidebar(!isHovered)}
         </div>

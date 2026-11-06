@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { FamilyNav } from '@/components/layout';
 
 interface Appointment {
   id: string;
@@ -69,6 +68,11 @@ export function FamilyAppointmentsView() {
   const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
   const [showBookingModal, setShowBookingModal] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('2026-11-02');
+  const [rescheduleTime, setRescheduleTime] = useState('14:00 - 15:30');
+  const [isUnder4Hours, setIsUnder4Hours] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState('');
 
   // New Booking Form State
   const [newBooking, setNewBooking] = useState({
@@ -123,10 +127,37 @@ export function FamilyAppointmentsView() {
     }
   };
 
+  const handleOpenReschedule = (apt: Appointment) => {
+    setRescheduleTarget(apt);
+    setRescheduleError('');
+    setIsUnder4Hours(false);
+  };
+
+  const handleConfirmReschedule = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rescheduleTarget) return;
+
+    // Kiểm tra quy tắc 4 tiếng (CFG-07 / BF-03)
+    if (isUnder4Hours) {
+      setRescheduleError(
+        'Yêu cầu đổi lịch bị từ chối do không đảm bảo thời gian báo trước tối thiểu 4 giờ (CFG-07). Vui lòng liên hệ Hotline hỗ trợ 1900 6868 để được điều phối khẩn cấp.'
+      );
+      return;
+    }
+
+    setAppointments((prev) =>
+      prev.map((a) =>
+        a.id === rescheduleTarget.id
+          ? { ...a, date: rescheduleDate, time: rescheduleTime }
+          : a
+      )
+    );
+    alert(`Đổi lịch hẹn thành công! Lịch mới: ${rescheduleTime} ngày ${rescheduleDate}. Đã gửi thông báo xác nhận tới Bác sĩ & CSYT.`);
+    setRescheduleTarget(null);
+  };
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      {/* Sub-navigation */}
-      <FamilyNav />
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header & Quota Overview */}
@@ -350,8 +381,8 @@ export function FamilyAppointmentsView() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => alert('Vui lòng liên hệ Hotline 1900 6868 hoặc bác sĩ để chọn khung giờ mới')}
-                              className="flex-1 py-1.5 text-xs text-[#475569] hover:bg-slate-200 rounded-lg font-semibold transition-colors border border-slate-200"
+                              onClick={() => handleOpenReschedule(apt)}
+                              className="flex-1 py-1.5 text-xs text-[#475569] hover:bg-slate-200 rounded-lg font-semibold transition-colors border border-slate-200 cursor-pointer"
                             >
                               Đổi giờ
                             </button>
@@ -532,6 +563,107 @@ export function FamilyAppointmentsView() {
                 >
                   <span className="material-symbols-outlined text-[16px]">check</span>
                   <span>Xác nhận lịch khám</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* Reschedule Modal (CFG-07 / BF-03) */}
+      {rescheduleTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#2563eb] text-[22px]">update</span>
+                <h3 className="font-bold text-base text-[#0f172a]">Yêu Cầu Đổi Giờ Thăm Khám (SCR-27)</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRescheduleTarget(null)}
+                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl space-y-1 text-xs">
+              <div>Lịch hiện tại: <strong className="text-slate-900">{rescheduleTarget.time}</strong> • {rescheduleTarget.date}</div>
+              <div>Bác sĩ: <strong>{rescheduleTarget.doctorName}</strong></div>
+              <div>Bệnh nhân: <strong>{rescheduleTarget.patientName}</strong></div>
+            </div>
+
+            {/* Error banner if rejected by 4-hour rule */}
+            {rescheduleError && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
+                <span className="material-symbols-outlined text-rose-600 text-[18px] shrink-0">cancel</span>
+                <span>{rescheduleError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleConfirmReschedule} className="space-y-4 text-xs">
+              {/* Simulation switch for testing 4-hour rule */}
+              <div className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/70 space-y-1.5">
+                <span className="text-[11px] font-bold text-slate-700 block">
+                  Kiểm tra Quy định Thời gian Báo trước (CFG-07):
+                </span>
+                <label className="flex items-center gap-2 cursor-pointer text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={isUnder4Hours}
+                    onChange={(e) => {
+                      setIsUnder4Hours(e.target.checked);
+                      setRescheduleError('');
+                    }}
+                    className="rounded text-[#2563eb]"
+                  />
+                  <span>Mô phỏng trường hợp đổi lịch sát giờ (&lt; 4 tiếng trước giờ khám)</span>
+                </label>
+                <p className="text-[10px] text-slate-400">
+                  (Theo quy tắc BF-03: Nếu &lt; 4 giờ hệ thống tự động từ chối để tránh xáo trộn lịch di chuyển của Bác sĩ)
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#475569] mb-1">Ngày khám thay đổi</label>
+                <input
+                  type="date"
+                  required
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#2563eb] bg-white"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-[#475569] mb-1">Khung giờ mới</label>
+                <select
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                  className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#2563eb] bg-white"
+                >
+                  <option value="09:00 - 10:30">09:00 - 10:30 (Buổi Sáng)</option>
+                  <option value="10:30 - 12:00">10:30 - 12:00 (Buổi Sáng)</option>
+                  <option value="14:00 - 15:30">14:00 - 15:30 (Buổi Chiều)</option>
+                  <option value="16:00 - 17:30">16:00 - 17:30 (Buổi Chiều)</option>
+                  <option value="19:30 - 20:30">19:30 - 20:30 (Telehealth Tối)</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setRescheduleTarget(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 text-[#475569] font-semibold hover:bg-slate-50 transition-colors"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">check</span>
+                  <span>Gửi yêu cầu đổi lịch</span>
                 </button>
               </div>
             </form>

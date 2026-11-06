@@ -323,18 +323,16 @@ export function PackagesCatalogView() {
                 <button
                   type="button"
                   onClick={() => setIsAnnual(false)}
-                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${
-                    !isAnnual ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${!isAnnual ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   Gói Tiêu Chuẩn Theo Kỳ
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsAnnual(true)}
-                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-                    isAnnual ? 'bg-[#0046c0] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${isAnnual ? 'bg-[#0046c0] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                    }`}
                 >
                   <span>Thanh Toán Năm</span>
                   <span className="text-[10px] font-bold bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded-full uppercase">
@@ -358,11 +356,10 @@ export function PackagesCatalogView() {
                   key={tab.id}
                   type="button"
                   onClick={() => setSelectedCategory(tab.id as typeof selectedCategory)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
-                    selectedCategory === tab.id
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${selectedCategory === tab.id
                       ? 'bg-[#0046c0] text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -415,11 +412,10 @@ export function PackagesCatalogView() {
                 return (
                   <div
                     key={pkg.id}
-                    className={`group relative rounded-2xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-500 ease-out bg-white border overflow-hidden ${
-                      pkg.popular
+                    className={`group relative rounded-2xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-500 ease-out bg-white border overflow-hidden ${pkg.popular
                         ? 'border-[#0046c0] shadow-[0_0_25px_0_rgba(0,70,192,0.18)] ring-2 ring-[#0046c0]/20'
                         : 'border-slate-100 shadow-[0_0_25px_0_rgba(221,221,221,0.75)] hover:shadow-xl hover:border-blue-200'
-                    }`}
+                      }`}
                   >
                     {/* Medsev Blue Background Hover Overlay */}
                     <div className="absolute inset-0 bg-[#0046c0] opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-0 pointer-events-none" />
@@ -656,48 +652,6 @@ export function PackagesCatalogView() {
                 </div>
               </div>
             ))}
-          </div>
-        </section>
-
-        {/* 7. MEDSEV NEWSLETTER AREA (.newsletter-area) */}
-        <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mb-16 relative z-30 pb-16">
-          <div className="bg-white rounded-2xl shadow-[0_0_25px_0_rgba(221,221,221,0.67)] p-8 sm:p-12 border border-slate-100">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-              <div className="lg:col-span-7 space-y-2">
-                <h2 className="text-2xl sm:text-3xl font-semibold text-[#232323]">
-                  Đăng Ký Nhận Bản Tin Y Học Gia Đình
-                </h2>
-                <p className="text-sm text-[#676767] leading-relaxed max-w-xl">
-                  Nhận các cẩm nang chăm sóc sức khỏe dự phòng, cảnh báo dịch tễ theo mùa và các chính sách ưu đãi thành viên mới từ FamiDoc.
-                </p>
-              </div>
-
-              <div className="lg:col-span-5">
-                {newsletterSubmitted ? (
-                  <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 border border-emerald-200 px-4 py-3 rounded-lg">
-                    <span className="material-symbols-outlined text-emerald-600">check_circle</span>
-                    <span>Cảm ơn bạn đã đăng ký nhận bản tin sức khỏe FamiDoc!</span>
-                  </div>
-                ) : (
-                  <form onSubmit={handleNewsletterSubmit} className="relative">
-                    <input
-                      type="email"
-                      value={newsletterEmail}
-                      onChange={(e) => setNewsletterEmail(e.target.value)}
-                      placeholder="Nhập địa chỉ email của bạn..."
-                      required
-                      className="w-full h-[65px] pl-5 pr-36 rounded-lg border border-[#0046c0] text-sm text-[#232323] placeholder:text-[#676767] focus:outline-hidden focus:border-[#111111] transition-all"
-                    />
-                    <button
-                      type="submit"
-                      className="absolute top-2 right-2 h-[49px] px-6 bg-[#0046c0] hover:bg-[#111111] text-white text-sm font-medium rounded-md transition-colors cursor-pointer flex items-center justify-center"
-                    >
-                      Đăng Ký
-                    </button>
-                  </form>
-                )}
-              </div>
-            </div>
           </div>
         </section>
       </main>

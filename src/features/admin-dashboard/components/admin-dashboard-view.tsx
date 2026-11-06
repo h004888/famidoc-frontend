@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { AdminNav } from '@/components/layout';
 
 export function AdminDashboardView() {
   const [statPeriod, setStatPeriod] = useState<'monthly' | 'weekly' | 'yearly'>('monthly');
@@ -119,8 +118,6 @@ export function AdminDashboardView() {
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      {/* Sub-navigation tabs phong cách Preclinic */}
-      <AdminNav />
 
       <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Page Header phong cách Preclinic */}

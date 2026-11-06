@@ -109,7 +109,7 @@ export function LandingDoctors() {
             href="/doctors"
             className="text-xs sm:text-sm font-semibold text-[#0046c0] hover:text-[#003899] flex items-center gap-1.5 py-1 group"
           >
-            <span>Xem toàn bộ 1.200+ bác sĩ</span>
+            <span>Xem toàn bộ bác sĩ</span>
             <span className="material-symbols-outlined text-base transition-transform group-hover:translate-x-1">
               arrow_forward
             </span>
@@ -256,11 +256,10 @@ export function LandingDoctors() {
                         key={slot}
                         type="button"
                         onClick={() => setSelectedSlot(slot)}
-                        className={`p-2 rounded text-xs text-left transition-all cursor-pointer ${
-                          selectedSlot === slot
+                        className={`p-2 rounded text-xs text-left transition-all cursor-pointer ${selectedSlot === slot
                             ? 'bg-[#0046c0] text-white font-medium shadow-xs'
                             : 'bg-slate-50 text-slate-700 border border-slate-200 hover:border-blue-300'
-                        }`}
+                          }`}
                       >
                         {slot}
                       </button>
