@@ -337,8 +337,6 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
   const [leadName, setLeadName] = useState('');
   const [leadPhone, setLeadPhone] = useState('');
   const [leadSuccess, setLeadSuccess] = useState(false);
-  const [newsletterEmail, setNewsletterEmail] = useState('');
-  const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
   const [showSigningWizard, setShowSigningWizard] = useState(false);
 
   const pkg = PACKAGE_DETAILS[packageId] || PACKAGE_DETAILS['pkg-toan-dien'];
@@ -356,14 +354,6 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
       setLeadName('');
       setLeadPhone('');
     }, 4000);
-  };
-
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newsletterEmail.trim()) {
-      setNewsletterSubmitted(true);
-      setNewsletterEmail('');
-    }
   };
 
   return (

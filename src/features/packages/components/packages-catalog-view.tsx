@@ -226,8 +226,6 @@ export function PackagesCatalogView() {
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'family' | 'elderly' | 'maternity' | 'clinical'>('all');
   const [isAnnual, setIsAnnual] = useState(false);
-  const [newsletterEmail, setNewsletterEmail] = useState('');
-  const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
 
   // Filter packages based on keyword and category
   const filteredPackages = useMemo(() => {
@@ -247,14 +245,6 @@ export function PackagesCatalogView() {
   const handleResetFilter = () => {
     setSearchKeyword('');
     setSelectedCategory('all');
-  };
-
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newsletterEmail.trim()) {
-      setNewsletterSubmitted(true);
-      setNewsletterEmail('');
-    }
   };
 
   return (

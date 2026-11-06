@@ -91,7 +91,7 @@ export function ContractSigningWizard({
               Ký Kết Hợp Đồng Chăm Sóc Bác Sĩ Gia Đình (SCR-15)
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Mã hồ sơ: <span className="font-mono text-blue-200">#FAM-2026-REGR821</span> • Ký số điện tử bảo chứng 4 bên
+              Gói dịch vụ: <span className="font-semibold text-blue-200">{packageName}</span> • Mã hồ sơ: <span className="font-mono text-blue-200">#FAM-2026-REGR821</span> • Ký số điện tử bảo chứng 4 bên
             </p>
           </div>
 
@@ -416,7 +416,7 @@ export function ContractSigningWizard({
               {/* Pricing & Submit */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
                 <div>
-                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Tổng thanh toán gói 12 tháng:</span>
+                  <span className="text-[10px] text-slate-400 block uppercase font-bold">Tổng thanh toán ({packageName}):</span>
                   <div className="text-xl sm:text-2xl font-bold font-mono text-[#2563eb]">{packagePrice}</div>
                 </div>
 

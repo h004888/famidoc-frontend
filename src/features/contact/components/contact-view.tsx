@@ -28,8 +28,6 @@ export function ContactView() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [inquiryCode, setInquiryCode] = useState('');
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof InquiryFormData, string>>>({});
-  const [newsletterEmail, setNewsletterEmail] = useState('');
-  const [newsletterSubmitted, setNewsletterSubmitted] = useState(false);
 
   const validate = (): boolean => {
     const errors: Partial<Record<keyof InquiryFormData, string>> = {};
@@ -69,14 +67,6 @@ export function ContactView() {
       const randomCode = 'FMD-' + Math.floor(100000 + Math.random() * 900000);
       setInquiryCode(randomCode);
     }, 600);
-  };
-
-  const handleNewsletterSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newsletterEmail.trim() && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newsletterEmail)) {
-      setNewsletterSubmitted(true);
-      setNewsletterEmail('');
-    }
   };
 
   return (

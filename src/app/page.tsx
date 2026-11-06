@@ -4,7 +4,7 @@ import {
   LandingStats,
   LandingAbout,
   // LandingServices,
-  LandingProcess,
+  // LandingProcess,
   LandingDoctors,
   LandingPackages,
   LandingCtaBanner,

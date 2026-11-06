@@ -43,11 +43,13 @@ export function FamilyBillingView() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 phút (CFG-05)
 
+  const handleOpenQrModal = () => {
+    setTimeLeft(15 * 60);
+    setShowQrModal(true);
+  };
+
   useEffect(() => {
-    if (!showQrModal) {
-      setTimeLeft(15 * 60);
-      return;
-    }
+    if (!showQrModal) return;
     const timer = setInterval(() => {
       setTimeLeft((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
@@ -97,7 +99,7 @@ export function FamilyBillingView() {
 
           <button
             type="button"
-            onClick={() => setShowQrModal(true)}
+            onClick={handleOpenQrModal}
             className="px-5 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs flex items-center gap-2 transition-all cursor-pointer self-start md:self-auto"
           >
             <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
