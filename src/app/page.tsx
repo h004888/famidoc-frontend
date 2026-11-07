@@ -3,8 +3,7 @@ import {
   LandingHero,
   LandingStats,
   LandingAbout,
-  // LandingServices,
-  // LandingProcess,
+  LandingProcess,
   LandingDoctors,
   LandingPackages,
   LandingCtaBanner,
@@ -26,19 +25,16 @@ export default function HomePage() {
         {/* 3. Medsev About: Giới Thiệu Hệ Thống FamiDoc */}
         <LandingAbout />
 
-        {/* 4. Medsev Services: 8 Chuyên Khoa & Dịch Vụ Khám Chữa Bệnh */}
-        {/* <LandingServices /> */}
+        {/* 4. FamiDoc 4 Trụ Cột Đổi Mới Chăm Sóc Y Tế Gia Đình */}
+        <LandingProcess />
 
-        {/* 5. FamiDoc 4 Trụ Cột Đổi Mới Chăm Sóc Y Tế Gia Đình */}
-        {/* <LandingProcess /> */}
-
-        {/* 6. Medsev Doctors: Đội Ngũ Bác Sĩ Tiêu Biểu */}
+        {/* 5. Medsev Doctors: Đội Ngũ Bác Sĩ Tiêu Biểu */}
         <LandingDoctors />
 
-        {/* 7. FamiDoc Care Packages: Gói Chăm Sóc Sức Khỏe Gia Đình */}
+        {/* 6. FamiDoc Care Packages: Gói Chăm Sóc Sức Khỏe Gia Đình */}
         <LandingPackages />
 
-        {/* 8. Medsev Consultation & Hotline Cấp Cứu 24/7 */}
+        {/* 7. Medsev Consultation & Hotline Cấp Cứu 24/7 */}
         <LandingCtaBanner />
       </main>
       <LandingFooter />

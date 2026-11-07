@@ -440,7 +440,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
                   <button
                     type="button"
                     onClick={() => setShowSigningWizard(true)}
@@ -449,6 +449,14 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                     <span className="material-symbols-outlined text-base">assignment</span>
                     <span>Ký Hợp Đồng Gói Khám (SCR-15)</span>
                   </button>
+
+                  <Link
+                    href={`/contact?package=${pkg.id}`}
+                    className="py-3.5 px-4 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-base text-[#0046c0]">support_agent</span>
+                    <span>Nhận tư vấn</span>
+                  </Link>
 
                   <a
                     href="tel:19008821"

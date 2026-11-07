@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { profileSettingsSchema, changePasswordSchema } from '../schemas/settings.schema';
@@ -24,14 +24,20 @@ export function AccountSettingsView() {
   });
 
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showCfmPwd, setShowCfmPwd] = useState(false);
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const result = profileSettingsSchema.safeParse(profileData);
     if (!result.success) {
-      alert(result.error.issues[0]?.message);
+      setProfileError(result.error.issues[0]?.message || 'Dữ liệu hồ sơ chưa hợp lệ.');
       return;
     }
+    setProfileError(null);
     setSavedMessage('Thông tin hồ sơ cá nhân đã được cập nhật thành công!');
     setTimeout(() => setSavedMessage(null), 3000);
   };
@@ -40,9 +46,10 @@ export function AccountSettingsView() {
     e.preventDefault();
     const result = changePasswordSchema.safeParse(passwordData);
     if (!result.success) {
-      alert(result.error.issues[0]?.message);
+      setPasswordError(result.error.issues[0]?.message || 'Dữ liệu mật khẩu chưa hợp lệ.');
       return;
     }
+    setPasswordError(null);
     setSavedMessage('Mật khẩu bảo mật đã được thay đổi thành công!');
     setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
     setTimeout(() => setSavedMessage(null), 3000);
@@ -135,6 +142,13 @@ export function AccountSettingsView() {
               <h3 className="text-base font-bold text-on-surface border-b border-outline-variant pb-2">
                 Hồ sơ Hành chính &amp; Chỉ số Y khoa
               </h3>
+
+              {profileError && (
+                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">error</span>
+                  <span>{profileError}</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -229,37 +243,80 @@ export function AccountSettingsView() {
                 Đổi Mật khẩu &amp; Bảo mật Tài khoản
               </h3>
 
+              {passwordError && (
+                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px]">error</span>
+                  <span>{passwordError}</span>
+                </div>
+              )}
+
               <div>
                 <label htmlFor="settings-curpwd" className="block text-xs font-semibold text-on-surface mb-1">Mật khẩu hiện tại</label>
-                <input
-                  id="settings-curpwd"
-                  type="password"
-                  value={passwordData.currentPassword}
-                  onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
-                  className="w-full px-3 py-2 rounded-lg border border-outline-variant text-sm bg-surface-container-low focus:outline-none focus:border-primary"
-                />
+                <div className="relative">
+                  <input
+                    id="settings-curpwd"
+                    type={showCurrentPwd ? 'text' : 'password'}
+                    value={passwordData.currentPassword}
+                    onChange={(e) => setPasswordData({ ...passwordData, currentPassword: e.target.value })}
+                    className="w-full px-3 py-2 pr-10 rounded-lg border border-outline-variant text-sm bg-surface-container-low focus:outline-none focus:border-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPwd(!showCurrentPwd)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                    aria-label={showCurrentPwd ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">
+                      {showCurrentPwd ? 'visibility_off' : 'visibility'}
+                    </span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label htmlFor="settings-newpwd" className="block text-xs font-semibold text-on-surface mb-1">Mật khẩu mới</label>
-                  <input
-                    id="settings-newpwd"
-                    type="password"
-                    value={passwordData.newPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-outline-variant text-sm bg-surface-container-low focus:outline-none focus:border-primary"
-                  />
+                  <div className="relative">
+                    <input
+                      id="settings-newpwd"
+                      type={showNewPwd ? 'text' : 'password'}
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                      className="w-full px-3 py-2 pr-10 rounded-lg border border-outline-variant text-sm bg-surface-container-low focus:outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPwd(!showNewPwd)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      aria-label={showNewPwd ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        {showNewPwd ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
                 <div>
                   <label htmlFor="settings-cfmpwd" className="block text-xs font-semibold text-on-surface mb-1">Nhập lại mật khẩu mới</label>
-                  <input
-                    id="settings-cfmpwd"
-                    type="password"
-                    value={passwordData.confirmNewPassword}
-                    onChange={(e) => setPasswordData({ ...passwordData, confirmNewPassword: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-outline-variant text-sm bg-surface-container-low focus:outline-none focus:border-primary"
-                  />
+                  <div className="relative">
+                    <input
+                      id="settings-cfmpwd"
+                      type={showCfmPwd ? 'text' : 'password'}
+                      value={passwordData.confirmNewPassword}
+                      onChange={(e) => setPasswordData({ ...passwordData, confirmNewPassword: e.target.value })}
+                      className="w-full px-3 py-2 pr-10 rounded-lg border border-outline-variant text-sm bg-surface-container-low focus:outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCfmPwd(!showCfmPwd)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      aria-label={showCfmPwd ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">
+                        {showCfmPwd ? 'visibility_off' : 'visibility'}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
 

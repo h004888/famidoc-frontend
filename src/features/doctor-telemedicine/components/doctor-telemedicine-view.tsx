@@ -10,11 +10,53 @@ export function DoctorTelemedicineView() {
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [quickNote, setQuickNote] = useState('');
+  const [showEndConsultModal, setShowEndConsultModal] = useState(false);
+  const [screenShareToast, setScreenShareToast] = useState<string | null>(null);
+  const [saveNoteToast, setSaveNoteToast] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Realtime Toasts */}
+        {screenShareToast && (
+          <div
+            role="status"
+            className="p-3.5 rounded-2xl bg-blue-50 border border-blue-200 text-[#2563eb] text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
+          >
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px]">screen_share</span>
+              <span>{screenShareToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setScreenShareToast(null)}
+              className="text-[#2563eb] hover:opacity-80 p-0.5"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
+        {saveNoteToast && (
+          <div
+            role="status"
+            className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
+          >
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-emerald-600">check_circle</span>
+              <span>{saveNoteToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSaveNoteToast(null)}
+              className="text-emerald-700 hover:text-emerald-900 p-0.5"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Header Room Info */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -119,11 +161,15 @@ export function DoctorTelemedicineView() {
               <button
                 type="button"
                 onClick={() => {
-                  setIsScreenSharing(!isScreenSharing);
-                  alert(isScreenSharing ? 'Đã dừng chia sẻ màn hình.' : 'Đang chia sẻ màn hình hồ sơ xét nghiệm cho bệnh nhân...');
+                  const next = !isScreenSharing;
+                  setIsScreenSharing(next);
+                  setScreenShareToast(
+                    next ? 'Đang chia sẻ màn hình hồ sơ xét nghiệm cho bệnh nhân...' : 'Đã dừng chia sẻ màn hình.'
+                  );
+                  setTimeout(() => setScreenShareToast(null), 3000);
                 }}
                 className={`w-11 h-11 rounded-full flex items-center justify-center transition-all cursor-pointer ${
-                  isScreenSharing ? 'bg-[#2563eb] text-white' : 'bg-white/20 text-white hover:bg-white/30'
+                  isScreenSharing ? 'bg-[#2563eb] text-white ring-2 ring-white/50' : 'bg-white/20 text-white hover:bg-white/30'
                 }`}
                 title="Chia sẻ hồ sơ bệnh án"
               >
@@ -132,11 +178,7 @@ export function DoctorTelemedicineView() {
 
               <button
                 type="button"
-                onClick={() => {
-                  if (confirm('Bạn có muốn kết thúc ca tư vấn trực tuyến và chuyển sang ký đơn thuốc?')) {
-                    router.push('/doctor/encounters');
-                  }
-                }}
+                onClick={() => setShowEndConsultModal(true)}
                 className="px-5 h-11 rounded-full bg-red-600 hover:bg-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">call_end</span>
@@ -200,10 +242,13 @@ export function DoctorTelemedicineView() {
               <button
                 type="button"
                 onClick={() => {
-                  alert('Đã lưu ghi chú vào hồ sơ bệnh án EMR!');
-                  setQuickNote('');
+                  if (quickNote.trim()) {
+                    setSaveNoteToast('Đã lưu ghi chú lâm sàng vào hồ sơ bệnh án EMR!');
+                    setQuickNote('');
+                    setTimeout(() => setSaveNoteToast(null), 3500);
+                  }
                 }}
-                className="w-full py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold transition-colors"
+                className="w-full py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
                 Lưu vào Bệnh án EMR
               </button>
@@ -211,6 +256,51 @@ export function DoctorTelemedicineView() {
           </div>
         </div>
       </main>
+
+      {/* MODAL KẾT THÚC CA KHÁM TELEHEALTH (THAY THẾ CONFIRM THÔ) */}
+      {showEndConsultModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-blue-50 text-[#2563eb] flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">clinical_notes</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-slate-900">
+                  Kết Thúc Ca Khám Telehealth
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Bệnh nhân: <strong className="text-slate-800">Nguyễn Văn Phúc (Phòng #TELE-88219)</strong>
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Bạn có muốn kết thúc phiên gọi video và chuyển trực tiếp sang giao diện <strong>Kê đơn thuốc điện tử &amp; Ký số EMR Viettel-CA</strong> cho bệnh nhân này không?
+            </p>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowEndConsultModal(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Tiếp tục tư vấn
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowEndConsultModal(false);
+                  router.push('/doctor/encounters?patientId=PT-01&encounterId=TELE-88219');
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs shadow-xs transition-colors"
+              >
+                Chuyển sang Kê đơn EMR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

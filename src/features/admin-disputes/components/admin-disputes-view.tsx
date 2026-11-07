@@ -218,8 +218,11 @@ export function AdminDisputesView() {
                   </button>
                 ) : (
                   <button
-                    onClick={() => alert(`Xem biên bản phán quyết ${c.id}`)}
-                    className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-100"
+                    onClick={() => {
+                      setNotification(`Đang mở biên bản phán quyết điện tử có dấu kiểm toán cho vụ việc ${c.id}...`);
+                      setTimeout(() => setNotification(''), 3000);
+                    }}
+                    className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-100 cursor-pointer"
                   >
                     Xem án quyết
                   </button>

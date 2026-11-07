@@ -655,6 +655,16 @@ export function DoctorDirectoryView() {
                     <p className="text-xs sm:text-sm text-slate-500">
                       Vui lòng thử lại với tên bệnh viện hoặc khu vực thành phố khác.
                     </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSelectedCity('all');
+                      }}
+                      className="px-5 py-2.5 bg-[#0046c0] hover:bg-[#003899] text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs"
+                    >
+                      Xem toàn bộ danh sách cơ sở y tế
+                    </button>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

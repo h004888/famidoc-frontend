@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -184,6 +184,7 @@ export function FamilyMembersView() {
   const [selectedMemberId, setSelectedMemberId] = useState('mem-01');
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const currentMember = MEMBERS.find((m) => m.id === selectedMemberId) || MEMBERS[0];
   const ehrList = MOCK_EHR[selectedMemberId] || [];
@@ -513,7 +514,10 @@ export function FamilyMembersView() {
                           </span>
                           <button
                             type="button"
-                            onClick={() => alert(`Đang tải chứng thư y tế số: ${entry.attachmentName}`)}
+                            onClick={() => {
+                              setToastMessage(`Đang tải chứng thư y tế số: ${entry.attachmentName}`);
+                              setTimeout(() => setToastMessage(null), 3000);
+                            }}
                             className="font-bold text-[#2563eb] hover:underline flex items-center gap-1 cursor-pointer"
                           >
                             <span>Tải bệnh án có ký số</span>
@@ -605,8 +609,9 @@ export function FamilyMembersView() {
               <button
                 type="button"
                 onClick={() => {
-                  alert('Đã thêm hồ sơ thành viên thành công! Bác sĩ gia đình sẽ liên kết dữ liệu trong 10 phút.');
+                  setToastMessage('Đã thêm hồ sơ thành viên thành công! Bác sĩ gia đình sẽ liên kết dữ liệu trong 10 phút.');
                   setShowAddMemberModal(false);
+                  setTimeout(() => setToastMessage(null), 4000);
                 }}
                 className="flex-1 py-2 text-xs font-semibold text-white bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg shadow-xs"
               >
@@ -614,6 +619,26 @@ export function FamilyMembersView() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Accessible Feedback Toast */}
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
+          <span className="font-medium">{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-2 text-slate-400 hover:text-white"
+            aria-label="Đóng thông báo"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
         </div>
       )}
     </div>

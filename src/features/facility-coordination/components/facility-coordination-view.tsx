@@ -280,8 +280,11 @@ export function FacilityCoordinationView() {
                       </button>
                     ) : (
                       <button
-                        onClick={() => alert(`Chi tiết ca khám ${apt.id}`)}
-                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                        onClick={() => {
+                          setNotification(`Lộ trình di chuyển cho ca khám ${apt.id}: Khởi hành từ Cơ sở y tế -> ${apt.addressOrRoom}`);
+                          setTimeout(() => setNotification(''), 4000);
+                        }}
+                        className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                       >
                         Xem lộ trình
                       </button>
