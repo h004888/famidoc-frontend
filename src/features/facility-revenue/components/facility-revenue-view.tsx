@@ -52,6 +52,7 @@ export function FacilityRevenueView() {
   const [signingCycle, setSigningCycle] = useState<RevenueCycle | null>(null);
   const [digitalCertificatePin, setDigitalCertificatePin] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const formatVND = (num: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
@@ -161,8 +162,11 @@ export function FacilityRevenueView() {
           <div className="p-5 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-base font-bold text-slate-900">Lịch sử Kỳ Đối soát Doanh thu B2B</h2>
             <button
-              onClick={() => alert('Xuất bảng tổng hợp Excel B2B')}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+              onClick={() => {
+                setToastMessage('Đang kết xuất bảng tổng hợp đối soát Excel (.xlsx) B2B...');
+                setTimeout(() => setToastMessage(null), 3000);
+              }}
+              className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">download</span>
               <span>Xuất Excel (.xlsx)</span>
@@ -229,8 +233,11 @@ export function FacilityRevenueView() {
                         </button>
                       ) : (
                         <button
-                          onClick={() => alert(`Tải biên bản đã ký số cho kỳ ${c.id}`)}
-                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 ml-auto transition-colors"
+                          onClick={() => {
+                            setToastMessage(`Đang tải biên bản đã ký số cho kỳ ${c.id}...`);
+                            setTimeout(() => setToastMessage(null), 3000);
+                          }}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 ml-auto transition-colors cursor-pointer"
                         >
                           <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
                           <span>Tải PDF</span>
@@ -324,6 +331,26 @@ export function FacilityRevenueView() {
           </div>
         )}
       </main>
+
+      {/* Accessible Feedback Toast */}
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
+          <span className="font-medium">{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-2 text-slate-400 hover:text-white"
+            aria-label="Đóng thông báo"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

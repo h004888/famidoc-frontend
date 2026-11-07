@@ -98,15 +98,19 @@ export function DoctorMatchingWizard() {
     name: string;
     specialty: string;
   } | null>(null);
+  const [isAddingChronic, setIsAddingChronic] = useState(false);
+  const [newChronicInput, setNewChronicInput] = useState('');
+  const [contractSuccessToast, setContractSuccessToast] = useState<string | null>(null);
 
   const removeChronic = (item: string) => {
     setSelectedChronic((prev) => prev.filter((c) => c !== item));
   };
 
-  const addChronic = () => {
-    const disease = prompt('Nhập tên bệnh mạn tính cần bổ sung (ví dụ: Bệnh gout, Hen suyễn, Rối loạn lipid):');
-    if (disease && disease.trim() && !selectedChronic.includes(disease.trim())) {
-      setSelectedChronic((prev) => [...prev, disease.trim()]);
+  const handleAddNewChronic = () => {
+    if (newChronicInput.trim() && !selectedChronic.includes(newChronicInput.trim())) {
+      setSelectedChronic((prev) => [...prev, newChronicInput.trim()]);
+      setNewChronicInput('');
+      setIsAddingChronic(false);
     }
   };
 
@@ -305,15 +309,53 @@ export function DoctorMatchingWizard() {
                   <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                     2. Bệnh nền theo dõi
                   </label>
-                  <button
-                    type="button"
-                    onClick={addChronic}
-                    className="text-[11px] font-bold text-[#0046c0] hover:underline flex items-center gap-0.5 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[14px]">add</span>
-                    <span>Thêm bệnh</span>
-                  </button>
+                  {!isAddingChronic && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingChronic(true)}
+                      className="text-[11px] font-bold text-[#0046c0] hover:underline flex items-center gap-0.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">add</span>
+                      <span>Thêm bệnh</span>
+                    </button>
+                  )}
                 </div>
+
+                {isAddingChronic && (
+                  <div className="flex items-center gap-1.5 p-2 bg-blue-50/60 rounded-xl border border-blue-200">
+                    <input
+                      type="text"
+                      autoFocus
+                      placeholder="Gõ tên bệnh (VD: Hen suyễn, Gout...)"
+                      value={newChronicInput}
+                      onChange={(e) => setNewChronicInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddNewChronic();
+                        }
+                      }}
+                      className="p-1.5 px-2.5 rounded-lg border border-slate-200 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-[#0046c0]/20 flex-1"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddNewChronic}
+                      className="px-2.5 py-1.5 bg-[#0046c0] hover:bg-[#003899] text-white rounded-lg text-xs font-bold"
+                    >
+                      Thêm
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAddingChronic(false);
+                        setNewChronicInput('');
+                      }}
+                      className="px-2 py-1.5 text-xs text-slate-500 hover:text-slate-700"
+                    >
+                      Hủy
+                    </button>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-2 pt-1">
                   {selectedChronic.map((c) => (
@@ -548,6 +590,28 @@ export function DoctorMatchingWizard() {
       {/* 4. Standard Landing Footer */}
       <LandingFooter />
 
+      {/* Success Notification Banner */}
+      {contractSuccessToast && (
+        <div
+          role="status"
+          className="fixed top-6 right-6 z-50 p-4 rounded-2xl bg-emerald-600 text-white shadow-xl max-w-md flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4"
+        >
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[24px]">verified</span>
+            <span className="text-xs font-bold leading-snug">
+              {contractSuccessToast}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setContractSuccessToast(null)}
+            className="text-white/80 hover:text-white p-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Modal: 4-Party Digital Contract Signing Wizard (SCR-15) */}
       {selectedDoctorForContract && (
         <ContractSigningWizard
@@ -556,8 +620,11 @@ export function DoctorMatchingWizard() {
           doctorName={selectedDoctorForContract.name}
           onClose={() => setSelectedDoctorForContract(null)}
           onSuccess={() => {
-            alert('Chúc mừng bạn đã ký kết hợp đồng Bác sĩ Gia đình thành công! Hệ thống đã kích hoạt hồ sơ quản lý sức khỏe gia đình.');
+            setContractSuccessToast(
+              'Chúc mừng bạn đã ký kết hợp đồng Bác sĩ Gia đình thành công! Hệ thống đã kích hoạt hồ sơ quản lý sức khỏe gia đình.'
+            );
             setSelectedDoctorForContract(null);
+            setTimeout(() => setContractSuccessToast(null), 6000);
           }}
         />
       )}

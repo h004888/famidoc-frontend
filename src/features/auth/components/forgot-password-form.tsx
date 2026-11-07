@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { forgotPasswordSchema } from '../schemas/auth.schema';
 
@@ -9,6 +9,15 @@ export function ForgotPasswordForm() {
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [countdown, setCountdown] = useState(60);
+
+  useEffect(() => {
+    if (!submitted || countdown <= 0) return;
+    const timer = setInterval(() => {
+      setCountdown((c) => c - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [submitted, countdown]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,6 +33,7 @@ export function ForgotPasswordForm() {
     setTimeout(() => {
       setLoading(false);
       setSubmitted(true);
+      setCountdown(60);
     }, 600);
   };
 
@@ -46,10 +56,20 @@ export function ForgotPasswordForm() {
           <p className="text-xs text-on-surface-variant">
             Vui lòng kiểm tra tin nhắn SMS hoặc hộp thư đến tại <span className="font-semibold text-on-surface">{contact}</span>.
           </p>
-          <div className="pt-2">
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+            <button
+              type="button"
+              disabled={countdown > 0}
+              onClick={() => {
+                setCountdown(60);
+              }}
+              className="w-full sm:w-auto px-4 py-2 border border-slate-200 text-xs font-semibold rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {countdown > 0 ? `Gửi lại mã (${countdown}s)` : 'Gửi lại mã OTP'}
+            </button>
             <Link
               href="/login"
-              className="inline-block px-4 py-2 bg-primary-container text-white text-xs font-semibold rounded-lg hover:bg-primary transition-colors"
+              className="w-full sm:w-auto inline-block px-4 py-2 bg-primary-container text-white text-xs font-semibold rounded-lg hover:bg-primary transition-colors text-center"
             >
               Quay lại Đăng nhập
             </Link>

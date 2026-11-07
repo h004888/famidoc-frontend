@@ -7,6 +7,7 @@ import { ContractSigningWizard } from './contract-signing-wizard';
 export function SubscriptionContractView() {
   const [activeTab, setActiveTab] = useState<'contract' | 'benefits' | 'upgrade'>('contract');
   const [isSigningWizardOpen, setIsSigningWizardOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
@@ -39,7 +40,10 @@ export function SubscriptionContractView() {
             </button>
             <button
               type="button"
-              onClick={() => alert('Đang tải file hợp đồng PDF có chứng thư ký số HSM TSA...')}
+              onClick={() => {
+                setToastMessage('Đang tải file hợp đồng PDF có chứng thư ký số HSM TSA...');
+                setTimeout(() => setToastMessage(null), 3000);
+              }}
               className="px-4 py-2 bg-white hover:bg-slate-50 text-[#0f172a] border border-slate-200 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px] text-red-500">picture_as_pdf</span>
@@ -299,7 +303,10 @@ export function SubscriptionContractView() {
                 <span>Hợp đồng được lưu trữ an toàn trên mạng lưới điện toán đám mây FamiDoc Vault.</span>
                 <button
                   type="button"
-                  onClick={() => alert('Đang tạo bản in hợp đồng điện tử có đóng dấu...')}
+                  onClick={() => {
+                    setToastMessage('Đang tạo bản in hợp đồng điện tử có đóng dấu...');
+                    setTimeout(() => setToastMessage(null), 3000);
+                  }}
                   className="font-bold text-[#2563eb] hover:underline flex items-center gap-1"
                 >
                   <span className="material-symbols-outlined text-[16px]">print</span>
@@ -366,6 +373,26 @@ export function SubscriptionContractView() {
           doctorName="BS. CKII Lê Hoàng Nam"
           onClose={() => setIsSigningWizardOpen(false)}
         />
+      )}
+
+      {/* Accessible Feedback Toast */}
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
+          <span className="font-medium">{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-2 text-slate-400 hover:text-white"
+            aria-label="Đóng thông báo"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
+        </div>
       )}
     </div>
   );

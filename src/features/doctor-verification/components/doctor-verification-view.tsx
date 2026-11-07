@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 
@@ -9,6 +9,7 @@ export function DoctorVerificationView() {
   const scopeOfPractice = 'Khám bệnh, chữa bệnh Nội khoa & Y học gia đình';
   const selectedHospital = 'BV Đại học Y Dược TP.HCM';
   const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
@@ -268,8 +269,9 @@ export function DoctorVerificationView() {
               <button
                 type="button"
                 onClick={() => {
-                  alert('Đã tải lên văn bằng thành công! Hội đồng chuyên môn cơ sở y tế sẽ thẩm định trong vòng 24 giờ.');
+                  setToastMessage('Đã tải lên văn bằng thành công! Hội đồng chuyên môn cơ sở y tế sẽ thẩm định trong vòng 24 giờ.');
                   setShowUpdateModal(false);
+                  setTimeout(() => setToastMessage(null), 4000);
                 }}
                 className="flex-1 py-2 text-xs font-semibold text-white bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg shadow-xs"
               >
@@ -277,6 +279,26 @@ export function DoctorVerificationView() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Accessible Feedback Toast */}
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
+          <span className="font-medium">{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-2 text-slate-400 hover:text-white"
+            aria-label="Đóng thông báo"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
         </div>
       )}
     </div>

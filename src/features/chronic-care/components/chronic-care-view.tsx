@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';;
@@ -30,6 +30,7 @@ export function ChronicCareView() {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('7d');
   const [records, setRecords] = useState<VitalRecord[]>(MOCK_RECORDS);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // New Record Form
   const [newBpSys, setNewBpSys] = useState('120');
@@ -63,7 +64,8 @@ export function ChronicCareView() {
 
     setRecords([newRec, ...records]);
     setShowAddModal(false);
-    alert('Đã lưu chỉ số sinh tồn thành công! Dữ liệu đã đồng bộ đến Bác sĩ gia đình.');
+    setToastMessage('Đã lưu chỉ số sinh tồn thành công! Dữ liệu đã đồng bộ đến Bác sĩ gia đình.');
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   return (
@@ -459,6 +461,26 @@ export function ChronicCareView() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* Accessible Feedback Toast */}
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
+          <span className="font-medium">{toastMessage}</span>
+          <button
+            type="button"
+            onClick={() => setToastMessage(null)}
+            className="ml-2 text-slate-400 hover:text-white"
+            aria-label="Đóng thông báo"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
         </div>
       )}
     </div>

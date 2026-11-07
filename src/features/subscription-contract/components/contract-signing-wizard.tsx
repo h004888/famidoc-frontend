@@ -41,6 +41,7 @@ export function ContractSigningWizard({
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
   const [isSignedComplete, setIsSignedComplete] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const selectedMembersCount = members.filter((m) => m.selected).length;
 
@@ -53,22 +54,24 @@ export function ContractSigningWizard({
   const handleVerifyOtp = () => {
     if (otpCode.length >= 4) {
       setIsOtpVerified(true);
+      setFormError(null);
     } else {
-      alert('Vui lòng nhập mã OTP gửi tới số điện thoại đại diện hộ.');
+      setFormError('Vui lòng nhập mã OTP (ít nhất 4 ký tự) gửi tới số điện thoại đại diện hộ.');
     }
   };
 
   const handleExecuteSign = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!agreedTerms) {
-      alert('Vui lòng tích đồng ý với các điều khoản hợp đồng và chính sách y tế.');
+    if (!isOtpVerified) {
+      setFormError('Vui lòng bấm nút Xác thực mã OTP trước khi ký số.');
       return;
     }
-    if (!isOtpVerified) {
-      alert('Vui lòng xác thực mã OTP trước khi ký số.');
+    if (!agreedTerms) {
+      setFormError('Vui lòng tích chọn đồng ý với các điều khoản hợp đồng và chính sách y tế.');
       return;
     }
 
+    setFormError(null);
     setIsSigning(true);
     setTimeout(() => {
       setIsSigning(false);
@@ -404,7 +407,10 @@ export function ContractSigningWizard({
                   <input
                     type="checkbox"
                     checked={agreedTerms}
-                    onChange={(e) => setAgreedTerms(e.target.checked)}
+                    onChange={(e) => {
+                      setAgreedTerms(e.target.checked);
+                      if (formError) setFormError(null);
+                    }}
                     className="mt-0.5 rounded text-[#2563eb]"
                   />
                   <span>
@@ -412,6 +418,13 @@ export function ContractSigningWizard({
                   </span>
                 </label>
               </div>
+
+              {formError && (
+                <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[16px] shrink-0 text-red-500">error</span>
+                  <span>{formError}</span>
+                </div>
+              )}
 
               {/* Pricing & Submit */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">

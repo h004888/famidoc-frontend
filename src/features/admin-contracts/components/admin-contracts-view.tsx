@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 
@@ -270,8 +270,11 @@ export function AdminContractsView() {
               <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => alert(`Đang tải file PDF hợp đồng ${selectedContract.id}...`)}
-                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-1.5"
+                  onClick={() => {
+                    setNotification(`Đang tải file PDF hợp đồng ${selectedContract.id}...`);
+                    setTimeout(() => setNotification(''), 3000);
+                  }}
+                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">download</span>
                   <span>Tải bản PDF</span>

@@ -53,6 +53,7 @@ export function DoctorEncountersView() {
     drug: PrescriptionItem;
     reason: string;
   } | null>(null);
+  const [allergyOverrideError, setAllergyOverrideError] = useState<string | null>(null);
 
   const handleAddDrug = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +78,7 @@ export function DoctorEncountersView() {
         drug: newDrug,
         reason: '',
       });
+      setAllergyOverrideError(null);
       return;
     }
 
@@ -89,7 +91,7 @@ export function DoctorEncountersView() {
   const handleConfirmAllergyOverride = () => {
     if (!pendingAllergyDrug) return;
     if (!pendingAllergyDrug.reason.trim()) {
-      alert('Bác sĩ vui lòng ghi rõ lý do ghi đè lâm sàng (Clinical Override Reason).');
+      setAllergyOverrideError('Bác sĩ vui lòng ghi rõ lý do ghi đè lâm sàng (Clinical Override Reason) trước khi xác nhận.');
       return;
     }
 
@@ -100,6 +102,7 @@ export function DoctorEncountersView() {
 
     setPrescriptions([...prescriptions, drugWithOverride]);
     setPendingAllergyDrug(null);
+    setAllergyOverrideError(null);
     setDrugName('');
     setDrugDosage('');
     setDrugInstructions('');
@@ -457,21 +460,31 @@ export function DoctorEncountersView() {
                 <textarea
                   rows={2}
                   value={pendingAllergyDrug.reason}
-                  onChange={(e) =>
+                  onChange={(e) => {
                     setPendingAllergyDrug({
                       ...pendingAllergyDrug,
                       reason: e.target.value,
-                    })
-                  }
+                    });
+                    if (allergyOverrideError) setAllergyOverrideError(null);
+                  }}
                   placeholder="Ghi rõ cơ sở lâm sàng, chỉ định đặc biệt hoặc kết quả test lẩy da âm tính..."
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
                 />
+                {allergyOverrideError && (
+                  <p role="alert" className="text-[11px] font-semibold text-red-600 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px]">error</span>
+                    {allergyOverrideError}
+                  </p>
+                )}
               </div>
 
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  onClick={() => setPendingAllergyDrug(null)}
+                  onClick={() => {
+                    setPendingAllergyDrug(null);
+                    setAllergyOverrideError(null);
+                  }}
                   className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-xs text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   Hủy chỉ định (Khuyên dùng)

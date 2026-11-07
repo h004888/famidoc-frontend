@@ -42,6 +42,7 @@ export function FamilyBillingView() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [timeLeft, setTimeLeft] = useState(15 * 60); // 15 phút (CFG-05)
+  const [billingToast, setBillingToast] = useState<string | null>(null);
 
   const handleOpenQrModal = () => {
     setTimeLeft(15 * 60);
@@ -72,8 +73,9 @@ export function FamilyBillingView() {
     setIsVerifying(true);
     setTimeout(() => {
       setIsVerifying(false);
-      alert('Hệ thống đã nhận diện thanh toán thành công! Biên lai điện tử đã được phát hành vào hòm thư gia đình.');
+      setBillingToast('Hệ thống đã nhận diện thanh toán thành công! Biên lai điện tử đã được phát hành vào hòm thư gia đình.');
       setShowQrModal(false);
+      setTimeout(() => setBillingToast(null), 4000);
     }, 1200);
   };
 
@@ -298,7 +300,10 @@ export function FamilyBillingView() {
                     <td className="p-3.5 text-right whitespace-nowrap">
                       <button
                         type="button"
-                        onClick={() => alert(`Đang tải biên lai VAT: ${inv.receiptUrl}`)}
+                        onClick={() => {
+                          setBillingToast(`Đang tải biên lai VAT: ${inv.receiptUrl}`);
+                          setTimeout(() => setBillingToast(null), 3000);
+                        }}
                         className="inline-flex items-center gap-1 font-bold text-[#2563eb] hover:underline cursor-pointer"
                       >
                         <span className="material-symbols-outlined text-[14px]">download</span>
@@ -385,6 +390,26 @@ export function FamilyBillingView() {
               Xác nhận đã chuyển khoản
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Accessible Feedback Toast */}
+      {billingToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
+        >
+          <span className="material-symbols-outlined text-[18px] text-emerald-400">verified</span>
+          <span className="font-medium">{billingToast}</span>
+          <button
+            type="button"
+            onClick={() => setBillingToast(null)}
+            className="ml-2 text-slate-400 hover:text-white"
+            aria-label="Đóng thông báo"
+          >
+            <span className="material-symbols-outlined text-[16px]">close</span>
+          </button>
         </div>
       )}
     </div>

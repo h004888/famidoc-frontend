@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 
@@ -303,8 +303,11 @@ export function FacilityStaffView() {
                             </button>
                           ) : (
                             <button
-                              onClick={() => alert(`Điều chỉnh phân công cho bác sĩ ${doc.name}`)}
-                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors"
+                              onClick={() => {
+                                setSuccessMessage(`Đang mở giao diện điều chỉnh chỉ tiêu phân công hộ cho bác sĩ ${doc.name}`);
+                                setTimeout(() => setSuccessMessage(''), 3000);
+                              }}
+                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
                             >
                               Điều chỉnh
                             </button>

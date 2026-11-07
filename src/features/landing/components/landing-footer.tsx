@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import Link from 'next/link';
 
 export function LandingFooter() {
@@ -55,27 +55,27 @@ export function LandingFooter() {
             <h4 className="font-bold text-[#131b2f] text-sm">Dịch Vụ Y Tế</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="#tru-cot" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
                   Bác sĩ thăm khám tại nhà
                 </Link>
               </li>
               <li>
-                <Link href="#tru-cot" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
                   Quản lý bệnh mạn tính gia đình
                 </Link>
               </li>
               <li>
-                <Link href="#tru-cot" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
                   Tư vấn Telehealth trực tuyến 24/7
                 </Link>
               </li>
               <li>
-                <Link href="#tru-cot" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
                   Lập phác đồ dinh dưỡng &amp; lối sống
                 </Link>
               </li>
               <li>
-                <Link href="#tru-cot" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
                   Giao thuốc tận nơi 24/7
                 </Link>
               </li>
@@ -87,27 +87,27 @@ export function LandingFooter() {
             <h4 className="font-bold text-[#131b2f] text-sm">Chuyên Khoa &amp; Gói Khám</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="#goi-kham" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/packages" className="hover:text-[#0037c1] transition-colors">
                   Gói Gia Đình Toàn Diện
                 </Link>
               </li>
               <li>
-                <Link href="#goi-kham" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/packages" className="hover:text-[#0037c1] transition-colors">
                   Gói Chăm Sóc Người Cao Tuổi
                 </Link>
               </li>
               <li>
-                <Link href="#mang-luoi-bac-si" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/doctors" className="hover:text-[#0037c1] transition-colors">
                   Nhi khoa &amp; Tiêm chủng
                 </Link>
               </li>
               <li>
-                <Link href="#mang-luoi-bac-si" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/doctors" className="hover:text-[#0037c1] transition-colors">
                   Tim mạch &amp; Huyết áp
                 </Link>
               </li>
               <li>
-                <Link href="#mang-luoi-bac-si" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/doctors" className="hover:text-[#0037c1] transition-colors">
                   Nội tiết &amp; Đái tháo đường
                 </Link>
               </li>

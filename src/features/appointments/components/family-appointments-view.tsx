@@ -69,6 +69,9 @@ export function FamilyAppointmentsView() {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
+  const [appointmentToast, setAppointmentToast] = useState<string | null>(null);
+  const [bookingError, setBookingError] = useState('');
   const [rescheduleDate, setRescheduleDate] = useState('2026-11-02');
   const [rescheduleTime, setRescheduleTime] = useState('14:00 - 15:30');
   const [isUnder4Hours, setIsUnder4Hours] = useState(false);
@@ -94,9 +97,10 @@ export function FamilyAppointmentsView() {
   const handleCreateBooking = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBooking.chiefComplaint.trim()) {
-      alert('Vui lòng mô tả triệu chứng hoặc nhu cầu khám.');
+      setBookingError('Vui lòng mô tả triệu chứng hoặc nhu cầu khám của người bệnh.');
       return;
     }
+    setBookingError('');
 
     const created: Appointment = {
       id: `APT-88219-0${appointments.length + 1}`,
@@ -116,15 +120,18 @@ export function FamilyAppointmentsView() {
 
     setAppointments([created, ...appointments]);
     setShowBookingModal(false);
-    alert('Đặt lịch hẹn thành công! Bác sĩ quản nhiệm và trung tâm điều phối đã tiếp nhận.');
+    setAppointmentToast('Đặt lịch hẹn thành công! Bác sĩ quản nhiệm và trung tâm điều phối đã tiếp nhận.');
+    setTimeout(() => setAppointmentToast(null), 5000);
   };
 
-  const handleCancelAppointment = (id: string) => {
-    if (confirm('Bạn có chắc chắn muốn hủy lịch hẹn khám này? Hạn mức khám sẽ được hoàn lại cho gói của gia đình.')) {
-      setAppointments(
-        appointments.map((a) => (a.id === id ? { ...a, status: 'cancelled' } : a))
-      );
-    }
+  const handleConfirmCancelAppointment = () => {
+    if (!cancelTarget) return;
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === cancelTarget.id ? { ...a, status: 'cancelled' } : a))
+    );
+    setAppointmentToast(`Đã hủy ca khám ${cancelTarget.id}. Lượt khám đã được hoàn lại vào hạn mức gói của gia đình.`);
+    setCancelTarget(null);
+    setTimeout(() => setAppointmentToast(null), 5000);
   };
 
   const handleOpenReschedule = (apt: Appointment) => {
@@ -152,14 +159,38 @@ export function FamilyAppointmentsView() {
           : a
       )
     );
-    alert(`Đổi lịch hẹn thành công! Lịch mới: ${rescheduleTime} ngày ${rescheduleDate}. Đã gửi thông báo xác nhận tới Bác sĩ & CSYT.`);
+    setAppointmentToast(
+      `Đổi lịch hẹn thành công! Lịch mới: ${rescheduleTime} ngày ${rescheduleDate}. Đã gửi thông báo xác nhận tới Bác sĩ & CSYT.`
+    );
     setRescheduleTarget(null);
+    setTimeout(() => setAppointmentToast(null), 5000);
   };
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* Appointment Status Feedback Toast */}
+        {appointmentToast && (
+          <div
+            role="status"
+            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[22px] text-emerald-600">check_circle</span>
+              <span>{appointmentToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAppointmentToast(null)}
+              className="text-emerald-700 hover:text-emerald-900 p-1"
+              aria-label="Đóng thông báo"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Header & Quota Overview */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
           <div>
@@ -374,8 +405,8 @@ export function FamilyAppointmentsView() {
                           <div className="flex gap-2">
                             <button
                               type="button"
-                              onClick={() => handleCancelAppointment(apt.id)}
-                              className="flex-1 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg font-semibold transition-colors border border-red-200"
+                              onClick={() => setCancelTarget(apt)}
+                              className="flex-1 py-1.5 text-xs text-red-600 hover:bg-red-50 rounded-lg font-semibold transition-colors border border-red-200 cursor-pointer"
                             >
                               Hủy lịch
                             </button>
@@ -542,10 +573,16 @@ export function FamilyAppointmentsView() {
                   rows={3}
                   required
                   value={newBooking.chiefComplaint}
-                  onChange={(e) => setNewBooking({ ...newBooking, chiefComplaint: e.target.value })}
+                  onChange={(e) => {
+                    setNewBooking({ ...newBooking, chiefComplaint: e.target.value });
+                    if (bookingError) setBookingError('');
+                  }}
                   placeholder="Ví dụ: Đo lại huyết áp và tái khám đường huyết, đau tức nhẹ khớp gối khi thời tiết đổi lạnh..."
                   className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#2563eb] bg-white"
                 />
+                {bookingError && (
+                  <p className="text-xs text-rose-600 font-bold mt-1">{bookingError}</p>
+                )}
               </div>
 
               {/* Action buttons */}
@@ -667,6 +704,58 @@ export function FamilyAppointmentsView() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL XÁC NHẬN HỦY LỊCH HẸN (THAY THẾ CONFIRM THÔ) */}
+      {cancelTarget && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">event_busy</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-rose-900">
+                  Xác Nhận Hủy Lịch Khám
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Mã ca hẹn: <strong className="font-mono text-slate-800">{cancelTarget.id}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-100 text-xs text-rose-900 space-y-1.5 leading-relaxed">
+              <p>
+                Bệnh nhân: <strong>{cancelTarget.patientName}</strong> • {cancelTarget.time} ngày {cancelTarget.date}
+              </p>
+              <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                <span>Hạn mức ca khám sẽ được hoàn lại nguyên vẹn cho gói chăm sóc của gia đình.</span>
+              </p>
+            </div>
+
+            <p className="text-xs text-slate-500 italic">
+              Bác sĩ phụ trách ({cancelTarget.doctorName}) sẽ nhận được thông báo hủy lịch tự động để sắp xếp tiếp nhận ca khám khác.
+            </p>
+
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setCancelTarget(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Giữ lại lịch hẹn
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCancelAppointment}
+                className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+              >
+                Xác nhận Hủy lịch
+              </button>
+            </div>
           </div>
         </div>
       )}
