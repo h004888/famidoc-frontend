@@ -66,6 +66,12 @@ export function ContactView() {
       setIsSubmitted(true);
       const randomCode = 'FMD-' + Math.floor(100000 + Math.random() * 900000);
       setInquiryCode(randomCode);
+
+      // Tự động cuộn đến khối thông báo thành công (Nielsen H1 & Krug)
+      const formSection = document.getElementById('contact-form-section');
+      if (formSection) {
+        formSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }, 600);
   };
 
@@ -192,7 +198,7 @@ export function ContactView() {
                 className="lg:col-span-7 bg-cover bg-center p-8 sm:p-12 lg:p-16 relative"
                 style={{ backgroundImage: "url('/images/medsev/contact/2.png')" }}
               >
-                <div className="max-w-xl mx-auto">
+                <div id="contact-form-section" className="max-w-xl mx-auto scroll-mt-24">
                   <h2 className="text-2xl sm:text-3xl font-semibold text-[#232323] mb-4 leading-tight">
                     Để lại thông tin hoặc câu hỏi cần tư vấn y tế.
                   </h2>

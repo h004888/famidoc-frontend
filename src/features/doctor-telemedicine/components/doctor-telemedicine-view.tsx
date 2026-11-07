@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -40,7 +40,7 @@ export function DoctorTelemedicineView() {
               <span>Thời gian: 00:14:32</span>
             </div>
             <Link
-              href="/doctor/encounters"
+              href="/doctor/encounters?patientId=PT-01&encounterId=TELE-88219"
               className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
             >
               Kê đơn thuốc &amp; Ký số EMR
