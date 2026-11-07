@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { LandingHeader, LandingFooter } from '@/features/landing';
@@ -23,29 +23,36 @@ const INITIAL_FORM: InquiryFormData = {
   agreedConsent: true,
 };
 
+function getInitialPackageInterest(paramPkg?: string | null): string {
+  if (paramPkg) {
+    if (paramPkg.includes('elderly') || paramPkg.includes('nguoi-cao-tuoi')) {
+      return 'Gói Chăm Sóc Người Cao Tuổi & Bệnh Mạn Tính';
+    }
+    if (paramPkg.includes('royal') || paramPkg.includes('vip')) {
+      return 'Gói Bác Sĩ Gia Đình Cao Cấp (VIP Care)';
+    }
+    if (paramPkg.includes('toan-dien') || paramPkg.includes('family')) {
+      return 'Gói Chăm Sóc Sức Khỏe Gia Đình Toàn Diện';
+    }
+    if (paramPkg.includes('maternity') || paramPkg.includes('be')) {
+      return 'Gói Chăm Sóc Mẹ & Bé Sơ Sinh Toàn Diện';
+    }
+  }
+  return 'Gói Chăm Sóc Sức Khỏe Gia Đình Toàn Diện';
+}
+
 export function ContactView() {
   const searchParams = useSearchParams();
   const paramPkg = searchParams?.get('package');
 
-  const [formData, setFormData] = useState<InquiryFormData>(INITIAL_FORM);
+  const [formData, setFormData] = useState<InquiryFormData>(() => ({
+    ...INITIAL_FORM,
+    packageInterest: getInitialPackageInterest(paramPkg),
+  }));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [inquiryCode, setInquiryCode] = useState('');
   const [formErrors, setFormErrors] = useState<Partial<Record<keyof InquiryFormData, string>>>({});
-
-  useEffect(() => {
-    if (paramPkg) {
-      if (paramPkg.includes('elderly') || paramPkg.includes('nguoi-cao-tuoi')) {
-        setFormData((prev) => ({ ...prev, packageInterest: 'Gói Chăm Sóc Người Cao Tuổi & Bệnh Mạn Tính' }));
-      } else if (paramPkg.includes('royal') || paramPkg.includes('vip')) {
-        setFormData((prev) => ({ ...prev, packageInterest: 'Gói Bác Sĩ Gia Đình Cao Cấp (VIP Care)' }));
-      } else if (paramPkg.includes('toan-dien') || paramPkg.includes('family')) {
-        setFormData((prev) => ({ ...prev, packageInterest: 'Gói Chăm Sóc Sức Khỏe Gia Đình Toàn Diện' }));
-      } else if (paramPkg.includes('maternity') || paramPkg.includes('be')) {
-        setFormData((prev) => ({ ...prev, packageInterest: 'Gói Chăm Sóc Mẹ & Bé Sơ Sinh Toàn Diện' }));
-      }
-    }
-  }, [paramPkg]);
 
   const validate = (): boolean => {
     const errors: Partial<Record<keyof InquiryFormData, string>> = {};
