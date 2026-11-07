@@ -732,6 +732,23 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack }: Doc
 
       {/* 6. UNIFIED MEDSEV FOOTER */}
       <LandingFooter />
+
+      {/* Sticky Mobile Booking Action Bar (Don't Make Me Think: Always accessible CTA) */}
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 sm:hidden flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+        <div>
+          <span className="text-[10px] text-slate-500 block uppercase font-medium">Chi phí tư vấn:</span>
+          <span className="font-extrabold text-sm text-[#0046c0] font-mono">
+            {isDoctor ? (target as Doctor).fee : 'Theo chuẩn BHYT'}
+          </span>
+        </div>
+        <a
+          href="#dat-lich"
+          className="px-5 py-2.5 bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+        >
+          <span className="material-symbols-outlined text-[16px]">calendar_month</span>
+          <span>Đặt lịch ngay</span>
+        </a>
+      </div>
     </div>
   );
 }

@@ -123,8 +123,11 @@ export function FamilyDashboardView() {
   const [selectedMemberId, setSelectedMemberId] = useState('mem-01');
   const [membersData, setMembersData] = useState(FAMILY_MEMBERS_DATA);
   const [showVitalsModal, setShowVitalsModal] = useState(false);
-  const [newBp, setNewBp] = useState('120/80');
+  const [bpSystolic, setBpSystolic] = useState('120');
+  const [bpDiastolic, setBpDiastolic] = useState('80');
   const [newGlucose, setNewGlucose] = useState('5.6');
+  const [vitalsToast, setVitalsToast] = useState<string | null>(null);
+  const [showHomeVisitGuide, setShowHomeVisitGuide] = useState(false);
 
   const currentMember = membersData[selectedMemberId] || membersData['mem-01'];
 
@@ -144,15 +147,19 @@ export function FamilyDashboardView() {
 
   const handleSaveVitals = (e: React.FormEvent) => {
     e.preventDefault();
+    const formattedBp = `${bpSystolic}/${bpDiastolic}`;
     setMembersData((prev) => {
       const updated = { ...prev };
       const member = { ...updated[selectedMemberId] };
-      member.bp = newBp;
+      member.bp = formattedBp;
       member.glucose = `${newGlucose} mmol/L`;
       updated[selectedMemberId] = member;
       return updated;
     });
-    alert(`Đã ghi nhận chỉ số sức khỏe mới cho ${currentMember.name}!`);
+    setVitalsToast(
+      `Đã ghi nhận chỉ số sức khỏe mới cho ${currentMember.name}: Huyết áp ${formattedBp} mmHg, Đường huyết ${newGlucose} mmol/L`
+    );
+    setTimeout(() => setVitalsToast(null), 5000);
     setShowVitalsModal(false);
   };
 
@@ -160,6 +167,27 @@ export function FamilyDashboardView() {
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
 
       <main className="max-w-6xl mx-auto py-5 sm:py-7 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Vitals Toast Notification */}
+        {vitalsToast && (
+          <div
+            role="status"
+            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+              <span>{vitalsToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVitalsToast(null)}
+              className="text-emerald-700 hover:text-emerald-900 p-1"
+              aria-label="Đóng thông báo"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* 1. LỜI CHÀO GẦN GŨI & NÚT HÀNH ĐỘNG 1 CHẠM */}
         <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -240,11 +268,19 @@ export function FamilyDashboardView() {
                         <div className="text-xs text-slate-500">{m.relation} ({m.age} tuổi)</div>
                       </div>
                     </div>
-                    {isSelected && (
-                      <span className="w-6 h-6 rounded-full bg-[#2E37A4] text-white flex items-center justify-center text-xs font-bold">
-                        ✓
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {m.status === 'warning' && (
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          Cần chú ý
+                        </span>
+                      )}
+                      {isSelected && (
+                        <span className="w-6 h-6 rounded-full bg-[#2E37A4] text-white flex items-center justify-center text-xs font-bold">
+                          ✓
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -377,12 +413,24 @@ export function FamilyDashboardView() {
                   >
                     Đổi ngày giờ khám
                   </Link>
-                  <Link
-                    href="/doctor/telemedicine"
-                    className="flex-1 py-2 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold text-center transition-colors"
-                  >
-                    Phòng khám Video
-                  </Link>
+                  {currentMember.upcomingVisit.mode === 'home' ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowHomeVisitGuide(true)}
+                      className="flex-1 py-2 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold text-center transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">home_health</span>
+                      <span>Hướng dẫn đón BS</span>
+                    </button>
+                  ) : (
+                    <Link
+                      href="/doctor/telemedicine"
+                      className="flex-1 py-2 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold text-center transition-colors flex items-center justify-center gap-1"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">videocam</span>
+                      <span>Phòng khám Video</span>
+                    </Link>
+                  )}
                 </div>
               </div>
             ) : (
@@ -410,13 +458,16 @@ export function FamilyDashboardView() {
 
             <div className="space-y-2.5">
               {currentMember.medicines.map((med) => (
-                <div
+                <button
+                  type="button"
                   key={med.id}
+                  aria-pressed={med.status === 'taken'}
                   onClick={() => toggleMedicineStatus(med.id)}
-                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${med.status === 'taken'
+                  className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/30 ${
+                    med.status === 'taken'
                       ? 'bg-emerald-50/50 border-emerald-200 text-slate-800'
                       : 'bg-slate-50 border-slate-200 hover:bg-white'
-                    }`}
+                  }`}
                 >
                   <div className="space-y-0.5 text-xs">
                     <div className="font-bold text-slate-900 text-sm flex items-center gap-2">
@@ -426,14 +477,15 @@ export function FamilyDashboardView() {
                   </div>
 
                   <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${med.status === 'taken'
+                    className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1 ${
+                      med.status === 'taken'
                         ? 'bg-emerald-600 text-white shadow-2xs'
                         : 'bg-amber-100 text-amber-800'
-                      }`}
+                    }`}
                   >
                     {med.status === 'taken' ? '✓ Đã uống' : 'Chờ uống'}
                   </span>
-                </div>
+                </button>
               ))}
             </div>
 
@@ -445,10 +497,60 @@ export function FamilyDashboardView() {
         </div>
       </main>
 
+      {/* MODAL HƯỚNG DẪN ĐÓN BÁC SĨ TẠI NHÀ */}
+      {showHomeVisitGuide && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-[#2E37A4]">
+                <span className="material-symbols-outlined text-[24px]">home_health</span>
+                <h3 className="font-bold text-base text-slate-900">
+                  Hướng Dẫn Đón Bác Sĩ Tại Nhà
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHomeVisitGuide(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
+              <div className="p-3 rounded-2xl bg-blue-50 border border-blue-100 text-slate-800">
+                <strong>Bác sĩ phụ trách:</strong> PGS.TS Nguyễn Trọng Nghĩa<br />
+                <strong>Thời gian dự kiến:</strong> {currentMember.upcomingVisit?.time} • {currentMember.upcomingVisit?.date}
+              </div>
+
+              <div className="space-y-1.5">
+                <p className="font-bold text-slate-800">Gia đình vui lòng chuẩn bị trước:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>Căn cước công dân và thẻ BHYT của người bệnh ({currentMember.name}).</li>
+                  <li>Tất cả các toa thuốc, phim X-quang hoặc kết quả xét nghiệm trong 3 tháng gần nhất.</li>
+                  <li>Không ăn sáng (nếu có lấy máu xét nghiệm đường huyết/mỡ máu).</li>
+                  <li>Chuẩn bị khu vực khám thoáng mát, đủ ánh sáng và một ly nước ấm.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowHomeVisitGuide(false)}
+                className="w-full py-2.5 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-bold text-xs"
+              >
+                Đã hiểu &amp; Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL GHI NHANH SỐ ĐO SỨC KHỎE */}
       {showVitalsModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="font-bold text-base text-slate-900">
                 Ghi Số Đo: {currentMember.name}
@@ -467,14 +569,34 @@ export function FamilyDashboardView() {
                 <label className="block font-semibold text-slate-700 mb-1">
                   Huyết áp (mmHg)
                 </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: 120/80"
-                  value={newBp}
-                  onChange={(e) => setNewBp(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm bg-white"
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block mb-0.5">Tâm thu (Systolic)</span>
+                    <input
+                      type="number"
+                      required
+                      min={60}
+                      max={250}
+                      placeholder="120"
+                      value={bpSystolic}
+                      onChange={(e) => setBpSystolic(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm bg-white"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block mb-0.5">Tâm trương (Diastolic)</span>
+                    <input
+                      type="number"
+                      required
+                      min={40}
+                      max={150}
+                      placeholder="80"
+                      value={bpDiastolic}
+                      onChange={(e) => setBpDiastolic(e.target.value)}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm bg-white"
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -482,8 +604,11 @@ export function FamilyDashboardView() {
                   Đường huyết (mmol/L)
                 </label>
                 <input
-                  type="text"
+                  type="number"
+                  step="0.1"
                   required
+                  min={1}
+                  max={30}
                   placeholder="Ví dụ: 5.6"
                   value={newGlucose}
                   onChange={(e) => setNewGlucose(e.target.value)}

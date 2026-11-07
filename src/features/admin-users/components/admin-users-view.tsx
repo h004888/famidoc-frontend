@@ -127,6 +127,8 @@ export function AdminUsersView() {
   const [filterRole, setFilterRole] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [notification, setNotification] = useState('');
+  const [confirmSuspendUser, setConfirmSuspendUser] = useState<SystemUser | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
 
   const filteredUsers = users.filter((u) => {
     const matchesRole = filterRole === 'all' || u.role === filterRole;
@@ -137,16 +139,34 @@ export function AdminUsersView() {
     return matchesRole && matchesSearch;
   });
 
-  const handleToggleSuspend = (userId: string) => {
+  const handleActionClick = (u: SystemUser) => {
+    if (u.status === 'suspended') {
+      // Mở khóa trực tiếp
+      setUsers((prev) =>
+        prev.map((item) => (item.id === u.id ? { ...item, status: 'active' } : item))
+      );
+      setNotification(`Đã khôi phục hoạt động cho tài khoản ${u.name} (${u.id})`);
+      setTimeout(() => setNotification(''), 3000);
+    } else {
+      // Mở modal xác nhận khóa tài khoản (Nielsen H5: Ngăn ngừa lỗi)
+      setConfirmSuspendUser(u);
+      setSuspendReason('');
+    }
+  };
+
+  const handleConfirmSuspend = () => {
+    if (!confirmSuspendUser) return;
     setUsers((prev) =>
-      prev.map((u) => {
-        if (u.id !== userId) return u;
-        const newStatus = u.status === 'suspended' ? 'active' : 'suspended';
-        return { ...u, status: newStatus };
-      })
+      prev.map((item) => (item.id === confirmSuspendUser.id ? { ...item, status: 'suspended' } : item))
     );
-    setNotification(`Đã cập nhật trạng thái tài khoản ${userId}`);
-    setTimeout(() => setNotification(''), 3000);
+    setNotification(
+      `Đã khóa quyền truy cập tài khoản ${confirmSuspendUser.name}. Lý do: ${
+        suspendReason.trim() || 'Theo quyết định an ninh hệ thống'
+      }`
+    );
+    setConfirmSuspendUser(null);
+    setSuspendReason('');
+    setTimeout(() => setNotification(''), 4000);
   };
 
   return (
@@ -299,8 +319,8 @@ export function AdminUsersView() {
                         </td>
                         <td className="py-3.5 px-4 text-right">
                           <button
-                            onClick={() => handleToggleSuspend(u.id)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${u.status === 'suspended'
+                            onClick={() => handleActionClick(u)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${u.status === 'suspended'
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
                               : 'bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700'
                               }`}
@@ -327,8 +347,11 @@ export function AdminUsersView() {
                   <p className="text-xs text-slate-500 mt-0.5">Lưu trữ toàn bộ thao tác tác động lên EMR bệnh án và luồng giải ngân Escrow</p>
                 </div>
                 <button
-                  onClick={() => alert('Đang xuất toàn bộ file Audit Logs định dạng .CSV có chữ ký số...')}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  onClick={() => {
+                    setNotification('Đang chuẩn bị file CSV Audit Logs có chữ ký số xác thực...');
+                    setTimeout(() => setNotification(''), 3000);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">download</span>
                   <span>Xuất file Audit Kiểm toán</span>
@@ -373,6 +396,67 @@ export function AdminUsersView() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL XÁC NHẬN KHÓA TRUY CẬP TÀI KHOẢN (NIELSEN H5: NGĂN NGỪA LỖI TÁC VỤ PHÁ HỦY) */}
+        {confirmSuspendUser && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-200 space-y-4 animate-in fade-in zoom-in-95">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[24px]">gavel</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-rose-900">
+                    Xác Nhận Khóa Quyền Truy Cập
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Hành động này sẽ vô hiệu hóa phiên đăng nhập tức thời
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1.5 leading-relaxed">
+                <p>
+                  Bạn đang chuẩn bị khóa tài khoản của:{' '}
+                  <strong>{confirmSuspendUser.name}</strong> ({confirmSuspendUser.email})
+                </p>
+                <p className="text-[11px] text-rose-700">
+                  Người dùng này sẽ bị ngắt kết nối khỏi hệ thống và không thể truy cập hồ sơ bệnh án hoặc thực hiện giao dịch cho đến khi được Admin mở khóa.
+                </p>
+              </div>
+
+              <div className="space-y-1 text-xs">
+                <label className="block font-bold text-slate-700">
+                  Lý do khóa tài khoản (Ghi vào biên bản kiểm toán):
+                </label>
+                <textarea
+                  rows={2}
+                  value={suspendReason}
+                  onChange={(e) => setSuspendReason(e.target.value)}
+                  placeholder="Ví dụ: Nghi vấn lộ thông tin, khiếu nại vi phạm SLA chưa giải quyết..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmSuspendUser(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmSuspend}
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  Xác nhận Khóa tài khoản
+                </button>
               </div>
             </div>
           </div>

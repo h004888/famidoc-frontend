@@ -7,6 +7,10 @@ import { useRouter } from 'next/navigation';
 export function DoctorDashboardView() {
   const router = useRouter();
   const [_activeQueue] = useState<'pending' | 'in_progress' | 'signed'>('pending');
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('PT-01');
+  const [showSignModal, setShowSignModal] = useState<boolean>(false);
+  const [isSigning, setIsSigning] = useState<boolean>(false);
+  const [signSuccessToast, setSignSuccessToast] = useState<string | null>(null);
 
   const patients = [
     {
@@ -19,6 +23,12 @@ export function DoctorDashboardView() {
       family: 'Hộ FAM-88219',
       avatarText: 'VP',
       status: 'pending',
+      emr: '#EMR-88219',
+      icd10: '[I10]',
+      subjective: 'Bệnh nhân thấy hoa mắt nhẹ vào buổi sáng, không đau ngực khó thở, ăn ngủ tạm ổn.',
+      objective: 'HA: 135/85 mmHg, Nhịp tim: 76 bpm, SpO2: 98%, Phổi trong, không ran, phù chân (-).',
+      assessment: 'Tăng huyết áp nguyên phát độ 1 (ICD-10: I10), Đái tháo đường type 2 (E11.9)',
+      plan: 'Tiếp tục Amlodipine 5mg sáng 1 viên. Theo dõi huyết áp tại nhà 2 lần/ngày. Hẹn khám lại sau 1 tháng.',
     },
     {
       id: 'PT-02',
@@ -30,6 +40,12 @@ export function DoctorDashboardView() {
       family: 'Hộ FAM-44012',
       avatarText: 'TT',
       status: 'pending',
+      emr: '#EMR-44012',
+      icd10: '[Z34.8]',
+      subjective: 'Thai 28 tuần, cử động thai tốt, thỉnh thoảng mỏi lưng nhẹ, không phù, không đau bụng.',
+      objective: 'HA: 115/75 mmHg, Cân nặng: 58kg (+8kg từ đầu thai kỳ), Tim thai: 142 bpm, BCTC: 24cm.',
+      assessment: 'Thai kỳ 28 tuần đơn thai phát triển bình thường (ICD-10: Z34.8)',
+      plan: 'Bổ sung Canxi & Sắt hữu cơ. Hướng dẫn đếm cử động thai. Tái khám sau 2 tuần tại BV Từ Dũ.',
     },
     {
       id: 'PT-03',
@@ -41,8 +57,26 @@ export function DoctorDashboardView() {
       family: 'Hộ FAM-11983',
       avatarText: 'AD',
       status: 'pending',
+      emr: '#EMR-11983',
+      icd10: '[M25.56]',
+      subjective: 'Đau gối phải sau khi chạy bộ 2 ngày trước, sưng nhẹ, hạn chế gập gối tối đa, không sốt.',
+      objective: 'Khớp gối phải sưng nhẹ, không tràn dịch lớn, dấu hiệu ngăn kéo (-), ấn đau khe khớp trong.',
+      assessment: 'Chấn thương căng cơ/dây chằng gối phải mức độ nhẹ (ICD-10: M25.56)',
+      plan: 'Chườm lạnh 15 phút x 3 lần/ngày. Giảm vận động nặng. Paracetamol 500mg khi đau. Siêu âm kiểm tra nếu còn đau sau 3 ngày.',
     },
   ];
+
+  const currentPatient = patients.find((p) => p.id === selectedPatientId) || patients[0];
+
+  const handleConfirmSignature = () => {
+    setIsSigning(true);
+    setTimeout(() => {
+      setIsSigning(false);
+      setShowSignModal(false);
+      setSignSuccessToast(`Đã ký số HSM Viettel-CA và phát hành đơn thuốc điện tử cho bệnh nhân ${currentPatient.name}!`);
+      setTimeout(() => setSignSuccessToast(null), 5000);
+    }, 700);
+  };
 
   const clinicalKpis = [
     {
@@ -214,6 +248,27 @@ export function DoctorDashboardView() {
           </Link>
         </div>
 
+        {/* Success Feedback Toast */}
+        {signSuccessToast && (
+          <div
+            role="status"
+            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold flex items-center justify-between shadow-xs transition-all animate-in fade-in slide-in-from-top-2"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+              <span>{signSuccessToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSignSuccessToast(null)}
+              className="text-emerald-600 hover:text-emerald-800 p-1"
+              aria-label="Đóng thông báo"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Main Workspace: Patient Queue & SOAP Note Form */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left: Queue List */}
@@ -232,63 +287,86 @@ export function DoctorDashboardView() {
             </div>
 
             <div className="space-y-3">
-              {patients.map((p) => (
-                <div
-                  key={p.id}
-                  className="p-4 rounded-xl border border-slate-200/80 bg-slate-50/50 hover:border-[#2E37A4]/40 hover:bg-white transition-all space-y-2.5 cursor-pointer shadow-2xs"
-                >
-                  <div className="flex justify-between items-start gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-full bg-[#2E37A4]/10 text-[#2E37A4] font-bold text-xs flex items-center justify-center shrink-0">
-                        {p.avatarText}
+              {patients.map((p) => {
+                const isSelected = p.id === selectedPatientId;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => setSelectedPatientId(p.id)}
+                    className={`p-4 rounded-xl border transition-all space-y-2.5 cursor-pointer shadow-2xs ${
+                      isSelected
+                        ? 'bg-white border-[#2E37A4] ring-2 ring-[#2E37A4]/20 shadow-xs'
+                        : 'border-slate-200/80 bg-slate-50/50 hover:border-[#2E37A4]/40 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex justify-between items-start gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-full bg-[#2E37A4]/10 text-[#2E37A4] font-bold text-xs flex items-center justify-center shrink-0">
+                          {p.avatarText}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-xs sm:text-sm text-slate-900">{p.name}</h4>
+                            {isSelected && (
+                              <span className="text-[10px] bg-[#2E37A4] text-white px-1.5 py-0.2 rounded font-bold">
+                                Đang chọn
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[11px] text-[#2E37A4] font-semibold">{p.family}</span>
+                        </div>
                       </div>
-                      <div>
-                        <h4 className="font-bold text-xs sm:text-sm text-slate-900">{p.name}</h4>
-                        <span className="text-[11px] text-[#2E37A4] font-semibold">{p.family}</span>
-                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${p.triageBg} shrink-0`}>
+                        {p.triage}
+                      </span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${p.triageBg} shrink-0`}>
-                      {p.triage}
-                    </span>
-                  </div>
 
-                  <p className="text-xs text-slate-600 line-clamp-2">
-                    <span className="font-semibold text-slate-700">Lý do:</span> {p.chiefComplaint}
-                  </p>
+                    <p className="text-xs text-slate-600 line-clamp-2">
+                      <span className="font-semibold text-slate-700">Lý do:</span> {p.chiefComplaint}
+                    </p>
 
-                  <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-200/60">
-                    <span className="text-slate-400 font-mono text-[11px] flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[14px]">schedule</span>
-                      {p.time}
-                    </span>
-                    {/* BUTTON PHẢI GIỮ EXACT TEXT "Mở Phiếu khám" VÀ CLASS "py-2" ĐỂ PASS UT-CMP-15 */}
-                    <button
-                      type="button"
-                      onClick={() => router.push('/doctor/encounters')}
-                      className="px-3.5 py-2 bg-[#2E37A4] text-white rounded-xl text-xs font-bold hover:bg-[#222982] transition-colors min-h-[40px] flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">edit_document</span>
-                      <span>Mở Phiếu khám</span>
-                    </button>
+                    <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-200/60">
+                      <span className="text-slate-400 font-mono text-[11px] flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[14px]">schedule</span>
+                        {p.time}
+                      </span>
+                      {/* BUTTON PHẢI GIỮ EXACT TEXT "Mở Phiếu khám" VÀ CLASS "py-2" ĐỂ PASS UT-CMP-15 */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          router.push(`/doctor/encounters?patientId=${p.id}`);
+                        }}
+                        className="px-3.5 py-2 bg-[#2E37A4] text-white rounded-xl text-xs font-bold hover:bg-[#222982] transition-colors min-h-[40px] flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">edit_document</span>
+                        <span>Mở Phiếu khám</span>
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* Right: Quick SOAP Note Pad */}
-          <div className="lg:col-span-7 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-4">
+          <div
+            key={currentPatient.id}
+            className="lg:col-span-7 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-4"
+          >
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
                   <span className="material-symbols-outlined text-[#2E37A4]">clinical_notes</span>
                   Phiếu Khám Điện Tử Nhanh (SOAP)
                 </h3>
-                <p className="text-xs text-slate-500">Bệnh nhân: Nguyễn Văn Phúc (78 tuổi) • Hồ sơ #EMR-88219</p>
+                <p className="text-xs text-slate-500">
+                  Bệnh nhân: <strong className="text-slate-900">{currentPatient.name}</strong> • Hồ sơ {currentPatient.emr}
+                </p>
               </div>
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-xs font-mono font-bold text-[#2E37A4] border border-blue-200">
-                  ICD-10: [I10]
+                  ICD-10: {currentPatient.icd10}
                 </span>
               </div>
             </div>
@@ -301,7 +379,7 @@ export function DoctorDashboardView() {
                 <textarea
                   id="soap-subjective"
                   rows={2}
-                  defaultValue="Bệnh nhân thấy hoa mắt nhẹ vào buổi sáng, không đau ngực khó thở, ăn ngủ tạm ổn."
+                  defaultValue={currentPatient.subjective}
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] transition-all"
                 />
               </div>
@@ -313,7 +391,7 @@ export function DoctorDashboardView() {
                 <textarea
                   id="soap-objective"
                   rows={2}
-                  defaultValue="HA: 135/85 mmHg, Nhịp tim: 76 bpm, SpO2: 98%, Phổi trong, không ran, phù chân (-)."
+                  defaultValue={currentPatient.objective}
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] transition-all"
                 />
               </div>
@@ -325,7 +403,7 @@ export function DoctorDashboardView() {
                 <input
                   id="soap-assessment"
                   type="text"
-                  defaultValue="Tăng huyết áp nguyên phát độ 1 (ICD-10: I10), Đái tháo đường type 2 (E11.9)"
+                  defaultValue={currentPatient.assessment}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] font-semibold text-[#2E37A4] transition-all"
                 />
               </div>
@@ -337,25 +415,33 @@ export function DoctorDashboardView() {
                 <textarea
                   id="soap-plan"
                   rows={2}
-                  defaultValue="Tiếp tục Amlodipine 5mg sáng 1 viên. Theo dõi huyết áp tại nhà 2 lần/ngày. Hẹn khám lại sau 1 tháng."
+                  defaultValue={currentPatient.plan}
                   className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] transition-all"
                 />
               </div>
 
               <div className="pt-2 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-t border-slate-100">
                 <Link
-                  href="/doctor/encounters"
+                  href={`/doctor/encounters?patientId=${currentPatient.id}`}
                   className="text-xs font-bold text-[#2E37A4] hover:underline flex items-center gap-1"
                 >
                   <span>Mở giao diện Kê đơn chuyên sâu</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
                 </Link>
                 <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button className="flex-1 sm:flex-none px-3.5 py-2 border border-slate-200 text-xs font-semibold rounded-xl hover:bg-slate-50 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSignSuccessToast(`Đã lưu nháp hồ sơ SOAP cho bệnh nhân ${currentPatient.name}`);
+                      setTimeout(() => setSignSuccessToast(null), 3000);
+                    }}
+                    className="flex-1 sm:flex-none px-3.5 py-2 border border-slate-200 text-xs font-semibold rounded-xl hover:bg-slate-50 transition-colors"
+                  >
                     Lưu nháp
                   </button>
                   <button
-                    onClick={() => alert('Đã ký số HSM Viettel-CA và phát hành đơn thuốc điện tử!')}
+                    type="button"
+                    onClick={() => setShowSignModal(true)}
                     className="flex-1 sm:flex-none px-4 py-2 bg-[#2E37A4] hover:bg-[#222982] text-white text-xs font-bold rounded-xl shadow-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">verified</span>
@@ -367,6 +453,86 @@ export function DoctorDashboardView() {
           </div>
         </div>
       </main>
+
+      {/* MODAL XÁC THỰC KÝ SỐ ĐIỆN TỬ VIETTEL-CA (THAY THẾ ALERT THÔ) */}
+      {showSignModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-[#2E37A4]">
+                <span className="material-symbols-outlined text-[24px]">verified_user</span>
+                <h3 className="font-bold text-base text-slate-900">
+                  Xác Thực Ký Số Viettel-CA Cloud HSM
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSignModal(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors"
+                aria-label="Đóng modal"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 text-xs space-y-2 text-slate-700">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Bệnh nhân tiếp nhận:</span>
+                <strong className="text-slate-900">{currentPatient.name}</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Mã bệnh án điện tử:</span>
+                <span className="font-mono font-bold text-[#2E37A4]">{currentPatient.emr}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Bác sĩ ký số:</span>
+                <strong className="text-slate-900">PGS.TS Nguyễn Trọng Nghĩa</strong>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Chứng thư CCHN:</span>
+                <span className="font-mono font-semibold text-emerald-700">004128/BYT (Viettel-CA Level 2)</span>
+              </div>
+              <div className="pt-2 border-t border-blue-200/60 text-[11px] text-slate-600">
+                <span className="font-semibold text-slate-800">Chẩn đoán: </span>
+                {currentPatient.assessment}
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500 italic">
+              Đơn thuốc điện tử sau khi ký số sẽ được tự động đồng bộ lên Hệ thống Đơn thuốc Quốc gia (Bộ Y tế) và gửi đến ứng dụng của người nhà.
+            </p>
+
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowSignModal(false)}
+                disabled={isSigning}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Hủy / Xem lại
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSignature}
+                disabled={isSigning}
+                className="flex-1 py-2.5 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+              >
+                {isSigning ? (
+                  <>
+                    <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Đang ký số HSM...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                    <span>Xác nhận Ký số</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -41,26 +41,22 @@ export function DoctorEncountersView() {
   const [prescriptions, setPrescriptions] = useState<PrescriptionItem[]>(DEFAULT_PRESCRIPTIONS);
   const [isSigned, setIsSigned] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
+  const [signSuccessMessage, setSignSuccessMessage] = useState<string | null>(null);
 
   // New drug input state
   const [drugName, setDrugName] = useState('');
   const [drugDosage, setDrugDosage] = useState('');
   const [drugInstructions, setDrugInstructions] = useState('');
 
+  // Clinical Override for Penicillin Allergy Modal State (Replaces prompt)
+  const [pendingAllergyDrug, setPendingAllergyDrug] = useState<{
+    drug: PrescriptionItem;
+    reason: string;
+  } | null>(null);
+
   const handleAddDrug = (e: React.FormEvent) => {
     e.preventDefault();
     if (!drugName.trim()) return;
-
-    // Kiểm tra an toàn dị ứng & tương tác thuốc (MSG22 & GB-10)
-    const lowerName = drugName.toLowerCase();
-    if (lowerName.includes('penicillin') || lowerName.includes('amoxicillin') || lowerName.includes('augmentin')) {
-      const overrideReason = prompt(
-        `[CẢNH BÁO AN TOÀN MSG22 / GB-10]\nPhát hiện xung đột nghiêm trọng: Thuốc "${drugName}" thuộc nhóm dị ứng Penicillin của bệnh nhân!\n\nNếu có chỉ định lâm sàng bắt buộc, vui lòng nhập lý do ghi đè (Clinical Override Reason) hoặc bấm Cancel để hủy:`
-      );
-      if (!overrideReason) {
-        return; // Hủy không thêm thuốc
-      }
-    }
 
     const newDrug: PrescriptionItem = {
       id: `rx-${Date.now()}`,
@@ -73,7 +69,37 @@ export function DoctorEncountersView() {
       instructions: drugInstructions || 'Uống theo chỉ định',
     };
 
+    // Kiểm tra an toàn dị ứng & tương tác thuốc (MSG22 & GB-10)
+    const lowerName = drugName.toLowerCase();
+    if (lowerName.includes('penicillin') || lowerName.includes('amoxicillin') || lowerName.includes('augmentin')) {
+      // Mở modal cảnh báo lâm sàng chuyên dụng (Không dùng prompt thô)
+      setPendingAllergyDrug({
+        drug: newDrug,
+        reason: '',
+      });
+      return;
+    }
+
     setPrescriptions([...prescriptions, newDrug]);
+    setDrugName('');
+    setDrugDosage('');
+    setDrugInstructions('');
+  };
+
+  const handleConfirmAllergyOverride = () => {
+    if (!pendingAllergyDrug) return;
+    if (!pendingAllergyDrug.reason.trim()) {
+      alert('Bác sĩ vui lòng ghi rõ lý do ghi đè lâm sàng (Clinical Override Reason).');
+      return;
+    }
+
+    const drugWithOverride: PrescriptionItem = {
+      ...pendingAllergyDrug.drug,
+      instructions: `${pendingAllergyDrug.drug.instructions} [Ghi đè lâm sàng: ${pendingAllergyDrug.reason}]`,
+    };
+
+    setPrescriptions([...prescriptions, drugWithOverride]);
+    setPendingAllergyDrug(null);
     setDrugName('');
     setDrugDosage('');
     setDrugInstructions('');
@@ -88,7 +114,8 @@ export function DoctorEncountersView() {
     setTimeout(() => {
       setIsSigning(false);
       setIsSigned(true);
-      alert('Đã khóa mã hóa bệnh án EMR và hoàn tất Ký số điện tử HSM Viettel-CA!');
+      setSignSuccessMessage('Đã khóa mã hóa bệnh án EMR và hoàn tất Ký số điện tử HSM Viettel-CA!');
+      setTimeout(() => setSignSuccessMessage(null), 6000);
     }, 1200);
   };
 
@@ -96,6 +123,27 @@ export function DoctorEncountersView() {
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Sign Success Notification */}
+        {signSuccessMessage && (
+          <div
+            role="status"
+            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
+          >
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[22px] text-emerald-600">verified</span>
+              <span>{signSuccessMessage}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSignSuccessMessage(null)}
+              className="text-emerald-700 hover:text-emerald-900 p-1"
+              aria-label="Đóng thông báo"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Patient Identity Top Bar */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -374,6 +422,71 @@ export function DoctorEncountersView() {
             </div>
           </div>
         </div>
+
+        {/* MODAL CẢNH BÁO AN TOÀN DƯỢC LÂM SÀNG (MSG22 / GB-10) */}
+        {pendingAllergyDrug && (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
+            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-red-200 space-y-4 animate-in fade-in zoom-in-95">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[24px]">warning</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-red-700">
+                    [CẢNH BÁO AN TOÀN MSG22 / GB-10]
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Xung đột dị ứng nghiêm trọng nhóm kháng sinh Penicillin
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-800 space-y-1.5 leading-relaxed">
+                <p>
+                  Thuốc <strong>&quot;{pendingAllergyDrug.drug.name}&quot;</strong> thuộc nhóm dị ứng đã ghi nhận trong hồ sơ của bệnh nhân Nguyễn Văn Phúc!
+                </p>
+                <p className="text-[11px] text-red-700">
+                  Theo khuyến nghị Dược lâm sàng: Nên chọn nhóm kháng sinh thay thế an toàn hơn (như Macrolide, Quinolone...).
+                </p>
+              </div>
+
+              <div className="space-y-1.5 text-xs">
+                <label className="block font-bold text-slate-800">
+                  Lý do ghi đè lâm sàng bắt buộc (Clinical Override Reason):
+                </label>
+                <textarea
+                  rows={2}
+                  value={pendingAllergyDrug.reason}
+                  onChange={(e) =>
+                    setPendingAllergyDrug({
+                      ...pendingAllergyDrug,
+                      reason: e.target.value,
+                    })
+                  }
+                  placeholder="Ghi rõ cơ sở lâm sàng, chỉ định đặc biệt hoặc kết quả test lẩy da âm tính..."
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-red-500"
+                />
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingAllergyDrug(null)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-xs text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  Hủy chỉ định (Khuyên dùng)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmAllergyOverride}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-xs transition-colors"
+                >
+                  Xác nhận ghi đè lâm sàng
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );
