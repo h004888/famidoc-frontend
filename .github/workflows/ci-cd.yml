@@ -121,10 +121,23 @@ jobs:
           fi
 
           echo "Đang kích hoạt Dokploy Deployment Webhook..."
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          PAYLOAD=$(jq -n \
+            --arg ref "${{ github.ref }}" \
+            --arg id "${{ github.sha }}" \
+            --arg msg "$COMMIT_MSG" \
+            '{
+              ref: $ref,
+              head_commit: {
+                id: $id,
+                message: $msg
+              }
+            }')
+
           HTTP_RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "$DOKPLOY_WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -H "X-GitHub-Event: push" \
-            -d "{\"ref\":\"${{ github.ref }}\"}")
+            -d "$PAYLOAD")
           HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed '$d')
           HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tail -n1)
 
