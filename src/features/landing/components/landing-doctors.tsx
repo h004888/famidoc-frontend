@@ -169,12 +169,12 @@ export function LandingDoctors() {
                       <span className="material-symbols-outlined text-amber-500 text-sm">star</span>
                       <span>{doc.ratingText}</span>
                     </span>
-                    <span className="font-bold text-slate-900 text-sm font-mono">{doc.fee}</span>
+                    <span className="font-bold text-slate-900 text-sm tabular-nums">{doc.fee}</span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2">
                     <Link
-                      href="/doctors"
+                      href={`/doctors/${doc.id.toLowerCase()}`}
                       className="py-2.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1"
                     >
                       <span>Hồ sơ chi tiết</span>
@@ -241,7 +241,7 @@ export function LandingDoctors() {
                   <strong>{selectedSlot}</strong> đã được lưu. Trợ lý y tế sẽ liên hệ số {phone || 'của bạn'} để hoàn tất hồ sơ.
                 </p>
                 <div className="pt-2">
-                  <span className="inline-block text-[11px] text-slate-400 font-mono">Mã cuộc hẹn: #{bookingCode}</span>
+                  <span className="inline-block text-[11px] text-slate-400 tabular-nums">Mã cuộc hẹn: #{bookingCode}</span>
                 </div>
               </div>
             ) : (

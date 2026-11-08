@@ -1,9 +1,24 @@
-﻿import React from 'react';
+'use client';
+
+import React from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const isAuthStandalone = pathname === '/login' || pathname === '/register';
+
+  // Ở trang đăng nhập (/login) & đăng ký (/register): Hiển thị toàn màn hình (ẩn toàn bộ Header và Footer)
+  if (isAuthStandalone) {
+    return (
+      <main className="min-h-screen w-full bg-[#f4f8fe] lg:bg-white p-0 m-0 overflow-x-hidden lg:h-screen lg:max-h-screen lg:overflow-hidden">
+        {children}
+      </main>
+    );
+  }
+
   return (
-    <div className="bg-background text-on-surface antialiased font-body-md text-body-md min-h-screen flex flex-col justify-between selection:bg-surface-container-high selection:text-primary border-t-2 border-[#4338ca]">
+    <div className="bg-background text-on-surface antialiased font-sans text-sm min-h-screen flex flex-col justify-between selection:bg-surface-container-high selection:text-primary border-t-2 border-[#4338ca]">
       {/* Header Y Tế Tinh Gọn FamiDoc theo chuẩn Stitch */}
       <header className="bg-surface-container-lowest sticky top-0 z-40 w-full shadow-sm border-b border-outline-variant/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
@@ -20,7 +35,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </Link>
 
           {/* Menu Điều Hướng Trung Tâm */}
-          <nav className="hidden md:flex items-center gap-8 font-label-lg text-sm font-semibold text-on-surface-variant">
+          <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-on-surface-variant">
             <Link href="/#he-sinh-thai" className="hover:text-primary transition-colors duration-150">
               Dịch vụ &amp; Gói khám
             </Link>
@@ -36,7 +51,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <div className="flex items-center gap-4">
             <Link
               href="/register"
-              className="inline-flex items-center justify-center bg-surface-container-low text-primary border border-surface-container-highest hover:bg-surface-container font-label-lg text-sm font-semibold px-5 py-2.5 rounded-lg transition-all duration-150 shadow-sm hover:shadow"
+              className="inline-flex items-center justify-center bg-surface-container-low text-primary border border-surface-container-highest hover:bg-surface-container text-sm font-semibold px-5 py-2.5 rounded-lg transition-all duration-150 shadow-sm hover:shadow"
             >
               Đăng ký ngay
             </Link>
@@ -66,7 +81,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                   src="/images/FamiDoc Healthcare Logo.png"
                 />
               </div>
-              <p className="font-body-sm text-xs sm:text-sm text-on-surface-variant leading-relaxed max-w-sm">
+              <p className="text-xs sm:text-sm text-on-surface-variant leading-relaxed max-w-sm">
                 FamiDoc Pro - Hệ sinh thái Y tế Bác sĩ Gia đình Toàn diện. Tiên phong giải pháp chăm sóc
                 sức khỏe ban đầu, theo dõi bệnh mạn tính và quản lý hồ sơ liên thông.
               </p>
@@ -74,10 +89,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
             {/* Cột 2: Dịch Vụ Y Tế */}
             <div>
-              <h4 className="font-label-lg text-sm text-on-surface mb-3.5 tracking-tight font-semibold">
+              <h4 className="text-sm text-on-surface mb-3.5 tracking-tight font-semibold">
                 Dịch vụ Y tế
               </h4>
-              <ul className="space-y-2 font-body-sm text-xs sm:text-sm">
+              <ul className="space-y-2 text-xs sm:text-sm">
                 <li>
                   <Link href="/#he-sinh-thai" className="hover:text-primary transition-colors">
                     Bác sĩ gia đình tận nơi
@@ -108,10 +123,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
             {/* Cột 3: Gói Khám Gia Đình */}
             <div>
-              <h4 className="font-label-lg text-sm text-on-surface mb-3.5 tracking-tight font-semibold">
+              <h4 className="text-sm text-on-surface mb-3.5 tracking-tight font-semibold">
                 Gói khám &amp; Quyền lợi
               </h4>
-              <ul className="space-y-2 font-body-sm text-xs sm:text-sm">
+              <ul className="space-y-2 text-xs sm:text-sm">
                 <li>
                   <Link href="/#bang-gia" className="hover:text-primary transition-colors">
                     Gói Chăm sóc Sức khỏe Tam Đại
@@ -142,26 +157,26 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
             {/* Cột 4: Tổng Đài Trực Ban & Hỗ Trợ */}
             <div>
-              <h4 className="font-label-lg text-sm text-on-surface mb-3.5 tracking-tight font-semibold">
+              <h4 className="text-sm text-on-surface mb-3.5 tracking-tight font-semibold">
                 Hỗ trợ &amp; Khẩn cấp
               </h4>
-              <div className="space-y-3 font-body-sm text-xs sm:text-sm">
+              <div className="space-y-3 text-xs sm:text-sm">
                 <div>
-                  <p className="text-on-surface-variant font-label-sm text-xs">
+                  <p className="text-on-surface-variant text-xs">
                     Tổng đài y tế trực ban 24/7:
                   </p>
-                  <p className="font-headline-sm text-lg sm:text-xl text-primary font-bold">1900 6868</p>
+                  <p className="text-lg sm:text-xl text-primary font-bold">1900 6868</p>
                 </div>
                 <div>
-                  <p className="text-on-surface-variant font-label-sm text-xs">
+                  <p className="text-on-surface-variant text-xs">
                     Đường dây nóng chuyên môn:
                   </p>
-                  <p className="font-label-lg text-xs sm:text-sm text-on-surface font-semibold">
+                  <p className="text-xs sm:text-sm text-on-surface font-semibold">
                     (024) 7300 8821
                   </p>
                 </div>
                 <div>
-                  <p className="text-on-surface-variant font-label-sm text-xs">
+                  <p className="text-on-surface-variant text-xs">
                     Hòm thư tiếp nhận nghiệp vụ:
                   </p>
                   <p className="text-on-surface">hotro@famidoc.vn</p>
@@ -172,7 +187,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
           {/* Đường Phân Tách Phía Dưới */}
           <div className="border-t border-outline-variant/50 pt-6 flex flex-col items-center justify-center gap-3 text-center">
-            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 font-label-sm text-xs text-on-surface-variant">
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-xs text-on-surface-variant">
               <Link href="/#bao-mat" className="hover:text-primary transition-colors">
                 Chính sách bảo mật y tế
               </Link>
@@ -189,7 +204,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
                 Điều khoản dịch vụ
               </Link>
             </div>
-            <p className="font-body-sm text-xs text-on-surface-variant/80 max-w-3xl">
+            <p className="text-xs text-on-surface-variant/80 max-w-3xl">
               &copy; 2024 FamiDoc Pro. Hệ sinh thái Y tế Bác sĩ Gia đình Toàn diện. Tuân thủ tiêu chuẩn an
               toàn bảo mật dữ liệu y tế và liên thông hồ sơ sức khỏe điện tử Bộ Y Tế.
             </p>

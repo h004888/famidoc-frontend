@@ -130,7 +130,7 @@ export function AdminDashboardView() {
               <span className="text-slate-300">/</span>
               <span className="text-[#2E37A4] font-semibold">Tổng quan Nền tảng</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
               Admin Dashboard
             </h1>
           </div>
@@ -174,7 +174,7 @@ export function AdminDashboardView() {
 
               <div>
                 <p className="text-xs font-medium text-slate-500">{kpi.title}</p>
-                <h3 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mt-0.5">
+                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mt-0.5">
                   {kpi.value}
                 </h3>
               </div>
@@ -310,7 +310,7 @@ export function AdminDashboardView() {
                     {pendingArbitrations.map((item) => (
                       <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="font-mono font-bold text-slate-700">{item.id}</div>
+                          <div className="tabular-nums font-bold text-slate-700">{item.id}</div>
                           <span
                             className={`inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
                               item.severity === 'high'
@@ -342,7 +342,7 @@ export function AdminDashboardView() {
                         </td>
 
                         <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="font-bold text-rose-600 font-mono">{item.escrowAmount}</div>
+                          <div className="font-bold text-rose-600 tabular-nums">{item.escrowAmount}</div>
                           <span className="text-[10px] text-slate-400">Đang đóng băng</span>
                         </td>
 
@@ -423,7 +423,7 @@ export function AdminDashboardView() {
                   <div key={idx} className="flex items-start justify-between text-xs pb-3 border-b border-slate-100 last:border-b-0 last:pb-0">
                     <div className="pr-2">
                       <div className="font-semibold text-slate-800">{srv.name}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5 font-mono">Độ trễ: {srv.latency}</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5 tabular-nums">Độ trễ: {srv.latency}</div>
                     </div>
                     <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded-md text-[10px] shrink-0 border border-emerald-200">
                       {srv.status}

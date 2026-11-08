@@ -7,16 +7,22 @@ import { LandingHeader, LandingFooter } from '@/features/landing';
 export interface CatalogPackageItem {
   id: string;
   badge: string;
-  category: 'all' | 'family' | 'elderly' | 'maternity' | 'clinical';
+  category: 'all' | 'trial' | 'standard' | 'annual';
   icon: string;
   name: string;
   altName: string;
   popular?: boolean;
+  months: number;
+  defaultMembers: number;
+  maxMembers: number;
+  homeVisits: number;
+  unitPrice: number;
+  videoCalls: string;
   price: string;
-  annualPrice?: string;
+  monthlyPrice: string;
   periodText: string;
   subPrice: string;
-  annualSubPrice?: string;
+  monthlySubPrice: string;
   features: { text: string; strong?: boolean; highlighted?: boolean }[];
   ctaText: string;
 }
@@ -25,198 +31,150 @@ const PACKAGES: CatalogPackageItem[] = [
   {
     id: 'pkg-basic',
     badge: 'Kỳ hạn 1 Tháng',
-    category: 'family',
+    category: 'trial',
     icon: 'health_and_safety',
-    name: 'Chăm Sóc Cơ Bản',
-    altName: 'Gói Trải Nghiệm Gia Đình',
-    price: '1.490.000đ',
-    annualPrice: '1.290.000đ',
+    name: 'Gói Trải Nghiệm',
+    altName: 'Thử nghiệm dịch vụ y tế tại gia',
+    months: 1,
+    defaultMembers: 1,
+    maxMembers: 2,
+    homeVisits: 1,
+    unitPrice: 1000000,
+    videoCalls: '1 lượt',
+    price: '1.000.000đ',
+    monthlyPrice: '1.000.000đ',
     periodText: '/kỳ',
-    subPrice: 'Tương đương 1.490.000đ / tháng',
-    annualSubPrice: 'Tiết kiệm 200.000đ / tháng khi thanh toán năm',
+    subPrice: 'Bình quân 1.000.000đ / tháng (1 lần khám tại nhà)',
+    monthlySubPrice: 'Trọn gói cả kỳ: 1.000.000đ (1 tháng)',
     features: [
-      { text: 'Quy mô: 2 thành viên gia đình', strong: true },
-      { text: '3 lượt bác sĩ khám tận nhà' },
-      { text: '5 lượt tư vấn video call cùng bác sĩ' },
-      { text: 'Hồ sơ bệnh án điện tử gia đình (EHR)' },
-      { text: 'Trợ lý AI theo dõi sức khỏe 24/7' },
+      { text: 'Quy mô: 1 người (thêm tối đa 2 người)', strong: true },
+      { text: '1 lần bác sĩ khám tận nhà / kỳ' },
+      { text: '1 lượt tư vấn video call cùng bác sĩ' },
+      { text: 'Nhắn tin miễn phí với bác sĩ trong kỳ' },
+      { text: 'Hồ sơ bệnh án điện tử (EHR) cá nhân' },
+      { text: 'Phụ phí thêm người: 75.000đ/người/tháng' },
     ],
     ctaText: 'Đăng ký gói',
   },
   {
     id: 'pkg-toan-dien',
     badge: 'Kỳ hạn 3 Tháng',
-    category: 'family',
+    category: 'standard',
     icon: 'diversity_1',
-    name: 'Gia Đình Toàn Diện',
-    altName: 'Gói Đồng Hành Tiêu Chuẩn',
+    name: 'Gói Đồng Hành',
+    altName: 'Chăm sóc gia đình tiêu chuẩn',
     popular: true,
-    price: '4.245.000đ',
-    annualPrice: '3.600.000đ',
+    months: 3,
+    defaultMembers: 3,
+    maxMembers: 6,
+    homeVisits: 3,
+    unitPrice: 950000,
+    videoCalls: '4 lượt',
+    price: '2.850.000đ',
+    monthlyPrice: '950.000đ',
     periodText: '/kỳ',
-    subPrice: 'Khoảng 1.415.000đ / tháng (Tiết kiệm hơn)',
-    annualSubPrice: 'Khoảng 1.200.000đ / tháng (Ưu đãi gia đình)',
+    subPrice: 'Bình quân 950.000đ / tháng (Đơn giá 950.000đ/lần)',
+    monthlySubPrice: 'Trọn gói cả kỳ: 2.850.000đ (3 tháng)',
     features: [
-      { text: 'Quy mô: 4 thành viên gia đình', strong: true, highlighted: true },
-      { text: '5 lượt bác sĩ khám tận nhà' },
-      { text: '20 lượt tư vấn video call cùng bác sĩ' },
-      { text: '1 Bác sĩ Chuyên khoa gia đình chỉ định riêng' },
-      { text: 'Đo & lập phác đồ dinh dưỡng, lối sống gia đình' },
-      { text: 'Hỗ trợ kết nối đơn thuốc & giao thuốc tận nơi' },
+      { text: 'Quy mô: 3 người (thêm tối đa 6 người)', strong: true, highlighted: true },
+      { text: '3 lần bác sĩ khám tận nhà / kỳ' },
+      { text: '4 lượt tư vấn video call cùng bác sĩ' },
+      { text: 'Nhắn tin miễn phí với bác sĩ trong kỳ' },
+      { text: 'Bác sĩ gia đình phụ trách & lập kế hoạch chăm sóc' },
+      { text: 'Hồ sơ EHR từng thành viên & nhắc lịch tự động' },
+      { text: 'Phụ phí thêm người: 75.000đ/người/tháng' },
     ],
     ctaText: 'Đăng ký gói',
   },
   {
     id: 'pkg-nguoi-cao-tuoi',
-    badge: 'Kỳ hạn 12 Tháng',
-    category: 'elderly',
+    badge: 'Kỳ hạn 6 Tháng',
+    category: 'standard',
     icon: 'elderly',
-    name: 'Chăm Sóc Người Cao Tuổi',
-    altName: 'Quản Lý Bệnh Mạn Tính & Lão Khoa',
-    price: '14.900.000đ',
-    annualPrice: '12.900.000đ',
+    name: 'Gói An Tâm',
+    altName: 'Theo dõi & quản lý bệnh mạn tính',
+    months: 6,
+    defaultMembers: 4,
+    maxMembers: 8,
+    homeVisits: 7,
+    unitPrice: 925000,
+    videoCalls: '8 lượt',
+    price: '6.475.000đ',
+    monthlyPrice: '1.079.167đ',
     periodText: '/kỳ',
-    subPrice: 'Khoảng 1.241.000đ / tháng (Ưu đãi tối đa)',
-    annualSubPrice: 'Khoảng 1.075.000đ / tháng (Trọn vẹn 365 ngày)',
+    subPrice: 'Bình quân ~1.079.000đ / tháng (Đơn giá 925.000đ/lần)',
+    monthlySubPrice: 'Trọn gói cả kỳ: 6.475.000đ (6 tháng)',
     features: [
-      { text: 'Quy mô: Người cao tuổi / Đại gia đình', strong: true },
-      { text: '12 lượt bác sĩ khám tận nhà (1 lượt/tháng)' },
-      { text: 'Tư vấn video call không giới hạn lượt' },
-      { text: 'Bác sĩ Tim Mạch / Lão Khoa theo dõi riêng' },
-      { text: 'Xét nghiệm máu & điện tim ECG định kỳ tại nhà' },
-      { text: 'Hỗ trợ kết nối điều phối cấp cứu ưu tiên 24/7' },
+      { text: 'Quy mô: 4 người (thêm tối đa 8 người)', strong: true },
+      { text: '7 lần bác sĩ khám tận nhà / kỳ' },
+      { text: '8 lượt tư vấn video call cùng bác sĩ' },
+      { text: 'Nhắn tin miễn phí với bác sĩ trong kỳ' },
+      { text: 'Bác sĩ theo dõi bệnh mạn tính & rà soát định kỳ' },
+      { text: 'Hồ sơ EHR tập trung & nhắc gia hạn trước 15 ngày' },
+      { text: 'Phụ phí thêm người: 75.000đ/người/tháng' },
     ],
     ctaText: 'Đăng ký gói',
-  },
-  {
-    id: 'pkg-me-va-be',
-    badge: 'Kỳ hạn 6 Tháng',
-    category: 'maternity',
-    icon: 'child_care',
-    name: 'Chăm Sóc Mẹ & Bé Sơ Sinh',
-    altName: 'Y Khoa Sản - Nhi & Dinh Dưỡng Đầu Đời',
-    price: '7.850.000đ',
-    annualPrice: '6.650.000đ',
-    periodText: '/kỳ',
-    subPrice: 'Khoảng 1.308.000đ / tháng',
-    annualSubPrice: 'Tặng kèm cẩm nang ăn dặm & tiêm chủng',
-    features: [
-      { text: 'Quy mô: Mẹ sau sinh và bé dưới 36 tháng', strong: true },
-      { text: '6 lượt khám tổng quát & phát triển thể chất' },
-      { text: 'Tư vấn nuôi con bằng sữa mẹ & dinh dưỡng 24/7' },
-      { text: 'Nhắc lịch tiêm chủng & theo dõi phản ứng sau tiêm' },
-      { text: 'Bác sĩ Chuyên khoa Nhi trực tiếp đồng hành' },
-    ],
-    ctaText: 'Đăng ký gói',
-  },
-  {
-    id: 'pkg-tim-mach',
-    badge: 'Kỳ hạn 6 Tháng',
-    category: 'clinical',
-    icon: 'cardiology',
-    name: 'Tầm Soát Tim Mạch & Đột Quỵ',
-    altName: 'Dự Phòng Tai Biến Mạch Máu Não',
-    price: '8.400.000đ',
-    annualPrice: '7.200.000đ',
-    periodText: '/kỳ',
-    subPrice: 'Khoảng 1.400.000đ / tháng',
-    annualSubPrice: 'Bao gồm Holter điện tim & xét nghiệm lipid máu',
-    features: [
-      { text: 'Quy mô: Cá nhân hoặc người thân có tiền sử tim mạch', strong: true },
-      { text: 'Khám tim mạch chuyên sâu & đo ECG tại nhà' },
-      { text: 'Lập biểu đồ phân tầng nguy cơ đột quỵ SCORE' },
-      { text: 'Điều chỉnh đơn thuốc huyết áp & mỡ máu định kỳ' },
-      { text: 'Hội chẩn cùng chuyên gia Viện Tim / Chợ Rẫy' },
-    ],
-    ctaText: 'Đăng ký gói',
-  },
-  {
-    id: 'pkg-xet-nghiem',
-    badge: 'Kỳ hạn Theo Lượt',
-    category: 'clinical',
-    icon: 'biotechnology',
-    name: 'Khám Tổng Quát & Xét Nghiệm Tại Nhà',
-    altName: 'Xét Nghiệm Máu 18 Chỉ Số & Siêu Âm',
-    price: '2.850.000đ',
-    annualPrice: '2.450.000đ',
-    periodText: '/lượt',
-    subPrice: 'Kết quả trả về ứng dụng trong 4 giờ',
-    annualSubPrice: 'Tặng 1 buổi tư vấn phác đồ phòng bệnh',
-    features: [
-      { text: 'Quy mô: 1 - 2 thành viên', strong: true },
-      { text: 'Điều dưỡng đến tận nhà lấy máu an toàn' },
-      { text: 'Tổng phân tích tế bào máu, men gan, chức năng thận' },
-      { text: 'Tầm soát tiểu đường (HbA1c) & mỡ máu toàn phần' },
-      { text: 'Bác sĩ gọi điện giải thích từng chỉ số xét nghiệm' },
-    ],
-    ctaText: 'Đặt lịch xét nghiệm',
-  },
-  {
-    id: 'pkg-phuc-hoi',
-    badge: 'Kỳ hạn 1 Tháng',
-    category: 'clinical',
-    icon: 'physical_therapy',
-    name: 'Phục Hồi Chức Năng & Vật Lý Trị Liệu',
-    altName: 'Trị Liệu Cơ Xương Khớp & Sau Phẫu Thuật',
-    price: '5.200.000đ',
-    annualPrice: '4.400.000đ',
-    periodText: '/kỳ',
-    subPrice: '10 buổi tập trị liệu trực tiếp cùng KTV',
-    annualSubPrice: 'Hỗ trợ dụng cụ tập luyện tại nhà',
-    features: [
-      { text: 'Quy mô: Bệnh nhân đau cột sống, sau tai biến, sau mổ', strong: true },
-      { text: 'Kỹ thuật viên phục hồi chức năng đến tận nhà' },
-      { text: 'Xoa bóp trị liệu, kéo giãn & tập vận động thụ động' },
-      { text: 'Đánh giá thang điểm hồi phục chức năng hàng tuần' },
-      { text: 'Bác sĩ Y học cổ truyền & Phục hồi giám sát' },
-    ],
-    ctaText: 'Đăng ký trị liệu',
   },
   {
     id: 'pkg-hoang-gia',
-    badge: 'Kỳ hạn VIP 12 Tháng',
-    category: 'family',
+    badge: 'Kỳ hạn 12 Tháng',
+    category: 'annual',
     icon: 'workspace_premium',
-    name: 'Gia Đình Hoàng Gia',
-    altName: 'Đặc Quyền Bác Sĩ Riêng Concierge VIP',
-    price: '29.900.000đ',
-    annualPrice: '25.900.000đ',
+    name: 'Gói Toàn Diện',
+    altName: 'Bảo trợ y tế gia tộc trọn năm',
+    months: 12,
+    defaultMembers: 6,
+    maxMembers: 10,
+    homeVisits: 14,
+    unitPrice: 900000,
+    videoCalls: 'Trao đổi với bác sĩ',
+    price: '12.600.000đ',
+    monthlyPrice: '1.050.000đ',
     periodText: '/kỳ',
-    subPrice: 'Đặc quyền chăm sóc sức khỏe thượng lưu 24/7',
-    annualSubPrice: 'Đặc quyền hội đồng Giáo sư chuyên biệt 24/7',
+    subPrice: 'Bình quân 1.050.000đ / tháng (Đơn giá 900.000đ/lần)',
+    monthlySubPrice: 'Trọn gói cả kỳ: 12.600.000đ (12 tháng)',
     features: [
-      { text: 'Quy mô: Đại gia đình (lên đến 8 thành viên)', strong: true },
-      { text: 'Khám tận nhà không giới hạn theo chỉ định' },
-      { text: 'Hội đồng PGS, TS đầu ngành hội chẩn riêng' },
-      { text: 'Điều phối xe cấp cứu chuyên dụng phục vụ riêng' },
-      { text: 'Giao thuốc hỏa tốc & Miễn phí xét nghiệm cơ bản' },
+      { text: 'Quy mô: 6 người (thêm tối đa 10 người)', strong: true },
+      { text: '14 lần bác sĩ khám tận nhà / năm' },
+      { text: 'Tư vấn video theo kế hoạch cùng bác sĩ' },
+      { text: 'Nhắn tin miễn phí trọn vẹn 365 ngày' },
+      { text: 'Bác sĩ gia đình quản trị sức khỏe đa thế hệ' },
+      { text: 'Hồ sơ EHR trọn đời & lưu trữ chuẩn quốc tế' },
+      { text: 'Phụ phí thêm người: 75.000đ/người/tháng' },
     ],
-    ctaText: 'Đăng ký VIP',
+    ctaText: 'Đăng ký gói',
   },
+];
+
+const DOCTOR_LEVELS = [
+  { id: 'standard', name: 'Bác sĩ thường (Mặc định)', surcharge: 0, desc: 'Đã gồm trong gói (mốc cơ sở 250k)' },
+  { id: 'master', name: 'Thạc sĩ Y Khoa', surcharge: 50000, desc: '+50.000đ / lần khám tại nhà' },
+  { id: 'phd', name: 'Tiến sĩ Y Khoa', surcharge: 100000, desc: '+100.000đ / lần khám tại nhà' },
+  { id: 'professor', name: 'Giáo sư / Phó Giáo sư', surcharge: 200000, desc: '+200.000đ / lần khám tại nhà' },
 ];
 
 const BLOG_POSTS = [
   {
     id: 'blog-01',
     img: '/images/medsev/home-one/11.jpg',
-    title: 'Hướng dẫn kiểm soát huyết áp & đường huyết tại nhà cho người cao tuổi',
-    desc: 'Những nguyên tắc đo huyết áp chuẩn y khoa, biểu hiện cảnh báo nguy cơ đột quỵ sớm và chế độ ăn giảm natri tốt cho tim mạch.',
+    title: 'Hướng dẫn theo dõi huyết áp & đường huyết định kỳ tại nhà',
+    desc: 'Những nguyên tắc đo huyết áp chuẩn y khoa, biểu hiện cảnh báo sớm bệnh lý tim mạch và xây dựng chế độ sinh hoạt giảm natri.',
     date: '28/10/2026',
     author: 'BS.CKII Lê Hoàng Nam',
   },
   {
     id: 'blog-02',
     img: '/images/medsev/home-one/12.jpg',
-    title: 'Lịch tiêm chủng và dinh dưỡng tăng cường miễn dịch cho bé dưới 3 tuổi',
-    desc: 'Cập nhật phác đồ tiêm vắc-xin 6 trong 1, phế cầu và các vi chất dinh dưỡng thiết yếu giúp trẻ phát triển chiều cao và trí não tối ưu.',
+    title: 'Mô hình Bác sĩ Gia đình: Chăm sóc liên tục và dự phòng chủ động',
+    desc: 'Tại sao việc có một bác sĩ gia đình am hiểu tiền sử y khoa cả nhà giúp phát hiện sớm nguy cơ và tiết kiệm chi phí điều trị.',
     date: '24/10/2026',
     author: 'BS.CKI Nguyễn Minh Tuấn',
   },
   {
     id: 'blog-03',
     img: '/images/medsev/home-one/13.jpg',
-    title: 'Mô hình bác sĩ gia đình: Giải pháp giảm tải bệnh viện và phòng bệnh liên tục',
-    desc: 'Tại sao việc có một bác sĩ gia đình am hiểu tiền sử sức khỏe cả nhà lại giúp tiết kiệm tới 40% chi phí y tế không cần thiết.',
+    title: 'Hồ sơ bệnh án điện tử EHR: Quản lý y bạ tập trung cho đa thế hệ',
+    desc: 'Bảo mật dữ liệu sức khỏe, liên thông chuẩn HL7 FHIR và phương pháp theo dõi biểu đồ diễn tiến sức khỏe người cao tuổi.',
     date: '15/10/2026',
     author: 'TS.BS Phạm Minh Đức',
   },
@@ -224,8 +182,13 @@ const BLOG_POSTS = [
 
 export function PackagesCatalogView() {
   const [searchKeyword, setSearchKeyword] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<'all' | 'family' | 'elderly' | 'maternity' | 'clinical'>('all');
-  const [isAnnual, setIsAnnual] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<'all' | 'trial' | 'standard' | 'annual'>('all');
+  const [isMonthlyView, setIsMonthlyView] = useState(false);
+
+  // Estimator interactive state
+  const [selectedEstimatorPkgId, setSelectedEstimatorPkgId] = useState<string>('pkg-toan-dien');
+  const [memberCount, setMemberCount] = useState<number>(3);
+  const [selectedDoctorLevel, setSelectedDoctorLevel] = useState<string>('standard');
 
   // Filter packages based on keyword and category
   const filteredPackages = useMemo(() => {
@@ -247,24 +210,52 @@ export function PackagesCatalogView() {
     setSelectedCategory('all');
   };
 
+  // Estimator calculation
+  const estimatorPkg = useMemo(() => {
+    return PACKAGES.find((p) => p.id === selectedEstimatorPkgId) || PACKAGES[1]!;
+  }, [selectedEstimatorPkgId]);
+
+  const doctorLevelObj = useMemo(() => {
+    return DOCTOR_LEVELS.find((d) => d.id === selectedDoctorLevel) || DOCTOR_LEVELS[0]!;
+  }, [selectedDoctorLevel]);
+
+  // Adjust member count when package changes if needed
+  const handleSelectEstimatorPkg = (pkgId: string) => {
+    setSelectedEstimatorPkgId(pkgId);
+    const p = PACKAGES.find((item) => item.id === pkgId);
+    if (p && memberCount < p.defaultMembers) {
+      setMemberCount(p.defaultMembers);
+    }
+  };
+
+  const extraMembers = Math.max(0, memberCount - estimatorPkg.defaultMembers);
+  const isOverMaxLimit = memberCount > estimatorPkg.maxMembers;
+  const extraMemberFeeTotal = extraMembers * 75000 * estimatorPkg.months;
+  const doctorSurchargeTotal = estimatorPkg.homeVisits * doctorLevelObj.surcharge;
+  const basePriceNumber = estimatorPkg.homeVisits * estimatorPkg.unitPrice;
+  const totalEstimatedPrice = basePriceNumber + extraMemberFeeTotal + doctorSurchargeTotal;
+  const monthlyAverageEstimated = Math.round(totalEstimatedPrice / estimatorPkg.months);
+
   return (
     <div className="bg-white min-h-screen text-[#232323] font-sans antialiased flex flex-col justify-between">
       {/* 1. SHARED UNIFIED HEADER */}
       <LandingHeader />
 
       <main className="w-full flex-1">
-        {/* 2. MEDSEV PAGE TITLE AREA (.page-title-area.page-title-four) */}
+        {/* 2. MEDSEV PAGE TITLE AREA */}
         <section
-          className="relative bg-cover bg-center py-24 sm:py-32 text-center text-white"
+          className="relative bg-cover bg-center py-20 sm:py-28 text-center text-white"
           style={{ backgroundImage: "url('/images/medsev/service-details-bg.jpg')" }}
         >
-          {/* Cobalt Blue Overlay (Matching Medsev #0046c0 / 75%) */}
-          <div className="absolute inset-0 bg-[#0046c0]/75" />
+          <div className="absolute inset-0 bg-[#0046c0]/80" />
 
           <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white drop-shadow-xs">
-              Gói Dịch Vụ Y Tế &amp; Chăm Sóc Sức Khỏe Gia Đình
+              Gói Bác Sĩ Gia Đình &amp; Bảng Giá Dịch Vụ
             </h1>
+            <p className="text-sm sm:text-base text-blue-100 max-w-2xl mx-auto font-normal">
+              Khám tại gia (Home Visit) và Tư vấn Telehealth 24/7. Minh bạch chi phí, không phụ phí ẩn, chuẩn Bộ Y Tế.
+            </p>
 
             {/* Medsev Breadcrumb */}
             <nav
@@ -281,8 +272,8 @@ export function PackagesCatalogView() {
           </div>
         </section>
 
-        {/* 3. INTERACTIVE SEARCH & CATEGORY FILTER BAR */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-16 sm:-mt-20 relative z-20">
+        {/* 3. INTERACTIVE SEARCH & PRICING MODE TOGGLE BAR */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-12 sm:-mt-16 relative z-20">
           <div className="bg-white rounded-2xl shadow-[0_10px_35px_0_rgba(0,0,0,0.08)] border border-slate-100 p-6 sm:p-8 space-y-6">
             <div className="flex flex-col lg:flex-row items-center gap-4 justify-between">
               {/* Search Input */}
@@ -308,48 +299,47 @@ export function PackagesCatalogView() {
                 )}
               </div>
 
-              {/* Annual Billing Mode Toggle */}
+              {/* Pricing Mode Toggle: Cả kỳ vs Bình quân tháng */}
               <div className="inline-flex items-center gap-2 p-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold w-full sm:w-auto justify-center">
                 <button
                   type="button"
-                  onClick={() => setIsAnnual(false)}
-                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${!isAnnual ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                  onClick={() => setIsMonthlyView(false)}
+                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${
+                    !isMonthlyView ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
-                  Gói Tiêu Chuẩn Theo Kỳ
+                  Giá Trọn Gói Cả Kỳ
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsAnnual(true)}
-                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${isAnnual ? 'bg-[#0046c0] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                  onClick={() => setIsMonthlyView(true)}
+                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                    isMonthlyView ? 'bg-[#0046c0] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
                 >
-                  <span>Thanh Toán Năm</span>
-                  <span className="text-[10px] font-bold bg-amber-400 text-amber-950 px-1.5 py-0.5 rounded-full uppercase">
-                    -15%
-                  </span>
+                  <span>Bình Quân Theo Tháng</span>
                 </button>
               </div>
             </div>
 
             {/* Quick Category Tabs */}
             <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
-              <span className="text-xs font-semibold text-slate-500 mr-1">Phân loại:</span>
+              <span className="text-xs font-semibold text-slate-500 mr-1">Kỳ hạn gói:</span>
               {[
                 { id: 'all', label: 'Tất cả các gói' },
-                { id: 'family', label: 'Gia đình & Đa thế hệ' },
-                { id: 'elderly', label: 'Người cao tuổi & Mạn tính' },
-                { id: 'maternity', label: 'Mẹ bầu & Bé sơ sinh' },
-                { id: 'clinical', label: 'Khám & Xét nghiệm tại nhà' },
+                { id: 'trial', label: '1 Tháng (Trải nghiệm)' },
+                { id: 'standard', label: '3 - 6 Tháng (Gia đình)' },
+                { id: 'annual', label: '12 Tháng (Toàn diện)' },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => setSelectedCategory(tab.id as typeof selectedCategory)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${selectedCategory === tab.id
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
+                    selectedCategory === tab.id
                       ? 'bg-[#0046c0] text-white shadow-xs'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}
+                  }`}
                 >
                   {tab.label}
                 </button>
@@ -358,15 +348,14 @@ export function PackagesCatalogView() {
           </div>
         </div>
 
-        {/* 4. MEDSEV SERVICES AREA (.services-area.pt-100.pb-70) */}
-        <section className="pt-20 lg:pt-24 pb-16 lg:pb-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Section Header */}
-          <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
+        {/* 4. MEDSEV SERVICES AREA: 4 CORE PACKAGES GRID */}
+        <section className="pt-16 pb-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
             <h2 className="text-3xl sm:text-4xl font-bold text-[#232323] tracking-tight relative pb-4 inline-block after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-20 after:h-1 after:bg-[#0046c0] after:rounded">
               Danh Mục Gói Chăm Sóc Sức Khỏe
             </h2>
             <p className="text-sm sm:text-base text-[#676767] leading-relaxed pt-2">
-              Các gói y tế gia đình được thiết kế theo tiêu chuẩn Y học Gia đình quốc tế, cá nhân hóa theo từng độ tuổi và bệnh lý.
+              Giá gói = Số lần khám tại nhà × Đơn giá gói. Lịch khám linh hoạt do gia đình và bác sĩ thống nhất, video và nhắn tin đã bao gồm trọn gói.
             </p>
           </div>
 
@@ -393,31 +382,25 @@ export function PackagesCatalogView() {
               </button>
             </div>
           ) : (
-            /* 4-Column Grid matching Medsev .service-item */
+            /* 4-Column Grid matching packages */
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-8 items-stretch">
               {filteredPackages.map((pkg) => {
-                const displayPrice = isAnnual && pkg.annualPrice ? pkg.annualPrice : pkg.price;
-                const displaySub = isAnnual && pkg.annualSubPrice ? pkg.annualSubPrice : pkg.subPrice;
+                const displayPrice = isMonthlyView ? pkg.monthlyPrice : pkg.price;
+                const displayPeriod = isMonthlyView ? '/tháng' : pkg.periodText;
+                const displaySub = isMonthlyView ? pkg.monthlySubPrice : pkg.subPrice;
 
                 return (
                   <div
                     key={pkg.id}
-                    className={`group relative rounded-2xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-500 ease-out bg-white border overflow-hidden ${pkg.popular
-                        ? 'border-[#0046c0] shadow-[0_0_25px_0_rgba(0,70,192,0.18)] ring-2 ring-[#0046c0]/20'
-                        : 'border-slate-100 shadow-[0_0_25px_0_rgba(221,221,221,0.75)] hover:shadow-xl hover:border-blue-200'
-                      }`}
+                    className={`group relative rounded-2xl p-6 sm:p-7 flex flex-col justify-between transition-all duration-300 ease-out bg-white border overflow-hidden ${
+                      pkg.popular
+                        ? 'border-[#0046c0] shadow-xl ring-2 ring-[#0046c0]/20'
+                        : 'border-slate-200 shadow-sm hover:shadow-lg hover:border-blue-300'
+                    }`}
                   >
-                    {/* Medsev Blue Background Hover Overlay */}
-                    <div className="absolute inset-0 bg-[#0046c0] opacity-0 group-hover:opacity-100 transition-opacity duration-500 -z-0 pointer-events-none" />
-
-                    {/* Watermark Big Icon in Background on Hover */}
-                    <span className="material-symbols-outlined absolute -right-6 -bottom-6 text-[150px] text-white opacity-0 group-hover:opacity-10 transition-all duration-500 pointer-events-none select-none z-0">
-                      {pkg.icon}
-                    </span>
-
                     {/* Popular Badge */}
                     {pkg.popular && (
-                      <div className="absolute top-3 right-3 bg-[#0046c0] text-white group-hover:bg-white group-hover:text-[#0046c0] text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-xs transition-colors z-10 flex items-center gap-1">
+                      <div className="absolute top-3.5 right-3.5 bg-[#0046c0] text-white text-[11px] font-bold px-3 py-0.5 rounded-full uppercase tracking-wider shadow-xs z-10 flex items-center gap-1">
                         <span className="material-symbols-outlined text-xs">verified</span>
                         <span>Phổ biến nhất</span>
                       </div>
@@ -425,68 +408,66 @@ export function PackagesCatalogView() {
 
                     {/* Card Content */}
                     <div className="relative z-10 space-y-4">
-                      {/* Big Icon */}
-                      <div className="w-16 h-16 rounded-2xl bg-blue-50 text-[#0046c0] group-hover:bg-white/15 group-hover:text-white flex items-center justify-center text-3xl transition-all duration-300 shadow-xs">
-                        <span className="material-symbols-outlined text-3xl">{pkg.icon}</span>
+                      {/* Icon */}
+                      <div className="w-14 h-14 rounded-xl bg-blue-50 text-[#0046c0] group-hover:bg-[#0046c0] group-hover:text-white flex items-center justify-center text-3xl transition-all duration-300 shadow-xs">
+                        <span className="material-symbols-outlined text-2xl">{pkg.icon}</span>
                       </div>
 
                       {/* Titles */}
                       <div className="space-y-1">
-                        <div className="text-xs font-semibold text-[#0046c0] group-hover:text-blue-100 transition-colors">
+                        <div className="text-xs font-semibold text-[#0046c0]">
                           {pkg.badge}
                         </div>
-                        <h3 className="text-xl font-bold text-slate-900 group-hover:text-white transition-colors leading-snug">
+                        <h3 className="text-xl font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors leading-snug">
                           {pkg.name}
                         </h3>
-                        <div className="text-xs text-slate-500 group-hover:text-blue-100 transition-colors">
+                        <div className="text-xs text-slate-500">
                           {pkg.altName}
                         </div>
                       </div>
 
                       {/* Price Section */}
-                      <div className="pt-3 border-t border-slate-100 group-hover:border-white/20 transition-colors">
+                      <div className="pt-3 border-t border-slate-100">
                         <div className="flex items-baseline gap-1">
-                          <span className="text-2xl font-bold text-slate-900 group-hover:text-white font-mono tracking-tight transition-colors">
+                          <span className="text-2xl font-bold text-slate-900 tabular-nums tracking-tight">
                             {displayPrice}
                           </span>
-                          <span className="text-xs text-slate-500 group-hover:text-blue-100 font-medium transition-colors">
-                            {pkg.periodText}
+                          <span className="text-xs text-slate-500 font-medium">
+                            {displayPeriod}
                           </span>
                         </div>
-                        <div className="text-[11px] text-slate-500 group-hover:text-blue-100 mt-0.5 transition-colors leading-tight">
+                        <div className="text-[11px] text-slate-500 mt-0.5 leading-tight">
                           {displaySub}
                         </div>
                       </div>
 
                       {/* Features List */}
-                      <ul className="space-y-2 pt-3 border-t border-slate-100 group-hover:border-white/20 text-xs leading-relaxed text-slate-700 group-hover:text-blue-50 transition-colors">
+                      <ul className="space-y-2 pt-3 border-t border-slate-100 text-xs leading-relaxed text-slate-700">
                         {pkg.features.map((f, fIdx) => (
                           <li key={fIdx} className="flex items-start gap-2">
-                            <span className="material-symbols-outlined text-emerald-600 group-hover:text-white text-base shrink-0 mt-0.5 transition-colors">
+                            <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">
                               check
                             </span>
-                            <span className={f.strong ? 'font-semibold' : ''}>{f.text}</span>
+                            <span className={f.strong ? 'font-semibold text-slate-900' : 'text-slate-600'}>
+                              {f.text}
+                            </span>
                           </li>
                         ))}
                       </ul>
                     </div>
 
                     {/* Card Actions */}
-                    <div className="relative z-10 pt-5 mt-4 border-t border-slate-100 group-hover:border-white/20 space-y-2 transition-colors">
+                    <div className="relative z-10 pt-5 mt-4 border-t border-slate-100 space-y-2">
                       <Link
-                        href={`/packages/${pkg.id}`}
-                        className="w-full py-2.5 px-4 rounded-lg bg-slate-100 group-hover:bg-white text-slate-700 group-hover:text-[#0046c0] text-xs font-semibold text-center transition-all duration-300 flex items-center justify-center gap-1.5 shadow-xs"
+                        href={`/register?packageId=${pkg.id === 'pkg-basic' ? 'BASIC' : pkg.id === 'pkg-toan-dien' ? 'FAMILY' : pkg.id === 'pkg-nguoi-cao-tuoi' ? 'ELDERLY' : 'ROYAL'}`}
+                        className={`w-full py-2.5 px-4 rounded-lg text-xs font-semibold text-center transition-all duration-200 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer ${
+                          pkg.popular
+                            ? 'bg-[#0046c0] hover:bg-[#003899] text-white shadow-md'
+                            : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                        }`}
                       >
-                        <span>Xem chi tiết gói</span>
-                        <span className="material-symbols-outlined text-base">arrow_forward</span>
-                      </Link>
-
-                      <Link
-                        href="/contact"
-                        className="w-full py-2 px-4 rounded-lg bg-[#0046c0] group-hover:bg-[#111111] text-white text-xs font-semibold text-center transition-all duration-300 flex items-center justify-center gap-1 shadow-xs"
-                      >
-                        <span className="material-symbols-outlined text-base">assignment</span>
                         <span>{pkg.ctaText}</span>
+                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
                       </Link>
                     </div>
                   </div>
@@ -496,96 +477,312 @@ export function PackagesCatalogView() {
           )}
         </section>
 
-        {/* 5. MEDSEV EXPERTISE SECTION (.expertise-area.pb-70) */}
-        <section className="py-16 sm:py-20 bg-slate-50 border-t border-b border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
-              <h2 className="text-3xl sm:text-4xl font-bold text-[#232323] tracking-tight relative pb-4 inline-block after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-20 after:h-1 after:bg-[#0046c0] after:rounded">
-                Năng Lực Y Khoa &amp; Tiêu Chuẩn Dịch Vụ
+        {/* 5. INTERACTIVE PRICING ESTIMATOR SECTION */}
+        <section className="py-16 bg-slate-50 border-t border-b border-slate-200">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
+            <div className="text-center max-w-2xl mx-auto space-y-2">
+              <span className="text-xs font-bold text-[#0046c0] uppercase tracking-wider">
+                Công Cụ Tính Dự Toán Trực Tuyến
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+                Dự Toán Chi Phí Thực Tế Theo Gia Đình Bạn
               </h2>
-              <p className="text-sm sm:text-base text-[#676767] leading-relaxed pt-2">
-                Hệ sinh thái y tế toàn diện đồng hành cùng gia đình Việt với chuẩn mực chuyên môn khắt khe nhất.
+              <p className="text-xs sm:text-sm text-slate-600">
+                Minh bạch phụ phí thêm người và phụ thu học vị bác sĩ theo biểu phí chính thức.
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-              {/* Left Column: 4 Blue Expertise Cards (2x2 Grid) */}
-              <div className="lg:col-span-7">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  {/* Item 1 */}
-                  <div className="bg-[#0046c0] text-white p-7 rounded-2xl text-center space-y-3 shadow-md hover:-translate-y-1 transition-transform">
-                    <div className="w-16 h-16 rounded-full bg-white text-[#0046c0] flex items-center justify-center text-3xl mx-auto shadow-md ring-8 ring-white/20">
-                      <span className="material-symbols-outlined text-3xl font-bold">stethoscope</span>
-                    </div>
-                    <h3 className="font-semibold text-lg sm:text-xl text-white">Bác Sĩ Cấp Phép Chính Quy</h3>
-                    <p className="text-xs text-blue-100 leading-relaxed">
-                      100% bác sĩ có Chứng Chỉ Hành Nghề (CCHN) do Bộ Y Tế cấp, tối thiểu 10 năm kinh nghiệm tại các bệnh viện tuyến Trung Ương.
-                    </p>
+            <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-6 sm:p-8 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Form Controls */}
+              <div className="lg:col-span-7 space-y-6">
+                {/* Step 1: Chọn gói */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wide block">
+                    Bước 1: Chọn gói dịch vụ
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                    {PACKAGES.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => handleSelectEstimatorPkg(p.id)}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          selectedEstimatorPkgId === p.id
+                            ? 'border-[#0046c0] bg-blue-50/50 ring-2 ring-[#0046c0]/20'
+                            : 'border-slate-200 hover:border-slate-300 bg-white'
+                        }`}
+                      >
+                        <div className="font-bold text-xs sm:text-sm text-slate-900">{p.name}</div>
+                        <div className="text-[11px] text-[#0046c0] font-medium">{p.badge}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Step 2: Số người cần chăm sóc */}
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+                      Bước 2: Số thành viên gia đình
+                    </label>
+                    <span className="text-xs text-slate-500">
+                      Gói gồm mặc định: <strong>{estimatorPkg.defaultMembers} người</strong>
+                    </span>
                   </div>
 
-                  {/* Item 2 */}
-                  <div className="bg-[#0046c0] text-white p-7 rounded-2xl text-center space-y-3 shadow-md hover:-translate-y-1 transition-transform">
-                    <div className="w-16 h-16 rounded-full bg-white text-[#0046c0] flex items-center justify-center text-3xl mx-auto shadow-md ring-8 ring-white/20">
-                      <span className="material-symbols-outlined text-3xl font-bold">emergency</span>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      disabled={memberCount <= 1}
+                      onClick={() => setMemberCount((prev) => Math.max(1, prev - 1))}
+                      className="w-11 h-11 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 flex items-center justify-center font-bold text-lg disabled:opacity-40 cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <div className="w-24 text-center tabular-nums font-bold text-xl text-slate-900">
+                      {memberCount} <span className="text-xs font-normal text-slate-500">người</span>
                     </div>
-                    <h3 className="font-semibold text-lg sm:text-xl text-white">Tổng Đài Cấp Cứu 24/7</h3>
-                    <p className="text-xs text-blue-100 leading-relaxed">
-                      Đường dây nóng 1900 8821 trực tuyến cả ngày Lễ, Tết. Điều phối bác sĩ cấp cứu và xe cứu thương có mặt trong 15 - 30 phút.
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setMemberCount((prev) => prev + 1)}
+                      className="w-11 h-11 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 flex items-center justify-center font-bold text-lg cursor-pointer"
+                    >
+                      +
+                    </button>
                   </div>
 
-                  {/* Item 3 */}
-                  <div className="bg-[#0046c0] text-white p-7 rounded-2xl text-center space-y-3 shadow-md hover:-translate-y-1 transition-transform">
-                    <div className="w-16 h-16 rounded-full bg-white text-[#0046c0] flex items-center justify-center text-3xl mx-auto shadow-md ring-8 ring-white/20">
-                      <span className="material-symbols-outlined text-3xl font-bold">medical_information</span>
+                  {isOverMaxLimit && (
+                    <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
+                      <span className="material-symbols-outlined text-amber-600 text-base shrink-0 mt-0.5">warning</span>
+                      <span>
+                        Số người vượt trần tối đa ({estimatorPkg.maxMembers} người) của gói {estimatorPkg.name}. Hệ thống gợi ý bạn nên chọn gói dài hạn hơn để đảm bảo định mức chăm sóc.
+                      </span>
                     </div>
-                    <h3 className="font-semibold text-lg sm:text-xl text-white">Bệnh Án Điện Tử &amp; AI</h3>
-                    <p className="text-xs text-blue-100 leading-relaxed">
-                      Hồ sơ sức khỏe số EMR liên thông, trợ lý AI theo dõi liên tục chỉ số đường huyết, huyết áp và cảnh báo bất thường sớm.
+                  )}
+                  {!isOverMaxLimit && extraMembers > 0 && (
+                    <p className="text-xs text-slate-500">
+                      Phụ phí thêm người: 75.000đ/người/tháng × {extraMembers} người × {estimatorPkg.months} tháng.
                     </p>
-                  </div>
+                  )}
+                </div>
 
-                  {/* Item 4 */}
-                  <div className="bg-[#0046c0] text-white p-7 rounded-2xl text-center space-y-3 shadow-md hover:-translate-y-1 transition-transform">
-                    <div className="w-16 h-16 rounded-full bg-white text-[#0046c0] flex items-center justify-center text-3xl mx-auto shadow-md ring-8 ring-white/20">
-                      <span className="material-symbols-outlined text-3xl font-bold">local_shipping</span>
-                    </div>
-                    <h3 className="font-semibold text-lg sm:text-xl text-white">Khám &amp; Dược Phẩm Tận Nhà</h3>
-                    <p className="text-xs text-blue-100 leading-relaxed">
-                      Lấy mẫu máu, đo điện tim ECG và siêu âm tại phòng khách. Hỗ trợ giao đơn thuốc tận cửa hỏa tốc trong 2 giờ.
-                    </p>
-                  </div>
+                {/* Step 3: Loại Bác sĩ phụ trách */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-800 uppercase tracking-wide block">
+                    Bước 3: Học vị Bác sĩ phụ trách
+                  </label>
+                  <select
+                    value={selectedDoctorLevel}
+                    onChange={(e) => setSelectedDoctorLevel(e.target.value)}
+                    className="w-full h-11 px-3.5 rounded-xl border border-slate-300 bg-white text-slate-900 text-sm focus:border-[#0046c0] outline-none"
+                  >
+                    {DOCTOR_LEVELS.map((doc) => (
+                      <option key={doc.id} value={doc.id}>
+                        {doc.name} ({doc.desc})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-400">
+                    * Phụ thu loại bác sĩ chỉ tính cho số lần khám tại nhà ({estimatorPkg.homeVisits} lần), không nhân số người.
+                  </p>
                 </div>
               </div>
 
-              {/* Right Column: Medsev Clinical Image */}
-              <div className="lg:col-span-5 relative">
-                <div className="relative rounded-2xl overflow-hidden shadow-2xl border-4 border-white">
-                  <img
-                    src="/images/medsev/home-one/6.jpg"
-                    alt="Tiêu chuẩn y tế FamiDoc"
-                    className="w-full h-[460px] object-cover"
-                  />
-                  <div className="absolute inset-0 bg-linear-to-t from-slate-900/60 via-transparent to-transparent flex items-end p-6 sm:p-8">
-                    <div className="text-white space-y-1">
-                      <div className="text-xs font-bold uppercase tracking-wider text-blue-200">
-                        Chuẩn Mực Y Khoa Quốc Tế
-                      </div>
-                      <h4 className="text-lg font-bold">Bệnh Viện Đại Học Y Dược &amp; Bạch Mai Hợp Tác</h4>
-                      <p className="text-xs text-slate-200">
-                        Đảm bảo chuyển viện Fast-Track và hội chẩn chuyên sâu khi gia đình cần can thiệp kỹ thuật cao.
-                      </p>
-                    </div>
+              {/* Right Column: Pricing Summary Card */}
+              <div className="lg:col-span-5 bg-slate-50 rounded-xl p-5 border border-slate-200 space-y-4">
+                <h4 className="font-bold text-sm text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[#0046c0] text-base">receipt_long</span>
+                  <span>Bảng Bóc Tách Dự Toán</span>
+                </h4>
+
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-600">Gói cơ bản ({estimatorPkg.months} tháng · {estimatorPkg.defaultMembers} người):</span>
+                    <span className="font-semibold text-slate-900">{basePriceNumber.toLocaleString('vi-VN')} đ</span>
+                  </div>
+
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-600">Phụ phí thêm người ({extraMembers} người):</span>
+                    <span className="font-semibold text-slate-900">+{extraMemberFeeTotal.toLocaleString('vi-VN')} đ</span>
+                  </div>
+
+                  <div className="flex justify-between py-1 border-b border-slate-100">
+                    <span className="text-slate-600">Phụ thu Bác sĩ ({doctorLevelObj.name}):</span>
+                    <span className="font-semibold text-slate-900">+{doctorSurchargeTotal.toLocaleString('vi-VN')} đ</span>
+                  </div>
+
+                  <div className="flex justify-between py-1 text-slate-600">
+                    <span>Lượt khám tại nhà:</span>
+                    <span className="font-semibold text-slate-900">{estimatorPkg.homeVisits} lần toàn kỳ</span>
+                  </div>
+
+                  <div className="flex justify-between py-1 text-slate-600">
+                    <span>Tư vấn video miễn phí:</span>
+                    <span className="font-semibold text-slate-900">{estimatorPkg.videoCalls}</span>
                   </div>
                 </div>
+
+                <div className="pt-3 border-t-2 border-slate-200">
+                  <div className="text-xs text-slate-500 font-medium">TỔNG DỰ TOÁN THANH TOÁN:</div>
+                  <div className="text-2xl font-bold text-[#0046c0] tabular-nums tracking-tight mt-0.5">
+                    {totalEstimatedPrice.toLocaleString('vi-VN')} đ
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1">
+                    Bình quân tương đương: <strong>{monthlyAverageEstimated.toLocaleString('vi-VN')} đ / tháng</strong>
+                  </div>
+                </div>
+
+                <Link
+                  href={`/register?packageId=${estimatorPkg.id === 'pkg-basic' ? 'BASIC' : estimatorPkg.id === 'pkg-toan-dien' ? 'FAMILY' : estimatorPkg.id === 'pkg-nguoi-cao-tuoi' ? 'ELDERLY' : 'ROYAL'}`}
+                  className="w-full py-2.5 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+                >
+                  <span>Tiến hành đăng ký theo cấu hình này</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </Link>
               </div>
             </div>
           </div>
         </section>
 
-        {/* 6. MEDSEV BLOG SECTION (.blog-area.pt-100.pb-70) */}
-        <section className="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-14 space-y-3">
+        {/* 6. COMPARISON MATRIX SECTION */}
+        <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-10 space-y-2">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900">
+              Đối Chiếu Quyền Lợi Chi Tiết 4 Gói Dịch Vụ
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-600">
+              So sánh nhanh hạn mức thăm khám tại nhà, quyền lợi Telehealth và chính sách gia hạn.
+            </p>
+          </div>
+
+          <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
+            <table className="w-full text-xs text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
+                  <th className="p-3.5 sm:p-4 min-w-[180px]">Tiêu chí / Quyền lợi</th>
+                  <th className="p-3.5 sm:p-4 min-w-[140px]">Gói Trải Nghiệm</th>
+                  <th className="p-3.5 sm:p-4 min-w-[140px] bg-blue-50/60 text-[#0046c0]">Gói Đồng Hành (★)</th>
+                  <th className="p-3.5 sm:p-4 min-w-[140px]">Gói An Tâm</th>
+                  <th className="p-3.5 sm:p-4 min-w-[140px]">Gói Toàn Diện</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                <tr>
+                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Thời hạn gói</td>
+                  <td className="p-3.5 sm:p-4">1 tháng</td>
+                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">3 tháng</td>
+                  <td className="p-3.5 sm:p-4">6 tháng</td>
+                  <td className="p-3.5 sm:p-4">12 tháng</td>
+                </tr>
+                <tr>
+                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Thành viên mặc định / Tối đa</td>
+                  <td className="p-3.5 sm:p-4">1 / 2 người</td>
+                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">3 / 6 người</td>
+                  <td className="p-3.5 sm:p-4">4 / 8 người</td>
+                  <td className="p-3.5 sm:p-4">6 / 10 người</td>
+                </tr>
+                <tr>
+                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Khám tại nhà toàn kỳ</td>
+                  <td className="p-3.5 sm:p-4">1 lần (1.000k/lần)</td>
+                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">3 lần (950k/lần)</td>
+                  <td className="p-3.5 sm:p-4">7 lần (925k/lần)</td>
+                  <td className="p-3.5 sm:p-4">14 lần (900k/lần)</td>
+                </tr>
+                <tr>
+                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Tư vấn Video miễn phí</td>
+                  <td className="p-3.5 sm:p-4">1 lượt</td>
+                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">4 lượt</td>
+                  <td className="p-3.5 sm:p-4">8 lượt</td>
+                  <td className="p-3.5 sm:p-4">Theo kế hoạch bác sĩ</td>
+                </tr>
+                <tr>
+                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Nhắn tin với Bác sĩ</td>
+                  <td className="p-3.5 sm:p-4">Miễn phí trong kỳ</td>
+                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">Miễn phí trong kỳ</td>
+                  <td className="p-3.5 sm:p-4">Miễn phí trong kỳ</td>
+                  <td className="p-3.5 sm:p-4">Miễn phí 365 ngày</td>
+                </tr>
+                <tr>
+                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Hồ sơ bệnh án điện tử (EHR)</td>
+                  <td className="p-3.5 sm:p-4">Chuẩn HL7 cá nhân</td>
+                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">EHR Gia đình</td>
+                  <td className="p-3.5 sm:p-4">EHR Liên thông</td>
+                  <td className="p-3.5 sm:p-4">Y bạ Gia tộc trọn đời</td>
+                </tr>
+                <tr>
+                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Phụ phí thêm người</td>
+                  <td className="p-3.5 sm:p-4">75.000đ/người/tháng</td>
+                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">75.000đ/người/tháng</td>
+                  <td className="p-3.5 sm:p-4">75.000đ/người/tháng</td>
+                  <td className="p-3.5 sm:p-4">75.000đ/người/tháng</td>
+                </tr>
+                <tr>
+                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Giá trọn gói cơ bản</td>
+                  <td className="p-3.5 sm:p-4 font-bold text-slate-900">1.000.000 đ</td>
+                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-bold text-[#0046c0]">2.850.000 đ</td>
+                  <td className="p-3.5 sm:p-4 font-bold text-slate-900">6.475.000 đ</td>
+                  <td className="p-3.5 sm:p-4 font-bold text-slate-900">12.600.000 đ</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* 7. SCOPE DISCLOSURES & RULES */}
+        <section className="py-12 bg-slate-50 border-t border-slate-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
+            <div className="font-semibold text-slate-800 flex items-center gap-1.5 text-sm">
+              <span className="material-symbols-outlined text-[#0046c0] text-lg">info</span>
+              <span>Nguyên Tắc Dịch Vụ &amp; Phạm Vi Loại Trừ Quan Trọng</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs">
+              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-1">
+                <div className="font-bold text-slate-900 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-[#0046c0]">calendar_month</span>
+                  <span>Lịch khám linh hoạt</span>
+                </div>
+                <p className="text-slate-500 leading-relaxed">
+                  Thời điểm khám do gia đình và bác sĩ phụ trách chủ động thống nhất theo ca, không bắt buộc khóa cứng 1 lần/tháng.
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-1">
+                <div className="font-bold text-slate-900 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-[#0046c0]">medical_services</span>
+                  <span>Bác sĩ phụ trách</span>
+                </div>
+                <p className="text-slate-500 leading-relaxed">
+                  Đã bao gồm bác sĩ cơ sở (250k). Có thể nâng cấp Thạc sĩ (+50k), Tiến sĩ (+100k), GS/PGS (+200k) cho mỗi lần khám tại nhà.
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-1">
+                <div className="font-bold text-slate-900 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-[#0046c0]">group_add</span>
+                  <span>Phí thêm người</span>
+                </div>
+                <p className="text-slate-500 leading-relaxed">
+                  75.000đ/người/tháng theo trần gói (tối đa 2, 6, 8, 10 người). Các thành viên sử dụng chung hạn mức khám và video của gói.
+                </p>
+              </div>
+
+              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-1">
+                <div className="font-bold text-amber-900 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-sm text-amber-600">block</span>
+                  <span>Không bao gồm trong gói</span>
+                </div>
+                <p className="text-slate-500 leading-relaxed">
+                  KHÔNG gồm tiền thuốc, xét nghiệm máu, chẩn đoán hình ảnh và cấp cứu. Cơ sở y tế đủ điều kiện sẽ báo giá và thu tiền trực tiếp.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 8. BLOG / CAM NANG SECTION */}
+        <section className="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-12 space-y-3">
             <h2 className="text-3xl sm:text-4xl font-bold text-[#232323] tracking-tight relative pb-4 inline-block after:content-[''] after:absolute after:bottom-0 after:left-1/2 after:-translate-x-1/2 after:w-20 after:h-1 after:bg-[#0046c0] after:rounded">
               Cẩm Nang Y Học Gia Đình
             </h2>
@@ -646,7 +843,7 @@ export function PackagesCatalogView() {
         </section>
       </main>
 
-      {/* 8. SHARED UNIFIED FOOTER */}
+      {/* 9. SHARED UNIFIED FOOTER */}
       <LandingFooter />
     </div>
   );

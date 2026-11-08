@@ -184,7 +184,7 @@ export function AdminContractsView() {
                   <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-slate-900 leading-snug">{c.title}</div>
-                      <div className="font-mono text-[11px] text-slate-400 mt-0.5">{c.id}</div>
+                      <div className="tabular-nums text-[11px] text-slate-400 mt-0.5">{c.id}</div>
                     </td>
                     <td className="py-3.5 px-4 font-semibold text-slate-700">
                       {c.partnerName}
@@ -252,7 +252,7 @@ export function AdminContractsView() {
               <div className="space-y-3 text-xs text-slate-600">
                 <div className="p-3 bg-slate-50 rounded-xl space-y-1">
                   <div className="font-bold text-slate-900 text-sm">{selectedContract.title}</div>
-                  <div className="font-mono text-slate-500">Mã văn bản: {selectedContract.id}</div>
+                  <div className="tabular-nums text-slate-500">Mã văn bản: {selectedContract.id}</div>
                   <div className="text-slate-700">Đối tác: <strong>{selectedContract.partnerName}</strong></div>
                   <div className="text-slate-700">Tỷ lệ phân bổ: <strong>{selectedContract.revenueShareRate}</strong></div>
                 </div>

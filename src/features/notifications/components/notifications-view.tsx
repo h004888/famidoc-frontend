@@ -123,7 +123,7 @@ export function NotificationsView() {
               <span className="text-[#2E37A4] font-semibold">Trung tâm thông báo đa kênh</span>
             </div>
             <div className="flex items-center gap-3">
-              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                 Multi-Channel Notification Hub
               </h1>
               {unreadCount > 0 && (
@@ -254,7 +254,7 @@ export function NotificationsView() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3
                         className={`text-sm font-bold truncate ${
-                          !item.isRead ? 'text-slate-900 font-extrabold' : 'text-slate-700'
+                          !item.isRead ? 'text-slate-900' : 'text-slate-700'
                         }`}
                       >
                         {item.title}
@@ -275,7 +275,7 @@ export function NotificationsView() {
 
                     {/* Metadata & Multi-Channels */}
                     <div className="flex items-center gap-3 pt-2 text-[11px] text-slate-400 flex-wrap">
-                      <span className="flex items-center gap-1 font-mono">
+                      <span className="flex items-center gap-1 tabular-nums">
                         <span className="material-symbols-outlined text-[14px]">schedule</span>
                         {item.timestamp}
                       </span>
@@ -285,7 +285,7 @@ export function NotificationsView() {
                         {item.channels.map((ch) => (
                           <span
                             key={ch}
-                            className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 font-mono font-bold uppercase text-[9px]"
+                            className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 tabular-nums font-bold uppercase text-[9px]"
                           >
                             {ch === 'in_app' ? 'App' : ch === 'sms' ? 'SMS' : ch === 'zalo' ? 'ZNS' : 'Email'}
                           </span>

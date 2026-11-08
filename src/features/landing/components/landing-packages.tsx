@@ -140,7 +140,7 @@ export function LandingPackages() {
 
                 <div className="pt-2 border-t border-slate-100">
                   <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-bold text-slate-900 font-mono tracking-tight animate-fade-in">
+                    <span className="text-2xl font-bold text-slate-900 tabular-nums tracking-tight animate-fade-in">
                       {pkg.price}
                     </span>
                     <span className="text-xs text-slate-500 font-medium">{pkg.periodText}</span>

@@ -12,7 +12,7 @@ export default function RegisterPage() {
   return (
     <Suspense
       fallback={
-        <div className="w-full max-w-2xl mx-auto my-auto p-12 text-center flex flex-col items-center justify-center gap-3">
+        <div className="w-full min-h-screen mx-auto my-auto p-12 text-center flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-3 border-[#0037c1]/20 border-t-[#0037c1] rounded-full animate-spin" />
           <span className="text-xs font-medium text-[#444654]">Đang tải biểu mẫu đăng ký y tế...</span>
         </div>

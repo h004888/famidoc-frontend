@@ -262,7 +262,7 @@ export function AdminUsersView() {
                       <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
                         <td className="py-3.5 px-4">
                           <div className="font-bold text-slate-900">{u.name}</div>
-                          <div className="font-mono text-[11px] text-slate-400">{u.id}</div>
+                          <div className="tabular-nums text-[11px] text-slate-400">{u.id}</div>
                         </td>
                         <td className="py-3.5 px-4">
                           <div className="text-slate-800">{u.email}</div>
@@ -372,7 +372,7 @@ export function AdminUsersView() {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {auditLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50/70 font-mono">
+                      <tr key={log.id} className="hover:bg-slate-50/70 tabular-nums">
                         <td className="py-3 px-3 text-slate-500 font-sans">{log.timestamp}</td>
                         <td className="py-3 px-3 font-sans">
                           <span className="font-bold text-slate-800">{log.actorName}</span>

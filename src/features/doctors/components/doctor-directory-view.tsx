@@ -316,7 +316,7 @@ export function DoctorDirectoryView() {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
-  const [selectedDetailType, setSelectedDetailType] = useState<'doctor' | 'facility'>('doctor');
+  const [selectedDetailType] = useState<'doctor' | 'facility'>('doctor');
 
   // Filtered Doctors
   const filteredDoctors = useMemo(() => {
@@ -399,19 +399,19 @@ export function DoctorDirectoryView() {
             {/* Tab selector for Doctor vs Partner Facilities */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-100 pb-4 gap-3.5">
               {/* 2-Tab Segmented Control: full width on mobile, inline-flex on sm+ */}
-              <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex items-center p-1 bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold">
+              <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex items-center p-1 bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold shrink-0">
                 <button
                   type="button"
                   onClick={() => setActiveTab('doctors')}
-                  className={`w-full sm:w-auto justify-center px-3 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${activeTab === 'doctors'
+                  className={`w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${activeTab === 'doctors'
                     ? 'bg-[#0046c0] text-white shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 font-medium'
                     }`}
                 >
                   <span className="material-symbols-outlined text-base sm:text-lg shrink-0">stethoscope</span>
-                  <span className="truncate">Đội ngũ Bác sĩ</span>
+                  <span className="whitespace-nowrap">Đội ngũ Bác sĩ</span>
                   <span
-                    className={`ml-0.5 sm:ml-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 transition-colors ${activeTab === 'doctors'
+                    className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 leading-none transition-colors ${activeTab === 'doctors'
                       ? 'bg-white/20 text-white'
                       : 'bg-slate-200 text-slate-700'
                       }`}
@@ -422,15 +422,15 @@ export function DoctorDirectoryView() {
                 <button
                   type="button"
                   onClick={() => setActiveTab('facilities')}
-                  className={`w-full sm:w-auto justify-center px-3 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${activeTab === 'facilities'
+                  className={`w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${activeTab === 'facilities'
                     ? 'bg-[#0046c0] text-white shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
+                    : 'text-slate-600 hover:text-slate-900 font-medium'
                     }`}
                 >
                   <span className="material-symbols-outlined text-base sm:text-lg shrink-0">local_hospital</span>
-                  <span className="truncate">Cơ sở &amp; Bệnh viện</span>
+                  <span className="whitespace-nowrap">Cơ sở &amp; Bệnh viện</span>
                   <span
-                    className={`ml-0.5 sm:ml-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 transition-colors ${activeTab === 'facilities'
+                    className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 leading-none transition-colors ${activeTab === 'facilities'
                       ? 'bg-white/20 text-white'
                       : 'bg-slate-200 text-slate-700'
                       }`}
@@ -444,10 +444,10 @@ export function DoctorDirectoryView() {
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-xs w-full lg:w-auto">
                 <Link
                   href="/doctors/matching"
-                  className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 rounded-lg bg-linear-to-r from-[#2563eb] to-[#0046c0] hover:from-[#1d4ed8] hover:to-[#003899] text-white font-bold flex items-center gap-1.5 shadow-xs transition-all whitespace-nowrap"
+                  className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 rounded-lg bg-linear-to-r from-[#2563eb] to-[#0046c0] hover:from-[#1d4ed8] hover:to-[#003899] text-white font-bold inline-flex items-center gap-2 shadow-xs transition-all whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
-                  <span>Gợi ý Bác sĩ Phù hợp</span>
+                  <span className="material-symbols-outlined text-[18px] shrink-0">auto_awesome</span>
+                  <span className="whitespace-nowrap">Gợi ý Bác sĩ Phù hợp</span>
                 </Link>
                 <div className="flex items-center justify-between sm:justify-start gap-2 bg-slate-50 sm:bg-transparent p-2 sm:p-0 rounded-lg border border-slate-200 sm:border-transparent">
                   <span className="text-slate-500 font-medium whitespace-nowrap">Khu vực:</span>
@@ -597,17 +597,13 @@ export function DoctorDirectoryView() {
 
                           {/* Hover Slide-up Button Overlay */}
                           <div className="absolute inset-0 bg-[#0046c0]/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end justify-center pb-5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedDetailId(doc.id);
-                                setSelectedDetailType('doctor');
-                              }}
+                            <Link
+                              href={`/doctors/${doc.id}`}
                               className="bg-white hover:bg-slate-900 text-[#0046c0] hover:text-white font-semibold text-xs sm:text-sm py-2.5 px-6 rounded-lg shadow-lg transition-all duration-300 transform translate-y-3 group-hover:translate-y-0 cursor-pointer flex items-center gap-1.5"
                             >
                               <span className="material-symbols-outlined text-base">calendar_month</span>
                               <span>Đặt lịch hẹn</span>
-                            </button>
+                            </Link>
                           </div>
                         </div>
 
@@ -617,15 +613,12 @@ export function DoctorDirectoryView() {
                             <div className="text-xs font-semibold text-[#0046c0] uppercase tracking-wider">
                               {doc.title}
                             </div>
-                            <h3
-                              onClick={() => {
-                                setSelectedDetailId(doc.id);
-                                setSelectedDetailType('doctor');
-                              }}
-                              className="font-bold text-xl text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer"
+                            <Link
+                              href={`/doctors/${doc.id}`}
+                              className="font-bold text-xl text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer block"
                             >
                               {doc.name}
-                            </h3>
+                            </Link>
                             <p className="text-sm text-slate-500 font-medium">
                               {doc.specialty}
                             </p>
@@ -639,16 +632,12 @@ export function DoctorDirectoryView() {
                               <span className="material-symbols-outlined text-sm text-amber-500 material-symbols-filled">star</span>
                               {doc.rating} <span className="font-normal text-slate-400">({doc.reviewCount})</span>
                             </span>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedDetailId(doc.id);
-                                setSelectedDetailType('doctor');
-                              }}
+                            <Link
+                              href={`/doctors/${doc.id}`}
                               className="font-bold text-[#0046c0] hover:underline cursor-pointer"
                             >
                               Xem chi tiết →
-                            </button>
+                            </Link>
                           </div>
                         </div>
                       </article>
@@ -710,15 +699,12 @@ export function DoctorDirectoryView() {
                           {/* Content */}
                           <div className="p-6 space-y-4">
                             <div>
-                              <h3
-                                onClick={() => {
-                                  setSelectedDetailId(fac.id);
-                                  setSelectedDetailType('facility');
-                                }}
-                                className="text-lg font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer"
+                              <Link
+                                href={`/doctors/${fac.id}`}
+                                className="text-lg font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer block"
                               >
                                 {fac.name}
-                              </h3>
+                              </Link>
                               <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-1.5">
                                 <span className="material-symbols-outlined text-base text-slate-400 shrink-0">location_on</span>
                                 <span>{fac.address}</span>
@@ -756,26 +742,18 @@ export function DoctorDirectoryView() {
 
                         {/* Footer Actions */}
                         <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedDetailId(fac.id);
-                              setSelectedDetailType('facility');
-                            }}
+                          <Link
+                            href={`/doctors/${fac.id}`}
                             className="flex-1 py-2.5 px-3 rounded-lg border border-slate-300 hover:bg-slate-100 bg-white text-xs font-semibold text-slate-700 text-center transition-colors cursor-pointer"
                           >
                             Chi tiết cơ sở
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setSelectedDetailId(fac.id);
-                              setSelectedDetailType('facility');
-                            }}
+                          </Link>
+                          <Link
+                            href={`/doctors/${fac.id}#dat-lich`}
                             className="flex-1 py-2.5 px-3 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-semibold text-center transition-colors shadow-xs cursor-pointer"
                           >
                             Yêu cầu nhập viện
-                          </button>
+                          </Link>
                         </div>
                       </article>
                     ))}

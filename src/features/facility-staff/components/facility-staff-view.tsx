@@ -245,7 +245,7 @@ export function FacilityStaffView() {
                           <div className="text-[11px] text-slate-500">{doc.title}</div>
                         </td>
                         <td className="py-3.5 px-4">
-                          <div className="font-mono text-xs text-slate-700 font-semibold">
+                          <div className="tabular-nums text-xs text-slate-700 font-semibold">
                             {doc.cchnNumber}
                           </div>
                           <div className="text-[11px] text-slate-400">Cấp ngày: {doc.issueDate}</div>
@@ -361,7 +361,7 @@ export function FacilityStaffView() {
                     placeholder="VD: 028812/HCM-CCHN"
                     value={newDoctorCchn}
                     onChange={(e) => setNewDoctorCchn(e.target.value)}
-                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm tabular-nums focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
 

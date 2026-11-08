@@ -66,7 +66,7 @@ export function DoctorTelemedicineView() {
                 <h1 className="text-lg sm:text-xl font-bold text-[#0f172a]">
                   Phòng Khám Trực Tuyến Telehealth (Chuẩn WebRTC Y Tế)
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-blue-50 text-[#2563eb] border border-blue-200">
+                <span className="px-2.5 py-0.5 rounded-full text-xs tabular-nums font-bold bg-blue-50 text-[#2563eb] border border-blue-200">
                   Phòng #TELE-88219
                 </span>
               </div>
@@ -77,7 +77,7 @@ export function DoctorTelemedicineView() {
           </div>
 
           <div className="flex items-center gap-2.5 self-start md:self-auto">
-            <div className="px-3 py-1.5 rounded-xl bg-slate-100 text-xs font-mono font-bold text-[#0f172a] flex items-center gap-1.5">
+            <div className="px-3 py-1.5 rounded-xl bg-slate-100 text-xs tabular-nums font-bold text-[#0f172a] flex items-center gap-1.5">
               <span className="material-symbols-outlined text-[16px] text-red-500 animate-pulse">timer</span>
               <span>Thời gian: 00:14:32</span>
             </div>

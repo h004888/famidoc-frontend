@@ -134,7 +134,7 @@ export function DoctorMatchingWizard() {
               <span>Thuật Toán Ghép Nối Đa Tiêu Chí</span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white drop-shadow-xs">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white drop-shadow-xs">
               Ghép Nối Bác Sĩ Gia Đình Thông Minh
             </h1>
 
@@ -460,7 +460,7 @@ export function DoctorMatchingWizard() {
                   >
                     {/* Top 1 Badge */}
                     {isTop1 && (
-                      <div className="absolute top-0 right-8 -translate-y-1/2 bg-gradient-to-r from-[#2E37A4] to-[#00D3C7] text-white text-[11px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                      <div className="absolute top-0 right-8 -translate-y-1/2 bg-gradient-to-r from-[#2E37A4] to-[#00D3C7] text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
                         <span className="material-symbols-outlined text-[14px]">military_tech</span>
                         <span>Đề xuất tối ưu nhất (Top 1)</span>
                       </div>
@@ -486,10 +486,10 @@ export function DoctorMatchingWizard() {
 
                         <div className="space-y-2 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-gradient-to-r from-[#0046c0] to-[#2E37A4] text-white shadow-2xs">
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-[#0046c0] to-[#2E37A4] text-white shadow-2xs">
                               ★ {doc.matchScore}% PHÙ HỢP
                             </span>
-                            <h3 className="font-extrabold text-base sm:text-lg text-slate-900">
+                            <h3 className="font-bold text-base sm:text-lg text-slate-900">
                               {doc.title} {doc.name}
                             </h3>
                             <span className="text-xs text-slate-500">

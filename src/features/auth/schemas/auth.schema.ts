@@ -4,16 +4,24 @@ export const loginRoleSchema = z.enum(['PATIENT', 'DOCTOR', 'FACILITY', 'FAMILY'
 export type LoginRole = z.infer<typeof loginRoleSchema>;
 
 export const loginSchema = z.object({
-  phone: z
+  email: z
     .string()
-    .min(10, 'Số điện thoại phải có ít nhất 10 số')
-    .max(11, 'Số điện thoại không quá 11 số')
-    .regex(/^(0[3|5|7|8|9])+([0-9]{8})$/, 'Số điện thoại không đúng định dạng Việt Nam'),
+    .min(1, 'Vui lòng nhập địa chỉ email hoặc số điện thoại')
+    .refine(
+      (val) => {
+        const isEmail = z.string().email().safeParse(val).success;
+        const isPhone = /^(0[3|5|7|8|9])+([0-9]{8})$|^(\+84|84)[3|5|7|8|9][0-9]{8}$|^\+?1?[0-9]{10}$/.test(
+          val.replace(/[\s-]/g, '')
+        );
+        return isEmail || isPhone;
+      },
+      { message: 'Email hoặc số điện thoại không đúng định dạng' }
+    ),
   password: z
     .string()
     .min(8, 'Mật khẩu phải có ít nhất 8 ký tự')
     .max(32, 'Mật khẩu tối đa 32 ký tự'),
-  role: loginRoleSchema.default('FAMILY'),
+  role: loginRoleSchema.default('FAMILY').optional(),
   rememberMe: z.boolean().optional().default(false),
 });
 export type LoginInput = z.infer<typeof loginSchema>;
@@ -34,7 +42,9 @@ export const registerFamilySchema = z.object({
   identityCard: z
     .string()
     .length(12, 'Số CCCD phải có đúng 12 chữ số')
-    .regex(/^[0-9]{12}$/, 'Số CCCD chỉ chứa chữ số'),
+    .regex(/^[0-9]{12}$/, 'Số CCCD chỉ chứa chữ số')
+    .optional()
+    .or(z.literal('')),
   relationship: z
     .string()
     .min(1, 'Vui lòng chọn vai trò quan hệ trong gia đình'),

@@ -286,469 +286,667 @@ const FACILITIES_DATA: Record<string, Facility> = {
   },
 };
 
-export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack }: DoctorDetailViewProps) {
-  const isFacility = type === 'facility' || id.startsWith('fac');
-  const doctor = DOCTORS_DATA[id] || DOCTORS_DATA['doc-01']!;
-  const facility = FACILITIES_DATA[id] || FACILITIES_DATA['fac-01']!;
+// Family Doctor Care Packages tailored for individual doctor assignment
+const DOCTOR_CARE_PACKAGES = [
+  {
+    id: 'FAMILY',
+    name: 'Gói Đồng Hành',
+    badge: '3 Tháng',
+    price: '2.850.000đ',
+    monthlyPrice: '950.000đ/tháng',
+    popular: true,
+    highlight: 'Phù hợp gia đình có trẻ nhỏ & người lớn tuổi (3-6 người)',
+    features: [
+      '3 lượt bác sĩ trực tiếp thăm khám tại nhà',
+      '4 lượt tư vấn video Telehealth 24/7',
+      'Bác sĩ phụ trách chính & lập phác đồ điều trị gia đình',
+      'Hồ sơ bệnh án điện tử (EHR) lưu trữ trọn đời',
+    ],
+  },
+  {
+    id: 'ELDERLY',
+    name: 'Gói An Tâm Mạn Tính',
+    badge: '6 Tháng',
+    price: '6.475.000đ',
+    monthlyPrice: '925.000đ/lần khám',
+    popular: false,
+    highlight: 'Quản lý bệnh mạn tính: Tim mạch, huyết áp, tiểu đường',
+    features: [
+      '7 lượt bác sĩ khám & đo điện tim ECG tại nhà',
+      '8 lượt tư vấn video chuyên sâu',
+      'Theo dõi chỉ số sinh hiệu & phác đồ thuốc định kỳ',
+      'Ưu tiên đón tiếp & hội chẩn tuyến BV Đại học Y Dược',
+    ],
+  },
+  {
+    id: 'BASIC',
+    name: 'Gói Trải Nghiệm',
+    badge: '1 Tháng',
+    price: '1.000.000đ',
+    monthlyPrice: '1.000.000đ/tháng',
+    popular: false,
+    highlight: 'Khảo sát sức khỏe & lập hồ sơ sức khỏe ban đầu',
+    features: [
+      '1 lượt bác sĩ thăm khám tận nhà',
+      '1 lượt tư vấn video Telehealth',
+      'Đánh giá nguy cơ sức khỏe các thành viên',
+    ],
+  },
+];
 
-  // Booking Form State
+const FACILITY_CARE_PACKAGES = [
+  {
+    id: 'FAC_STANDARD',
+    name: 'Gói Ngoại Trú Ưu Tiên Fast-Track',
+    badge: '3 Tháng',
+    price: '1.800.000đ',
+    monthlyPrice: '600.000đ/tháng',
+    popular: true,
+    highlight: 'Lối đi ưu tiên tại cơ sở đối tác không chờ đợi',
+    features: [
+      'Ưu tiên lịch khám cùng Trưởng/Phó khoa',
+      'Miễn chờ xét nghiệm máu & Chẩn đoán hình ảnh',
+      'Bảo lãnh viện phí trực tiếp',
+    ],
+  },
+  {
+    id: 'FAC_PREMIUM',
+    name: 'Gói Nội Trú & Hội Chẩn Tuyến TW',
+    badge: '12 Tháng',
+    price: '5.500.000đ',
+    monthlyPrice: 'Trọn gói năm',
+    popular: false,
+    highlight: 'Chăm sóc nội trú VIP & điều phối nhập viện nhanh',
+    features: [
+      'Hội đồng chuyên môn tuyến Trung ương hội chẩn',
+      'Phòng nội trú đơn lập tiêu chuẩn quốc tế',
+      'Bác sĩ điều phối hỗ trợ 24/7 tại viện',
+    ],
+  },
+];
+
+export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack }: DoctorDetailViewProps) {
+  const normalizedId = (id || 'doc-01').toLowerCase();
+  const isFacility = type === 'facility' || normalizedId.startsWith('fac');
+  const doctor = DOCTORS_DATA[normalizedId] || DOCTORS_DATA[id] || DOCTORS_DATA['doc-01']!;
+  const facility = FACILITIES_DATA[normalizedId] || FACILITIES_DATA[id] || FACILITIES_DATA['fac-01']!;
+
+  // Care Package Selection & Registration State
+  const packagesList = isFacility ? FACILITY_CARE_PACKAGES : DOCTOR_CARE_PACKAGES;
+  const [selectedPackageId, setSelectedPackageId] = useState<string>(
+    isFacility ? 'FAC_STANDARD' : 'FAMILY'
+  );
   const [formData, setFormData] = useState({
     name: '',
-    email: '',
     phone: '',
-    service: isFacility ? 'Khám chuyên khoa tại viện' : 'Khám tận nhà (Home Visit)',
-    age: '',
-    preferredDate: '',
+    memberCount: '3 thành viên',
+    note: '',
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
+
+  const activePackage =
+    packagesList.find((p) => p.id === selectedPackageId) || packagesList[0]!;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitted(true);
   };
 
+  const resetForm = () => {
+    setIsSubmitted(false);
+    setFormData({ name: '', phone: '', memberCount: '3 thành viên', note: '' });
+  };
+
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans antialiased flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900 pb-20 md:pb-0">
       {/* 1. UNIFIED MEDSEV HEADER */}
       <LandingHeader />
 
-      <main className="flex-1 pb-20">
-        {/* 2. MEDSEV PAGE TITLE AREA (Matching .page-title-three in doctor-details.html) */}
-        <section
-          className="relative bg-cover bg-center py-20 sm:py-28 text-white"
-          style={{ backgroundImage: "url('/images/medsev/doctor/1.jpg')" }}
-        >
-          {/* Cobalt Blue Overlay */}
-          <div className="absolute inset-0 bg-[#0046c0]/75 backdrop-brightness-90" />
-
-          <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="max-w-2xl space-y-3">
-              {/* Back to directory button */}
-              {onBack ? (
-                <button
-                  type="button"
-                  onClick={onBack}
-                  className="inline-flex items-center gap-1.5 text-blue-100 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-all cursor-pointer mb-2"
-                >
-                  <span className="material-symbols-outlined text-sm">arrow_back</span>
-                  <span>Quay lại danh mục</span>
-                </button>
-              ) : (
-                <Link
-                  href="/doctors"
-                  className="inline-flex items-center gap-1.5 text-blue-100 hover:text-white text-xs font-semibold px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-all cursor-pointer mb-2"
-                >
-                  <span className="material-symbols-outlined text-sm">arrow_back</span>
-                  <span>Quay lại danh mục Bác sĩ</span>
-                </Link>
-              )}
-
-              {/* Title & Subtitle */}
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white drop-shadow-xs">
-                {isFacility ? facility.name : doctor.name}
-              </h1>
-              <h2 className="text-lg sm:text-xl font-semibold text-blue-100">
-                {isFacility ? facility.type : `${doctor.title} - ${doctor.specialty}`}
-              </h2>
-              <p className="text-sm text-blue-200 font-normal leading-relaxed">
-                {isFacility
-                  ? `Cơ sở y tế đối tác liên kết trực tiếp • Giờ làm việc: ${facility.workingHours}`
-                  : `${doctor.hospital} • CCHN: ${doctor.cchnNumber} • ${doctor.experienceYears} năm kinh nghiệm`}
-              </p>
-            </div>
+      <main className="flex-1 pb-16">
+        {/* 2. COMPACT BREADCRUMB (Cleaned: removed back button per Item 1) */}
+        <section className="bg-white border-b border-slate-200 py-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-slate-500">
+              <Link href="/" className="hover:text-[#0046c0] transition-colors">
+                Trang chủ
+              </Link>
+              <span className="text-slate-300">/</span>
+              <Link href="/doctors" className="hover:text-[#0046c0] transition-colors">
+                {isFacility ? 'Cơ sở y tế đối tác' : 'Bác sĩ gia đình'}
+              </Link>
+              <span className="text-slate-300">/</span>
+              <span className="font-semibold text-slate-800 line-clamp-1">
+                {isFacility ? facility.name : `${doctor.title} ${doctor.name}`}
+              </span>
+            </nav>
           </div>
         </section>
 
-        {/* 3. MEDSEV DOCTOR DETAILS BODY (Matching .doctor-details-area in doctor-details.html) */}
-        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-            {/* LEFT COLUMN: (.doctor-details-left) */}
-            <div className="lg:col-span-5 -mt-16 sm:-mt-24 lg:-mt-28 relative z-20">
-              <div className="bg-white rounded-2xl shadow-[0_10px_35px_0_rgba(0,0,0,0.08)] border border-slate-100 overflow-hidden">
-                {/* Doctor Photo / Facility Image */}
-                <div className="relative aspect-[4/4] bg-slate-100 overflow-hidden">
-                  <img
-                    src={isFacility ? facility.imageUrl : doctor.avatarUrl}
-                    alt={isFacility ? facility.name : doctor.name}
-                    className="w-full h-full object-cover object-top"
-                  />
-                  <div className="absolute top-4 right-4 bg-white/95 text-[#0046c0] px-3 py-1 rounded-full text-xs font-bold shadow-xs flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm">verified</span>
-                    <span>Đã chứng thực</span>
+        {/* 3. MAIN CONTENT: 2-COLUMN LAYOUT (All components with reduced border-radius and tight spacing per Items 3 & 4) */}
+        <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            {/* LEFT COLUMN (7 COLUMNS): DOCTOR PROFILE & CLINICAL EVIDENCE */}
+            <div className="lg:col-span-7 space-y-4">
+              
+              {/* Card 1: Reorganized Doctor Identity (Reduced whitespace, tight hierarchy, removed raw CCHN per Items 3, 4, 5) */}
+              <div className="bg-white rounded-lg border border-slate-200 p-5">
+                <div className="flex flex-col sm:flex-row items-start gap-4">
+                  {/* Doctor Photo */}
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                    <img
+                      src={isFacility ? facility.imageUrl : doctor.avatarUrl}
+                      alt={isFacility ? facility.name : doctor.name}
+                      className="w-full h-full object-cover object-top"
+                    />
                   </div>
-                </div>
 
-                {/* Contact Info (.doctor-details-contact) */}
-                <div className="p-6 sm:p-8 space-y-6">
-                  <div>
-                    <h3 className="text-lg font-bold text-slate-900 border-b border-slate-100 pb-3 mb-4">
-                      Thông Tin Liên Hệ
-                    </h3>
-                    <ul className="space-y-4 text-xs sm:text-sm text-slate-600">
-                      <li className="flex items-start gap-3">
-                        <span className="material-symbols-outlined text-xl text-[#0046c0] shrink-0 mt-0.5">call</span>
-                        <div>
-                          <span className="text-slate-400 block text-xs">Hotline trực tiếp:</span>
-                          <a href={isFacility ? `tel:${facility.phone}` : 'tel:19008821'} className="font-semibold text-slate-800 hover:text-[#0046c0]">
-                            {isFacility ? facility.phone : '1900 8821 (Hotline 24/7)'}
-                          </a>
-                        </div>
-                      </li>
-
-                      <li className="flex items-start gap-3">
-                        <span className="material-symbols-outlined text-xl text-[#0046c0] shrink-0 mt-0.5">mail</span>
-                        <div>
-                          <span className="text-slate-400 block text-xs">Hộp thư hỗ trợ:</span>
-                          <span className="font-medium text-slate-800">
-                            {isFacility ? 'b2b@famidoc.vn' : `dr.${doctor.id}@famidoc.vn`}
-                          </span>
-                        </div>
-                      </li>
-
-                      <li className="flex items-start gap-3">
-                        <span className="material-symbols-outlined text-xl text-[#0046c0] shrink-0 mt-0.5">location_on</span>
-                        <div>
-                          <span className="text-slate-400 block text-xs">Địa chỉ tiếp nhận:</span>
-                          <span className="font-medium text-slate-800 leading-snug">
-                            {isFacility ? facility.address : `${doctor.hospital}, ${doctor.location}`}
-                          </span>
-                        </div>
-                      </li>
-
+                  {/* Doctor Info (Tight, cleanly aligned, no dead space) */}
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-[#0046c0] text-[11px] font-semibold border border-blue-200/70">
+                        <span className="material-symbols-outlined text-xs">verified</span>
+                        <span>{isFacility ? 'Cơ sở chuẩn Bộ Y Tế' : 'Đã chứng thực CCHN'}</span>
+                      </span>
                       {!isFacility && (
-                        <li className="flex items-start gap-3">
-                          <span className="material-symbols-outlined text-xl text-[#0046c0] shrink-0 mt-0.5">payments</span>
-                          <div>
-                            <span className="text-slate-400 block text-xs">Phí khám tiêu chuẩn:</span>
-                            <span className="font-bold text-[#0046c0] text-base font-mono">
-                              {doctor.fee}
-                            </span>
-                          </div>
-                        </li>
+                        <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>Nhận phụ trách gia đình mới</span>
+                        </span>
                       )}
-                    </ul>
-                  </div>
-
-                  {/* Working Hours (.doctor-details-work) */}
-                  <div className="pt-4 border-t border-slate-100">
-                    <h3 className="text-lg font-bold text-slate-900 mb-3">
-                      Lịch Tiếp Nhận Thăm Khám
-                    </h3>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between py-1.5 border-b border-slate-50">
-                        <span className="font-semibold text-slate-700">Thứ Hai - Thứ Sáu</span>
-                        <span className="text-[#0046c0] font-medium">08:00 - 18:00</span>
-                      </div>
-                      <div className="flex justify-between py-1.5 border-b border-slate-50">
-                        <span className="font-semibold text-slate-700">Thứ Bảy</span>
-                        <span className="text-[#0046c0] font-medium">08:00 - 17:00</span>
-                      </div>
-                      <div className="flex justify-between py-1.5">
-                        <span className="font-semibold text-slate-700">Chủ Nhật &amp; Lễ</span>
-                        <span className="text-emerald-600 font-medium">Cấp cứu Telehealth 24/7</span>
-                      </div>
                     </div>
 
-                    <a
-                      href="#dat-lich"
-                      className="mt-6 block w-full py-3 bg-[#0046c0] hover:bg-[#003899] text-white text-center font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md cursor-pointer"
-                    >
-                      Đặt Lịch Khám Ngay
-                    </a>
+                    <div>
+                      <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-tight">
+                        {isFacility ? facility.name : `${doctor.title} ${doctor.name}`}
+                      </h1>
+                      <p className="text-xs sm:text-sm font-semibold text-[#0046c0] mt-0.5">
+                        {isFacility ? facility.type : doctor.specialty}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-slate-400 text-sm">domain</span>
+                        <span className="font-medium text-slate-800">
+                          {isFacility ? facility.address : doctor.hospital}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-slate-400 text-sm">location_on</span>
+                        <span>{isFacility ? facility.city : `${doctor.location} • Nhận khám tại nhà`}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Stats Row (Compact, tight, clean) */}
+                <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
+                  <div className="py-1.5 px-2 rounded-md bg-slate-50 border border-slate-100">
+                    <span className="block text-xs font-bold text-slate-900 tabular-nums">
+                      {isFacility ? '500+' : `${doctor.experienceYears} năm`}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {isFacility ? 'Quy mô giường' : 'Kinh nghiệm'}
+                    </span>
+                  </div>
+                  <div className="py-1.5 px-2 rounded-md bg-slate-50 border border-slate-100">
+                    <span className="block text-xs font-bold text-amber-600 tabular-nums flex items-center justify-center gap-0.5">
+                      <span className="material-symbols-outlined text-xs material-symbols-filled">star</span>
+                      <span>{isFacility ? '4.95' : doctor.rating}</span>
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      {isFacility ? '1.500+ vote' : `${doctor.reviewCount} đánh giá`}
+                    </span>
+                  </div>
+                  <div className="py-1.5 px-2 rounded-md bg-slate-50 border border-slate-100">
+                    <span className="block text-xs font-bold text-[#0046c0] tabular-nums">
+                      {isFacility ? '12.000+' : `${doctor.consultationCount}+`}
+                    </span>
+                    <span className="text-[10px] text-slate-500">Ca thăm khám</span>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* RIGHT COLUMN: (.doctor-details-right) */}
-            <div className="lg:col-span-7 pt-6 lg:pt-8 space-y-8">
-              {/* 1. Biography */}
-              <div className="space-y-3">
-                <h3 className="text-2xl font-bold text-[#0046c0] tracking-tight">
-                  {isFacility ? 'Giới Thiệu Cơ Sở Y Tế' : 'Tiểu Sử Chuyên Môn'}
-                </h3>
-                <p className="text-slate-600 text-sm sm:text-base leading-relaxed">
-                  {isFacility
-                    ? `${facility.name} là một trong những đối tác chiến lược trọng điểm của mạng lưới y tế gia đình FamiDoc Pro. Với hệ thống trang thiết bị hiện đại chuẩn quốc tế, quy mô ${facility.bedCount} và đội ngũ y bác sĩ đầu ngành, cơ sở đảm bảo tiếp nhận, chẩn đoán và điều trị nội trú an toàn, chu đáo cho mọi thành viên gia đình.`
-                    : doctor.bio}
-                </p>
-              </div>
+              {/* Card 2: Scope of Clinical Services (Reduced corner radius per Item 4) */}
+              <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#0046c0] text-lg">home_health</span>
+                    <span>Quyền Lợi Chăm Sóc Cùng Bác Sĩ</span>
+                  </h2>
+                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-100">
+                    Chuẩn Y học Gia đình
+                  </span>
+                </div>
 
-              {/* 2. Education / Specialties */}
-              <div className="space-y-4">
-                <h3 className="text-2xl font-bold text-[#0046c0] tracking-tight">
-                  {isFacility ? 'Chuyên Khoa Mũi Nhọn' : 'Quá Trình Đào Tạo & Bằng Cấp'}
-                </h3>
                 {isFacility ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {facility.specialties.map((spec, idx) => (
-                      <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-100 flex items-center gap-2.5 text-xs sm:text-sm text-slate-800 font-medium">
-                        <span className="material-symbols-outlined text-[#0046c0] text-lg">check_circle</span>
+                      <div key={idx} className="p-3 bg-slate-50 rounded-md border border-slate-100 flex items-center gap-2 text-xs text-slate-800 font-medium">
+                        <span className="material-symbols-outlined text-[#0046c0] text-base">check_circle</span>
                         <span>{spec}</span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <ul className="space-y-3 text-xs sm:text-sm text-slate-700">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="p-3 rounded-md border border-slate-200 bg-slate-50/60 space-y-1">
+                      <div className="w-7 h-7 rounded bg-[#0046c0] text-white flex items-center justify-center">
+                        <span className="material-symbols-outlined text-base">home</span>
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-xs">Khám Tận Nhà</h3>
+                      <p className="text-[11px] text-slate-600 leading-snug">
+                        Khám lâm sàng tại nhà, đo điện tim ECG và theo dõi định kỳ.
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-md border border-slate-200 bg-slate-50/60 space-y-1">
+                      <div className="w-7 h-7 rounded bg-emerald-600 text-white flex items-center justify-center">
+                        <span className="material-symbols-outlined text-base">videocam</span>
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-xs">Telehealth 24/7</h3>
+                      <p className="text-[11px] text-slate-600 leading-snug">
+                        Tư vấn video trực tiếp cùng bác sĩ Hoài khi có triệu chứng bất thường.
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-md border border-slate-200 bg-slate-50/60 space-y-1">
+                      <div className="w-7 h-7 rounded bg-purple-600 text-white flex items-center justify-center">
+                        <span className="material-symbols-outlined text-base">local_hospital</span>
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-xs">Hỗ Trợ Tuyến Viện</h3>
+                      <p className="text-[11px] text-slate-600 leading-snug">
+                        Đón tiếp ưu tiên và hội chẩn chuyên sâu tại BV Đại học Y Dược.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Card 3: Verified Medical Degrees & Credentials (Reduced corner radius per Item 4) */}
+              <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#0046c0] text-lg">school</span>
+                  <span>{isFacility ? 'Đặc Quyền Cơ Sở' : 'Quá Trình Đào Tạo & Bằng Cấp Kiểm Định'}</span>
+                </h2>
+
+                {isFacility ? (
+                  <div className="space-y-2">
+                    {facility.privileges.map((priv, idx) => (
+                      <div key={idx} className="flex items-start gap-2 p-2.5 rounded-md bg-slate-50 border border-slate-100 text-xs text-slate-700">
+                        <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">verified</span>
+                        <span className="font-medium">{priv}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <ul className="space-y-2 text-xs text-slate-700">
                     {doctor.education.map((edu, idx) => (
-                      <li key={idx} className="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-100">
-                        <span className="material-symbols-outlined text-[#0046c0] text-xl shrink-0 mt-0.5">school</span>
-                        <span className="leading-relaxed font-medium">{edu}</span>
+                      <li key={idx} className="flex items-start gap-2.5 p-2.5 rounded-md bg-slate-50 border border-slate-100">
+                        <span className="material-symbols-outlined text-[#0046c0] text-base shrink-0 mt-0.5">verified</span>
+                        <span className="leading-snug font-medium">{edu}</span>
                       </li>
                     ))}
                   </ul>
                 )}
               </div>
 
-              {/* 3. Privileges / Scope of Care */}
-              <div className="space-y-4">
-                <h3 className="text-2xl font-bold text-[#0046c0] tracking-tight">
-                  {isFacility ? 'Đặc Quyền Hội Viên FamiDoc Pro' : 'Phạm Vi Chăm Sóc & Dịch Vụ'}
-                </h3>
-                {isFacility ? (
-                  <div className="bg-blue-50/70 p-5 rounded-2xl border border-blue-100 space-y-2.5">
-                    {facility.privileges.map((priv, idx) => (
-                      <div key={idx} className="flex items-start gap-2.5 text-xs sm:text-sm text-slate-800">
-                        <span className="material-symbols-outlined text-emerald-600 text-lg shrink-0 mt-0.5">verified</span>
-                        <span className="font-medium">{priv}</span>
+              {/* Card 4: Clinical Biography (Reduced corner radius per Item 4) */}
+              <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-2">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#0046c0] text-lg">clinical_notes</span>
+                  <span>{isFacility ? 'Giới Thiệu Cơ Sở Y Tế' : 'Tiểu Sử Chuyên Môn Lâm Sàng'}</span>
+                </h2>
+                <p className="text-slate-600 text-xs sm:text-sm leading-relaxed">
+                  {isFacility
+                    ? `${facility.name} là đối tác y tế chiến lược của FamiDoc Pro. Với trang thiết bị hiện đại, quy mô ${facility.bedCount} và đội ngũ y bác sĩ đầu ngành, cơ sở đảm bảo tiếp nhận, chẩn đoán và điều trị an toàn cho các thành viên trong gia đình.`
+                    : doctor.bio}
+                </p>
+              </div>
+
+              {/* Card 5: Real Verified Patient Reviews (Reduced corner radius per Item 4) */}
+              <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-amber-500 text-lg material-symbols-filled">reviews</span>
+                    <span>Đánh Giá Từ Hộ Gia Đình Có Bác Sĩ Phụ Trách ({doctor.reviewCount})</span>
+                  </h2>
+                  <span className="text-xs text-amber-600 font-bold">{doctor.rating} / 5.0</span>
+                </div>
+
+                <div className="space-y-2.5">
+                  <div className="p-3.5 rounded-md bg-slate-50 border border-slate-100 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-slate-800">Chị Mai Lan</span>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                          ✓ Hội viên Gói Đồng Hành (Quận 7)
+                        </span>
                       </div>
-                    ))}
+                      <div className="flex text-amber-500">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <span key={i} className="material-symbols-outlined text-xs material-symbols-filled">star</span>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 italic leading-snug">
+                      &quot;Gia đình tôi đăng ký gói chăm sóc có bác sĩ Hoài phụ trách đã được 6 tháng. Bác sĩ đến tận nhà kiểm tra tim mạch và huyết áp định kỳ cho mẹ tôi rất ân cần, bố mẹ tôi cực kỳ yên tâm.&quot;
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-md bg-slate-50 border border-slate-100 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-xs text-slate-800">Anh Quốc Bảo</span>
+                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                          ✓ Hội viên Gói An Tâm (Bình Thạnh)
+                        </span>
+                      </div>
+                      <div className="flex text-amber-500">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <span key={i} className="material-symbols-outlined text-xs material-symbols-filled">star</span>
+                        ))}
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-600 italic leading-snug">
+                      &quot;Có bác sĩ gia đình riêng như bác sĩ Hoài thực sự tiện lợi. Bác sĩ nắm rõ toàn bộ tiền sử bệnh của cả nhà, gọi video tư vấn lúc nào cũng cặn kẽ.&quot;
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* RIGHT COLUMN (5 COLUMNS): CARE PACKAGE SUBSCRIPTION WIDGET (Replaced single booking per Item 2) */}
+            <div id="booking-widget" className="lg:col-span-5 lg:sticky lg:top-20 space-y-3">
+              <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs relative">
+                <div className="h-1 bg-[#0046c0] -mt-5 -mx-5 rounded-t-lg mb-4" />
+
+                {isSubmitted ? (
+                  <div className="py-6 text-center space-y-3">
+                    <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto">
+                      <span className="material-symbols-outlined text-2xl">check_circle</span>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900">Đăng Ký Gói Thành Công!</h3>
+                      <p className="text-xs text-slate-600 mt-1 max-w-xs mx-auto leading-relaxed">
+                        Mã đăng ký: <strong className="tabular-nums text-[#0046c0]">#PKG-8921</strong>.
+                        Chuyên viên FamiDoc và bác sĩ sẽ liên hệ số điện thoại <strong className="text-slate-900 tabular-nums">{formData.phone}</strong> trong vòng 15 phút để hoàn tất hồ sơ sức khỏe và hẹn buổi khám đầu tiên.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 rounded-md border border-slate-200 text-left text-xs space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Bác sĩ phụ trách:</span>
+                        <span className="font-semibold text-slate-800">{doctor.title} {doctor.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Gói chăm sóc:</span>
+                        <span className="font-semibold text-[#0046c0]">{activePackage.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-500">Chi phí gói:</span>
+                        <span className="font-semibold text-slate-900">{activePackage.price} ({activePackage.badge})</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={resetForm}
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0046c0] hover:underline cursor-pointer pt-1"
+                    >
+                      <span className="material-symbols-outlined text-sm">restart_alt</span>
+                      <span>Đăng ký thêm gói khác</span>
+                    </button>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-xl border border-slate-200 bg-white text-center space-y-2 shadow-xs">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
-                        <span className="material-symbols-outlined text-2xl">home_health</span>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                          {isFacility ? 'Gói Cơ Sở Y Tế' : 'Bác Sĩ Gia Đình Riêng'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          Đang nhận bệnh nhân
+                        </span>
                       </div>
-                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">Khám Tại Nhà</h4>
-                      <p className="text-[11px] text-slate-500">Khám tổng quát, đo sinh hiệu và kê đơn tại tư gia.</p>
+                      <h2 className="text-lg font-bold text-slate-900 mt-0.5">
+                        {isFacility ? 'Đăng Ký Gói Khám Tại Cơ Sở' : `Đăng Ký Gói Chăm Sóc Cùng Bác Sĩ`}
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-0.5 leading-snug">
+                        {isFacility
+                          ? `Hưởng quyền lợi đón tiếp ưu tiên tại ${facility.name}.`
+                          : `Được ${doctor.title} ${doctor.name} trực tiếp đồng hành, theo dõi sức khỏe và thăm khám định kỳ tại nhà.`}
+                      </p>
                     </div>
 
-                    <div className="p-4 rounded-xl border border-slate-200 bg-white text-center space-y-2 shadow-xs">
-                      <div className="w-10 h-10 rounded-lg bg-blue-50 text-[#0046c0] flex items-center justify-center mx-auto">
-                        <span className="material-symbols-outlined text-2xl">videocam</span>
+                    {/* Step 1: Care Package Selection Cards (Reduced corner radius per Item 4) */}
+                    <div className="space-y-2">
+                      <label className="block text-xs font-bold text-slate-700">
+                        1. Chọn gói chăm sóc phù hợp:
+                      </label>
+                      <div className="space-y-2">
+                        {packagesList.map((pkg) => {
+                          const isSelected = selectedPackageId === pkg.id;
+                          return (
+                            <div
+                              key={pkg.id}
+                              onClick={() => setSelectedPackageId(pkg.id)}
+                              className={`p-3 rounded-md border transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'border-[#0046c0] bg-blue-50/50 ring-1 ring-[#0046c0]'
+                                  : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="radio"
+                                    name="package"
+                                    checked={isSelected}
+                                    onChange={() => setSelectedPackageId(pkg.id)}
+                                    className="text-[#0046c0] focus:ring-[#0046c0]"
+                                  />
+                                  <div>
+                                    <span className="font-bold text-xs text-slate-900">
+                                      {pkg.name}
+                                    </span>
+                                    <span className="ml-1.5 text-[10px] font-semibold text-[#0046c0] bg-blue-100/70 px-1.5 py-0.2 rounded">
+                                      {pkg.badge}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="text-right">
+                                  <span className="font-bold text-xs tabular-nums text-slate-900">
+                                    {pkg.price}
+                                  </span>
+                                </div>
+                              </div>
+                              <p className="text-[11px] text-slate-500 mt-1 pl-5 leading-snug">
+                                {pkg.highlight}
+                              </p>
+                            </div>
+                          );
+                        })}
                       </div>
-                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">Telehealth 24/7</h4>
-                      <p className="text-[11px] text-slate-500">Gọi video trực tiếp giải đáp triệu chứng tức thì.</p>
                     </div>
 
-                    <div className="p-4 rounded-xl border border-slate-200 bg-white text-center space-y-2 shadow-xs">
-                      <div className="w-10 h-10 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
-                        <span className="material-symbols-outlined text-2xl">local_hospital</span>
-                      </div>
-                      <h4 className="font-bold text-slate-900 text-xs sm:text-sm">Hỗ Trợ Tại Viện</h4>
-                      <p className="text-[11px] text-slate-500">Đón tiếp ưu tiên và hội chẩn tuyến trung ương.</p>
+                    {/* Active Package Features Summary */}
+                    <div className="p-3 rounded-md bg-slate-50 border border-slate-200/80 space-y-1.5">
+                      <span className="text-[11px] font-bold text-slate-700 block">
+                        Quyền lợi trong {activePackage.name}:
+                      </span>
+                      <ul className="space-y-1 text-[11px] text-slate-600">
+                        {activePackage.features.map((feat, idx) => (
+                          <li key={idx} className="flex items-start gap-1.5">
+                            <span className="material-symbols-outlined text-[#0046c0] text-sm shrink-0">check</span>
+                            <span>{feat}</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
+
+                    {/* Step 2: Simplified Registration Form */}
+                    <form onSubmit={handleSubmit} className="space-y-3 pt-1">
+                      <label className="block text-xs font-bold text-slate-700">
+                        2. Thông tin đăng ký gói:
+                      </label>
+
+                      <div>
+                        <input
+                          type="text"
+                          required
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          placeholder="Họ và tên người đại diện gia đình *"
+                          className="w-full px-3 py-2 rounded-md border border-slate-300 text-xs focus:outline-none focus:border-[#0046c0] focus:ring-1 focus:ring-[#0046c0] bg-white"
+                        />
+                      </div>
+
+                      <div>
+                        <input
+                          type="tel"
+                          required
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          placeholder="Số điện thoại liên hệ nhận tư vấn *"
+                          className="w-full px-3 py-2 rounded-md border border-slate-300 text-xs focus:outline-none focus:border-[#0046c0] focus:ring-1 focus:ring-[#0046c0] bg-white"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <select
+                          value={formData.memberCount}
+                          onChange={(e) => setFormData({ ...formData, memberCount: e.target.value })}
+                          className="w-full px-2.5 py-2 rounded-md border border-slate-300 text-xs focus:outline-none focus:border-[#0046c0] bg-white"
+                        >
+                          <option value="1-2 thành viên">Quy mô: 1-2 người</option>
+                          <option value="3 thành viên">Quy mô: 3-4 người</option>
+                          <option value="5+ thành viên">Quy mô: 5+ người</option>
+                        </select>
+
+                        <input
+                          type="text"
+                          value={formData.note}
+                          onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                          placeholder="Ghi chú (bệnh nền...)"
+                          className="w-full px-3 py-2 rounded-md border border-slate-300 text-xs focus:outline-none focus:border-[#0046c0] bg-white"
+                        />
+                      </div>
+
+                      {/* Primary CTA Button */}
+                      <button
+                        type="submit"
+                        className="w-full py-2.5 bg-[#0046c0] hover:bg-[#003899] text-white text-center font-bold text-xs sm:text-sm rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                      >
+                        <span className="material-symbols-outlined text-base">card_membership</span>
+                        <span>Đăng Ký Gói Chăm Sóc Ngay</span>
+                      </button>
+
+                      <p className="text-[10px] text-center text-slate-500 leading-snug">
+                        🔒 Hợp đồng y tế gia đình chính thức. Không phát sinh chi phí ẩn. Hỗ trợ thanh toán linh hoạt từng kỳ.
+                      </p>
+                    </form>
                   </div>
                 )}
               </div>
 
-              {/* Patient Trust Rating */}
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="text-3xl font-bold font-mono text-[#0046c0]">
-                    {isFacility ? '4.95' : doctor.rating}
-                  </div>
-                  <div>
-                    <div className="flex items-center text-amber-500">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <span key={i} className="material-symbols-outlined text-lg material-symbols-filled">star</span>
-                      ))}
-                    </div>
-                    <span className="text-xs text-slate-500">
-                      Dựa trên {isFacility ? '1.500+' : `${doctor.reviewCount}`} đánh giá của bệnh nhân
-                    </span>
-                  </div>
+              {/* Clinical Care Guarantee Note */}
+              <div className="p-3 rounded-md bg-slate-100 border border-slate-200 text-slate-600 text-[11px] space-y-1">
+                <div className="font-semibold text-slate-800 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[#0046c0] text-sm">verified_user</span>
+                  <span>Cam kết Y tế FamiDoc Pro</span>
                 </div>
-
-                <div className="text-right">
-                  <span className="text-xs text-slate-400 block">Lượt thăm khám thành công</span>
-                  <span className="text-base font-bold text-slate-900 font-mono">
-                    {isFacility ? '12.000+ ca' : `${doctor.consultationCount}+ ca`}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* 4. MEDSEV APPOINTMENT AREA (Matching .appointment-area-three in doctor-details.html) */}
-        <section id="dat-lich" className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20">
-          <div className="rounded-3xl bg-slate-50 border border-slate-200 overflow-hidden shadow-xs grid grid-cols-1 lg:grid-cols-12">
-            {/* Form Column (col-lg-7) */}
-            <div className="lg:col-span-7 p-8 sm:p-12 relative">
-              <div className="space-y-2 mb-8">
-                <h3 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                  {isFacility ? 'Y Cầu Đón Tiếp Tại Bệnh Viện' : 'Đặt Lịch Hẹn Cùng Bác Sĩ'}
-                </h3>
-                <p className="text-sm text-slate-500">
-                  FamiDoc Pro sẽ xác nhận lịch hẹn của bạn trong vòng 30 phút qua điện thoại hoặc tin nhắn SMS.
+                <p className="text-slate-500 leading-snug">
+                  100% bác sĩ có Chứng Chỉ Hành Nghề chính quy. Bác sĩ phụ trách cam kết thăm khám đúng hẹn và bảo lãnh viện phí khi cần chuyển tuyến.
                 </p>
               </div>
 
-              {isSubmitted ? (
-                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-6 text-center space-y-3">
-                  <div className="w-12 h-12 bg-emerald-100 text-emerald-700 rounded-full flex items-center justify-center mx-auto">
-                    <span className="material-symbols-outlined text-2xl">check</span>
-                  </div>
-                  <h4 className="font-bold text-emerald-900 text-base">Đặt lịch khám thành công!</h4>
-                  <p className="text-xs text-emerald-700 max-w-sm mx-auto">
-                    Bác sĩ điều phối sẽ liên hệ số điện thoại {formData.phone} để hoàn tất xác nhận lịch hẹn cho gia đình.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setIsSubmitted(false)}
-                    className="text-xs font-semibold text-emerald-800 hover:underline pt-2 cursor-pointer"
-                  >
-                    Đặt thêm lịch hẹn khác
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Họ và tên bệnh nhân *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="Nhập họ và tên..."
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-xs sm:text-sm focus:outline-none focus:border-[#0046c0] bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Số điện thoại liên hệ *
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="09xx xxx xxx"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-xs sm:text-sm focus:outline-none focus:border-[#0046c0] bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Địa chỉ Email
-                      </label>
-                      <input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="email@example.com"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-xs sm:text-sm focus:outline-none focus:border-[#0046c0] bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Dịch vụ đăng ký
-                      </label>
-                      <select
-                        value={formData.service}
-                        onChange={(e) => setFormData({ ...formData, service: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-xs sm:text-sm focus:outline-none focus:border-[#0046c0] bg-white"
-                      >
-                        <option value="Khám tận nhà (Home Visit)">Khám tận nhà (Home Visit)</option>
-                        <option value="Tư vấn Telehealth 24/7">Tư vấn Telehealth 24/7</option>
-                        <option value="Đón tiếp tại bệnh viện">Đón tiếp tại bệnh viện</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Ngày khám mong muốn
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.preferredDate}
-                        onChange={(e) => setFormData({ ...formData, preferredDate: e.target.value })}
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-xs sm:text-sm focus:outline-none focus:border-[#0046c0] bg-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">
-                        Độ tuổi bệnh nhân
-                      </label>
-                      <input
-                        type="number"
-                        value={formData.age}
-                        onChange={(e) => setFormData({ ...formData, age: e.target.value })}
-                        placeholder="Ví dụ: 45"
-                        className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-xs sm:text-sm focus:outline-none focus:border-[#0046c0] bg-white"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto px-8 py-3 bg-[#0046c0] hover:bg-[#003899] text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md mt-4 cursor-pointer"
-                  >
-                    Xác Nhận Đặt Lịch Khám
-                  </button>
-                </form>
-              )}
             </div>
 
-            {/* Emergency Column (col-lg-5) */}
-            <div className="lg:col-span-5 relative bg-slate-900 overflow-hidden flex flex-col justify-end p-8 sm:p-10 text-white min-h-[360px]">
-              <img
-                src="/images/medsev/doctor/4.jpg"
-                alt="Emergency Consultation"
-                className="absolute inset-0 w-full h-full object-cover opacity-40 mix-blend-luminosity"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-900/60 to-transparent" />
-
-              <div className="relative z-10 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-[#0046c0] flex items-center justify-center text-white shadow-lg">
-                  <span className="material-symbols-outlined text-2xl">call</span>
-                </div>
-                <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
-                  Đường Dây Nóng Khẩn Cấp 24/7
-                </span>
-                <h4 className="text-xl sm:text-2xl font-bold">Cần Tư Vấn Y Khoa Ngay Lập Tức?</h4>
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  Đội ngũ bác sĩ trực cấp cứu FamiDoc Pro luôn túc trực hỗ trợ sơ cứu từ xa và điều phối xe cấp cứu chuyên dụng.
-                </p>
-                <a
-                  href="tel:19008821"
-                  className="inline-block text-2xl font-black font-mono text-white tracking-wider hover:text-amber-300 transition-colors pt-2"
-                >
-                  Hotline: 1900 8821
-                </a>
-              </div>
-            </div>
           </div>
         </section>
       </main>
 
-      {/* 6. UNIFIED MEDSEV FOOTER */}
+      {/* 4. UNIFIED MEDSEV FOOTER */}
       <LandingFooter />
 
-      {/* Sticky Mobile Booking Action Bar (Don't Make Me Think: Always accessible CTA) */}
-      <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-3 sm:hidden flex items-center justify-between gap-3 shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+      {/* 5. STICKY MOBILE BOOKING BAR (Updated to Care Package Subscription per Item 2) */}
+      <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2.5 md:hidden flex items-center justify-between gap-3 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
         <div>
-          <span className="text-[10px] text-slate-500 block uppercase font-medium">Chi phí tư vấn:</span>
-          <span className="font-extrabold text-sm text-[#0046c0] font-mono">
-            {!isFacility ? doctor.fee : 'Theo chuẩn BHYT'}
+          <span className="text-[10px] text-slate-500 block uppercase font-medium">Gói chăm sóc từ:</span>
+          <span className="font-bold text-xs text-[#0046c0] tabular-nums">
+            {activePackage.monthlyPrice || activePackage.price}
           </span>
         </div>
-        <a
-          href="#dat-lich"
-          className="px-5 py-2.5 bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5"
+        <button
+          type="button"
+          onClick={() => {
+            const widget = document.getElementById('booking-widget');
+            if (widget) {
+              widget.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              setIsMobileSheetOpen(true);
+            }
+          }}
+          className="px-4 py-2 bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-bold rounded-md shadow-xs transition-colors flex items-center gap-1 cursor-pointer"
         >
-          <span className="material-symbols-outlined text-[16px]">calendar_month</span>
-          <span>Đặt lịch ngay</span>
-        </a>
+          <span className="material-symbols-outlined text-sm">card_membership</span>
+          <span>Đăng ký gói chăm sóc</span>
+        </button>
       </div>
+
+      {/* Mobile Drawer/Modal Fallback */}
+      {isMobileSheetOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end justify-center md:hidden">
+          <div className="bg-white rounded-t-xl w-full p-5 space-y-3 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+              <h3 className="font-bold text-xs text-slate-900">
+                Đăng Ký Gói Cùng Bác Sĩ {doctor.name}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsMobileSheetOpen(false)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-lg">close</span>
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-600">
+              Gói đã chọn: <strong className="text-[#0046c0]">{activePackage.name}</strong> ({activePackage.price})
+            </div>
+
+            <form onSubmit={(e) => { handleSubmit(e); setIsMobileSheetOpen(false); }} className="space-y-2.5">
+              <input
+                type="text"
+                required
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Họ và tên người đại diện *"
+                className="w-full px-3 py-2 rounded-md border border-slate-300 text-xs bg-white"
+              />
+              <input
+                type="tel"
+                required
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="Số điện thoại nhận tư vấn *"
+                className="w-full px-3 py-2 rounded-md border border-slate-300 text-xs bg-white"
+              />
+              <button
+                type="submit"
+                className="w-full py-2.5 bg-[#0046c0] text-white font-bold text-xs rounded-md shadow-xs"
+              >
+                Xác nhận đăng ký gói
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

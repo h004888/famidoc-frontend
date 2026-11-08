@@ -75,7 +75,7 @@ export function LandingProcess() {
                 </div>
 
                 <div className="space-y-1">
-                  <span className="text-xs font-semibold text-[#0046c0] font-mono tracking-wide">
+                  <span className="text-xs font-semibold text-[#0046c0] tabular-nums tracking-wide">
                     {pillar.num}
                   </span>
                   <h3 className="text-base font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors">
