@@ -738,7 +738,7 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack }: Doc
         <div>
           <span className="text-[10px] text-slate-500 block uppercase font-medium">Chi phí tư vấn:</span>
           <span className="font-extrabold text-sm text-[#0046c0] font-mono">
-            {isDoctor ? (target as Doctor).fee : 'Theo chuẩn BHYT'}
+            {!isFacility ? doctor.fee : 'Theo chuẩn BHYT'}
           </span>
         </div>
         <a
