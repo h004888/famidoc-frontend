@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export function LandingAbout() {
   return (
-    <section id="ve-chung-toi" className="py-20 bg-white border-b border-slate-200 scroll-mt-20">
+    <section className="py-20 bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
           {/* Left: Real Clinic Image */}

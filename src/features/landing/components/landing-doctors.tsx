@@ -91,14 +91,14 @@ export function LandingDoctors() {
   };
 
   return (
-    <section id="bac-si" className="py-20 bg-slate-50 border-b border-slate-200 scroll-mt-20">
+    <section className="py-20 bg-slate-50 border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
           <div className="space-y-1">
             <span className="sr-only">ĐỘI NGŨ CHUYÊN GIA HÀNG ĐẦU</span>
             <h2 className="text-3xl sm:text-4xl font-bold text-slate-900 tracking-tight">
-              Bác Sĩ Tiêu Biểu &amp; Trưởng Khoa Quản Nhiệm
+              Bác Sĩ Tiêu Biểu &amp; Chuyên Gia Đầu Ngành
             </h2>
             <p className="text-sm text-slate-600">
               Đội ngũ bác sĩ giàu y đức, chứng chỉ hành nghề chính quy và tận tâm đồng hành dài lâu cùng gia đình.

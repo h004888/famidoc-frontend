@@ -99,8 +99,7 @@ export function LandingStats() {
   return (
     <section
       ref={sectionRef}
-      id="gia-toc"
-      className="relative z-20 -mt-12 sm:-mt-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12 scroll-mt-20"
+      className="relative z-20 -mt-12 sm:-mt-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12"
     >
       <div className="bg-white rounded-2xl shadow-[0_10px_35px_0_rgba(0,0,0,0.08)] border border-slate-100 p-6 sm:p-8">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
@@ -168,6 +167,12 @@ export function LandingStats() {
               {formatSatisfaction()}
             </div>
           </div>
+        </div>
+
+        <div className="mt-4 pt-3 border-t border-slate-100 text-center">
+          <p className="text-[11px] text-slate-400">
+            * Dữ liệu thống kê và kiểm định chất lượng định kỳ Quý 3/2026 từ hệ thống FamiDoc Network.
+          </p>
         </div>
       </div>
     </section>

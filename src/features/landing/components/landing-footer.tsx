@@ -3,10 +3,7 @@ import Link from 'next/link';
 
 export function LandingFooter() {
   return (
-    <footer
-      id="bao-mat"
-      className="bg-white border-t border-[#c4c5d7]/70 text-[#444654] text-xs pt-14 pb-8 scroll-mt-20"
-    >
+    <footer className="bg-white border-t border-[#c4c5d7]/70 text-[#444654] text-xs pt-14 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand Col */}
@@ -55,28 +52,23 @@ export function LandingFooter() {
             <h4 className="font-bold text-[#131b2f] text-sm">Dịch Vụ Y Tế</h4>
             <ul className="space-y-2">
               <li>
-                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/doctors" className="hover:text-[#0037c1] transition-colors">
                   Bác sĩ thăm khám tại nhà
                 </Link>
               </li>
               <li>
-                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/packages" className="hover:text-[#0037c1] transition-colors">
                   Quản lý bệnh mạn tính gia đình
                 </Link>
               </li>
               <li>
-                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/doctors" className="hover:text-[#0037c1] transition-colors">
                   Tư vấn Telehealth trực tuyến 24/7
                 </Link>
               </li>
               <li>
-                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
+                <Link href="/packages" className="hover:text-[#0037c1] transition-colors">
                   Lập phác đồ dinh dưỡng &amp; lối sống
-                </Link>
-              </li>
-              <li>
-                <Link href="/#tru-cot" className="hover:text-[#0037c1] transition-colors">
-                  Giao thuốc tận nơi 24/7
                 </Link>
               </li>
             </ul>
@@ -128,7 +120,6 @@ export function LandingFooter() {
                 <span className="material-symbols-outlined text-sm text-[#0037c1]">mail</span>
                 <span>hotro@famidoc.vn</span>
               </li>
-              <li>VP Chính: Tòa nhà Y Dược Innovation, Quận 1, TP. Hồ Chí Minh</li>
             </ul>
           </div>
         </div>
@@ -136,24 +127,23 @@ export function LandingFooter() {
         {/* Bottom Copyright & Policy Strip */}
         <div className="pt-8 border-t border-[#c4c5d7]/50 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
           <div>
-            &copy; 2026 FamiDoc Pro. Tất cả quyền được bảo lưu. Giấy phép hoạt động khám bệnh, chữa
-            bệnh số 08821/BYT-GPHĐ.
+            FamiDoc - Family Doctor Management and Healthcare Platform
           </div>
 
           <div className="flex flex-wrap items-center gap-4">
-            <Link href="#bao-mat" className="hover:text-[#0037c1] hover:underline">
+            <Link href="/contact" className="hover:text-[#0037c1] hover:underline">
               Chính sách bảo mật y tế
             </Link>
             <span className="text-[#c4c5d7]">•</span>
-            <Link href="#bao-mat" className="hover:text-[#0037c1] hover:underline">
+            <Link href="/contact" className="hover:text-[#0037c1] hover:underline">
               Tiêu chuẩn HIPAA/HL7
             </Link>
             <span className="text-[#c4c5d7]">•</span>
-            <Link href="#bao-mat" className="hover:text-[#0037c1] hover:underline">
+            <Link href="/contact" className="hover:text-[#0037c1] hover:underline">
               Quy chuẩn kỹ thuật Bộ Y Tế
             </Link>
             <span className="text-[#c4c5d7]">•</span>
-            <Link href="#bao-mat" className="hover:text-[#0037c1] hover:underline">
+            <Link href="/contact" className="hover:text-[#0037c1] hover:underline">
               Điều khoản dịch vụ
             </Link>
             <span className="text-[#c4c5d7]">•</span>

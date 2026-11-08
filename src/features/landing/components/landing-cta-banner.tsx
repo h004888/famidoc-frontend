@@ -52,16 +52,25 @@ export function LandingCtaBanner() {
   };
 
   return (
-    <section id="dang-ky" className="py-20 bg-slate-900 text-white scroll-mt-20">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <section className="relative py-20 bg-gradient-to-br from-[#00258b] via-[#0037c1] to-[#0046c0] text-white overflow-hidden">
+      {/* Decorative ambient lighting for Clinical Prestige theme */}
+      <div className="absolute -right-24 -top-24 w-96 h-96 rounded-full bg-white/10 blur-3xl pointer-events-none" />
+      <div className="absolute -left-24 -bottom-24 w-96 h-96 rounded-full bg-teal-400/15 blur-3xl pointer-events-none" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           {/* Left Text */}
           <div className="lg:col-span-6 space-y-6">
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 text-blue-100 text-xs font-semibold">
+              <span className="material-symbols-outlined text-sm text-blue-200">verified</span>
+              <span>Đồng Hành Sức Khỏe Y Học Gia Đình 24/7</span>
+            </div>
+
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight leading-tight text-white drop-shadow-xs">
               Trao Gửi Sức Khỏe Gia Đình Cho Bác Sĩ Tận Tâm Hôm Nay
             </h2>
 
-            <p className="text-base text-slate-300 leading-relaxed font-normal">
+            <p className="text-base text-blue-100 leading-relaxed font-normal">
               Đăng ký để nhận tư vấn từ Bác sĩ Trưởng ban chuyên môn. Chúng tôi sẽ phân bổ bác sĩ gia đình phù hợp nhất với vị trí và tiền sử sức khỏe của gia đình bạn.
             </p>
 
@@ -71,15 +80,15 @@ export function LandingCtaBanner() {
                 onClick={() => {
                   window.location.href = 'tel:19008821';
                 }}
-                className="px-6 py-3 rounded bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm flex items-center gap-2.5 transition-colors cursor-pointer"
+                className="px-6 py-3.5 rounded-lg bg-white hover:bg-slate-100 text-[#0037c1] font-bold text-sm shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2.5 transition-all cursor-pointer"
                 aria-label="Hotline: 1900 8821"
               >
-                <span className="w-2 h-2 rounded-full bg-white" />
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse" />
                 <span>Hotline: 1900 8821</span>
               </button>
 
-              <div className="text-xs text-slate-400 flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-emerald-400 text-base">verified</span>
+              <div className="text-xs text-blue-100 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/10 backdrop-blur-sm border border-white/15">
+                <span className="material-symbols-outlined text-emerald-300 text-base">timer</span>
                 <span>Phản hồi nhanh trong 15 phút</span>
               </div>
             </div>
@@ -87,7 +96,7 @@ export function LandingCtaBanner() {
 
           {/* Right: Clean Clinical Intake Form */}
           <div className="lg:col-span-6">
-            <div className="bg-white text-slate-900 rounded-lg p-6 sm:p-8 border border-slate-200">
+            <div className="bg-white text-slate-900 rounded-2xl p-6 sm:p-8 border border-white/60 shadow-2xl">
               <div className="mb-6 space-y-1">
                 <h3 className="text-xl font-bold text-slate-900">
                   Đăng Ký Tư Vấn Bác Sĩ Miễn Phí
@@ -123,7 +132,7 @@ export function LandingCtaBanner() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     placeholder="Ví dụ: Nguyễn Văn An"
-                    className="w-full h-11 px-3.5 rounded border border-slate-300 bg-white text-slate-900 text-sm focus:border-[#0046c0] outline-none"
+                    className="w-full h-11 px-3.5 rounded-lg border border-slate-300 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 text-sm focus:border-[#0037c1] focus:ring-2 focus:ring-[#0037c1]/20 transition-all outline-none"
                   />
                 </div>
 
@@ -137,7 +146,7 @@ export function LandingCtaBanner() {
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="Ví dụ: 0912345678"
-                    className="w-full h-11 px-3.5 rounded border border-slate-300 bg-white text-slate-900 text-sm focus:border-[#0046c0] outline-none"
+                    className="w-full h-11 px-3.5 rounded-lg border border-slate-300 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 text-sm focus:border-[#0037c1] focus:ring-2 focus:ring-[#0037c1]/20 transition-all outline-none"
                   />
                 </div>
 
@@ -148,12 +157,12 @@ export function LandingCtaBanner() {
                   <select
                     value={packageInterest}
                     onChange={(e) => setPackageInterest(e.target.value as PackageInterest)}
-                    className="w-full h-11 px-3.5 rounded border border-slate-300 bg-white text-slate-900 text-sm focus:border-[#0046c0] outline-none"
+                    className="w-full h-11 px-3.5 rounded-lg border border-slate-300 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 text-sm focus:border-[#0037c1] focus:ring-2 focus:ring-[#0037c1]/20 transition-all outline-none"
                   >
-                    <option value="BASIC">Gói Chăm Sóc Cơ Bản (2 thành viên)</option>
-                    <option value="FAMILY">Gói Gia Đình Toàn Diện (4 thành viên)</option>
-                    <option value="ELDERLY">Gói Chăm Sóc Người Cao Tuổi</option>
-                    <option value="ROYAL">Gói Gia Đình Hoàng Gia (VIP)</option>
+                    <option value="BASIC">Gói Trải Nghiệm (1 Tháng · 1 người)</option>
+                    <option value="FAMILY">Gói Đồng Hành (3 Tháng · 3 người)</option>
+                    <option value="ELDERLY">Gói An Tâm (6 Tháng · 4 người)</option>
+                    <option value="VIP">Gói Toàn Diện (12 Tháng · 6 người)</option>
                   </select>
                 </div>
 
@@ -161,7 +170,7 @@ export function LandingCtaBanner() {
                   <button
                     type="submit"
                     disabled={isPending}
-                    className="w-full py-3 rounded bg-[#0046c0] hover:bg-[#003899] text-white font-medium text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                    className="w-full py-3.5 rounded-lg bg-[#0037c1] hover:bg-[#00258b] text-white font-semibold text-sm transition-all duration-200 shadow-md hover:shadow-lg active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
                   >
                     {isPending ? (
                       <span>Đang gửi thông tin...</span>

@@ -93,8 +93,7 @@ export function LandingHero() {
 
   return (
     <section
-      id="tong-quan"
-      className="relative bg-cover bg-center pt-16 pb-24 sm:pt-20 sm:pb-28 lg:pt-24 lg:pb-32 text-white scroll-mt-20 overflow-hidden"
+      className="relative bg-cover bg-center pt-16 pb-24 sm:pt-20 sm:pb-28 lg:pt-24 lg:pb-32 text-white overflow-hidden"
       style={{ backgroundImage: "url('/images/medsev/home-one/1.jpg')" }}
     >
       {/* Medsev Signature Cobalt Blue Overlay (#0046c0 / 80%) */}
@@ -121,10 +120,10 @@ export function LandingHero() {
             </p>
 
             {/* Medsev Style Action Buttons */}
-            <div className="flex flex-wrap items-center gap-4 pt-2">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4 pt-2">
               <Link
                 href="/register"
-                className="px-7 py-3.5 rounded-lg bg-white hover:bg-slate-100 text-[#0046c0] text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-lg bg-white hover:bg-slate-100 text-[#0046c0] text-sm font-bold transition-all duration-200 shadow-lg hover:shadow-xl hover:-translate-y-0.5 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">person_add</span>
                 <span>Đăng ký Bác sĩ Riêng</span>
@@ -132,7 +131,7 @@ export function LandingHero() {
 
               <Link
                 href="/packages"
-                className="px-7 py-3.5 rounded-lg border-2 border-white/90 text-white hover:bg-white hover:text-[#0046c0] text-sm font-semibold transition-all duration-200 flex items-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-7 py-3.5 rounded-lg border-2 border-white/90 text-white hover:bg-white hover:text-[#0046c0] text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">inventory_2</span>
                 <span>Xem Gói Chăm Sóc</span>
@@ -140,90 +139,100 @@ export function LandingHero() {
             </div>
           </div>
 
-          {/* Right: Interactive Medical Case Slider */}
-          <div className="lg:col-span-5">
+          {/* Right: Organic Floating Medical Case Visual */}
+          <div className="lg:col-span-5 relative mt-8 sm:mt-10 lg:mt-0 px-1 sm:px-0">
+            {/* Ambient soft glow */}
+            <div className="absolute -inset-2 bg-gradient-to-r from-blue-300/20 via-teal-300/15 to-indigo-300/20 rounded-3xl blur-2xl opacity-70 pointer-events-none" />
+
             <div
-              className="bg-white rounded-2xl p-4 sm:p-5 border border-white/40 shadow-2xl space-y-4 relative text-slate-900"
+              className="relative"
               onMouseEnter={() => setIsPaused(true)}
               onMouseLeave={() => setIsPaused(false)}
             >
-              {/* Slider Image Box */}
-              <div className="relative rounded-xl overflow-hidden aspect-[4/3] bg-slate-100 group shadow-inner">
-                {/* Primary Slide Image */}
+              {/* Floating Badge 1: Top-Left (Doctor Profile & Credibility) */}
+              <div className="absolute -top-4 -left-1 sm:-top-5 sm:-left-5 z-20 bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3.5 shadow-2xl border border-white/80 flex items-center gap-2.5 sm:gap-3 text-slate-900 transition-transform duration-300 hover:scale-105">
+                <img
+                  src={currentSlide.doctorAvatar}
+                  alt={currentSlide.doctor}
+                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover ring-2 ring-[#0046c0]/25 shadow-xs shrink-0"
+                />
+                <div>
+                  <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                    <span>{currentSlide.doctor}</span>
+                    <span className="material-symbols-outlined text-sm text-blue-600">verified</span>
+                  </div>
+                  <div className="text-[10px] sm:text-[11px] text-[#0046c0] font-medium">{currentSlide.doctorUnit}</div>
+                  <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-amber-600 font-semibold mt-0.5">
+                    <span className="material-symbols-outlined text-xs fill-1 text-amber-500">star</span>
+                    <span>{currentSlide.rating}</span>
+                    <span className="text-slate-400 font-normal ml-1 hidden xs:inline sm:inline">• {currentSlide.responseTime}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Main Organic Visual Canvas */}
+              <div className="relative rounded-3xl overflow-hidden aspect-[4/3] sm:aspect-[16/11] shadow-2xl border-2 border-white/40 bg-slate-900 group">
                 <img
                   key={currentSlide.id}
                   alt={currentSlide.alt}
-                  className="w-full h-full object-cover animate-fade-in"
+                  className="w-full h-full object-cover transition-all duration-700 hover:scale-105"
                   src={currentSlide.sceneImg}
                 />
 
-                {/* Slider Navigation Arrows */}
-                <div className="absolute top-3 right-3 flex items-center gap-1 bg-slate-900/60 backdrop-blur-xs p-1 rounded-md text-white">
+                {/* Subtle dark gradient overlay at top and bottom */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/35 via-transparent to-slate-950/20 pointer-events-none" />
+
+                {/* Sleek Navigation Arrows Overlay */}
+                <div className="absolute inset-x-2 sm:inset-x-3 top-1/2 -translate-y-1/2 flex items-center justify-between pointer-events-none">
                   <button
                     type="button"
                     onClick={handlePrevSlide}
                     aria-label="Ca khám trước"
-                    className="w-7 h-7 rounded flex items-center justify-center hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
+                    className="pointer-events-auto w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/40 hover:bg-slate-900/75 text-white backdrop-blur-md flex items-center justify-center transition-all duration-200 active:scale-90 cursor-pointer shadow-md"
                   >
-                    <span className="material-symbols-outlined text-base">chevron_left</span>
+                    <span className="material-symbols-outlined text-base sm:text-lg">chevron_left</span>
                   </button>
-                  <span className="text-[11px] px-1 font-mono font-medium">
-                    {activeSlide + 1}/{HERO_SLIDES.length}
-                  </span>
                   <button
                     type="button"
                     onClick={handleNextSlide}
                     aria-label="Ca khám tiếp theo"
-                    className="w-7 h-7 rounded flex items-center justify-center hover:bg-white/20 active:scale-95 transition-all cursor-pointer"
+                    className="pointer-events-auto w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-slate-900/40 hover:bg-slate-900/75 text-white backdrop-blur-md flex items-center justify-center transition-all duration-200 active:scale-90 cursor-pointer shadow-md"
                   >
-                    <span className="material-symbols-outlined text-base">chevron_right</span>
+                    <span className="material-symbols-outlined text-base sm:text-lg">chevron_right</span>
                   </button>
                 </div>
               </div>
 
-              {/* Slider Info Content */}
-              <div className="space-y-3 px-1">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <img
-                      src={currentSlide.doctorAvatar}
-                      alt={currentSlide.doctor}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-blue-100 shadow-xs"
-                    />
-                    <div>
-                      <div className="text-xs font-bold text-slate-900">{currentSlide.doctor}</div>
-                      <div className="text-[11px] text-[#0046c0] font-medium">{currentSlide.doctorUnit}</div>
-                    </div>
-                  </div>
-                  <span className="text-[11px] bg-emerald-50 text-emerald-700 font-semibold px-2 py-0.5 rounded-full border border-emerald-200">
-                    {currentSlide.status}
-                  </span>
+              {/* Floating Badge 2: Bottom-Right (Family Care Status & Next Appointment) */}
+              <div className="absolute -bottom-4 -right-1 sm:-bottom-5 sm:-right-5 z-20 bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3.5 shadow-2xl border border-white/80 flex items-center gap-2.5 sm:gap-3 text-slate-900 transition-transform duration-300 hover:scale-105 max-w-[240px] sm:max-w-xs">
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-[#0046c0] flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="material-symbols-outlined text-lg sm:text-xl">home_health</span>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-lg border border-slate-100">
-                  <div className="flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs text-[#0046c0]">calendar_today</span>
-                    <span>Lịch khám: <strong>{currentSlide.nextVisit}</strong></span>
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700">{currentSlide.status}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs text-amber-500">star</span>
-                    <span>Đánh giá: <strong>{currentSlide.rating}</strong></span>
+                  <div className="text-[11px] sm:text-xs font-semibold text-slate-800 truncate">{currentSlide.patient}</div>
+                  <div className="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs text-[#0046c0]">calendar_today</span>
+                    <span>Lịch: <strong>{currentSlide.nextVisit}</strong></span>
                   </div>
                 </div>
               </div>
 
               {/* Slider Dots Indicator */}
-              <div className="flex items-center justify-center gap-1.5 pt-1">
+              <div className="flex items-center justify-center gap-2 pt-8">
                 {HERO_SLIDES.map((slide, idx) => (
                   <button
                     key={slide.id}
                     type="button"
                     onClick={() => setActiveSlide(idx)}
                     aria-label={`Chuyển đến ca khám ${idx + 1}`}
-                    className={`h-1.5 rounded-full transition-all cursor-pointer ${
+                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
                       activeSlide === idx
-                        ? 'w-6 bg-[#0046c0]'
-                        : 'w-2 bg-slate-200 hover:bg-slate-300'
+                        ? 'w-7 bg-white shadow-md'
+                        : 'w-2 bg-white/40 hover:bg-white/70'
                     }`}
                   />
                 ))}

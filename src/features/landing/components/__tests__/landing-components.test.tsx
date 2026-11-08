@@ -62,12 +62,17 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
 
   it('UT-CMP-06: Packages Section render đủ 4 gói dịch vụ và đồng bộ link đăng ký theo packageId', () => {
     render(<LandingPackages />);
-    expect(screen.getByText('Chăm Sóc Cơ Bản')).toBeInTheDocument();
-    expect(screen.getByText('Gia Đình Toàn Diện')).toBeInTheDocument();
-    expect(screen.getByText('Chăm Sóc Người Cao Tuổi')).toBeInTheDocument();
-    expect(screen.getByText('Gia Đình Hoàng Gia')).toBeInTheDocument();
+    expect(screen.getByText('Gói Trải Nghiệm')).toBeInTheDocument();
+    expect(screen.getByText('Gói Đồng Hành')).toBeInTheDocument();
+    expect(screen.getByText('Gói An Tâm')).toBeInTheDocument();
+    expect(screen.getByText('Gói Toàn Diện')).toBeInTheDocument();
 
     expect(screen.getByText('Phổ biến nhất')).toBeInTheDocument();
+    expect(screen.getByText('1.000.000đ')).toBeInTheDocument();
+    expect(screen.getByText('2.850.000đ')).toBeInTheDocument();
+    expect(screen.getByText('6.475.000đ')).toBeInTheDocument();
+    expect(screen.getByText('12.600.000đ')).toBeInTheDocument();
+
     const registerButtons = screen.getAllByRole('link', { name: /Chọn gói này|Đăng ký ngay/i });
     expect(registerButtons).toHaveLength(4);
     expect(registerButtons[0]).toHaveAttribute('href', '/register?packageId=BASIC');
