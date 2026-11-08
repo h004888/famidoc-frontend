@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import Link from 'next/link';
 import { DashboardSidebar, DashboardTopbarUser } from '@/components/layout';
 
@@ -6,12 +6,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#f5f6f8] text-slate-900 antialiased font-sans">
       {/* Sidenav - Thanh điều hướng dọc chuẩn Preclinic */}
-      <DashboardSidebar />
+      <Suspense fallback={<div className="hidden lg:block w-16 bg-white border-r border-slate-200/90 shrink-0" />}>
+        <DashboardSidebar />
+      </Suspense>
 
       {/* Main content wrapper */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Topbar Header chuẩn Preclinic */}
-        <header className="h-16 bg-white border-b border-slate-200/90 px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+      <div className="flex-1 flex flex-col min-w-0 pb-16 lg:pb-0">
+        {/* Topbar Header chuẩn Preclinic (Chỉ hiển thị ở Desktop lg trở lên) */}
+        <header className="hidden lg:flex h-16 bg-white border-b border-slate-200/90 px-4 sm:px-6 lg:px-8 items-center justify-between sticky top-0 z-30 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
           {/* Left space */}
           <div className="flex-1" />
 
@@ -32,13 +34,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
 
             {/* Topbar User Profile */}
-            <DashboardTopbarUser />
+            <Suspense fallback={<div className="w-9 h-9 rounded-full bg-slate-100 animate-pulse" />}>
+              <DashboardTopbarUser />
+            </Suspense>
           </div>
         </header>
 
         {/* Nội dung trang */}
         <main className="flex-1">
-          {children}
+          <Suspense fallback={null}>
+            {children}
+          </Suspense>
         </main>
 
         {/* Footer phong cách Preclinic */}

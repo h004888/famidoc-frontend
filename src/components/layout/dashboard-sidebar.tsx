@@ -9,6 +9,7 @@ import { LoginRole } from '@/features/auth/schemas/auth.schema';
 interface NavItem {
   href: string;
   label: string;
+  shortLabel?: string;
   icon: string;
   exact?: boolean;
   badge?: string;
@@ -29,11 +30,11 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badge: 'Admin Backoffice',
     badgeColor: 'bg-indigo-50 text-indigo-700 border border-indigo-200/80',
     items: [
-      { href: '/admin', label: 'Tổng quan Nền tảng', icon: 'monitoring', exact: true, badge: 'Live', badgeColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-      { href: '/admin/packages', label: 'Quản trị Gói dịch vụ', icon: 'inventory_2' },
-      { href: '/admin/contracts', label: 'Hợp đồng & Pháp lý', icon: 'handshake' },
-      { href: '/admin/disputes', label: 'Trọng tài & Tranh chấp', icon: 'gavel', badge: '3', badgeColor: 'bg-rose-50 text-rose-700 border border-rose-200' },
-      { href: '/admin/users', label: 'Tài khoản, RBAC & Audit', icon: 'shield_person' },
+      { href: '/admin', label: 'Tổng quan Nền tảng', shortLabel: 'Tổng quan', icon: 'monitoring', exact: true, badge: 'Live', badgeColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+      { href: '/admin/packages', label: 'Quản trị Gói dịch vụ', shortLabel: 'Gói DV', icon: 'inventory_2' },
+      { href: '/admin/contracts', label: 'Hợp đồng & Pháp lý', shortLabel: 'Hợp đồng', icon: 'handshake' },
+      { href: '/admin/disputes', label: 'Trọng tài & Tranh chấp', shortLabel: 'Tranh chấp', icon: 'gavel', badge: '3', badgeColor: 'bg-rose-50 text-rose-700 border border-rose-200' },
+      { href: '/admin/users', label: 'Tài khoản, RBAC & Audit', shortLabel: 'Tài khoản', icon: 'shield_person' },
     ],
   },
   FACILITY: {
@@ -41,10 +42,10 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badge: 'Bệnh viện / Phòng khám',
     badgeColor: 'bg-blue-50 text-blue-700 border border-blue-200/80',
     items: [
-      { href: '/facility', label: 'Tổng quan Cơ sở', icon: 'local_hospital', exact: true, badge: 'Live Queue', badgeColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-      { href: '/facility/staff', label: 'Quản lý Nhân sự Y tế', icon: 'badge' },
-      { href: '/facility/coordination', label: 'Điều phối & Chuyển viện', icon: 'support_agent', badge: 'Hot', badgeColor: 'bg-amber-50 text-amber-700 border border-amber-200' },
-      { href: '/facility/revenue', label: 'Đối soát Doanh thu B2B', icon: 'payments' },
+      { href: '/facility', label: 'Tổng quan Cơ sở', shortLabel: 'Tổng quan', icon: 'local_hospital', exact: true, badge: 'Live Queue', badgeColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+      { href: '/facility/staff', label: 'Quản lý Nhân sự Y tế', shortLabel: 'Nhân sự', icon: 'badge' },
+      { href: '/facility/coordination', label: 'Điều phối & Chuyển viện', shortLabel: 'Điều phối', icon: 'support_agent', badge: 'Hot', badgeColor: 'bg-amber-50 text-amber-700 border border-amber-200' },
+      { href: '/facility/revenue', label: 'Đối soát Doanh thu B2B', shortLabel: 'Doanh thu', icon: 'payments' },
     ],
   },
   DOCTOR: {
@@ -52,11 +53,11 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badge: 'Bác sĩ CCHN',
     badgeColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80',
     items: [
-      { href: '/doctor', label: 'Bảng Lâm sàng', icon: 'dashboard', exact: true, badge: '12 Ca', badgeColor: 'bg-blue-50 text-blue-700 border border-blue-200' },
-      { href: '/doctor/timetable', label: 'Lịch trực & Panel Cap', icon: 'calendar_clock' },
-      { href: '/doctor/encounters', label: 'Khám SOAP & Kê đơn', icon: 'clinical_notes' },
-      { href: '/doctor/telemedicine', label: 'Tư vấn WebRTC 24/7', icon: 'videocam', badge: 'HD', badgeColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
-      { href: '/doctor/verification', label: 'Xác thực CCHN Y tế', icon: 'verified_user' },
+      { href: '/doctor', label: 'Bảng Lâm sàng', shortLabel: 'Lâm sàng', icon: 'dashboard', exact: true, badge: '12 Ca', badgeColor: 'bg-blue-50 text-blue-700 border border-blue-200' },
+      { href: '/doctor/timetable', label: 'Lịch trực & Panel Cap', shortLabel: 'Lịch trực', icon: 'calendar_clock' },
+      { href: '/doctor/encounters', label: 'Khám SOAP & Kê đơn', shortLabel: 'Khám SOAP', icon: 'clinical_notes' },
+      { href: '/doctor/telemedicine', label: 'Tư vấn WebRTC 24/7', shortLabel: 'Telemed', icon: 'videocam', badge: 'HD', badgeColor: 'bg-emerald-50 text-emerald-700 border border-emerald-200' },
+      { href: '/doctor/verification', label: 'Xác thực CCHN Y tế', shortLabel: 'CCHN', icon: 'verified_user' },
     ],
   },
   FAMILY: {
@@ -64,12 +65,12 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badge: 'Hộ Gia đình',
     badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200/80',
     items: [
-      { href: '/family', label: 'Bảng Sức khỏe Gia đình', icon: 'family_restroom', exact: true },
-      { href: '/family/members', label: 'Hồ sơ & Timeline EHR', icon: 'person_search' },
-      { href: '/family/appointments', label: 'Đặt lịch Home & Tele', icon: 'event_available', badge: '1 Sắp tới', badgeColor: 'bg-blue-50 text-blue-700 border border-blue-200' },
-      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo IoT', icon: 'ecg_heart' },
-      { href: '/family/subscription', label: 'Gói Chăm sóc & HĐ 4 Bên', icon: 'history_edu' },
-      { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', icon: 'receipt_long' },
+      { href: '/family', label: 'Bảng Sức khỏe Gia đình', shortLabel: 'Gia đình', icon: 'family_restroom', exact: true },
+      { href: '/family/members', label: 'Quản lý Thành viên', shortLabel: 'Thành viên', icon: 'group' },
+      { href: '/family/appointments', label: 'Đặt lịch Home & Tele', shortLabel: 'Lịch hẹn', icon: 'event_available', badge: '1 Sắp tới', badgeColor: 'bg-blue-50 text-blue-700 border border-blue-200' },
+      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo IoT', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
+      { href: '/family/subscription', label: 'Gói Chăm sóc & HĐ 4 Bên', shortLabel: 'Gói & HĐ', icon: 'history_edu' },
+      { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
     ],
   },
   PATIENT: {
@@ -77,12 +78,12 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badge: 'Hộ Gia đình',
     badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200/80',
     items: [
-      { href: '/family', label: 'Bảng Sức khỏe Gia đình', icon: 'family_restroom', exact: true },
-      { href: '/family/members', label: 'Hồ sơ & Timeline EHR', icon: 'person_search' },
-      { href: '/family/appointments', label: 'Đặt lịch Home & Tele', icon: 'event_available', badge: '1 Sắp tới', badgeColor: 'bg-blue-50 text-blue-700 border border-blue-200' },
-      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo IoT', icon: 'ecg_heart' },
-      { href: '/family/subscription', label: 'Gói Chăm sóc & HĐ 4 Bên', icon: 'history_edu' },
-      { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', icon: 'receipt_long' },
+      { href: '/family', label: 'Bảng Sức khỏe Gia đình', shortLabel: 'Gia đình', icon: 'family_restroom', exact: true },
+      { href: '/family/members', label: 'Quản lý Thành viên', shortLabel: 'Thành viên', icon: 'group' },
+      { href: '/family/appointments', label: 'Đặt lịch Home & Tele', shortLabel: 'Lịch hẹn', icon: 'event_available', badge: '1 Sắp tới', badgeColor: 'bg-blue-50 text-blue-700 border border-blue-200' },
+      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo IoT', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
+      { href: '/family/subscription', label: 'Gói Chăm sóc & HĐ 4 Bên', shortLabel: 'Gói & HĐ', icon: 'history_edu' },
+      { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
     ],
   },
 };
@@ -315,35 +316,128 @@ export function DashboardSidebar() {
     </div>
   );
 
+  const hasOverflowMobileTabs = currentMenu.items.length > 5;
+  const primaryMobileTabs = hasOverflowMobileTabs
+    ? currentMenu.items.slice(0, 4)
+    : currentMenu.items;
+  const overflowMobileTabs = hasOverflowMobileTabs ? currentMenu.items.slice(4) : [];
+  const isOverflowTabActive = overflowMobileTabs.some((item) =>
+    item.exact ? pathname === item.href : pathname.startsWith(item.href)
+  );
+
   return (
     <>
-      {/* Mobile Top Bar (hamburger) */}
+      {/* Mobile Top Bar (Giữ nguyên nút Hamburger mở Sidebar bên trái + Logo) */}
       <div className="lg:hidden flex items-center justify-between px-4 h-16 bg-white text-slate-900 border-b border-slate-200 sticky top-0 z-50">
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100"
-          aria-label="Mở menu"
-        >
-          <span className="material-symbols-outlined text-[22px]">menu</span>
-        </button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="p-2 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-center cursor-pointer"
+            aria-label="Mở menu"
+          >
+            <span className="material-symbols-outlined text-[22px]">menu</span>
+          </button>
 
-        <Link href="/" className="flex items-center">
-          <img
-            src="/images/FamiDoc Healthcare Logo.png"
-            alt="FamiDoc Logo"
-            className="h-9 w-auto max-w-[140px] object-contain"
-          />
-        </Link>
+          <Link href="/" className="flex items-center">
+            <img
+              src="/images/FamiDoc Healthcare Logo.png"
+              alt="FamiDoc Logo"
+              className="h-9 w-auto max-w-[140px] object-contain"
+            />
+          </Link>
+        </div>
 
         <div className="flex items-center gap-2">
           <Link
+            href="/notifications"
+            className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-600 hover:text-[#2E37A4] hover:bg-slate-100 border border-transparent hover:border-slate-200 transition-colors relative"
+            aria-label="Thông báo hệ thống"
+            title="Trung tâm thông báo đa kênh"
+          >
+            <span className="material-symbols-outlined text-[20px]">notifications</span>
+            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-rose-500 ring-2 ring-white animate-pulse"></span>
+          </Link>
+
+          <Link
             href="/settings"
             className="w-8 h-8 rounded-full bg-[#2E37A4] text-white flex items-center justify-center font-bold text-xs"
+            aria-label="Hồ sơ tài khoản & Cài đặt"
           >
             {user?.avatarText || 'FD'}
           </Link>
         </div>
       </div>
+
+      {/* Mobile Bottom Tab Bar (Chỉ hiển thị trên Mobile < lg) */}
+      <nav
+        aria-label="Điều hướng chính trên điện thoại"
+        className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_16px_rgba(15,23,42,0.05)] px-1.5 py-1"
+      >
+        <div
+          className={`grid items-center ${
+            hasOverflowMobileTabs || primaryMobileTabs.length === 5
+              ? 'grid-cols-5'
+              : 'grid-cols-4'
+          }`}
+        >
+          {primaryMobileTabs.map((item) => {
+            const isActive = item.exact
+              ? pathname === item.href
+              : pathname.startsWith(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`relative flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-colors ${
+                  isActive
+                    ? 'text-[#2E37A4] font-extrabold'
+                    : 'text-slate-500 hover:text-slate-900 font-semibold'
+                }`}
+              >
+                {isActive && (
+                  <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#2E37A4]" />
+                )}
+                <span
+                  className={`material-symbols-outlined text-[21px] leading-none ${
+                    isActive ? 'text-[#2E37A4]' : 'text-slate-400'
+                  }`}
+                >
+                  {item.icon}
+                </span>
+                <span className="text-[10px] mt-1 leading-tight truncate max-w-full">
+                  {item.shortLabel || item.label}
+                </span>
+              </Link>
+            );
+          })}
+
+          {hasOverflowMobileTabs && (
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className={`relative flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-colors cursor-pointer ${
+                mobileMenuOpen || isOverflowTabActive
+                  ? 'text-[#2E37A4] font-extrabold'
+                  : 'text-slate-500 hover:text-slate-900 font-semibold'
+              }`}
+            >
+              {(mobileMenuOpen || isOverflowTabActive) && (
+                <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#2E37A4]" />
+              )}
+              <span
+                className={`material-symbols-outlined text-[21px] leading-none ${
+                  mobileMenuOpen || isOverflowTabActive ? 'text-[#2E37A4]' : 'text-slate-400'
+                }`}
+              >
+                apps
+              </span>
+              <span className="text-[10px] mt-1 leading-tight truncate">Thêm</span>
+            </button>
+          )}
+        </div>
+      </nav>
 
       {/* Desktop Sidenav: Thu gọn ban đầu (w-20), hover vào thì mở rộng (w-64) mượt mà */}
       <aside
@@ -362,7 +456,7 @@ export function DashboardSidebar() {
         </div>
       </aside>
 
-      {/* Mobile Drawer Overlay */}
+      {/* Mobile Drawer Overlay (Mở từ bên trái như cũ) */}
       {mobileMenuOpen && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 lg:hidden flex"

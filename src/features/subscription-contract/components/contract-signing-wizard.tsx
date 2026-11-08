@@ -83,24 +83,24 @@ export function ContractSigningWizard({
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
       <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[95vh] flex flex-col text-slate-900 font-sans">
-        {/* Wizard Header (SCR-15 / Wireframe III.5.1) */}
-        <div className="bg-[#0f172a] text-white p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {/* Wizard Header */}
+        <div className="bg-gradient-to-r from-[#2E37A4] to-[#3d47c2] text-white p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="flex items-center gap-2 text-xs text-blue-300 font-semibold tracking-wide uppercase">
-              <span className="material-symbols-outlined text-[16px]">verified</span>
-              <span>Giao Thức Chăm Sóc Y Tế Bản Quyền • HL7 / FHIR Standard</span>
+            <div className="flex items-center gap-2 text-xs text-blue-200 font-semibold tracking-wide uppercase">
+              <span className="material-symbols-outlined text-[16px] text-[#00D3C7]">verified</span>
+              <span>Hợp Đồng Y Tế Điện Tử 4 Bên • Chuẩn Bộ Y Tế</span>
             </div>
             <h2 className="text-lg sm:text-xl font-bold mt-1 tracking-tight text-white">
-              Ký Kết Hợp Đồng Chăm Sóc Bác Sĩ Gia Đình (SCR-15)
+              Gia Hạn &amp; Ký Hợp Đồng Chăm Sóc Bác Sĩ Gia Đình
             </h2>
-            <p className="text-xs text-slate-300 mt-0.5">
-              Gói dịch vụ: <span className="font-semibold text-blue-200">{packageName}</span> • Mã hồ sơ: <span className="font-mono text-blue-200">#FAM-2026-REGR821</span> • Ký số điện tử bảo chứng 4 bên
+            <p className="text-xs text-blue-100 mt-0.5">
+              Gói dịch vụ: <span className="font-semibold text-white">{packageName}</span> • Mã hộ: <span className="font-mono text-white">#FAM-88219</span>
             </p>
           </div>
 
           <div className="flex items-center gap-2 self-end sm:self-auto">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
-              Pháp lý HL7/FHIR Hoạt động
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/15 text-white border border-white/20">
+              Ký số bảo mật
             </span>
             {onClose && (
               <button
