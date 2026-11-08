@@ -131,7 +131,7 @@ export function DoctorMatchingWizard() {
           <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-4">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md text-xs font-semibold text-white">
               <span className="material-symbols-outlined text-[16px]">psychology</span>
-              <span>Thuật Toán Ghép Nối Đa Tiêu Chí (SCR-06)</span>
+              <span>Thuật Toán Ghép Nối Đa Tiêu Chí</span>
             </div>
 
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white drop-shadow-xs">

@@ -395,49 +395,66 @@ export function DoctorDirectoryView() {
 
         {/* 3. MEDSEV DOCTOR SEARCH AREA (Matching .doctor-search-area in doctor.html) */}
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-14 sm:-mt-16 relative z-20">
-          <div className="bg-white rounded-2xl shadow-[0_10px_35px_0_rgba(0,0,0,0.08)] border border-slate-100 p-6 sm:p-8 space-y-6">
+          <div className="bg-white rounded-2xl shadow-[0_10px_35px_0_rgba(0,0,0,0.08)] border border-slate-100 p-4 sm:p-8 space-y-5 sm:space-y-6 overflow-hidden">
             {/* Tab selector for Doctor vs Partner Facilities */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="inline-flex items-center p-1 bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-100 pb-4 gap-3.5">
+              {/* 2-Tab Segmented Control: full width on mobile, inline-flex on sm+ */}
+              <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex items-center p-1 bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold">
                 <button
                   type="button"
                   onClick={() => setActiveTab('doctors')}
-                  className={`px-5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'doctors'
-                    ? 'bg-[#0046c0] text-white shadow-xs'
+                  className={`w-full sm:w-auto justify-center px-3 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${activeTab === 'doctors'
+                    ? 'bg-[#0046c0] text-white shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
-                  <span className="material-symbols-outlined text-lg">stethoscope</span>
-                  <span>Đội ngũ Bác sĩ ({filteredDoctors.length})</span>
+                  <span className="material-symbols-outlined text-base sm:text-lg shrink-0">stethoscope</span>
+                  <span className="truncate">Đội ngũ Bác sĩ</span>
+                  <span
+                    className={`ml-0.5 sm:ml-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 transition-colors ${activeTab === 'doctors'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-200 text-slate-700'
+                      }`}
+                  >
+                    {filteredDoctors.length}
+                  </span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveTab('facilities')}
-                  className={`px-5 py-2 rounded-lg transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'facilities'
-                    ? 'bg-[#0046c0] text-white shadow-xs'
+                  className={`w-full sm:w-auto justify-center px-3 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 sm:gap-2 whitespace-nowrap ${activeTab === 'facilities'
+                    ? 'bg-[#0046c0] text-white shadow-xs font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                     }`}
                 >
-                  <span className="material-symbols-outlined text-lg">local_hospital</span>
-                  <span>Cơ sở &amp; Bệnh viện ({filteredFacilities.length})</span>
+                  <span className="material-symbols-outlined text-base sm:text-lg shrink-0">local_hospital</span>
+                  <span className="truncate">Cơ sở &amp; Bệnh viện</span>
+                  <span
+                    className={`ml-0.5 sm:ml-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 transition-colors ${activeTab === 'facilities'
+                      ? 'bg-white/20 text-white'
+                      : 'bg-slate-200 text-slate-700'
+                      }`}
+                  >
+                    {filteredFacilities.length}
+                  </span>
                 </button>
               </div>
 
-              {/* City Quick Filter & Smart Matching Wizard Button (SCR-06) */}
-              <div className="flex items-center gap-2 text-xs">
+              {/* City Quick Filter & Smart Matching Wizard Button: stacked full width on mobile, inline flex on sm+ */}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-xs w-full lg:w-auto">
                 <Link
                   href="/doctors/matching"
-                  className="px-3.5 py-1.5 rounded-lg bg-linear-to-r from-[#2563eb] to-[#0046c0] hover:from-[#1d4ed8] hover:to-[#003899] text-white font-bold flex items-center gap-1.5 shadow-xs transition-all"
+                  className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 rounded-lg bg-linear-to-r from-[#2563eb] to-[#0046c0] hover:from-[#1d4ed8] hover:to-[#003899] text-white font-bold flex items-center gap-1.5 shadow-xs transition-all whitespace-nowrap"
                 >
-                  <span className="material-symbols-outlined text-[16px]">smart_toy</span>
-                  <span>Smart Matching Wizard (SCR-06)</span>
+                  <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+                  <span>Gợi ý Bác sĩ Phù hợp</span>
                 </Link>
-                <div className="hidden sm:flex items-center gap-2">
-                  <span className="text-slate-500 font-medium">Khu vực:</span>
+                <div className="flex items-center justify-between sm:justify-start gap-2 bg-slate-50 sm:bg-transparent p-2 sm:p-0 rounded-lg border border-slate-200 sm:border-transparent">
+                  <span className="text-slate-500 font-medium whitespace-nowrap">Khu vực:</span>
                   <select
                     value={selectedCity}
                     onChange={(e) => setSelectedCity(e.target.value)}
-                    className="py-1.5 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 bg-slate-50 focus:outline-none focus:border-[#0046c0]"
+                    className="w-full sm:w-auto py-1.5 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 bg-white sm:bg-slate-50 focus:outline-none focus:border-[#0046c0] cursor-pointer"
                   >
                     <option value="all">Tất cả tỉnh thành</option>
                     <option value="Hà Nội">Hà Nội</option>

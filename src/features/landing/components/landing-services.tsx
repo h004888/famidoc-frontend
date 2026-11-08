@@ -88,7 +88,7 @@ export function LandingServices() {
   });
 
   return (
-    <section id="dich-vu" className="py-20 bg-slate-50 border-b border-slate-200 scroll-mt-20">
+    <section className="py-20 bg-slate-50 border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-10 space-y-2">

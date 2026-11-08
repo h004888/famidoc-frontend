@@ -26,18 +26,7 @@ export function LandingFloatingActions() {
   };
 
   return (
-    <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
-      {/* Hotline Emergency Floating Pill */}
-      <a
-        href="tel:19008821"
-        className="pointer-events-auto group flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-        aria-label="Gọi hotline cấp cứu 1900 8821"
-      >
-        <span className="material-symbols-outlined text-lg animate-bounce">call</span>
-        <span className="hidden sm:inline">Cấp Cứu 24/7:</span>
-        <span className="font-mono">1900 8821</span>
-      </a>
-
+    <div className="fixed bottom-18 md:bottom-6 right-4 sm:right-6 z-40 flex flex-col items-end gap-3 pointer-events-none">
       {/* Scroll To Top Button */}
       {showScrollTop && (
         <button

@@ -8,12 +8,11 @@ import {
   LandingPackages,
   LandingCtaBanner,
   LandingFooter,
-  LandingFloatingActions,
 } from '@/features/landing';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden">
+    <div className="min-h-screen flex flex-col justify-between bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden pb-16 md:pb-0">
       <LandingHeader />
       <main className="flex-1">
         {/* 1. Medsev Hero Banner & Quick Doctor Finder */}
@@ -38,9 +37,6 @@ export default function HomePage() {
         <LandingCtaBanner />
       </main>
       <LandingFooter />
-
-      {/* Interactive Floating Quick Actions (Emergency Hotline & Back To Top) */}
-      <LandingFloatingActions />
     </div>
   );
 }

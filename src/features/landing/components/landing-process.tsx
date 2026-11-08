@@ -32,11 +32,11 @@ const PILLARS = [
   },
   {
     num: 'Bước 04',
-    icon: 'prescriptions',
-    title: 'EHR & Dược Phẩm Tận Nơi',
+    icon: 'clinical_notes',
+    title: 'Hồ Sơ Bệnh Án Điện Tử (EHR)',
     highlight: 'Biên Niên Sử Y Bạ Gia Tộc',
     description:
-      'Hồ sơ bệnh án điện tử tập trung liên thông tuyến trung ương. Bác sĩ kê đơn số và nhà thuốc GPP giao thuốc tận nhà nhanh chóng.',
+      'Hồ sơ bệnh án điện tử tập trung liên thông tuyến trung ương. Lưu trữ trọn đời lịch sử khám chữa bệnh và theo dõi chỉ số sức khỏe của cả gia đình.',
     badge: 'Chuẩn HL7 FHIR',
   },
 ];
@@ -44,8 +44,7 @@ const PILLARS = [
 export function LandingProcess() {
   return (
     <section
-      id="tru-cot"
-      className="py-20 bg-white border-b border-slate-200 scroll-mt-20"
+      className="py-20 bg-white border-b border-slate-200"
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         {/* Section Header */}
