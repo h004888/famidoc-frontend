@@ -239,7 +239,7 @@ export function ContactView() {
                       <h3 className="text-xl font-bold text-emerald-900">Gửi Yêu Cầu Thành Công!</h3>
                       <p className="text-sm text-emerald-700 leading-relaxed max-w-md mx-auto">
                         Cảm ơn bạn đã tin tưởng FamiDoc. Mã yêu cầu tư vấn của bạn là:{' '}
-                        <span className="font-mono font-bold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded">
+                        <span className="tabular-nums font-bold text-emerald-900 bg-emerald-100 px-2 py-0.5 rounded">
                           {inquiryCode}
                         </span>
                         . Bác sĩ điều phối sẽ gọi lại số điện thoại{' '}
@@ -430,7 +430,7 @@ export function ContactView() {
                     </h3>
                     <a
                       href="tel:19008821"
-                      className="text-2xl sm:text-3xl font-bold font-mono text-white hover:text-blue-100 transition-colors block"
+                      className="text-2xl sm:text-3xl font-bold tabular-nums text-white hover:text-blue-100 transition-colors block"
                     >
                       1900 8821
                     </a>

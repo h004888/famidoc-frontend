@@ -12,7 +12,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="w-full max-w-[560px] mx-auto my-auto p-12 text-center flex flex-col items-center justify-center gap-3">
+        <div className="w-full min-h-screen mx-auto my-auto p-12 text-center flex flex-col items-center justify-center gap-3">
           <div className="w-8 h-8 border-3 border-[#0037c1]/20 border-t-[#0037c1] rounded-full animate-spin" />
           <span className="text-xs font-medium text-on-surface-variant">
             Đang tải cổng đăng nhập y tế FamiDoc...

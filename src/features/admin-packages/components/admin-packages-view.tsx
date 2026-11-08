@@ -260,7 +260,7 @@ export function AdminPackagesView() {
                     <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
                       {pkg.badge}
                     </span>
-                    <span className="font-mono text-xs text-slate-400">{pkg.id}</span>
+                    <span className="tabular-nums text-xs text-slate-400">{pkg.id}</span>
                   </div>
 
                   <span
@@ -398,7 +398,7 @@ export function AdminPackagesView() {
                       type="number"
                       value={formPriceM1}
                       onChange={(e) => setFormPriceM1(Number(e.target.value))}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs tabular-nums"
                     />
                   </div>
                   <div>
@@ -409,7 +409,7 @@ export function AdminPackagesView() {
                       type="number"
                       value={formPriceM3}
                       onChange={(e) => setFormPriceM3(Number(e.target.value))}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs tabular-nums"
                     />
                   </div>
                   <div>
@@ -420,7 +420,7 @@ export function AdminPackagesView() {
                       type="number"
                       value={formPriceM12}
                       onChange={(e) => setFormPriceM12(Number(e.target.value))}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-mono"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs tabular-nums"
                     />
                   </div>
                 </div>

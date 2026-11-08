@@ -141,7 +141,7 @@
 }
 
 /* Medsev Typography Standard: Poppins everywhere */
-html, body, button, input, select, textarea, h1, h2, h3, h4, h5, h6, p, a, span, label, td, th, li {
+html, body, button, input, select, textarea {
   font-family: 'Poppins', var(--font-sans), sans-serif;
 }
 

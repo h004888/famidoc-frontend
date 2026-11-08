@@ -290,7 +290,7 @@ export function FamilyMembersView() {
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-50">
                   <span className="text-slate-400">Số thẻ BHYT:</span>
-                  <span className="font-mono font-semibold text-[#2563eb]">{currentMember.bhytNumber}</span>
+                  <span className="tabular-nums font-semibold text-[#2563eb]">{currentMember.bhytNumber}</span>
                 </div>
               </div>
 
@@ -417,7 +417,7 @@ export function FamilyMembersView() {
                         <div className="text-sm sm:text-base font-bold text-[#0f172a]">
                           {entry.diagnosis}
                         </div>
-                        <div className="text-xs font-mono text-[#2563eb]">Mã ICD-10: {entry.icd10}</div>
+                        <div className="text-xs tabular-nums text-[#2563eb]">Mã ICD-10: {entry.icd10}</div>
                       </div>
 
                       {/* Vital Signs Pill Bar */}

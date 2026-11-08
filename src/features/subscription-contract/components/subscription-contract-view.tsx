@@ -67,7 +67,7 @@ export function SubscriptionContractView() {
                 <span className="material-symbols-outlined text-[14px] text-blue-300">verified</span>
                 Gói đang sử dụng: GIA ĐÌNH TOÀN DIỆN (3 Tháng)
               </div>
-              <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight font-display">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
                 Chăm Sóc Y Tế Toàn Diện 4 Thành Viên
               </h2>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-2xl">
@@ -85,7 +85,7 @@ export function SubscriptionContractView() {
                 </div>
                 <div className="border-l border-white/20 pl-4">
                   <span className="text-slate-400 block text-[10px]">Định danh hộ:</span>
-                  <span className="font-bold text-white font-mono">FAM-88219</span>
+                  <span className="font-bold text-white tabular-nums">FAM-88219</span>
                 </div>
               </div>
             </div>
@@ -267,7 +267,7 @@ export function SubscriptionContractView() {
                 <h3 className="text-lg sm:text-xl font-bold text-[#0f172a] pt-2">
                   HỢP ĐỒNG ĐIỆN TỬ CUNG CẤP DỊCH VỤ BÁC SĨ GIA ĐÌNH &amp; CHĂM SÓC SỨC KHỎE
                 </h3>
-                <p className="text-xs font-mono text-[#2563eb]">Số HĐ: FMD-HD-88219/2026</p>
+                <p className="text-xs tabular-nums text-[#2563eb]">Số HĐ: FMD-HD-88219/2026</p>
               </div>
 
               <div className="space-y-4 text-xs sm:text-sm text-[#334155] leading-relaxed">

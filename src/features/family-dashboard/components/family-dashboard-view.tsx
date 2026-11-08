@@ -192,7 +192,7 @@ export function FamilyDashboardView() {
         <div className="bg-white p-5 sm:p-6 rounded-3xl border border-slate-200/90 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-xl sm:text-2xl font-extrabold text-slate-900">
+              <span className="text-xl sm:text-2xl font-bold text-slate-900">
                 Chào gia đình Ông Phúc! 👋
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -285,7 +285,7 @@ export function FamilyDashboardView() {
 
                   <div className="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs">
                     <span className="text-slate-500 font-medium">Huyết áp gần nhất:</span>
-                    <span className="font-bold font-mono text-[#2E37A4] bg-blue-50 px-2 py-0.5 rounded-lg">
+                    <span className="font-bold tabular-nums text-[#2E37A4] bg-blue-50 px-2 py-0.5 rounded-lg">
                       {m.bp} mmHg
                     </span>
                   </div>
@@ -326,7 +326,7 @@ export function FamilyDashboardView() {
                 <span className="font-medium">❤️ Huyết áp</span>
                 <span className="text-[10px] text-slate-400">mmHg</span>
               </div>
-              <div className="text-2xl font-black text-slate-900 font-mono">{currentMember.bp}</div>
+              <div className="text-2xl font-bold text-slate-900 tabular-nums">{currentMember.bp}</div>
               <div className="text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md inline-block">
                 {currentMember.bpStatus}
               </div>
@@ -338,7 +338,7 @@ export function FamilyDashboardView() {
                 <span className="font-medium">🫁 Oxy máu (SpO2)</span>
                 <span className="text-[10px] text-slate-400">%</span>
               </div>
-              <div className="text-2xl font-black text-slate-900 font-mono">{currentMember.spo2}</div>
+              <div className="text-2xl font-bold text-slate-900 tabular-nums">{currentMember.spo2}</div>
               <div className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-block">
                 Rất tốt
               </div>
@@ -350,7 +350,7 @@ export function FamilyDashboardView() {
                 <span className="font-medium">💓 Nhịp tim</span>
                 <span className="text-[10px] text-slate-400">nhịp/phút</span>
               </div>
-              <div className="text-2xl font-black text-slate-900 font-mono">{currentMember.heartRate.split(' ')[0]}</div>
+              <div className="text-2xl font-bold text-slate-900 tabular-nums">{currentMember.heartRate.split(' ')[0]}</div>
               <div className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-block">
                 Nhịp đều ổn định
               </div>
@@ -362,7 +362,7 @@ export function FamilyDashboardView() {
                 <span className="font-medium">🩸 Đường huyết</span>
                 <span className="text-[10px] text-slate-400">mmol/L</span>
               </div>
-              <div className="text-2xl font-black text-slate-900 font-mono">{currentMember.glucose.split(' ')[0]}</div>
+              <div className="text-2xl font-bold text-slate-900 tabular-nums">{currentMember.glucose.split(' ')[0]}</div>
               <div className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md inline-block">
                 {currentMember.glucoseStatus}
               </div>
@@ -391,7 +391,7 @@ export function FamilyDashboardView() {
                     <span className="text-[11px] font-bold text-[#2E37A4] uppercase tracking-wide block">
                       {currentMember.upcomingVisit.mode === 'home' ? '🏠 Bác sĩ đến nhà khám' : '💻 Khám Telehealth Video'}
                     </span>
-                    <h4 className="font-extrabold text-base text-slate-900 mt-0.5">
+                    <h4 className="font-bold text-base text-slate-900 mt-0.5">
                       {currentMember.upcomingVisit.time} • {currentMember.upcomingVisit.date}
                     </h4>
                   </div>
@@ -580,7 +580,7 @@ export function FamilyDashboardView() {
                       placeholder="120"
                       value={bpSystolic}
                       onChange={(e) => setBpSystolic(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm bg-white"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 tabular-nums font-bold text-sm bg-white"
                     />
                   </div>
                   <div>
@@ -593,7 +593,7 @@ export function FamilyDashboardView() {
                       placeholder="80"
                       value={bpDiastolic}
                       onChange={(e) => setBpDiastolic(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm bg-white"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 tabular-nums font-bold text-sm bg-white"
                     />
                   </div>
                 </div>
@@ -612,7 +612,7 @@ export function FamilyDashboardView() {
                   placeholder="Ví dụ: 5.6"
                   value={newGlucose}
                   onChange={(e) => setNewGlucose(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm bg-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 tabular-nums font-bold text-sm bg-white"
                 />
               </div>
 

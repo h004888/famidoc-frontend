@@ -186,7 +186,7 @@ export function FamilyBillingView() {
                 <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
                   <span className="text-[#475569]">Số tài khoản thụ hưởng:</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-base text-[#2563eb]">8821 9006 8688</span>
+                    <span className="tabular-nums font-bold text-base text-[#2563eb]">8821 9006 8688</span>
                     <button
                       type="button"
                       onClick={() => copyToClipboard('882190068688', 'acc')}
@@ -216,7 +216,7 @@ export function FamilyBillingView() {
                 <div className="flex items-center justify-between py-1">
                   <span className="text-[#475569]">Nội dung chuyển khoản (Bắt buộc):</span>
                   <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                    <span className="tabular-nums font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                       FMD FAM88219
                     </span>
                     <button
@@ -285,7 +285,7 @@ export function FamilyBillingView() {
               <tbody className="divide-y divide-slate-100 text-[#0f172a]">
                 {invoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="p-3.5 font-mono font-bold text-[#2563eb] whitespace-nowrap">
+                    <td className="p-3.5 tabular-nums font-bold text-[#2563eb] whitespace-nowrap">
                       {inv.orderCode}
                     </td>
                     <td className="p-3.5 font-medium max-w-xs">{inv.title}</td>
@@ -347,7 +347,7 @@ export function FamilyBillingView() {
                 </span>
                 <span>{timeLeft > 0 ? 'Hiệu lực mã QR (CFG-05):' : 'Phiên thanh toán hết hạn:'}</span>
               </div>
-              <span className="font-mono font-bold text-sm">
+              <span className="tabular-nums font-bold text-sm">
                 {formatCountdown(timeLeft)}
               </span>
             </div>

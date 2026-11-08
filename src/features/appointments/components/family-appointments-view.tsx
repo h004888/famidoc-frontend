@@ -315,7 +315,7 @@ export function FamilyAppointmentsView() {
                         </span>
                         {apt.type === 'home' ? 'Khám Bác sĩ Tại Nhà' : 'Tư vấn Telehealth'}
                       </span>
-                      <span className="text-xs font-mono font-semibold text-slate-400">{apt.id}</span>
+                      <span className="text-xs tabular-nums font-semibold text-slate-400">{apt.id}</span>
                     </div>
 
                     <div>
@@ -721,7 +721,7 @@ export function FamilyAppointmentsView() {
                   Xác Nhận Hủy Lịch Khám
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Mã ca hẹn: <strong className="font-mono text-slate-800">{cancelTarget.id}</strong>
+                  Mã ca hẹn: <strong className="tabular-nums text-slate-800">{cancelTarget.id}</strong>
                 </p>
               </div>
             </div>

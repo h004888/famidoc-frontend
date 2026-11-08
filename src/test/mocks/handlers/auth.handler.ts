@@ -4,19 +4,21 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 export const authHandlers = [
   http.post(`${API_URL}/api/v1/auth/login`, async ({ request }) => {
-    const body = (await request.json()) as { phone?: string; password?: string; role?: string };
-    if (!body.phone || !body.password) {
-      return HttpResponse.json({ message: 'Thiếu số điện thoại hoặc mật khẩu' }, { status: 400 });
+    const body = (await request.json()) as { phone?: string; email?: string; password?: string; role?: string };
+    const credential = body.email || body.phone;
+    if (!credential || !body.password) {
+      return HttpResponse.json({ message: 'Thiếu email hoặc mật khẩu' }, { status: 400 });
     }
     if (body.password === 'WrongPassword') {
-      return HttpResponse.json({ message: 'Số điện thoại hoặc mật khẩu không chính xác' }, { status: 401 });
+      return HttpResponse.json({ message: 'Email hoặc mật khẩu không chính xác' }, { status: 401 });
     }
     return HttpResponse.json({
       token: 'jwt-mock-token-family-123456',
       user: {
         id: 'usr-1001',
         fullName: 'Nguyễn Văn An',
-        phone: body.phone,
+        phone: body.phone || '0912345678',
+        email: body.email || 'an.nguyen@famidoc.vn',
         role: body.role || 'FAMILY',
       },
     }, { status: 200 });

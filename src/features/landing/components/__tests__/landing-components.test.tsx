@@ -124,4 +124,18 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
     expect(screen.getByRole('link', { name: /Điều khoản dịch vụ/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Đường dây nóng: 1900 8821/i })).toBeInTheDocument();
   });
+
+  it('standardizes typography across LandingStats, LandingPackages, LandingProcess, LandingDoctors (tabular-nums without font-mono)', () => {
+    const { container } = render(
+      <>
+        <LandingStats />
+        <LandingPackages />
+        <LandingProcess />
+        <LandingDoctors />
+      </>
+    );
+    expect(container.innerHTML).not.toMatch(/\bfont-mono\b/);
+    expect(screen.getByText('1.200+')).toHaveClass('tabular-nums');
+    expect(screen.getByText('1.000.000đ')).toHaveClass('tabular-nums');
+  });
 });

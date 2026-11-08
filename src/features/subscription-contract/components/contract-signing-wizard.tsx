@@ -94,7 +94,7 @@ export function ContractSigningWizard({
               Ký Kết Hợp Đồng Chăm Sóc Bác Sĩ Gia Đình (SCR-15)
             </h2>
             <p className="text-xs text-slate-300 mt-0.5">
-              Gói dịch vụ: <span className="font-semibold text-blue-200">{packageName}</span> • Mã hồ sơ: <span className="font-mono text-blue-200">#FAM-2026-REGR821</span> • Ký số điện tử bảo chứng 4 bên
+              Gói dịch vụ: <span className="font-semibold text-blue-200">{packageName}</span> • Mã hồ sơ: <span className="tabular-nums text-blue-200">#FAM-2026-REGR821</span> • Ký số điện tử bảo chứng 4 bên
             </p>
           </div>
 
@@ -377,7 +377,7 @@ export function ContractSigningWizard({
                 </span>
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200">
                   <div className="space-y-0.5 text-xs">
-                    <div className="font-mono font-bold text-slate-900">Người ký: NGUYỄN VĂN AN (Đại diện chủ hộ)</div>
+                    <div className="tabular-nums font-bold text-slate-900">Người ký: NGUYỄN VĂN AN (Đại diện chủ hộ)</div>
                     <div className="text-[11px] text-slate-400">Khóa ký số điện tử SHA-256 / Viettel-CA OTP Token</div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -387,7 +387,7 @@ export function ContractSigningWizard({
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value)}
                       placeholder="Mã OTP"
-                      className="w-24 px-2 py-1 text-center font-mono font-bold border rounded-lg bg-slate-50 text-xs"
+                      className="w-24 px-2 py-1 text-center tabular-nums font-bold border rounded-lg bg-slate-50 text-xs"
                     />
                     <button
                       type="button"
@@ -430,7 +430,7 @@ export function ContractSigningWizard({
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
                 <div>
                   <span className="text-[10px] text-slate-400 block uppercase font-bold">Tổng thanh toán ({packageName}):</span>
-                  <div className="text-xl sm:text-2xl font-bold font-mono text-[#2563eb]">{packagePrice}</div>
+                  <div className="text-xl sm:text-2xl font-bold tabular-nums text-[#2563eb]">{packagePrice}</div>
                 </div>
 
                 <div className="flex gap-2 w-full sm:w-auto">
@@ -480,7 +480,7 @@ export function ContractSigningWizard({
 
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 max-w-xs mx-auto space-y-2">
                 <div className="text-xs text-slate-500">Mã hóa đơn: <strong>INV-FMD-REGR821</strong></div>
-                <div className="text-lg font-bold font-mono text-[#2563eb]">{packagePrice}</div>
+                <div className="text-lg font-bold tabular-nums text-[#2563eb]">{packagePrice}</div>
                 <Link
                   href="/family/billing"
                   className="block w-full py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold transition-colors shadow-xs"

@@ -107,7 +107,7 @@ export function DoctorTimetableView() {
             </div>
 
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-[#0f172a]">{panelCap.current}</span>
+              <span className="text-3xl font-bold text-[#0f172a]">{panelCap.current}</span>
               <span className="text-xs text-slate-400 font-medium">/ tối đa {panelCap.max} hộ gia đình</span>
             </div>
 
@@ -130,7 +130,7 @@ export function DoctorTimetableView() {
             </span>
 
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-emerald-600">{maxRadius}</span>
+              <span className="text-3xl font-bold text-emerald-600">{maxRadius}</span>
               <span className="text-xs text-slate-400 font-medium">km quanh BV Đại học Y Dược</span>
             </div>
 
@@ -208,7 +208,7 @@ export function DoctorTimetableView() {
               <tbody className="divide-y divide-slate-100 text-[#0f172a]">
                 {TIMETABLE_DATA.map((slot, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/50">
-                    <td className="p-3.5 font-mono font-bold text-slate-500 border-r border-slate-200 bg-slate-50/30 whitespace-nowrap">
+                    <td className="p-3.5 tabular-nums font-bold text-slate-500 border-r border-slate-200 bg-slate-50/30 whitespace-nowrap">
                       {slot.time}
                     </td>
 

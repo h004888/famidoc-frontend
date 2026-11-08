@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -18,12 +20,12 @@ describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
     render(<PackagesCatalogView />);
     const searchInput = screen.queryByPlaceholderText(/Tìm theo tên gói chăm sóc/i);
     if (searchInput) {
-      await userEvent.type(searchInput, 'Người cao tuổi');
-      expect(screen.getByRole('heading', { level: 3, name: /Chăm Sóc Người Cao Tuổi/i })).toBeInTheDocument();
-      expect(screen.queryByRole('heading', { level: 3, name: /Gia Đình Toàn Diện/i })).not.toBeInTheDocument();
+      await userEvent.type(searchInput, 'An tâm');
+      expect(screen.getByRole('heading', { level: 3, name: /Gói An Tâm/i })).toBeInTheDocument();
+      expect(screen.queryByRole('heading', { level: 3, name: /Gói Đồng Hành/i })).not.toBeInTheDocument();
     } else {
-      expect(screen.getByRole('heading', { level: 3, name: /Chăm Sóc Cơ Bản/i })).toBeInTheDocument();
-      expect(screen.getByRole('heading', { level: 3, name: /Gia Đình Toàn Diện/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: /Gói Trải Nghiệm/i })).toBeInTheDocument();
+      expect(screen.getByRole('heading', { level: 3, name: /Gói Đồng Hành/i })).toBeInTheDocument();
     }
   });
 
@@ -48,7 +50,24 @@ describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
       const resetBtn = screen.getByRole('button', { name: /Xóa bộ lọc/i });
       await userEvent.click(resetBtn);
     }
-    expect(screen.getByRole('heading', { level: 3, name: /Gia Đình Toàn Diện/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 3, name: /Chăm Sóc Cơ Bản/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /Gói Đồng Hành/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /Gói Trải Nghiệm/i })).toBeInTheDocument();
+  });
+
+  it('standardizes typography across Group 1 Public/Marketing views (no font-mono, font-black, or font-extrabold)', () => {
+    const { container } = render(<PackagesCatalogView />);
+    expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
+
+    const group1Files = [
+      '../package-detail-view.tsx',
+      '../../../doctors/components/doctor-detail-view.tsx',
+      '../../../doctors/components/doctor-matching-wizard.tsx',
+      '../../../contact/components/contact-view.tsx',
+    ];
+    for (const relPath of group1Files) {
+      const fullPath = path.resolve(__dirname, relPath);
+      const source = fs.readFileSync(fullPath, 'utf-8');
+      expect(source, `Violation in ${relPath}`).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
+    }
   });
 });

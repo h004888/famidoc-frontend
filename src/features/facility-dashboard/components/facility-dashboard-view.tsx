@@ -103,7 +103,7 @@ export function FacilityDashboardView() {
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Mã định danh BYT: <span className="font-mono font-bold text-slate-700">BV-79012</span> • Phụ trách mạng lưới Bác sĩ Gia đình FamiDoc khu vực TP.HCM &amp; Miền Nam
+                Mã định danh BYT: <span className="tabular-nums font-bold text-slate-700">BV-79012</span> • Phụ trách mạng lưới Bác sĩ Gia đình FamiDoc khu vực TP.HCM &amp; Miền Nam
               </p>
             </div>
           </div>
@@ -143,7 +143,7 @@ export function FacilityDashboardView() {
               </div>
               <div>
                 <p className="text-xs font-medium text-slate-500">{s.title}</p>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">{s.value}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 tracking-tight mt-0.5">{s.value}</h3>
                 <p className="text-[11px] text-slate-400 mt-1">{s.subtitle}</p>
               </div>
             </div>
@@ -183,7 +183,7 @@ export function FacilityDashboardView() {
                       </div>
                       <div>
                         <span className="font-bold text-sm text-slate-900">{ref.patientName}</span>
-                        <span className="font-mono text-xs text-slate-400 ml-2">#{ref.id}</span>
+                        <span className="tabular-nums text-xs text-slate-400 ml-2">#{ref.id}</span>
                       </div>
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
@@ -310,7 +310,7 @@ export function FacilityDashboardView() {
                 Hợp đồng chia sẻ doanh thu 70/30 đã được đối soát tự động kỳ 10/2026. Quỹ Escrow đã sẵn sàng giải ngân cho cơ sở y tế.
               </p>
               <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="font-mono text-slate-400">B2B-YDUOC-2026</span>
+                <span className="tabular-nums text-slate-400">B2B-YDUOC-2026</span>
                 <Link
                   href="/facility/revenue"
                   className="font-bold text-[#00D3C7] hover:underline"

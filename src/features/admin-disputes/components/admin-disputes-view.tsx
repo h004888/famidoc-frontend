@@ -148,7 +148,7 @@ export function AdminDisputesView() {
               <div>
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs font-bold text-slate-400">{c.id}</span>
+                    <span className="tabular-nums text-xs font-bold text-slate-400">{c.id}</span>
                     <span
                       className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
                         c.severity === 'urgent'
