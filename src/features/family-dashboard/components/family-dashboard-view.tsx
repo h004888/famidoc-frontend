@@ -279,19 +279,17 @@ export function FamilyDashboardView() {
               return (
                 <div
                   key={item.id}
-                  className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
-                    isTaken
-                      ? 'bg-emerald-50/40 border-emerald-200/80'
-                      : 'bg-slate-50/70 border-slate-200/80 hover:border-slate-300'
-                  }`}
+                  className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${isTaken
+                    ? 'bg-emerald-50/40 border-emerald-200/80'
+                    : 'bg-slate-50/70 border-slate-200/80 hover:border-slate-300'
+                    }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                        isTaken
-                          ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-white border border-slate-200 text-[#2E37A4]'
-                      }`}
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isTaken
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-white border border-slate-200 text-[#2E37A4]'
+                        }`}
                     >
                       <span className="material-symbols-outlined text-[18px]">
                         {isTaken ? 'check_circle' : 'schedule'}
@@ -315,11 +313,10 @@ export function FamilyDashboardView() {
                   <button
                     type="button"
                     onClick={() => handleToggleMedStatus(item.memberId, originalMedId)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
-                      isTaken
-                        ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
-                        : 'bg-white hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white border border-[#2E37A4]/30 hover:border-[#2E37A4]'
-                    }`}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${isTaken
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
+                      : 'bg-white hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white border border-[#2E37A4]/30 hover:border-[#2E37A4]'
+                      }`}
                   >
                     <span className="material-symbols-outlined text-[15px]">
                       {isTaken ? 'done_all' : 'radio_button_unchecked'}
@@ -330,10 +327,10 @@ export function FamilyDashboardView() {
               );
             })}
           </div>
-        </div>
+        </div >
 
         {/* 5. MA TRẬN SINH HIỆU & SỨC KHỎE CỦA CÁC THÀNH VIÊN (CLICK VÀO XEM CHI TIẾT 360°) */}
-        <div className="space-y-3">
+        < div className="space-y-3" >
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[19px] text-[#2E37A4]">
@@ -382,16 +379,14 @@ export function FamilyDashboardView() {
                     </div>
 
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 whitespace-nowrap shrink-0 ${
-                        m.status === 'warning'
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 whitespace-nowrap shrink-0 ${m.status === 'warning'
                           ? 'bg-amber-50 text-amber-700 border-amber-200/90'
                           : 'bg-emerald-50 text-emerald-700 border-emerald-200/90'
-                      }`}
+                        }`}
                     >
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${
-                          m.status === 'warning' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
-                        }`}
+                        className={`w-1.5 h-1.5 rounded-full ${m.status === 'warning' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                          }`}
                       />
                       {m.status === 'warning' ? 'Cần chú ý' : 'Ổn định'}
                     </span>
@@ -402,9 +397,8 @@ export function FamilyDashboardView() {
                     <div className="bg-slate-50/90 px-2 py-1.5 rounded-xl border border-slate-100">
                       <span className="text-[10px] text-slate-400 font-medium block">Huyết áp</span>
                       <span
-                        className={`font-extrabold font-mono text-xs ${
-                          m.status === 'warning' ? 'text-amber-700' : 'text-slate-800'
-                        }`}
+                        className={`font-extrabold font-mono text-xs ${m.status === 'warning' ? 'text-amber-700' : 'text-slate-800'
+                          }`}
                       >
                         {m.bp}
                       </span>
@@ -439,20 +433,21 @@ export function FamilyDashboardView() {
               );
             })}
           </div>
-        </div>
-      </main>
+        </div >
+      </main >
 
       {/* Accessible Toast */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
-          <span className="font-medium">{toastMessage}</span>
-        </div>
-      )}
+      {
+        toastMessage && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
+          >
+            <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
+            <span className="font-medium">{toastMessage}</span>
+          </div>
+        )}
     </div>
   );
 }

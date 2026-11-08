@@ -230,7 +230,7 @@ export function FacilityCoordinationView() {
                 >
                   <div className="flex items-start justify-between gap-2 mb-3">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-slate-400">{apt.id}</span>
+                      <span className="tabular-nums text-xs font-bold text-slate-400">{apt.id}</span>
                       <span
                         className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                           apt.type === 'home_visit'
@@ -316,7 +316,7 @@ export function FacilityCoordinationView() {
                   <div key={ticket.id} className="p-5 hover:bg-slate-50/70 transition-colors">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-bold text-slate-400">{ticket.id}</span>
+                        <span className="tabular-nums text-xs font-bold text-slate-400">{ticket.id}</span>
                         <span
                           className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                             ticket.severity === 'high'

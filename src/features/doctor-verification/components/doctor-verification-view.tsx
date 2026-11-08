@@ -114,7 +114,7 @@ export function DoctorVerificationView() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <span className="text-slate-400 text-[11px] block mb-1">Số CCHN Bộ Y Tế:</span>
-                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 font-mono font-bold text-sm text-[#2563eb]">
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 tabular-nums font-bold text-sm text-[#2563eb]">
                     {cchnNumber}
                   </div>
                 </div>

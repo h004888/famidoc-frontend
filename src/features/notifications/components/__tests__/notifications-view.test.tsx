@@ -36,5 +36,11 @@ describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
     expect(screen.getByText(/Cảnh báo Chỉ số Huyết áp Vượt ngưỡng Mục tiêu/i)).toBeInTheDocument();
     expect(screen.queryByText(/Xác nhận Quyết toán VietQR/i)).not.toBeInTheDocument();
   });
+
+  it('standardizes typography on NotificationsView (tabular-nums without font-mono, font-bold without font-extrabold)', () => {
+    const { container } = render(<NotificationsView />);
+    expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
+    expect(container.innerHTML).toContain('tabular-nums');
+  });
 });
 

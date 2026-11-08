@@ -149,7 +149,7 @@ export function DoctorDashboardView() {
           <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end pt-3 md:pt-0 border-t md:border-t-0 border-slate-100">
             <div className="text-left md:text-right">
               <span className="text-[11px] text-slate-400 block font-medium">Thu nhập Escrow khả dụng:</span>
-              <span className="text-base font-extrabold text-[#2E37A4] font-mono">18.450.000 đ</span>
+              <span className="text-base font-bold text-[#2E37A4] tabular-nums">18.450.000 đ</span>
             </div>
             <Link
               href="/doctor/telemedicine"
@@ -178,7 +178,7 @@ export function DoctorDashboardView() {
               </div>
               <div>
                 <p className="text-xs font-medium text-slate-500">{kpi.title}</p>
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight mt-0.5">{kpi.value}</h3>
+                <h3 className="text-2xl font-bold text-slate-900 tracking-tight mt-0.5">{kpi.value}</h3>
                 <p className="text-[11px] text-slate-400 mt-1">{kpi.sub}</p>
               </div>
             </div>
@@ -326,7 +326,7 @@ export function DoctorDashboardView() {
                     </p>
 
                     <div className="flex items-center justify-between text-xs pt-2.5 border-t border-slate-200/60">
-                      <span className="text-slate-400 font-mono text-[11px] flex items-center gap-1">
+                      <span className="text-slate-400 tabular-nums text-[11px] flex items-center gap-1">
                         <span className="material-symbols-outlined text-[14px]">schedule</span>
                         {p.time}
                       </span>
@@ -365,7 +365,7 @@ export function DoctorDashboardView() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-xs font-mono font-bold text-[#2E37A4] border border-blue-200">
+                <span className="px-2.5 py-1 rounded-lg bg-blue-50 text-xs tabular-nums font-bold text-[#2E37A4] border border-blue-200">
                   ICD-10: {currentPatient.icd10}
                 </span>
               </div>
@@ -482,7 +482,7 @@ export function DoctorDashboardView() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Mã bệnh án điện tử:</span>
-                <span className="font-mono font-bold text-[#2E37A4]">{currentPatient.emr}</span>
+                <span className="tabular-nums font-bold text-[#2E37A4]">{currentPatient.emr}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Bác sĩ ký số:</span>
@@ -490,7 +490,7 @@ export function DoctorDashboardView() {
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Chứng thư CCHN:</span>
-                <span className="font-mono font-semibold text-emerald-700">004128/BYT (Viettel-CA Level 2)</span>
+                <span className="tabular-nums font-semibold text-emerald-700">004128/BYT (Viettel-CA Level 2)</span>
               </div>
               <div className="pt-2 border-t border-blue-200/60 text-[11px] text-slate-600">
                 <span className="font-semibold text-slate-800">Chẩn đoán: </span>

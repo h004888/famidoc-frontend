@@ -7,29 +7,29 @@ import {
 
 describe('UT-SCH-01..05: Auth Schemas & Contracts Validation', () => {
   describe('loginSchema', () => {
-    it('UT-SCH-01: validates valid phone and password', () => {
+    it('UT-SCH-01: validates valid email and password', () => {
       const result = loginSchema.safeParse({
-        phone: '0912345678',
+        email: 'an.nguyen@famidoc.vn',
         password: 'Password123',
         role: 'FAMILY',
       });
       expect(result.success).toBe(true);
     });
 
-    it('UT-SCH-02: invalidates phone numbers with invalid format or length', () => {
+    it('UT-SCH-02: invalidates email with invalid format', () => {
       const result = loginSchema.safeParse({
-        phone: '012345678', // only 9 digits
+        email: 'invalid-email',
         password: 'Password123',
       });
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.flatten().fieldErrors.phone).toBeDefined();
+        expect(result.error.flatten().fieldErrors.email).toBeDefined();
       }
     });
 
     it('UT-SCH-03: invalidates passwords shorter than 8 characters', () => {
       const result = loginSchema.safeParse({
-        phone: '0912345678',
+        email: 'an.nguyen@famidoc.vn',
         password: 'Short',
       });
       expect(result.success).toBe(false);

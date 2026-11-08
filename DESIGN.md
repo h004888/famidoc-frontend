@@ -50,74 +50,74 @@ colors:
   surface-variant: '#dae2fe'
 typography:
   display-lg:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 48px
     fontWeight: '700'
     lineHeight: 56px
     letterSpacing: -0.02em
   display-lg-mobile:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 32px
     fontWeight: '700'
     lineHeight: 40px
     letterSpacing: -0.015em
   headline-lg:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 36px
     fontWeight: '600'
     lineHeight: 44px
     letterSpacing: -0.02em
   headline-lg-mobile:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 26px
     fontWeight: '600'
     lineHeight: 34px
     letterSpacing: -0.01em
   headline-md:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 24px
     fontWeight: '600'
     lineHeight: 32px
     letterSpacing: -0.01em
   headline-sm:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 20px
     fontWeight: '600'
     lineHeight: 28px
   title-md:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 18px
     fontWeight: '500'
     lineHeight: 24px
   body-lg:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 16px
     fontWeight: '400'
     lineHeight: 24px
   body-md:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 14px
     fontWeight: '400'
     lineHeight: 20px
   body-sm:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 12px
     fontWeight: '400'
     lineHeight: 18px
   label-lg:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 14px
     fontWeight: '600'
     lineHeight: 20px
     letterSpacing: 0.01em
   label-md:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 12px
     fontWeight: '600'
     lineHeight: 16px
     letterSpacing: 0.02em
   label-sm:
-    fontFamily: Inter
+    fontFamily: Poppins
     fontSize: 11px
     fontWeight: '500'
     lineHeight: 14px
@@ -191,7 +191,7 @@ The palette is engineered around high-contrast medical usability and systematic 
 
 ## Typography
 
-Inter serves as the single universal typeface across all functional surfaces, chosen for its neutral precision, tall x-height, and superior distinction of critical numeric and clinical data.
+Poppins serves as the single universal typeface across all functional surfaces, chosen for its neutral precision, tall x-height, and superior distinction of critical numeric and clinical data.
 
 ### Typographic Principles
 - **Numerical Distinction:** Tabular figures (`font-variant-numeric: tabular-nums`) must be activated for vitals, appointment timestamps, and medical dosage metrics.

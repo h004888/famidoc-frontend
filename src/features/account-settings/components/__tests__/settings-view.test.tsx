@@ -14,4 +14,10 @@ describe('UT-CMP-14: AccountSettingsView BHYT Skeleton & Accessibility', () => {
     expect(screen.getByRole('heading', { level: 3, name: /Bảo hiểm Y tế & Ký quỹ/i })).toBeInTheDocument();
     expect(screen.getByText(/Mã thẻ BHYT Điện tử:/i)).toBeInTheDocument();
   });
+
+  it('standardizes typography on AccountSettingsView (tabular-nums without font-mono, font-black, or font-extrabold)', () => {
+    const { container } = render(<AccountSettingsView />);
+    expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
+    expect(container.innerHTML).toContain('tabular-nums');
+  });
 });

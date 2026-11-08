@@ -136,7 +136,7 @@ export function FacilityRevenueView() {
               <h2 className="text-base font-bold text-slate-900">Cơ chế Phân bổ &amp; Quỹ Ký quỹ Đảm bảo (Escrow)</h2>
               <p className="text-xs text-slate-500 mt-0.5">Bảo vệ quyền lợi tài chính minh bạch giữa Bệnh viện và Hộ gia đình</p>
             </div>
-            <div className="text-xs font-mono font-medium bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700">
+            <div className="text-xs tabular-nums font-medium bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700">
               Tài khoản nhận: BIDV - 119000288819 (BV ĐH Y DƯỢC TP.HCM)
             </div>
           </div>
@@ -191,7 +191,7 @@ export function FacilityRevenueView() {
                   <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
                     <td className="py-3.5 px-4">
                       <div className="font-bold text-slate-900">{c.monthYear}</div>
-                      <div className="font-mono text-[11px] text-slate-400">{c.id}</div>
+                      <div className="tabular-nums text-[11px] text-slate-400">{c.id}</div>
                     </td>
                     <td className="py-3.5 px-4 text-center font-medium text-slate-700">
                       {c.totalEncounters}
@@ -289,7 +289,7 @@ export function FacilityRevenueView() {
                       </span>
                     </div>
                     <div>
-                      Chứng thư số: <span className="font-mono text-slate-700">CA-BV-YDUOC-TOKEN-01</span>
+                      Chứng thư số: <span className="tabular-nums text-slate-700">CA-BV-YDUOC-TOKEN-01</span>
                     </div>
                   </div>
 
@@ -303,7 +303,7 @@ export function FacilityRevenueView() {
                       placeholder="Nhập mã PIN bảo mật..."
                       value={digitalCertificatePin}
                       onChange={(e) => setDigitalCertificatePin(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm font-mono focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm tabular-nums focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
                     />
                     <p className="text-[11px] text-slate-400 mt-1">
                       Chữ ký số hợp lệ theo Luật Giao dịch điện tử số 20/2023/QH15.

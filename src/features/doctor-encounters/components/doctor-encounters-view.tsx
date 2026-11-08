@@ -350,7 +350,7 @@ export function DoctorEncountersView() {
                       <span>{rx.name}</span>
                       <span className="text-slate-400 font-normal">({rx.dosage})</span>
                     </div>
-                    <div className="text-[11px] text-[#2563eb] font-mono">
+                    <div className="text-[11px] text-[#2563eb] tabular-nums">
                       Số lượng: {rx.quantity} {rx.unit} • {rx.route}
                     </div>
                     <p className="text-[11px] text-slate-500 leading-snug">
@@ -417,7 +417,7 @@ export function DoctorEncountersView() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Chữ ký số Bác sĩ:</span>
-                  <span className="font-mono text-[#03864b] font-bold">
+                  <span className="tabular-nums text-[#03864b] font-bold">
                     {isSigned ? 'PGS.TS Nguyễn Trọng Nghĩa (Viettel-CA)' : 'Chưa ký'}
                   </span>
                 </div>

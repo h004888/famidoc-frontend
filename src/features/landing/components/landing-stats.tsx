@@ -111,7 +111,7 @@ export function LandingStats() {
               </span>
               <span className="text-xs font-medium text-slate-600">Hộ gia đình tin dùng</span>
             </div>
-            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight font-mono">
+            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
               {formatFamilies()}
             </div>
           </div>
@@ -124,7 +124,7 @@ export function LandingStats() {
               </span>
               <span className="text-xs font-medium text-slate-600">Bác sĩ CCHN uy tín</span>
             </div>
-            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight font-mono">
+            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
               {formatDoctors()}
             </div>
           </div>
@@ -137,7 +137,7 @@ export function LandingStats() {
               </span>
               <span className="text-xs font-medium text-slate-600">Phản ứng khẩn cấp</span>
             </div>
-            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight font-mono">
+            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
               {formatMinutes()}
             </div>
           </div>
@@ -150,7 +150,7 @@ export function LandingStats() {
               </span>
               <span className="text-xs font-medium text-slate-600">Ký quỹ Escrow minh bạch</span>
             </div>
-            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight font-mono">
+            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
               {formatEscrow()}
             </div>
           </div>
@@ -163,7 +163,7 @@ export function LandingStats() {
               </span>
               <span className="text-xs font-medium text-slate-600">Gia đình hài lòng</span>
             </div>
-            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight font-mono">
+            <div className="text-2xl lg:text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
               {formatSatisfaction()}
             </div>
           </div>

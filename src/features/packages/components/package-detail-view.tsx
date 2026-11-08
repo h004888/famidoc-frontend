@@ -434,7 +434,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
               <div className="flex flex-wrap items-center gap-4 w-full md:w-auto">
                 <div className="text-left md:text-right">
                   <div className="text-xs text-slate-400 line-through">{pkg.originalPrice}</div>
-                  <div className="text-2xl sm:text-3xl font-bold font-mono text-[#0046c0]">{pkg.price}</div>
+                  <div className="text-2xl sm:text-3xl font-bold tabular-nums text-[#0046c0]">{pkg.price}</div>
                   <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">
                     {pkg.savingBadge}
                   </span>
@@ -497,7 +497,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                   className="bg-slate-50 border border-slate-100 p-5 rounded-2xl text-center space-y-1 shadow-xs"
                 >
                   <div className="text-xs font-semibold text-slate-500">{m.label}</div>
-                  <div className="text-xl sm:text-2xl font-bold text-[#0046c0] font-mono">{m.value}</div>
+                  <div className="text-xl sm:text-2xl font-bold text-[#0046c0] tabular-nums">{m.value}</div>
                   <div className="text-xs text-slate-600">{m.desc}</div>
                 </div>
               ))}
@@ -598,7 +598,7 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                     {pkg.tableItems.map((item, idx) => (
                       <tr key={idx} className={item.highlight ? 'bg-blue-50/60 font-medium' : 'hover:bg-slate-50/60 transition-colors'}>
                         <td className="py-3.5 px-5 font-semibold text-slate-900">{item.title}</td>
-                        <td className="py-3.5 px-5 font-bold text-[#0046c0] font-mono">{item.quota}</td>
+                        <td className="py-3.5 px-5 font-bold text-[#0046c0] tabular-nums">{item.quota}</td>
                         <td className="py-3.5 px-5 text-slate-600 hidden md:table-cell">{item.scope}</td>
                         <td className="py-3.5 px-5 text-right font-medium text-slate-700">{item.extraCost}</td>
                       </tr>

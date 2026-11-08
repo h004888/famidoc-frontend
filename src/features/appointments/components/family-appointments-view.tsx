@@ -395,8 +395,33 @@ export function FamilyAppointmentsView() {
             </div>
           ) : (
             <div className="space-y-4">
+<<<<<<< HEAD
               {filteredAppointments.map((apt) => {
                 const headerStyle = getAppointmentHeaderStyle(apt);
+=======
+              {filteredAppointments.map((apt) => (
+                <div
+                  key={apt.id}
+                  className="bg-white rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-xs p-5 sm:p-6 transition-all space-y-4"
+                >
+                  {/* Card Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                    <div className="flex items-center gap-2.5">
+                      <span
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
+                          apt.type === 'home'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[14px]">
+                          {apt.type === 'home' ? 'home_health' : 'videocam'}
+                        </span>
+                        {apt.type === 'home' ? 'Khám Bác sĩ Tại Nhà' : 'Tư vấn Telehealth'}
+                      </span>
+                      <span className="text-xs tabular-nums font-semibold text-slate-400">{apt.id}</span>
+                    </div>
+>>>>>>> a8d31b6dddc0a4735d1ff2cce71a814b18799a3f
 
                 return (
                   <div
@@ -954,6 +979,34 @@ export function FamilyAppointmentsView() {
                   <p className="text-[11px] text-rose-100">Mã ca hẹn: #{cancelTarget.id}</p>
                 </div>
               </div>
+<<<<<<< HEAD
+=======
+              <div>
+                <h3 className="font-bold text-base text-rose-900">
+                  Xác Nhận Hủy Lịch Khám
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Mã ca hẹn: <strong className="tabular-nums text-slate-800">{cancelTarget.id}</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-100 text-xs text-rose-900 space-y-1.5 leading-relaxed">
+              <p>
+                Bệnh nhân: <strong>{cancelTarget.patientName}</strong> • {cancelTarget.time} ngày {cancelTarget.date}
+              </p>
+              <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
+                <span className="material-symbols-outlined text-[14px]">check_circle</span>
+                <span>Hạn mức ca khám sẽ được hoàn lại nguyên vẹn cho gói chăm sóc của gia đình.</span>
+              </p>
+            </div>
+
+            <p className="text-xs text-slate-500 italic">
+              Bác sĩ phụ trách ({cancelTarget.doctorName}) sẽ nhận được thông báo hủy lịch tự động để sắp xếp tiếp nhận ca khám khác.
+            </p>
+
+            <div className="flex gap-2.5 pt-2">
+>>>>>>> a8d31b6dddc0a4735d1ff2cce71a814b18799a3f
               <button
                 type="button"
                 onClick={() => setCancelTarget(null)}

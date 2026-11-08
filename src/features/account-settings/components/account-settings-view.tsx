@@ -72,7 +72,7 @@ export function AccountSettingsView() {
               </span>
             </div>
             <p className="text-xs text-on-surface-variant mt-0.5">
-              Đại diện Hộ gia đình FamiDoc • Mã hồ sơ: <span className="font-mono text-primary font-bold">FMD-88219</span>
+              Đại diện Hộ gia đình FamiDoc • Mã hồ sơ: <span className="tabular-nums text-primary font-bold">FMD-88219</span>
             </p>
           </div>
         </div>
@@ -340,7 +340,7 @@ export function AccountSettingsView() {
               <div className="p-4 rounded-xl bg-surface-container-low border border-outline-variant space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-semibold text-on-surface-variant">Mã thẻ BHYT Điện tử:</span>
-                  <span className="font-mono text-sm font-bold text-primary">{profileData.insuranceCardNumber}</span>
+                  <span className="tabular-nums text-sm font-bold text-primary">{profileData.insuranceCardNumber}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-semibold text-on-surface-variant">Bệnh viện Đăng ký KCB Ban đầu:</span>

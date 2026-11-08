@@ -388,6 +388,7 @@ export function FamilyBillingView() {
                   </span>
                 </div>
 
+<<<<<<< HEAD
                 {/* 3 Hàng thông tin có nút Sao chép */}
                 <div className="space-y-2.5 text-xs">
                   {/* Số tài khoản */}
@@ -398,6 +399,13 @@ export function FamilyBillingView() {
                         8821 9006 8688
                       </strong>
                     </div>
+=======
+                {/* Account Number */}
+                <div className="flex items-center justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-[#475569]">Số tài khoản thụ hưởng:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="tabular-nums font-bold text-base text-[#2563eb]">8821 9006 8688</span>
+>>>>>>> a8d31b6dddc0a4735d1ff2cce71a814b18799a3f
                     <button
                       type="button"
                       onClick={() => copyToClipboard('882190068688', 'acc')}
@@ -424,6 +432,7 @@ export function FamilyBillingView() {
                     </button>
                   </div>
 
+<<<<<<< HEAD
                   {/* Nội dung chuyển khoản */}
                   <div className="p-3 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between gap-2">
                     <div>
@@ -434,6 +443,15 @@ export function FamilyBillingView() {
                         {selectedOption.transferMemo}
                       </strong>
                     </div>
+=======
+                {/* Transfer Content */}
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-[#475569]">Nội dung chuyển khoản (Bắt buộc):</span>
+                  <div className="flex items-center gap-2">
+                    <span className="tabular-nums font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      FMD FAM88219
+                    </span>
+>>>>>>> a8d31b6dddc0a4735d1ff2cce71a814b18799a3f
                     <button
                       type="button"
                       onClick={() => copyToClipboard(selectedOption.transferMemo, 'memo')}
@@ -550,7 +568,11 @@ export function FamilyBillingView() {
               <tbody className="divide-y divide-slate-100 text-slate-800">
                 {invoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
+<<<<<<< HEAD
                     <td className="p-4 font-mono font-bold text-[#2E37A4] whitespace-nowrap">
+=======
+                    <td className="p-3.5 tabular-nums font-bold text-[#2563eb] whitespace-nowrap">
+>>>>>>> a8d31b6dddc0a4735d1ff2cce71a814b18799a3f
                       {inv.orderCode}
                     </td>
                     <td className="p-4">
@@ -636,6 +658,7 @@ export function FamilyBillingView() {
                   {formatCountdown(timeLeft)}
                 </span>
               </div>
+<<<<<<< HEAD
 
               {timeLeft > 0 ? (
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200">
@@ -681,6 +704,11 @@ export function FamilyBillingView() {
               >
                 {isVerifying ? 'Đang kiểm tra...' : 'Xác nhận đã chuyển khoản'}
               </button>
+=======
+              <span className="tabular-nums font-bold text-sm">
+                {formatCountdown(timeLeft)}
+              </span>
+>>>>>>> a8d31b6dddc0a4735d1ff2cce71a814b18799a3f
             </div>
           </div>
         </div>

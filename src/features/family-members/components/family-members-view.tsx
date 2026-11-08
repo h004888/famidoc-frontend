@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -548,22 +548,20 @@ export function FamilyMembersView() {
                     <button
                       type="button"
                       onClick={() => setNewGender('Nam')}
-                      className={`py-2 rounded-xl font-bold border transition-all cursor-pointer ${
-                        newGender === 'Nam'
+                      className={`py-2 rounded-xl font-bold border transition-all cursor-pointer ${newGender === 'Nam'
                           ? 'bg-blue-50 border-[#2E37A4] text-[#2E37A4]'
                           : 'border-slate-200 text-slate-600'
-                      }`}
+                        }`}
                     >
                       Nam
                     </button>
                     <button
                       type="button"
                       onClick={() => setNewGender('Nữ')}
-                      className={`py-2 rounded-xl font-bold border transition-all cursor-pointer ${
-                        newGender === 'Nữ'
+                      className={`py-2 rounded-xl font-bold border transition-all cursor-pointer ${newGender === 'Nữ'
                           ? 'bg-rose-50 border-rose-500 text-rose-600'
                           : 'border-slate-200 text-slate-600'
-                      }`}
+                        }`}
                     >
                       Nữ
                     </button>
