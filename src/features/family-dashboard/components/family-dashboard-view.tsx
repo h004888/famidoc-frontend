@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   INITIAL_FAMILY_MEMBERS_DATA,
   MemberHealthData,
-  getMemberInitials,
 } from './family-member-care-view';
 
 interface FamilyMedicationItem {
@@ -34,7 +33,10 @@ export function FamilyDashboardView() {
   // Tổng hợp danh sách thuốc hôm nay của cả gia đình
   const familyMedicines: FamilyMedicationItem[] = membersList.flatMap((m) =>
     m.medicines.map((med) => {
-      const isEvening = med.time.toLowerCase().includes('tối') || med.time.includes('19:00') || med.time.includes('20:00');
+      const isEvening =
+        med.time.toLowerCase().includes('tối') ||
+        med.time.includes('19:00') ||
+        med.time.includes('20:00');
       const isNoon = med.time.toLowerCase().includes('trưa') || med.time.includes('12:00');
       return {
         id: `${m.id}-${med.id}`,
@@ -52,6 +54,7 @@ export function FamilyDashboardView() {
 
   const totalMedicines = familyMedicines.length;
   const takenMedicines = familyMedicines.filter((item) => item.status === 'taken').length;
+  const medPercent = totalMedicines > 0 ? Math.round((takenMedicines / totalMedicines) * 100) : 0;
 
   const handleToggleMedStatus = (memberId: string, medOriginalId: string) => {
     setMembersData((prev) => {
@@ -72,359 +75,268 @@ export function FamilyDashboardView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
-      <main className="max-w-6xl mx-auto py-5 sm:py-7 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* 1. HEADER HỘ GIA ĐÌNH, BÁC SĨ QUẢN NHIỆM & HÀNH ĐỘNG NHANH */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-            <div className="flex items-start sm:items-center gap-3.5 sm:gap-4">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center shadow-md ring-4 ring-[#2E37A4]/10 shrink-0">
-                <span className="material-symbols-outlined text-[24px] sm:text-[28px]">
-                  family_restroom
+      <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* 1. HEADER THOÁNG ĐÃNG TRỰC TIẾP TRÊN NỀN CANVAS (GIẢI PHÓNG KHUNG HỘP) */}
+        <header className="space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                  Hộ #FAM-88219
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>Gói Bác Sĩ Gia Đình Toàn Diện VIP</span>
                 </span>
               </div>
 
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold text-[#2E37A4] bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200/80">
-                    Hộ #FAM-88219
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[13px]">verified</span>
-                    <span>Gói Bác Sĩ Gia Đình Toàn Diện VIP</span>
-                  </span>
-                </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
+                Bảng Sức Khỏe Gia Đình: Hộ Ông Nguyễn Văn Phúc
+              </h1>
 
-                <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                  Bảng Sức Khỏe Gia Đình: Hộ Ông Nguyễn Văn Phúc
-                </h1>
-
-                <p className="text-xs text-slate-500">
-                  Trung tâm điều hành sức khỏe hằng ngày • Theo dõi chỉ số sinh hiệu, nhắc lịch uống thuốc và lịch khám bác sĩ tại nhà
-                </p>
-              </div>
+              <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
+                Trung tâm điều hành sức khỏe hằng ngày · Theo dõi chỉ số sinh hiệu, nhắc lịch uống thuốc và lịch khám bác sĩ tại nhà
+              </p>
             </div>
 
-            {/* Cụm nút hành động */}
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
+            {/* Cụm nút hành động tinh gọn & phân cấp chuẩn */}
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
               <Link
                 href="/family/appointments"
-                className="col-span-1 inline-flex items-center justify-center gap-2 px-4 sm:px-5 py-2.5 sm:py-3 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all whitespace-nowrap outline-hidden"
               >
-                <span className="material-symbols-outlined text-[18px]">calendar_month</span>
+                <span className="material-symbols-outlined text-[20px]">calendar_month</span>
                 <span>Đặt lịch khám</span>
               </Link>
 
               <Link
                 href="/family/appointments"
-                className="col-span-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-3 bg-blue-50/80 hover:bg-blue-100 text-[#2E37A4] border border-blue-200/80 rounded-xl text-xs sm:text-sm font-bold transition-all"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all whitespace-nowrap outline-hidden"
               >
-                <span className="material-symbols-outlined text-[18px]">videocam</span>
+                <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">videocam</span>
                 <span>Gọi video bác sĩ</span>
               </Link>
 
               <a
                 href="tel:19006868"
-                className="col-span-2 sm:col-span-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-3 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 rounded-xl text-xs sm:text-sm font-bold transition-all"
+                className="min-h-11 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-50 hover:bg-rose-100/80 text-rose-700 border border-rose-200/80 rounded-xl text-sm font-bold tabular-nums transition-colors whitespace-nowrap outline-hidden"
                 title="Tổng đài y tế cấp cứu khẩn cấp 24/7"
               >
-                <span className="material-symbols-outlined text-[18px]">emergency</span>
+                <span className="material-symbols-outlined text-[19px] text-rose-600">emergency</span>
                 <span>SOS 1900 6868</span>
               </a>
             </div>
           </div>
+        </header>
 
-          {/* Hàng dưới: Bác sĩ quản nhiệm & Hạn mức khám */}
-          <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="relative shrink-0">
-                <div className="w-9 h-9 rounded-xl bg-slate-100 text-[#2E37A4] font-bold text-xs flex items-center justify-center border border-slate-200">
-                  TN
-                </div>
-                <span
-                  className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"
-                  title="Bác sĩ đang trực tuyến"
-                />
-              </div>
-              <div className="text-xs">
-                <div className="text-slate-500">
-                  Bác sĩ gia đình phụ trách chính:{' '}
-                  <strong className="text-slate-900 font-bold">PGS.TS Nguyễn Trọng Nghĩa</strong>
-                </div>
-                <div className="text-[11px] text-slate-400">
-                  Trưởng khoa Nội Tổng quát • BV Đại học Y Dược TP.HCM
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 font-medium">
-                Khám tại nhà: <strong className="text-slate-900">Còn 3/5 lượt</strong>
-              </span>
-              <span className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200/80 text-slate-600 font-medium">
-                Tư vấn Video: <strong className="text-slate-900">Còn 18/20 lượt</strong>
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* 2. CẢNH BÁO SỨC KHỎE HÔM NAY (NẾU CÓ THÀNH VIÊN CẦN CHÚ Ý) */}
+        {/* 2. CẢNH BÁO SỨC KHỎE NHẸ NHÀNG (KHI CÓ CHỈ SỐ CẦN CHÚ Ý) */}
         {warningMembersCount > 0 && (
-          <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/90 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[22px] animate-pulse">
-                  warning
-                </span>
+          <aside
+            aria-label="Cảnh báo sức khỏe trong ngày"
+            className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all"
+          >
+            <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 shadow-xs">
+                <span className="material-symbols-outlined text-[20px]">warning</span>
               </div>
-              <div className="text-xs">
-                <div className="font-bold text-sm text-amber-950">
+              <div className="min-w-0">
+                <div className="font-semibold text-sm text-amber-900">
                   Lưu ý sức khỏe hôm nay: Bác Nguyễn Văn Phúc (Huyết áp 135/85 mmHg)
                 </div>
-                <div className="text-amber-800 mt-0.5">
+                <p className="text-xs sm:text-sm text-slate-700 mt-0.5 leading-relaxed">
                   Chỉ số tâm thu hơi cao sau bữa sáng. Cần kiểm tra lại lúc 17:00 chiều và nhắc bác uống đúng cữ Metformin 500mg sau ăn tối.
-                </div>
+                </p>
               </div>
             </div>
 
             <Link
               href="/family/members/mem-01"
-              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-2xs transition-colors self-start sm:self-auto shrink-0 flex items-center gap-1"
+              className="min-h-9 px-4 py-2 bg-white hover:bg-amber-100/50 text-slate-900 border border-amber-300 font-medium text-xs sm:text-sm rounded-xl transition-colors self-start sm:self-auto shrink-0 inline-flex items-center justify-center whitespace-nowrap outline-hidden shadow-xs"
             >
-              <span>Xem chi tiết Bác Phúc</span>
-              <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+              Xem chi tiết Bác Phúc
             </Link>
-          </div>
+          </aside>
         )}
 
-        {/* 3. TỔNG QUAN 3 KPI HÔM NAY */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.02)] flex items-center justify-between gap-3">
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Trạng thái cả gia đình</span>
-              <div className="text-lg sm:text-xl font-extrabold text-slate-900">
-                {totalMembers} thành viên
-              </div>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                {warningMembersCount} người cần chú ý huyết áp
+        {/* 3. DẢI 3 CHỈ SỐ NHỊP NGÀY (KPI) THOÁNG ĐẠT VỚI KHOẢNG THỞ LỚN */}
+        <section
+          aria-label="Tổng quan chỉ số hộ gia đình"
+          className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6"
+        >
+          {/* KPI 1 */}
+          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Trạng thái cả gia đình
               </span>
+              <span className="material-symbols-outlined text-slate-400 text-[20px]">group</span>
             </div>
-            <div className="w-11 h-11 rounded-2xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[22px]">family_restroom</span>
+            <div className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
+              {totalMembers} thành viên
+            </div>
+            <div className="text-xs font-medium text-amber-800 flex items-center gap-1.5 pt-1">
+              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
+              <span>{warningMembersCount} người cần chú ý huyết áp</span>
             </div>
           </div>
 
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.02)] flex items-center justify-between gap-3">
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Lịch hẹn khám sắp tới</span>
-              <div className="text-lg sm:text-xl font-extrabold text-slate-900">
-                {upcomingVisitsCount} lịch hẹn
-              </div>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#2E37A4]">
-                <span className="material-symbols-outlined text-[13px]">schedule</span>
-                Gần nhất: 09:30 • 27/10 (Tại nhà)
+          {/* KPI 2 */}
+          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Tuân thủ thuốc hôm nay
               </span>
+              <span className="material-symbols-outlined text-slate-400 text-[20px]">medication</span>
             </div>
-            <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-[#2E37A4] flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[22px]">event_upcoming</span>
+            <div className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
+              Đã dùng {takenMedicines}/{totalMedicines} cữ
             </div>
-          </div>
-
-          <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.02)] flex items-center justify-between gap-3">
-            <div className="space-y-1">
-              <span className="text-xs font-semibold text-slate-500">Tuân thủ thuốc hôm nay</span>
-              <div className="text-lg sm:text-xl font-extrabold text-slate-900">
-                Đã dùng {takenMedicines}/{totalMedicines} cữ
-              </div>
-              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700">
-                <span className="material-symbols-outlined text-[13px]">medication</span>
-                Còn {totalMedicines - takenMedicines} cữ tối cần nhắc
-              </span>
-            </div>
-            <div className="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-[22px]">pill</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 4. TÍNH NĂNG ĐẶC THÙ CỦA DASHBOARD: LỊCH DÙNG THUỐC CẢ GIA ĐÌNH HÔM NAY (FAMILY MEDICATION TRACKER) */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[22px]">pill</span>
-              </div>
-              <div>
-                <h2 className="font-bold text-base text-slate-900">
-                  Lịch Uống Thuốc Hôm Nay Của Cả Gia Đình
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Nhắc nhở và kiểm tra nhanh việc dùng thuốc của từng thành viên trong ngày
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                Tiến độ: {Math.round((takenMedicines / totalMedicines) * 100)}% ({takenMedicines}/{totalMedicines})
-              </span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {familyMedicines.map((item) => {
-              const isTaken = item.status === 'taken';
-              const originalMedId = item.id.replace(`${item.memberId}-`, '');
-
-              return (
+            <div className="space-y-1.5 pt-1">
+              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  key={item.id}
-                  className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${isTaken
-                    ? 'bg-emerald-50/40 border-emerald-200/80'
-                    : 'bg-slate-50/70 border-slate-200/80 hover:border-slate-300'
-                    }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${isTaken
-                        ? 'bg-emerald-100 text-emerald-700'
-                        : 'bg-white border border-slate-200 text-[#2E37A4]'
-                        }`}
-                    >
-                      <span className="material-symbols-outlined text-[18px]">
-                        {isTaken ? 'check_circle' : 'schedule'}
-                      </span>
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-xs text-[#2E37A4]">
-                          {item.memberName} ({item.relation})
-                        </span>
-                        <span className="text-[10px] text-slate-400">• {item.time}</span>
-                      </div>
-                      <div className="font-semibold text-xs sm:text-sm text-slate-900 truncate mt-0.5">
-                        {item.medName}
-                      </div>
-                      <div className="text-[11px] text-slate-500">{item.dosage}</div>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleToggleMedStatus(item.memberId, originalMedId)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${isTaken
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
-                      : 'bg-white hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white border border-[#2E37A4]/30 hover:border-[#2E37A4]'
-                      }`}
-                  >
-                    <span className="material-symbols-outlined text-[15px]">
-                      {isTaken ? 'done_all' : 'radio_button_unchecked'}
-                    </span>
-                    <span>{isTaken ? 'Đã uống' : 'Bấm đã uống'}</span>
-                  </button>
-                </div>
-              );
-            })}
+                  className="h-full bg-emerald-500 rounded-full transition-all duration-300"
+                  style={{ width: `${medPercent}%` }}
+                />
+              </div>
+              <div className="text-xs font-medium text-emerald-800 flex items-center justify-between">
+                <span>Đạt {medPercent}%</span>
+                <span className="text-slate-500 font-normal">Còn {totalMedicines - takenMedicines} cữ tối</span>
+              </div>
+            </div>
           </div>
-        </div >
 
-        {/* 5. MA TRẬN SINH HIỆU & SỨC KHỎE CỦA CÁC THÀNH VIÊN (CLICK VÀO XEM CHI TIẾT 360°) */}
-        < div className="space-y-3" >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[19px] text-[#2E37A4]">
-                vital_signs
+          {/* KPI 3 */}
+          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Lịch khám sắp tới
               </span>
-              <h2 className="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
+              <span className="material-symbols-outlined text-slate-400 text-[20px]">event_available</span>
+            </div>
+            <div className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
+              {upcomingVisitsCount} lịch hẹn
+            </div>
+            <div className="text-xs font-medium text-slate-600 flex items-center gap-1.5 pt-1">
+              <span className="material-symbols-outlined text-[16px] text-[#2E37A4]">home</span>
+              <span>Gần nhất: 09:30 · 27/10 (Khám tại nhà)</span>
+            </div>
+          </div>
+        </section>
+
+        {/* 4. MA TRẬN SINH HIỆU THÀNH VIÊN — THIẾT KẾ CARD THOÁNG MẮT, RÕ RÀNG */}
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight">
                 Chỉ Số Sinh Hiệu Hôm Nay Của Các Thành Viên ({totalMembers})
               </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                Cập nhật tự động từ thiết bị đo IoT gia đình và sổ theo dõi hàng ngày
+              </p>
             </div>
 
             <Link
               href="/family/members"
-              className="text-xs font-bold text-[#2E37A4] hover:underline flex items-center gap-0.5"
+              className="text-xs sm:text-sm font-semibold text-[#2E37A4] hover:text-[#222982] inline-flex items-center gap-1 hover:underline outline-hidden"
             >
               <span>Mở sổ Quản lý thành viên &amp; BHYT</span>
-              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {membersList.map((m) => {
-              const initials = getMemberInitials(m.name);
               const medTaken = m.medicines.filter((med) => med.status === 'taken').length;
               const medTotal = m.medicines.length;
+              const isWarning = m.status === 'warning';
 
               return (
                 <Link
                   key={m.id}
                   href={`/family/members/${m.id}`}
-                  className="group bg-white p-4 rounded-2xl border border-slate-200/80 hover:border-[#2E37A4] shadow-[0_1px_4px_rgba(0,0,0,0.02)] hover:shadow-[0_6px_18px_rgba(46,55,164,0.10)] transition-all flex flex-col justify-between gap-3.5"
+                  className="group bg-white p-6 rounded-2xl border border-slate-200/70 hover:border-slate-300 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-5 outline-hidden"
                 >
-                  {/* Hàng 1: Avatar + Tên & Quan hệ + Badge trạng thái */}
-                  <div className="flex items-center justify-between gap-2.5">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-11 h-11 rounded-xl bg-blue-50 text-[#2E37A4] border border-blue-200/70 group-hover:bg-[#2E37A4] group-hover:text-white group-hover:border-[#2E37A4] font-extrabold text-xs flex items-center justify-center shrink-0 transition-colors">
-                        {initials}
+                  {/* Hàng 1: Avatar, Họ tên, Tuổi, Vai trò & Badge Trạng thái */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
+                        {m.avatar}
                       </div>
                       <div className="min-w-0">
-                        <div className="font-bold text-sm text-slate-900 group-hover:text-[#2E37A4] transition-colors truncate">
+                        <div className="font-bold text-base text-slate-900 group-hover:text-[#2E37A4] transition-colors truncate">
                           {m.name}
                         </div>
-                        <div className="text-[11px] text-slate-500 mt-0.5 truncate">
-                          {m.relation} • {m.age} tuổi
+                        <div className="text-xs text-slate-500 font-medium truncate mt-0.5">
+                          {m.relation} · <span className="tabular-nums">{m.age}</span> tuổi
                         </div>
                       </div>
                     </div>
 
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border inline-flex items-center gap-1 whitespace-nowrap shrink-0 ${m.status === 'warning'
-                          ? 'bg-amber-50 text-amber-700 border-amber-200/90'
-                          : 'bg-emerald-50 text-emerald-700 border-emerald-200/90'
-                        }`}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${
+                        isWarning
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200/80'
+                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
+                      }`}
                     >
                       <span
-                        className={`w-1.5 h-1.5 rounded-full ${m.status === 'warning' ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
-                          }`}
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                          isWarning ? 'bg-amber-500' : 'bg-emerald-500'
+                        }`}
                       />
-                      {m.status === 'warning' ? 'Cần chú ý' : 'Ổn định'}
+                      <span>{isWarning ? 'Cần chú ý' : 'Ổn định'}</span>
                     </span>
                   </div>
 
-                  {/* Hàng 2: 3 Chỉ số gọn trên 1 hàng (Huyết áp • Đường huyết • Thuốc) */}
-                  <div className="grid grid-cols-3 gap-2 pt-3 border-t border-slate-100 text-center">
-                    <div className="bg-slate-50/90 px-2 py-1.5 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-medium block">Huyết áp</span>
+                  {/* Hàng 2: 4 Chỉ số sinh hiệu hiển thị dạng ô mềm, thoáng và chuẩn tabular-nums */}
+                  <div className="grid grid-cols-4 gap-2.5 p-3 rounded-xl bg-slate-50/70 border border-slate-100/90">
+                    <div className="text-center">
+                      <span className="text-[11px] font-medium text-slate-500 block truncate">
+                        Huyết áp
+                      </span>
                       <span
-                        className={`font-extrabold font-mono text-xs ${m.status === 'warning' ? 'text-amber-700' : 'text-slate-800'
-                          }`}
+                        className={`font-bold tabular-nums text-sm sm:text-base mt-1 block truncate ${
+                          isWarning ? 'text-amber-800' : 'text-slate-900'
+                        }`}
                       >
                         {m.bp}
                       </span>
                     </div>
 
-                    <div className="bg-slate-50/90 px-2 py-1.5 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-medium block">Đường huyết</span>
-                      <span className="font-extrabold font-mono text-xs text-slate-800">
-                        {m.glucose.split(' ')[0]}
+                    <div className="text-center">
+                      <span className="text-[11px] font-medium text-slate-500 block truncate">
+                        SpO2
+                      </span>
+                      <span className="font-bold tabular-nums text-sm sm:text-base text-slate-900 mt-1 block truncate">
+                        {m.spo2}
                       </span>
                     </div>
 
-                    <div className="bg-slate-50/90 px-2 py-1.5 rounded-xl border border-slate-100">
-                      <span className="text-[10px] text-slate-400 font-medium block">Thuốc</span>
-                      <span className="font-extrabold font-mono text-xs text-[#2E37A4]">
-                        {medTaken}/{medTotal}
+                    <div className="text-center">
+                      <span className="text-[11px] font-medium text-slate-500 block truncate">
+                        Nhịp tim
+                      </span>
+                      <span className="font-bold tabular-nums text-sm sm:text-base text-slate-900 mt-1 block truncate">
+                        {m.heartRate.split(' ')[0]}
+                      </span>
+                    </div>
+
+                    <div className="text-center">
+                      <span className="text-[11px] font-medium text-slate-500 block truncate">
+                        Glucose
+                      </span>
+                      <span className="font-bold tabular-nums text-sm sm:text-base text-slate-900 mt-1 block truncate">
+                        {m.glucose.split(' ')[0]}
                       </span>
                     </div>
                   </div>
 
-                  {/* Hàng 3: Footer thẻ thành viên */}
-                  <div className="pt-2.5 border-t border-slate-100/80 flex items-center justify-between text-xs text-slate-500">
-                    <span className="truncate text-[11px] text-slate-400">
-                      Cập nhật: {m.lastUpdated}
+                  {/* Hàng 3: Tiến độ thuốc & Nút mở hồ sơ 360° */}
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-500">
+                    <span className="truncate">
+                      Thuốc {medTaken}/{medTotal} cữ · {m.lastUpdated}
                     </span>
-                    <span className="font-bold text-[#2E37A4] group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5 text-[11px]">
+                    <span className="font-semibold text-[#2E37A4] group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5 shrink-0">
                       <span>Chi tiết 360°</span>
                       <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </span>
@@ -433,21 +345,153 @@ export function FamilyDashboardView() {
               );
             })}
           </div>
-        </div >
-      </main >
+        </section>
+
+        {/* 5. LƯỚI BẤT ĐỐI XỨNG: LỊCH UỐNG THUỐC (2/3) + BÁC SĨ GIA ĐÌNH & QUYỀN LỢI (1/3) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
+          {/* Cột trái (2/3): Lịch uống thuốc hôm nay */}
+          <section className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-xs p-5 sm:p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+              <div>
+                <h2 className="font-bold text-base sm:text-lg text-slate-900">
+                  Lịch Uống Thuốc Hôm Nay Của Cả Gia Đình
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                  Nhắc nhở và kiểm tra nhanh việc dùng thuốc của từng thành viên trong ngày
+                </p>
+              </div>
+
+              <span className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums bg-slate-100 text-slate-800 self-start sm:self-auto shrink-0">
+                Tiến độ: {medPercent}% ({takenMedicines}/{totalMedicines})
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              {familyMedicines.map((item) => {
+                const isTaken = item.status === 'taken';
+                const originalMedId = item.id.replace(`${item.memberId}-`, '');
+
+                return (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors flex items-center justify-between gap-4"
+                  >
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          isTaken ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-[#2E37A4]'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          {isTaken ? 'check' : 'medication'}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm text-slate-900 truncate">
+                          {item.medName}
+                        </div>
+                        <div className="text-xs text-slate-500 truncate mt-0.5">
+                          <span className="font-medium text-slate-700">{item.memberName}</span> ({item.relation}) · {item.time} · {item.dosage}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleToggleMedStatus(item.memberId, originalMedId)}
+                      className={`min-h-9 px-4 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-colors cursor-pointer outline-hidden whitespace-nowrap ${
+                        isTaken
+                          ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80'
+                          : 'bg-white hover:bg-slate-100 text-[#2E37A4] border border-slate-300'
+                      }`}
+                    >
+                      {isTaken ? 'Đã uống' : 'Bấm đã uống'}
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
+          {/* Cột phải (1/3): Bác sĩ gia đình phụ trách & Hạn mức khám */}
+          <aside className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-5">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="font-bold text-base text-slate-900">
+                Bác Sĩ Quản Nhiệm
+              </h2>
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Trực tuyến</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-[#2E37A4] text-white font-bold text-base flex items-center justify-center shrink-0 shadow-xs">
+                TN
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm font-bold text-slate-900 truncate">
+                  PGS.TS Nguyễn Trọng Nghĩa
+                </div>
+                <div className="text-xs text-slate-500 truncate mt-0.5">
+                  Trưởng khoa Nội Tổng quát · BV ĐH Y Dược
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 space-y-3 text-xs">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-600">Khám bác sĩ tại nhà</span>
+                  <span className="font-semibold tabular-nums text-slate-900">Còn 3/5 lượt</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-[#2E37A4] rounded-full" style={{ width: '60%' }} />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-slate-600">Tư vấn Video 24/7</span>
+                  <span className="font-semibold tabular-nums text-slate-900">Còn 18/20 lượt</span>
+                </div>
+                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '90%' }} />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="text-slate-600">Lịch khám kế tiếp</span>
+                <span className="font-semibold tabular-nums text-[#2E37A4]">09:30 · 27/10</span>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
+              <span className="text-slate-500">Hợp đồng #HD-88219</span>
+              <Link
+                href="/family/subscription"
+                className="font-semibold text-[#2E37A4] hover:text-[#222982] hover:underline outline-hidden"
+              >
+                Xem quyền lợi gói VIP
+              </Link>
+            </div>
+          </aside>
+        </div>
+      </main>
 
       {/* Accessible Toast */}
-      {
-        toastMessage && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
-          >
-            <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
-            <span className="font-medium">{toastMessage}</span>
-          </div>
-        )}
+      {toastMessage && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-fade-in"
+        >
+          <span className="material-symbols-outlined text-[18px] text-emerald-400">
+            check_circle
+          </span>
+          <span className="font-medium">{toastMessage}</span>
+        </div>
+      )}
     </div>
   );
 }

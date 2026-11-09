@@ -171,33 +171,14 @@ export function FamilyAppointmentsView() {
   ).length;
   const completedCount = appointments.filter((a) => a.status === 'completed').length;
 
-  const getAppointmentHeaderStyle = (apt: Appointment) => {
-    if (apt.status === 'cancelled') {
-      return {
-        headerBg: 'bg-slate-700 text-white',
-        badgeBg: 'bg-white/15 text-white border-white/25',
-      };
-    }
-    if (apt.type === 'home') {
-      return {
-        headerBg: 'bg-gradient-to-r from-[#2E37A4] to-[#3d47c2] text-white',
-        badgeBg: 'bg-white/15 text-white border-white/25',
-      };
-    }
-    return {
-      headerBg: 'bg-gradient-to-r from-[#0369a1] to-[#0284c7] text-white',
-      badgeBg: 'bg-white/15 text-white border-white/25',
-    };
-  };
-
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
-      <main className="max-w-6xl mx-auto py-5 sm:py-7 px-4 sm:px-6 lg:px-8 space-y-6">
+      <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Thông báo phản hồi thao tác */}
         {appointmentToast && (
           <div
             role="status"
-            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-bold flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-top-2"
+            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200/80 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 shadow-xs animate-in fade-in slide-in-from-top-2"
           >
             <div className="flex items-center gap-2.5">
               <span className="material-symbols-outlined text-[20px] text-emerald-600 shrink-0">
@@ -211,130 +192,148 @@ export function FamilyAppointmentsView() {
               className="text-emerald-700 hover:text-emerald-900 p-1 shrink-0 cursor-pointer"
               aria-label="Đóng thông báo"
             >
-              ✕
+              <span className="material-symbols-outlined text-[18px]">close</span>
             </button>
           </div>
         )}
 
-        {/* 1. HEADER TRANG ĐẶT LỊCH & QUẢN LÝ LỊCH HẸN */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
-            <div className="flex items-start sm:items-center gap-3.5 sm:gap-4 min-w-0">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center shadow-sm ring-4 ring-[#2E37A4]/10 shrink-0">
-                <span className="material-symbols-outlined text-[24px] sm:text-[28px]">
-                  calendar_month
+        {/* 1. HEADER CANVAS THOÁNG ĐÃNG ĐỒNG BỘ VỚI /family */}
+        <header className="space-y-4">
+          <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+            <Link
+              href="/family"
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-[#2E37A4] transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              <span>Bảng Sức Khỏe Gia Đình</span>
+            </Link>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-800 font-semibold">Lịch Hẹn Khám</span>
+          </nav>
+
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                  Hộ #FAM-88219
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>Sẵn sàng điều phối 24/7</span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
+                  <span className="material-symbols-outlined text-[14px] text-slate-500">home_health</span>
+                  <span>Khám tại nhà &amp; Telehealth</span>
                 </span>
               </div>
 
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold text-[#2E37A4] bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200/80">
-                    Hộ #FAM-88219
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Sẵn sàng điều phối 24/7</span>
-                  </span>
-                </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
+                Đặt Lịch &amp; Quản Lý Lịch Hẹn Khám Gia Đình
+              </h1>
 
-                <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-snug">
-                  Đặt Lịch &amp; Quản Lý Lịch Hẹn Khám Gia Đình
-                </h1>
-
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Đặt lịch Bác sĩ gia đình đến khám tận nhà hoặc tư vấn qua Video trực tuyến cho các thành viên.
-                </p>
-              </div>
+              <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
+                Chủ động đặt lịch Bác sĩ gia đình đến khám tận nhà hoặc tư vấn qua Video trực tuyến. Toàn bộ hồ sơ chẩn đoán và đơn thuốc được lưu trữ tự động vào bệnh án của từng thành viên.
+              </p>
             </div>
 
-            <div className="pt-3.5 lg:pt-0 border-t border-slate-100 lg:border-t-0 shrink-0">
+            {/* Cụm nút hành động tinh gọn & phân cấp chuẩn */}
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowBookingModal(true)}
-                className="w-full sm:w-auto px-5 py-3 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs inline-flex items-center justify-center gap-2 transition-all cursor-pointer"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all whitespace-nowrap outline-hidden cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                <span className="material-symbols-outlined text-[20px]">add_circle</span>
                 <span>Đặt lịch khám mới</span>
               </button>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* 2. THẺ HẠN MỨC GÓI KHÁM & BÁC SĨ PHỤ TRÁCH (3 CỘT CÂN ĐỐI) */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        {/* 2. THẺ HẠN MỨC GÓI KHÁM & BÁC SĨ PHỤ TRÁCH (3 CỘT CÂN ĐỐI & KHOẢNG THỞ LỚN) */}
+        <section
+          aria-label="Hạn mức và bác sĩ quản nhiệm"
+          className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6"
+        >
           {/* Cột 1: Khám tại nhà */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between gap-3">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700">Khám Bác sĩ Tại Nhà</span>
-              <span className="w-9 h-9 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-100 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[19px]">home_health</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Khám Bác sĩ Tại Nhà
+              </span>
+              <span className="w-10 h-10 rounded-xl bg-blue-50 text-[#2E37A4] border border-blue-100 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[20px]">home_health</span>
               </span>
             </div>
 
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black font-mono text-slate-900">3</span>
-                <span className="text-xs font-medium text-slate-500">/ 5 lượt còn lại trong kỳ</span>
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">3</span>
+                <span className="text-xs text-slate-400 font-medium tabular-nums">/ 5 lượt còn lại trong kỳ</span>
               </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
-                <div className="bg-[#2E37A4] h-full rounded-full" style={{ width: '60%' }} />
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-[#2E37A4] h-full rounded-full transition-all" style={{ width: '60%' }} />
               </div>
             </div>
           </div>
 
           {/* Cột 2: Tư vấn Telehealth */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between gap-3">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700">Tư Vấn Video (Telehealth)</span>
-              <span className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[19px]">videocam</span>
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Tư Vấn Video (Telehealth)
+              </span>
+              <span className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[20px]">videocam</span>
               </span>
             </div>
 
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black font-mono text-slate-900">18</span>
-                <span className="text-xs font-medium text-slate-500">/ 20 lượt còn lại trong kỳ</span>
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">18</span>
+                <span className="text-xs text-slate-400 font-medium tabular-nums">/ 20 lượt còn lại trong kỳ</span>
               </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden mt-2">
-                <div className="bg-sky-500 h-full rounded-full" style={{ width: '90%' }} />
+              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                <div className="bg-sky-500 h-full rounded-full transition-all" style={{ width: '90%' }} />
               </div>
             </div>
           </div>
 
           {/* Cột 3: Bác sĩ gia đình phụ trách */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between gap-3">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-700">Bác Sĩ Gia Đình Phụ Trách</span>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                Bác Sĩ Quản Nhiệm Hộ
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                 Trực tuyến
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3.5">
               <img
                 src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop"
                 alt="PGS.TS Nguyễn Trọng Nghĩa"
-                className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
               />
               <div className="min-w-0">
-                <div className="text-xs sm:text-sm font-extrabold text-slate-900 truncate">
+                <div className="text-sm font-bold text-slate-900 truncate">
                   PGS.TS Nguyễn Trọng Nghĩa
                 </div>
-                <p className="text-[11px] text-[#2E37A4] font-medium truncate">
+                <p className="text-xs text-[#2E37A4] font-medium truncate mt-0.5">
                   BV Đại học Y Dược TP.HCM
                 </p>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* 3. BỘ LỌC & DANH SÁCH LỊCH HẸN */}
-        <div className="space-y-4">
-          {/* Thanh Tabs lọc lịch hẹn — Căn chỉnh chuẩn xác trên cả Mobile & Desktop */}
-          <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="grid grid-cols-3 sm:flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto bg-slate-100/80 sm:bg-transparent p-1 sm:p-0 rounded-xl">
+        {/* 3. BỘ LỌC TABS & DANH SÁCH LỊCH HẸN */}
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Tabs phân loại */}
+            <div className="inline-flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl">
               {[
                 { id: 'upcoming', label: 'Sắp tới', count: upcomingCount, icon: 'event_upcoming' },
                 { id: 'completed', label: 'Đã khám', count: completedCount, icon: 'task_alt' },
@@ -346,19 +345,19 @@ export function FamilyAppointmentsView() {
                     key={t.id}
                     type="button"
                     onClick={() => setActiveTab(t.id as 'upcoming' | 'completed' | 'all')}
-                    className={`flex items-center justify-center gap-1.5 px-2.5 sm:px-4 py-2 rounded-lg sm:rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    className={`min-h-10 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
                       isActive
-                        ? 'bg-[#2E37A4] text-white shadow-xs'
-                        : 'text-slate-600 sm:bg-slate-50 hover:bg-white sm:hover:bg-slate-100 sm:border sm:border-slate-200/70'
+                        ? 'bg-white text-[#2E37A4] shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span className="hidden sm:inline-flex items-center">
-                      <span className="material-symbols-outlined text-[16px]">{t.icon}</span>
+                    <span className="material-symbols-outlined text-[18px] hidden sm:inline">
+                      {t.icon}
                     </span>
                     <span>{t.label}</span>
                     <span
-                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-mono leading-none ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-slate-200/90 text-slate-700'
+                      className={`px-1.5 py-0.5 rounded-md text-[11px] tabular-nums font-semibold leading-none ${
+                        isActive ? 'bg-blue-50 text-[#2E37A4]' : 'bg-slate-200 text-slate-600'
                       }`}
                     >
                       {t.count}
@@ -368,139 +367,117 @@ export function FamilyAppointmentsView() {
               })}
             </div>
 
-            <div className="flex items-center justify-between sm:justify-end text-xs text-slate-500 font-medium px-1 sm:px-0">
-              <span className="sm:hidden">Tổng số trong mục này:</span>
-              <span className="font-bold text-slate-700 sm:font-medium sm:text-slate-500">
-                Hiển thị {filteredAppointments.length} lịch hẹn
-              </span>
+            <div className="text-xs sm:text-sm text-slate-500 font-medium">
+              Hiển thị <span className="font-bold tabular-nums text-slate-800">{filteredAppointments.length}</span> lịch hẹn
             </div>
           </div>
 
           {/* Danh sách Thẻ Lịch Hẹn */}
           {filteredAppointments.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200/80 p-10 sm:p-12 text-center space-y-3">
+            <div className="bg-white rounded-2xl border border-slate-200/70 p-10 sm:p-14 text-center space-y-3 shadow-xs">
               <span className="material-symbols-outlined text-4xl text-slate-300">event_busy</span>
               <h3 className="font-bold text-sm text-slate-900">Chưa có lịch hẹn nào trong mục này</h3>
-              <p className="text-xs text-slate-500">
-                Bạn có thể đặt lịch Bác sĩ đến nhà hoặc tư vấn qua Video bất cứ lúc nào gia đình cần.
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Gia đình có thể đặt lịch Bác sĩ đến nhà hoặc kết nối tư vấn qua Video bất cứ lúc nào cần.
               </p>
               <button
                 type="button"
                 onClick={() => setShowBookingModal(true)}
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#2E37A4] text-white rounded-xl text-xs font-bold hover:bg-[#222982] cursor-pointer"
+                className="min-h-11 inline-flex items-center gap-2 px-5 py-2.5 bg-[#2E37A4] text-white rounded-xl text-xs sm:text-sm font-semibold hover:bg-[#222982] cursor-pointer shadow-xs transition-all"
               >
-                <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
                 <span>Đặt lịch khám ngay</span>
               </button>
             </div>
           ) : (
-            <div className="space-y-4">
-<<<<<<< HEAD
+            <div className="space-y-6">
               {filteredAppointments.map((apt) => {
-                const headerStyle = getAppointmentHeaderStyle(apt);
-=======
-              {filteredAppointments.map((apt) => (
-                <div
-                  key={apt.id}
-                  className="bg-white rounded-2xl border border-slate-200 hover:border-blue-300 hover:shadow-xs p-5 sm:p-6 transition-all space-y-4"
-                >
-                  {/* Card Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
-                          apt.type === 'home'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : 'bg-blue-50 text-blue-700 border border-blue-200'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[14px]">
-                          {apt.type === 'home' ? 'home_health' : 'videocam'}
-                        </span>
-                        {apt.type === 'home' ? 'Khám Bác sĩ Tại Nhà' : 'Tư vấn Telehealth'}
-                      </span>
-                      <span className="text-xs tabular-nums font-semibold text-slate-400">{apt.id}</span>
-                    </div>
->>>>>>> a8d31b6dddc0a4735d1ff2cce71a814b18799a3f
+                const isHome = apt.type === 'home';
+                const isCancelled = apt.status === 'cancelled';
+                const isCompleted = apt.status === 'completed';
 
                 return (
                   <div
                     key={apt.id}
-                    className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] overflow-hidden transition-all"
+                    className="group bg-white rounded-2xl border border-slate-200/70 hover:border-slate-300 shadow-xs hover:shadow-md transition-all overflow-hidden space-y-5 p-6"
                   >
-                    {/* Tầng 1: Header Lịch Hẹn (Nền màu phân biệt rõ ràng theo loại hình khám) */}
-                    <div
-                      className={`px-4 py-3.5 sm:px-6 sm:py-4 ${headerStyle.headerBg} flex flex-wrap items-center justify-between gap-2.5`}
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
+                    {/* Thanh tiêu đề nhẹ nhàng phân biệt loại lịch hẹn */}
+                    <div className="pb-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2.5">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold border backdrop-blur-xs ${headerStyle.badgeBg}`}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold border ${
+                            isHome
+                              ? 'bg-blue-50/80 text-[#2E37A4] border-blue-200/70'
+                              : 'bg-sky-50 text-sky-700 border-sky-200/70'
+                          }`}
                         >
                           <span className="material-symbols-outlined text-[16px]">
-                            {apt.type === 'home' ? 'home_health' : 'videocam'}
+                            {isHome ? 'home_health' : 'videocam'}
                           </span>
                           <span>
-                            {apt.type === 'home' ? 'Khám Bác sĩ Tại Nhà' : 'Tư vấn Video (Telehealth)'}
+                            {isHome ? 'Khám Bác sĩ Tại Nhà' : 'Tư Vấn Video (Telehealth)'}
                           </span>
                         </span>
-                        <span className="text-xs font-mono font-bold text-white/80 bg-black/15 px-2.5 py-1 rounded-lg">
+                        <span className="text-xs font-bold tabular-nums text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/60">
                           #{apt.id}
                         </span>
                       </div>
 
                       <div>
                         {apt.status === 'confirmed' && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-white text-emerald-700 shadow-2xs inline-flex items-center gap-1.5 whitespace-nowrap">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span>Đã xác nhận • Sắp diễn ra</span>
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Đã xác nhận · Sắp diễn ra</span>
                           </span>
                         )}
-                        {apt.status === 'completed' && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/95 text-slate-700 inline-flex items-center gap-1 whitespace-nowrap">
-                            <span className="material-symbols-outlined text-[14px] text-emerald-600">
+                        {isCompleted && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/70 inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="material-symbols-outlined text-[15px] text-emerald-600">
                               check_circle
                             </span>
                             <span>Đã hoàn thành</span>
                           </span>
                         )}
-                        {apt.status === 'cancelled' && (
-                          <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1 whitespace-nowrap">
-                            <span className="material-symbols-outlined text-[14px]">cancel</span>
+                        {isCancelled && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="material-symbols-outlined text-[15px]">cancel</span>
                             <span>Đã hủy lịch</span>
                           </span>
                         )}
                       </div>
                     </div>
 
-                    {/* Tầng 2: Nội dung chi tiết ca hẹn */}
-                    <div className="p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+                    {/* Nội dung chi tiết ca hẹn */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
                       {/* Cột trái (8 cols): Bác sĩ, Người bệnh & Lý do khám */}
                       <div className="lg:col-span-8 flex flex-col justify-between space-y-4">
                         {/* Thông tin Bác sĩ & Người thân được khám */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
                           <div className="flex items-center gap-3.5 min-w-0">
                             <img
                               src={apt.doctorAvatar}
                               alt={apt.doctorName}
-                              className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl object-cover border border-slate-200 shrink-0"
+                              className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
                             />
                             <div className="min-w-0">
-                              <div className="text-[11px] text-[#2E37A4] font-bold uppercase tracking-wider">
+                              <div className="text-[11px] text-[#2E37A4] font-semibold uppercase tracking-wider">
                                 {apt.doctorTitle}
                               </div>
-                              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 truncate mt-0.5">
+                              <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate mt-0.5">
                                 {apt.doctorName}
                               </h3>
                               <p className="text-xs text-slate-500 truncate">{apt.hospital}</p>
                             </div>
                           </div>
 
-                          <div className="self-start sm:self-center px-3 py-2 rounded-xl bg-blue-50/70 border border-blue-200/70 text-xs shrink-0">
-                            <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                          <div className="self-start sm:self-center px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs shrink-0">
+                            <span className="text-[10px] font-semibold text-slate-400 uppercase block">
                               Người thân được khám
                             </span>
-                            <strong className="font-bold text-[#2E37A4] flex items-center gap-1 mt-0.5">
-                              <span className="material-symbols-outlined text-[15px]">person</span>
+                            <strong className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5">
+                              <span className="material-symbols-outlined text-[15px] text-[#2E37A4]">
+                                person
+                              </span>
                               <span>{apt.patientName}</span>
                             </strong>
                           </div>
@@ -508,8 +485,8 @@ export function FamilyAppointmentsView() {
 
                         {/* Lý do khám & Địa điểm */}
                         <div className="space-y-2.5">
-                          <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/70 border-l-4 border-l-[#2E37A4] text-xs space-y-1">
-                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/60 border-l-4 border-l-[#2E37A4] text-xs space-y-1">
+                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
                               Triệu chứng &amp; Nhu cầu thăm khám
                             </span>
                             <p className="text-slate-800 font-medium leading-relaxed text-xs sm:text-sm">
@@ -518,7 +495,7 @@ export function FamilyAppointmentsView() {
                           </div>
 
                           {apt.address && (
-                            <div className="flex items-start gap-2 text-xs text-slate-600 bg-slate-50/60 px-3.5 py-2.5 rounded-xl border border-slate-200/60">
+                            <div className="flex items-start gap-2 text-xs text-slate-600 bg-slate-50/50 px-3.5 py-2.5 rounded-xl border border-slate-200/60">
                               <span className="material-symbols-outlined text-[16px] text-[#2E37A4] shrink-0 mt-0.5">
                                 location_on
                               </span>
@@ -532,13 +509,13 @@ export function FamilyAppointmentsView() {
                       </div>
 
                       {/* Cột phải (4 cols): Khung giờ hẹn & Các nút thao tác */}
-                      <div className="lg:col-span-4 bg-slate-50/90 p-4 rounded-2xl border border-slate-200/80 flex flex-col justify-between gap-4">
+                      <div className="lg:col-span-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 flex flex-col justify-between gap-4">
                         <div className="space-y-2">
-                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
                             Thời gian hẹn khám
                           </span>
-                          <div className="p-3 rounded-xl bg-white border border-slate-200/80 space-y-1">
-                            <div className="font-extrabold font-mono text-base text-[#2E37A4] flex items-center gap-1.5">
+                          <div className="p-3.5 rounded-xl bg-white border border-slate-200/70 space-y-1 shadow-2xs">
+                            <div className="font-bold tabular-nums text-base text-[#2E37A4] flex items-center gap-1.5">
                               <span className="material-symbols-outlined text-[18px]">schedule</span>
                               <span>{apt.time}</span>
                             </div>
@@ -559,19 +536,19 @@ export function FamilyAppointmentsView() {
                                 href={apt.meetLink}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="w-full py-2.5 px-4 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs transition-all"
+                                className="min-h-10 w-full py-2 px-4 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all"
                               >
                                 <span className="material-symbols-outlined text-[17px]">videocam</span>
                                 <span>Vào phòng khám Video</span>
                               </a>
                             )}
 
-                            {apt.type === 'home' && (
+                            {isHome && (
                               <div className="p-2.5 rounded-xl bg-emerald-50/90 border border-emerald-200/80 text-[11px] text-emerald-800 font-medium flex items-start gap-2">
                                 <span className="material-symbols-outlined text-[16px] text-emerald-600 shrink-0 mt-0.5">
                                   medical_services
                                 </span>
-                                <span>Bác sĩ mang theo máy đo điện tim ECG &amp; bộ lấy mẫu xét nghiệm tận nhà.</span>
+                                <span>Bác sĩ mang theo máy đo điện tim ECG &amp; bộ lấy mẫu tại nhà.</span>
                               </div>
                             )}
 
@@ -579,7 +556,7 @@ export function FamilyAppointmentsView() {
                               <button
                                 type="button"
                                 onClick={() => handleOpenReschedule(apt)}
-                                className="py-2 px-3 text-xs text-slate-700 bg-white hover:bg-slate-100 rounded-xl font-bold transition-colors border border-slate-200/90 inline-flex items-center justify-center gap-1 cursor-pointer"
+                                className="min-h-9 py-2 px-3 text-xs text-slate-700 bg-white hover:bg-slate-100 rounded-xl font-semibold transition-colors border border-slate-200/90 inline-flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
                               >
                                 <span className="material-symbols-outlined text-[15px] text-[#2E37A4]">
                                   edit_calendar
@@ -589,7 +566,7 @@ export function FamilyAppointmentsView() {
                               <button
                                 type="button"
                                 onClick={() => setCancelTarget(apt)}
-                                className="py-2 px-3 text-xs text-rose-600 bg-white hover:bg-rose-50 rounded-xl font-bold transition-colors border border-rose-200 inline-flex items-center justify-center gap-1 cursor-pointer"
+                                className="min-h-9 py-2 px-3 text-xs text-rose-600 bg-white hover:bg-rose-50 rounded-xl font-semibold transition-colors border border-rose-200 inline-flex items-center justify-center gap-1 cursor-pointer shadow-2xs"
                               >
                                 <span className="material-symbols-outlined text-[15px]">close</span>
                                 <span>Hủy lịch</span>
@@ -598,21 +575,21 @@ export function FamilyAppointmentsView() {
                           </div>
                         )}
 
-                        {apt.status === 'completed' && (
+                        {isCompleted && (
                           <Link
                             href="/family/members"
-                            className="w-full py-2.5 px-3 bg-white hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white border border-blue-200/90 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
+                            className="min-h-10 w-full py-2 px-3 bg-white hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white border border-blue-200/80 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-2xs"
                           >
                             <span className="material-symbols-outlined text-[16px]">clinical_notes</span>
                             <span>Xem kết quả khám &amp; toa thuốc</span>
                           </Link>
                         )}
 
-                        {apt.status === 'cancelled' && (
+                        {isCancelled && (
                           <button
                             type="button"
                             onClick={() => setShowBookingModal(true)}
-                            className="w-full py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                            className="min-h-10 w-full py-2 px-3 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
                           >
                             <span className="material-symbols-outlined text-[16px]">replay</span>
                             <span>Đặt lại lịch khám này</span>
@@ -625,28 +602,28 @@ export function FamilyAppointmentsView() {
               })}
             </div>
           )}
-        </div>
+        </section>
       </main>
 
       {/* MODAL 1: ĐẶT LỊCH HẸN KHÁM MỚI */}
       {showBookingModal && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
           role="dialog"
           aria-modal="true"
         >
           <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200/80 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
             {/* Header Modal */}
-            <div className="px-5 py-4 sm:px-6 sm:py-5 bg-gradient-to-r from-[#2E37A4] to-[#3d47c2] text-white flex items-center justify-between gap-3">
+            <div className="px-6 py-5 bg-[#2E37A4] text-white flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-[22px]">calendar_add_on</span>
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-extrabold text-sm sm:text-base text-white truncate">
+                  <h3 className="font-bold text-base text-white truncate">
                     Đặt Lịch Hẹn Bác Sĩ Gia Đình
                   </h3>
-                  <p className="text-[11px] text-indigo-100 truncate mt-0.5">
+                  <p className="text-xs text-blue-100 truncate mt-0.5">
                     Chọn hình thức khám tại nhà hoặc tư vấn qua Video trực tuyến
                   </p>
                 </div>
@@ -662,17 +639,17 @@ export function FamilyAppointmentsView() {
               </button>
             </div>
 
-            <form onSubmit={handleCreateBooking} className="p-5 sm:p-6 space-y-4 text-xs">
+            <form onSubmit={handleCreateBooking} className="p-6 space-y-4 text-xs">
               {/* Chọn hình thức khám */}
               <div>
-                <label className="block font-bold text-slate-700 mb-2">
+                <label className="block font-semibold text-slate-700 mb-2">
                   1. Chọn hình thức thăm khám <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <label
                     className={`p-3.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
                       newBooking.type === 'home'
-                        ? 'border-[#2E37A4] bg-blue-50/60 text-[#2E37A4] ring-2 ring-[#2E37A4]/15 font-bold'
+                        ? 'border-[#2E37A4] bg-blue-50/60 text-[#2E37A4] ring-2 ring-[#2E37A4]/15 font-semibold'
                         : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                     }`}
                   >
@@ -703,7 +680,7 @@ export function FamilyAppointmentsView() {
                   <label
                     className={`p-3.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
                       newBooking.type === 'telehealth'
-                        ? 'border-[#2E37A4] bg-blue-50/60 text-[#2E37A4] ring-2 ring-[#2E37A4]/15 font-bold'
+                        ? 'border-[#2E37A4] bg-blue-50/60 text-[#2E37A4] ring-2 ring-[#2E37A4]/15 font-semibold'
                         : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                     }`}
                   >
@@ -735,7 +712,7 @@ export function FamilyAppointmentsView() {
 
               {/* Chọn thành viên */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
+                <label className="block font-semibold text-slate-700 mb-1.5">
                   2. Người thân cần khám <span className="text-rose-500">*</span>
                 </label>
                 <select
@@ -752,7 +729,7 @@ export function FamilyAppointmentsView() {
               {/* Ngày & Khung giờ */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">
+                  <label className="block font-semibold text-slate-700 mb-1.5">
                     3. Ngày khám mong muốn <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -763,7 +740,7 @@ export function FamilyAppointmentsView() {
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">
+                  <label className="block font-semibold text-slate-700 mb-1.5">
                     4. Khung giờ hẹn <span className="text-rose-500">*</span>
                   </label>
                   <select
@@ -783,7 +760,7 @@ export function FamilyAppointmentsView() {
               {/* Địa chỉ khám tại nhà */}
               {newBooking.type === 'home' && (
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1.5">
+                  <label className="block font-semibold text-slate-700 mb-1.5">
                     Địa chỉ đón Bác sĩ tại nhà <span className="text-rose-500">*</span>
                   </label>
                   <input
@@ -797,7 +774,7 @@ export function FamilyAppointmentsView() {
 
               {/* Lý do khám */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
+                <label className="block font-semibold text-slate-700 mb-1.5">
                   Mô tả triệu chứng hoặc nhu cầu khám <span className="text-rose-500">*</span>
                 </label>
                 <textarea
@@ -812,7 +789,7 @@ export function FamilyAppointmentsView() {
                   className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 text-xs sm:text-sm focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/15 outline-none"
                 />
                 {bookingError && (
-                  <p className="text-xs text-rose-600 font-bold mt-1">{bookingError}</p>
+                  <p className="text-xs text-rose-600 font-semibold mt-1">{bookingError}</p>
                 )}
               </div>
 
@@ -820,13 +797,13 @@ export function FamilyAppointmentsView() {
                 <button
                   type="button"
                   onClick={() => setShowBookingModal(false)}
-                  className="flex-1 py-2.5 sm:py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs sm:text-sm transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 sm:py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs sm:text-sm transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 sm:py-3 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-bold text-xs sm:text-sm shadow-xs transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                  className="flex-1 py-2.5 sm:py-3 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-semibold text-xs sm:text-sm shadow-xs transition-all inline-flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">check_circle</span>
                   <span>Xác nhận đặt lịch</span>
@@ -840,37 +817,38 @@ export function FamilyAppointmentsView() {
       {/* MODAL 2: ĐỔI GIỜ HẸN KHÁM */}
       {rescheduleTarget && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-5 py-4 bg-gradient-to-r from-[#2E37A4] to-[#3d47c2] text-white flex items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto">
+            <div className="px-6 py-5 bg-[#2E37A4] text-white flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <span className="w-9 h-9 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-[20px]">edit_calendar</span>
-                </span>
+                </div>
                 <div>
-                  <h3 className="font-extrabold text-sm sm:text-base text-white">
+                  <h3 className="font-bold text-base text-white">
                     Đổi Ngày Giờ Hẹn Khám
                   </h3>
-                  <p className="text-[11px] text-indigo-100">Mã lịch hẹn: #{rescheduleTarget.id}</p>
+                  <p className="text-xs text-blue-100">Mã lịch hẹn: #{rescheduleTarget.id}</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setRescheduleTarget(null)}
-                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer"
+                aria-label="Đóng cửa sổ"
+                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
 
-            <div className="p-5 sm:p-6 space-y-4">
+            <div className="p-6 space-y-4">
               <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1 text-xs">
                 <div className="text-slate-500">
-                  Lịch hiện tại: <strong className="text-slate-900">{rescheduleTarget.time}</strong> •{' '}
-                  <strong className="text-slate-900">{rescheduleTarget.date}</strong>
+                  Lịch hiện tại: <strong className="text-slate-900 tabular-nums">{rescheduleTarget.time}</strong> ·{' '}
+                  <strong className="text-slate-900 tabular-nums">{rescheduleTarget.date}</strong>
                 </div>
                 <div className="text-slate-500">
                   Bác sĩ: <strong className="text-[#2E37A4]">{rescheduleTarget.doctorName}</strong>
@@ -892,7 +870,7 @@ export function FamilyAppointmentsView() {
               <form onSubmit={handleConfirmReschedule} className="space-y-4 text-xs">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1.5">Ngày khám mới</label>
+                    <label className="block font-semibold text-slate-700 mb-1.5">Ngày khám mới</label>
                     <input
                       type="date"
                       required
@@ -903,7 +881,7 @@ export function FamilyAppointmentsView() {
                   </div>
 
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1.5">Khung giờ mới</label>
+                    <label className="block font-semibold text-slate-700 mb-1.5">Khung giờ mới</label>
                     <select
                       value={rescheduleTime}
                       onChange={(e) => setRescheduleTime(e.target.value)}
@@ -933,7 +911,7 @@ export function FamilyAppointmentsView() {
                     <span>Giả lập đổi lịch sát giờ (&lt; 4 tiếng trước giờ hẹn)</span>
                   </label>
                   <p className="text-[11px] text-slate-400 pl-5">
-                    Lưu ý: Cần báo trước tối thiểu 4 giờ để Bác sĩ kịp sắp xếp lịch di chuyển.
+                    Lưu ý: Cần báo trước tối thiểu 4 giờ để Bác sĩ kịp sắp xếp di chuyển.
                   </p>
                 </div>
 
@@ -941,13 +919,13 @@ export function FamilyAppointmentsView() {
                   <button
                     type="button"
                     onClick={() => setRescheduleTarget(null)}
-                    className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition-colors cursor-pointer"
+                    className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold transition-colors cursor-pointer"
                   >
                     Hủy bỏ
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 py-2.5 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-bold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                    className="flex-1 py-2.5 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-semibold shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">check_circle</span>
                     <span>Lưu giờ hẹn mới</span>
@@ -962,90 +940,63 @@ export function FamilyAppointmentsView() {
       {/* MODAL 3: XÁC NHẬN HỦY LỊCH HẸN */}
       {cancelTarget && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-rose-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-5 py-4 bg-gradient-to-r from-rose-600 to-rose-500 text-white flex items-center justify-between gap-3">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden animate-in fade-in zoom-in-95 duration-200 my-auto">
+            <div className="px-6 py-5 bg-rose-600 text-white flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
-                <span className="w-9 h-9 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-[20px]">event_busy</span>
-                </span>
+                </div>
                 <div>
-                  <h3 className="font-extrabold text-sm sm:text-base text-white">
+                  <h3 className="font-bold text-base text-white">
                     Xác Nhận Hủy Lịch Khám
                   </h3>
-                  <p className="text-[11px] text-rose-100">Mã ca hẹn: #{cancelTarget.id}</p>
+                  <p className="text-xs text-rose-100">Mã ca hẹn: #{cancelTarget.id}</p>
                 </div>
               </div>
-<<<<<<< HEAD
-=======
-              <div>
-                <h3 className="font-bold text-base text-rose-900">
-                  Xác Nhận Hủy Lịch Khám
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Mã ca hẹn: <strong className="tabular-nums text-slate-800">{cancelTarget.id}</strong>
-                </p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-100 text-xs text-rose-900 space-y-1.5 leading-relaxed">
-              <p>
-                Bệnh nhân: <strong>{cancelTarget.patientName}</strong> • {cancelTarget.time} ngày {cancelTarget.date}
-              </p>
-              <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                <span>Hạn mức ca khám sẽ được hoàn lại nguyên vẹn cho gói chăm sóc của gia đình.</span>
-              </p>
-            </div>
-
-            <p className="text-xs text-slate-500 italic">
-              Bác sĩ phụ trách ({cancelTarget.doctorName}) sẽ nhận được thông báo hủy lịch tự động để sắp xếp tiếp nhận ca khám khác.
-            </p>
-
-            <div className="flex gap-2.5 pt-2">
->>>>>>> a8d31b6dddc0a4735d1ff2cce71a814b18799a3f
               <button
                 type="button"
                 onClick={() => setCancelTarget(null)}
-                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer"
+                aria-label="Đóng cửa sổ"
+                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
 
-            <div className="p-5 sm:p-6 space-y-4">
+            <div className="p-6 space-y-4">
               <div className="p-3.5 rounded-xl bg-rose-50/70 border border-rose-200/80 text-xs text-rose-950 space-y-1.5 leading-relaxed">
                 <div>
                   Người khám: <strong>{cancelTarget.patientName}</strong>
                 </div>
                 <div>
-                  Thời gian: <strong>{cancelTarget.time} • {cancelTarget.date}</strong>
+                  Thời gian: <strong className="tabular-nums">{cancelTarget.time} · {cancelTarget.date}</strong>
                 </div>
-                <p className="text-[11px] text-emerald-700 font-bold flex items-center gap-1 pt-1">
+                <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 pt-1">
                   <span className="material-symbols-outlined text-[15px]">check_circle</span>
                   <span>Lượt khám sẽ được hoàn lại nguyên vẹn vào gói của gia đình.</span>
                 </p>
               </div>
 
               <p className="text-xs text-slate-500 leading-relaxed">
-                Hệ thống sẽ tự động báo cho <strong>{cancelTarget.doctorName}</strong> để ngừng lịch di chuyển đến nhà.
+                Hệ thống sẽ tự động gửi thông báo cho <strong>{cancelTarget.doctorName}</strong> để điều chỉnh lịch trình.
               </p>
 
               <div className="flex gap-2.5 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setCancelTarget(null)}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-bold text-xs text-slate-700 transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 font-semibold text-xs text-slate-700 transition-colors cursor-pointer"
                 >
                   Giữ lại lịch hẹn
                 </button>
                 <button
                   type="button"
                   onClick={handleConfirmCancelAppointment}
-                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-xs transition-colors cursor-pointer"
                 >
                   Xác nhận hủy lịch
                 </button>
@@ -1057,5 +1008,3 @@ export function FamilyAppointmentsView() {
     </div>
   );
 }
-
-

@@ -50,7 +50,7 @@ const INITIAL_MEMBER_VITALS: Record<string, MemberVitalProfile> = {
     records: [
       {
         id: 'v-01',
-        timestamp: '27/10/2026 • 07:30',
+        timestamp: '27/10/2026 · 07:30',
         bpSystolic: 124,
         bpDiastolic: 80,
         glucose: 5.6,
@@ -62,7 +62,7 @@ const INITIAL_MEMBER_VITALS: Record<string, MemberVitalProfile> = {
       },
       {
         id: 'v-02',
-        timestamp: '26/10/2026 • 19:45',
+        timestamp: '26/10/2026 · 19:45',
         bpSystolic: 132,
         bpDiastolic: 84,
         glucose: 6.8,
@@ -74,7 +74,7 @@ const INITIAL_MEMBER_VITALS: Record<string, MemberVitalProfile> = {
       },
       {
         id: 'v-03',
-        timestamp: '26/10/2026 • 07:15',
+        timestamp: '26/10/2026 · 07:15',
         bpSystolic: 122,
         bpDiastolic: 78,
         glucose: 5.4,
@@ -86,7 +86,7 @@ const INITIAL_MEMBER_VITALS: Record<string, MemberVitalProfile> = {
       },
       {
         id: 'v-04',
-        timestamp: '25/10/2026 • 20:00',
+        timestamp: '25/10/2026 · 20:00',
         bpSystolic: 138,
         bpDiastolic: 86,
         glucose: 7.2,
@@ -98,7 +98,7 @@ const INITIAL_MEMBER_VITALS: Record<string, MemberVitalProfile> = {
       },
       {
         id: 'v-05',
-        timestamp: '24/10/2026 • 08:00',
+        timestamp: '24/10/2026 · 08:00',
         bpSystolic: 120,
         bpDiastolic: 79,
         glucose: 5.5,
@@ -127,7 +127,7 @@ const INITIAL_MEMBER_VITALS: Record<string, MemberVitalProfile> = {
     records: [
       {
         id: 'v-21',
-        timestamp: '27/10/2026 • 07:00',
+        timestamp: '27/10/2026 · 07:00',
         bpSystolic: 115,
         bpDiastolic: 75,
         glucose: 5.2,
@@ -139,7 +139,7 @@ const INITIAL_MEMBER_VITALS: Record<string, MemberVitalProfile> = {
       },
       {
         id: 'v-22',
-        timestamp: '24/10/2026 • 20:00',
+        timestamp: '24/10/2026 · 20:00',
         bpSystolic: 118,
         bpDiastolic: 76,
         glucose: 5.4,
@@ -168,7 +168,7 @@ const INITIAL_MEMBER_VITALS: Record<string, MemberVitalProfile> = {
     records: [
       {
         id: 'v-31',
-        timestamp: '26/10/2026 • 19:00',
+        timestamp: '26/10/2026 · 19:00',
         bpSystolic: 105,
         bpDiastolic: 65,
         glucose: 4.8,
@@ -223,7 +223,7 @@ export function ChronicCareView() {
 
     const newRec: VitalRecord = {
       id: `v-${Date.now()}`,
-      timestamp: 'Hôm nay • Vừa xong',
+      timestamp: 'Hôm nay · Vừa xong',
       bpSystolic: sys,
       bpDiastolic: dia,
       glucose: glu,
@@ -257,7 +257,6 @@ export function ChronicCareView() {
   // Tính tọa độ SVG cho biểu đồ
   const sysCoords = currentProfile.chartSys.map((val, idx) => {
     const x = 65 + idx * 95;
-    // Quy đổi giá trị 90..155 về tọa độ y 135..28
     const y = Math.round(165 - ((val - 70) / 85) * 135);
     return { x, y, val };
   });
@@ -270,73 +269,82 @@ export function ChronicCareView() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
-      <main className="max-w-6xl mx-auto py-5 sm:py-7 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* 1. HEADER TRANG THEO DÕI CHỈ SỐ SỨC KHỎE TẠI NHÀ */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
-            <div className="flex items-start sm:items-center gap-3.5 sm:gap-4 min-w-0">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center shadow-sm ring-4 ring-[#2E37A4]/10 shrink-0">
-                <span className="material-symbols-outlined text-[24px] sm:text-[28px]">
-                  monitor_heart
+      <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* 1. HEADER CANVAS THOÁNG ĐÃNG ĐỒNG BỘ VỚI /family */}
+        <header className="space-y-4">
+          <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+            <Link
+              href="/family"
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-[#2E37A4] transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              <span>Bảng Sức Khỏe Gia Đình</span>
+            </Link>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-800 font-semibold">Theo Dõi Sinh Hiệu</span>
+          </nav>
+
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                  Hộ #FAM-88219
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
+                  <span>Bác sĩ gia đình theo dõi 24/7</span>
                 </span>
               </div>
 
-              <div className="space-y-1 min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold text-[#2E37A4] bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200/80">
-                    Hộ #FAM-88219
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span>Bác sĩ theo dõi từ xa 24/7</span>
-                  </span>
-                </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
+                Sổ Theo Dõi Huyết Áp &amp; Chỉ Số Sức Khỏe
+              </h1>
 
-                <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight leading-snug">
-                  Sổ Theo Dõi Huyết Áp &amp; Chỉ Số Sức Khỏe
-                </h1>
-
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Ghi chép và theo dõi biến động Huyết áp, Đường huyết, Nhịp tim hàng ngày để Bác sĩ gia đình kịp thời tư vấn.
-                </p>
-              </div>
+              <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
+                Theo dõi biến thiên Huyết áp, Đường huyết, Nhịp tim và Oxy máu (SpO2) từng thành viên. Bác sĩ chuyên khoa gia đình trực tiếp đánh giá và phản hồi ngay khi có bất thường.
+              </p>
             </div>
 
-            <div className="grid grid-cols-2 sm:flex items-center gap-2.5 w-full lg:w-auto pt-3.5 lg:pt-0 border-t border-slate-100 lg:border-t-0 shrink-0">
+            {/* Cụm nút hành động tinh gọn & phân cấp chuẩn */}
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowAddModal(true)}
-                className="col-span-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-3 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all whitespace-nowrap outline-hidden cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[18px]">add_chart</span>
+                <span className="material-symbols-outlined text-[20px]">add_chart</span>
                 <span>Ghi số đo mới</span>
               </button>
+
               <Link
                 href="/family/appointments"
-                className="col-span-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-3 bg-blue-50/80 hover:bg-blue-100 border border-blue-200/80 text-[#2E37A4] rounded-xl text-xs sm:text-sm font-bold transition-all"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all whitespace-nowrap outline-hidden"
               >
-                <span className="material-symbols-outlined text-[18px]">stethoscope</span>
+                <span className="material-symbols-outlined text-[19px] text-[#2E37A4]">stethoscope</span>
                 <span>Hỏi Bác sĩ</span>
               </Link>
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* 2. CHỌN NGƯỜI THÂN ĐỂ XEM CHỈ SỐ (3 THẺ TRỰC QUAN — KHÔNG ẨN TRONG DROPDOWN) */}
-        <div className="space-y-3">
+        {/* 2. CHỌN NGƯỜI THÂN ĐỂ XEM CHỈ SỐ (CARD SWITCHER THOÁNG MẮT) */}
+        <section className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px] text-[#2E37A4]">group</span>
-              <span className="text-xs sm:text-sm font-bold text-slate-800">
-                Chọn người thân để xem biểu đồ &amp; nhật ký đo:
-              </span>
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">family_restroom</span>
+                <span>Chọn Người Thân Để Xem Biểu Đồ &amp; Nhật Ký Đo</span>
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                Bấm vào thành viên để cập nhật biểu đồ phân tích và lịch sử đo
+              </p>
             </div>
-            <span className="text-xs text-slate-500 font-medium hidden sm:inline">
-              Đồng bộ máy đo gia đình &amp; nhập tay
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">
+              Đồng bộ máy đo Omron Bluetooth &amp; nhập tay
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6">
             {Object.values(membersVitals).map((m) => {
               const isSelected = m.id === selectedMemberId;
               const latest = m.records[0];
@@ -346,15 +354,15 @@ export function ChronicCareView() {
                   key={m.id}
                   type="button"
                   onClick={() => setSelectedMemberId(m.id)}
-                  className={`p-4 rounded-2xl border transition-all cursor-pointer text-left flex items-center justify-between gap-3 ${
+                  className={`p-5 sm:p-6 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-4 outline-hidden ${
                     isSelected
-                      ? 'border-[#2E37A4] bg-white ring-2 ring-[#2E37A4]/15 shadow-[0_4px_14px_rgba(46,55,164,0.10)]'
-                      : 'border-slate-200/80 bg-white hover:bg-slate-50/70 hover:border-slate-300 shadow-[0_1px_3px_rgba(0,0,0,0.02)]'
+                      ? 'border-[#2E37A4] bg-white ring-2 ring-[#2E37A4]/15 shadow-sm'
+                      : 'border-slate-200/70 bg-white hover:bg-slate-50/70 hover:border-slate-300 shadow-xs'
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
+                  <div className="flex items-center gap-3.5 min-w-0">
                     <div
-                      className={`w-11 h-11 rounded-xl font-extrabold text-sm flex items-center justify-center shrink-0 border transition-colors ${
+                      className={`w-12 h-12 rounded-2xl font-bold text-sm flex items-center justify-center shrink-0 border transition-all ${
                         isSelected
                           ? 'bg-[#2E37A4] text-white border-[#2E37A4]'
                           : 'bg-slate-100 text-slate-700 border-slate-200/80'
@@ -363,26 +371,26 @@ export function ChronicCareView() {
                       {getInitials(m.name)}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-bold text-sm text-slate-900 truncate">{m.name}</div>
-                      <div className="text-xs text-slate-500 truncate mt-0.5">
-                        {m.relation} • {m.age} tuổi
+                      <div className="font-bold text-base text-slate-900 truncate">{m.name}</div>
+                      <div className="text-xs text-slate-500 truncate mt-0.5 font-medium">
+                        {m.relation} · <span className="tabular-nums">{m.age}</span> tuổi
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex flex-col items-end gap-1 shrink-0">
+                  <div className="flex flex-col items-end gap-1.5 shrink-0">
                     {m.alertType === 'warning' ? (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1 whitespace-nowrap">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1 whitespace-nowrap">
                         <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                         Cần chú ý
                       </span>
                     ) : (
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1 whitespace-nowrap">
+                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1 whitespace-nowrap">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         Ổn định
                       </span>
                     )}
-                    <span className="text-[11px] font-mono font-bold text-[#2E37A4]">
+                    <span className="text-xs font-bold tabular-nums text-[#2E37A4]">
                       HA: {latest.bpSystolic}/{latest.bpDiastolic}
                     </span>
                   </div>
@@ -390,39 +398,43 @@ export function ChronicCareView() {
               );
             })}
           </div>
-        </div>
+        </section>
 
         {/* 3. BANNER NHẬN ĐỊNH & DẶN DÒ TỪ BÁC SĨ GIA ĐÌNH */}
-        <div
-          className={`p-4 sm:p-5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+        <section
+          aria-label="Lời dặn bác sĩ gia đình"
+          className={`p-6 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-5 transition-all shadow-xs ${
             currentProfile.alertType === 'warning'
-              ? 'bg-amber-50/80 border-amber-200/90'
-              : 'bg-emerald-50/70 border-emerald-200/90'
+              ? 'bg-amber-50/70 border-amber-200/80'
+              : 'bg-emerald-50/60 border-emerald-200/80'
           }`}
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-4 min-w-0">
             <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+              className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${
                 currentProfile.alertType === 'warning'
-                  ? 'bg-amber-100 text-amber-700'
-                  : 'bg-emerald-100 text-emerald-700'
+                  ? 'bg-amber-100 text-amber-800'
+                  : 'bg-emerald-100 text-emerald-800'
               }`}
             >
-              <span className="material-symbols-outlined text-[22px]">
+              <span className="material-symbols-outlined text-[24px]">
                 {currentProfile.alertType === 'warning' ? 'notification_important' : 'verified'}
               </span>
             </div>
-            <div className="space-y-1 text-xs sm:text-sm">
-              <strong
-                className={`block font-extrabold ${
+            <div className="space-y-1 min-w-0">
+              <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Dặn dò chuyên môn: {currentProfile.doctorName}
+              </div>
+              <h3
+                className={`text-base font-bold text-balance ${
                   currentProfile.alertType === 'warning' ? 'text-amber-950' : 'text-emerald-950'
                 }`}
               >
                 {currentProfile.alertTitle}
-              </strong>
+              </h3>
               <p
-                className={`text-xs leading-relaxed ${
-                  currentProfile.alertType === 'warning' ? 'text-amber-900' : 'text-emerald-800'
+                className={`text-xs sm:text-sm leading-relaxed ${
+                  currentProfile.alertType === 'warning' ? 'text-amber-900/90' : 'text-emerald-900/90'
                 }`}
               >
                 {currentProfile.alertMessage}
@@ -432,40 +444,43 @@ export function ChronicCareView() {
 
           <Link
             href="/family/appointments"
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold shrink-0 text-center transition-colors shadow-2xs whitespace-nowrap inline-flex items-center justify-center gap-1.5 ${
+            className={`min-h-10 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold shrink-0 text-center transition-all shadow-xs whitespace-nowrap inline-flex items-center justify-center gap-1.5 cursor-pointer ${
               currentProfile.alertType === 'warning'
                 ? 'bg-amber-600 hover:bg-amber-700 text-white'
-                : 'bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                : 'bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-200/80'
             }`}
           >
-            <span className="material-symbols-outlined text-[16px]">chat</span>
-            <span>Nhắn {currentProfile.doctorName}</span>
+            <span className="material-symbols-outlined text-[18px]">chat</span>
+            <span>Tư vấn cùng Bác sĩ</span>
           </Link>
-        </div>
+        </section>
 
-        {/* 4. BỐN THẺ CHỈ SỐ ĐO GẦN NHẤT & NGƯỠNG MỤC TIÊU AN TOÀN */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+        {/* 4. BỐN THẺ CHỈ SỐ SINH HIỆU CHÍNH (AIRY METRIC CARDS) */}
+        <section
+          aria-label="Chỉ số sinh hiệu đo gần nhất"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6"
+        >
           {/* Card 1: Huyết áp */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between gap-3">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[18px]">vital_signs</span>
-                </span>
-                <span className="text-xs font-bold text-slate-700">Huyết áp mới nhất</span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[20px]">vital_signs</span>
+                </div>
+                <span className="text-xs font-semibold text-slate-600">Huyết áp gần nhất</span>
               </div>
-              <span className="text-[11px] font-mono text-slate-400">mmHg</span>
+              <span className="text-xs font-medium tabular-nums text-slate-400">mmHg</span>
             </div>
 
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black font-mono text-slate-900">
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
                   {latestRecord.bpSystolic}/{latestRecord.bpDiastolic}
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">SYS/DIA</span>
+                <span className="text-xs text-slate-400 font-medium">SYS/DIA</span>
               </div>
-              <div className="mt-2">
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-md inline-block">
+              <div>
+                <span className="text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg inline-block">
                   {currentProfile.bpTarget}
                 </span>
               </div>
@@ -473,26 +488,26 @@ export function ChronicCareView() {
           </div>
 
           {/* Card 2: Đường huyết */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between gap-3">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-indigo-50 text-[#2E37A4] border border-indigo-100 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[18px]">water_drop</span>
-                </span>
-                <span className="text-xs font-bold text-slate-700">Đường huyết</span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-100 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[20px]">water_drop</span>
+                </div>
+                <span className="text-xs font-semibold text-slate-600">Đường huyết</span>
               </div>
-              <span className="text-[11px] font-mono text-slate-400">mmol/L</span>
+              <span className="text-xs font-medium tabular-nums text-slate-400">mmol/L</span>
             </div>
 
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black font-mono text-slate-900">
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
                   {latestRecord.glucose}
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">mmol/L</span>
+                <span className="text-xs text-slate-400 font-medium">mmol/L</span>
               </div>
-              <div className="mt-2">
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-md inline-block">
+              <div>
+                <span className="text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg inline-block">
                   {currentProfile.glucoseTarget}
                 </span>
               </div>
@@ -500,92 +515,92 @@ export function ChronicCareView() {
           </div>
 
           {/* Card 3: Nhịp tim */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between gap-3">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 border border-pink-100 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[18px]">favorite</span>
-                </span>
-                <span className="text-xs font-bold text-slate-700">Nhịp tim nghỉ ngơi</span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-pink-50 text-pink-600 border border-pink-100 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[20px]">favorite</span>
+                </div>
+                <span className="text-xs font-semibold text-slate-600">Nhịp tim lúc nghỉ</span>
               </div>
-              <span className="text-[11px] font-mono text-slate-400">nhịp/phút</span>
+              <span className="text-xs font-medium tabular-nums text-slate-400">nhịp/phút</span>
             </div>
 
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black font-mono text-slate-900">
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
                   {latestRecord.heartRate}
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">BPM</span>
+                <span className="text-xs text-slate-400 font-medium">BPM</span>
               </div>
-              <div className="mt-2">
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-md inline-block">
+              <div>
+                <span className="text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg inline-block">
                   Bình thường: 60 - 90 nhịp/phút
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Card 4: Nồng độ oxy SpO2 (Sửa lỗi icon spo2 -> air) */}
-          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between gap-3">
+          {/* Card 4: Nồng độ oxy SpO2 */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[18px]">air</span>
-                </span>
-                <span className="text-xs font-bold text-slate-700">Oxy máu (SpO2)</span>
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-[20px]">air</span>
+                </div>
+                <span className="text-xs font-semibold text-slate-600">Oxy máu (SpO2)</span>
               </div>
-              <span className="text-[11px] font-mono text-slate-400">%</span>
+              <span className="text-xs font-medium tabular-nums text-slate-400">%</span>
             </div>
 
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl font-black font-mono text-slate-900">
+            <div className="space-y-2">
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
                   {latestRecord.spo2}%
                 </span>
-                <span className="text-[11px] text-slate-400 font-medium">SpO2</span>
+                <span className="text-xs text-slate-400 font-medium">SpO2</span>
               </div>
-              <div className="mt-2">
-                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-md inline-block">
+              <div>
+                <span className="text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2.5 py-1 rounded-lg inline-block">
                   Rất tốt: &gt;= 96%
                 </span>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* 5. BIỂU ĐỒ XU HƯỚNG HUYẾT ÁP TÍCH HỢP BỘ LỌC KỲ THEO DÕI */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#2E37A4]/10 text-[#2E37A4] flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[22px]">ssid_chart</span>
+        {/* 5. BIỂU ĐỒ XU HƯỚNG HUYẾT ÁP */}
+        <section className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200/70 shadow-xs space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0 border border-blue-100 shadow-2xs">
+                <span className="material-symbols-outlined text-[24px]">ssid_chart</span>
               </div>
               <div>
-                <h3 className="font-bold text-sm sm:text-base text-slate-900">
+                <h3 className="font-bold text-base text-slate-900">
                   Biểu Đồ Xu Hướng Huyết Áp: {currentProfile.name}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Theo dõi độ ổn định giữa Huyết áp tâm thu (SYS) và tâm trương (DIA)
+                  Theo dõi tương quan Huyết áp tâm thu (SYS) và tâm trương (DIA) theo ngày
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-3">
-              {/* Chú giải màu sắc chuẩn xác */}
-              <div className="flex items-center gap-3 text-xs font-bold">
+            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-4">
+              {/* Chú giải màu sắc */}
+              <div className="flex items-center gap-4 text-xs font-semibold">
                 <span className="inline-flex items-center gap-1.5 text-slate-700">
-                  <span className="w-3 h-3 rounded-full bg-[#2E37A4]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#2E37A4]" />
                   <span>Tâm thu (SYS)</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-slate-700">
-                  <span className="w-3 h-3 rounded-full bg-emerald-500" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
                   <span>Tâm trương (DIA)</span>
                 </span>
               </div>
 
               {/* Bộ chọn kỳ xem biểu đồ */}
-              <div className="inline-flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
+              <div className="inline-flex items-center gap-1 p-1 bg-slate-100/80 rounded-xl">
                 {[
                   { id: '7d', label: '7 ngày' },
                   { id: '30d', label: '30 ngày' },
@@ -595,9 +610,9 @@ export function ChronicCareView() {
                     key={r.id}
                     type="button"
                     onClick={() => setTimeRange(r.id as '7d' | '30d' | '90d')}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       timeRange === r.id
-                        ? 'bg-[#2E37A4] text-white shadow-2xs'
+                        ? 'bg-white text-[#2E37A4] shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -609,26 +624,26 @@ export function ChronicCareView() {
           </div>
 
           {/* Khung vẽ SVG Biểu đồ */}
-          <div className="w-full overflow-x-auto py-1">
-            <svg viewBox="0 0 700 205" className="w-full min-w-[540px] h-48 sm:h-56">
+          <div className="w-full overflow-x-auto py-2">
+            <svg viewBox="0 0 700 205" className="w-full min-w-[560px] h-48 sm:h-56">
               {/* Lưới ngang tham chiếu */}
               <line x1="40" y1="30" x2="670" y2="30" stroke="#f1f5f9" strokeWidth="1" />
-              <text x="8" y="34" fontSize="10" fill="#94a3b8" fontFamily="monospace">
+              <text x="8" y="34" fontSize="10" fill="#94a3b8" fontWeight="500">
                 150
               </text>
 
               <line x1="40" y1="75" x2="670" y2="75" stroke="#f1f5f9" strokeWidth="1" />
-              <text x="8" y="79" fontSize="10" fill="#94a3b8" fontFamily="monospace">
+              <text x="8" y="79" fontSize="10" fill="#94a3b8" fontWeight="500">
                 130
               </text>
 
               <line x1="40" y1="120" x2="670" y2="120" stroke="#f1f5f9" strokeWidth="1" />
-              <text x="8" y="124" fontSize="10" fill="#94a3b8" fontFamily="monospace">
+              <text x="8" y="124" fontSize="10" fill="#94a3b8" fontWeight="500">
                 90
               </text>
 
               <line x1="40" y1="165" x2="670" y2="165" stroke="#f1f5f9" strokeWidth="1" />
-              <text x="8" y="169" fontSize="10" fill="#94a3b8" fontFamily="monospace">
+              <text x="8" y="169" fontSize="10" fill="#94a3b8" fontWeight="500">
                 70
               </text>
 
@@ -640,17 +655,17 @@ export function ChronicCareView() {
                 y2="52"
                 stroke="#fda4af"
                 strokeWidth="1.5"
-                strokeDasharray="5 4"
+                strokeDasharray="4 4"
               />
-              <text x="665" y="45" fontSize="10" fill="#e11d48" fontWeight="bold" textAnchor="end">
+              <text x="665" y="45" fontSize="10" fill="#e11d48" fontWeight="600" textAnchor="end">
                 Ngưỡng chú ý: 140 mmHg
               </text>
 
-              {/* Đường biểu diễn Tâm thu (SYS - Navy #2E37A4) */}
+              {/* Đường biểu diễn Tâm thu (SYS - Indigo #2E37A4) */}
               <polyline
                 fill="none"
                 stroke="#2E37A4"
-                strokeWidth="3"
+                strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 points={sysCoords.map((p) => `${p.x},${p.y}`).join(' ')}
@@ -662,8 +677,8 @@ export function ChronicCareView() {
                     <circle
                       cx={p.x}
                       cy={p.y}
-                      r={isHigh ? '6' : '5'}
-                      fill={isHigh ? '#f59e0b' : '#2E37A4'}
+                      r={isHigh ? '5.5' : '4.5'}
+                      fill={isHigh ? '#fa8c16' : '#2E37A4'}
                       stroke="#ffffff"
                       strokeWidth="2"
                     />
@@ -671,8 +686,8 @@ export function ChronicCareView() {
                       x={p.x}
                       y={p.y - 10}
                       fontSize="10"
-                      fontWeight="bold"
-                      fill={isHigh ? '#b45309' : '#2E37A4'}
+                      fontWeight="600"
+                      fill={isHigh ? '#d46b08' : '#2E37A4'}
                       textAnchor="middle"
                     >
                       {p.val}
@@ -704,7 +719,7 @@ export function ChronicCareView() {
                     x={p.x}
                     y={p.y + 16}
                     fontSize="10"
-                    fontWeight="bold"
+                    fontWeight="600"
                     fill="#059669"
                     textAnchor="middle"
                   >
@@ -720,7 +735,7 @@ export function ChronicCareView() {
                   x={65 + idx * 95}
                   y="195"
                   fontSize="10"
-                  fontWeight="600"
+                  fontWeight="500"
                   fill="#64748b"
                   textAnchor="middle"
                 >
@@ -729,21 +744,21 @@ export function ChronicCareView() {
               ))}
             </svg>
           </div>
-        </div>
+        </section>
 
-        {/* 6. NHẬT KÝ CÁC LẦN ĐO CHI TIẾT (THẺ TRÊN MOBILE • BẢNG GỌN TRÊN DESKTOP) */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] overflow-hidden">
-          <div className="p-5 sm:px-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-[#2E37A4]/10 text-[#2E37A4] flex items-center justify-center shrink-0">
+        {/* 6. NHẬT KÝ CÁC LẦN ĐO CHI TIẾT */}
+        <section className="bg-white rounded-2xl border border-slate-200/70 shadow-xs overflow-hidden">
+          <div className="p-5 sm:px-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[20px]">fact_check</span>
               </div>
               <div>
-                <h3 className="font-bold text-sm sm:text-base text-slate-900">
-                  Nhật Ký Các Lần Đo Của {currentProfile.name} ({currentProfile.records.length})
+                <h3 className="font-bold text-base text-slate-900">
+                  Nhật Ký Các Lần Đo: {currentProfile.name} ({currentProfile.records.length})
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Lưu trữ tự động từ máy đo huyết áp Bluetooth và các lần gia đình tự ghi
+                  Lưu trữ tự động từ thiết bị Bluetooth và các lần gia đình tự ghi
                 </p>
               </div>
             </div>
@@ -751,19 +766,19 @@ export function ChronicCareView() {
             <button
               type="button"
               onClick={() => setShowAddModal(true)}
-              className="self-start sm:self-auto px-3.5 py-2 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-[#2E37A4] border border-blue-200/80 text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              className="self-start sm:self-auto px-4 py-2 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-[#2E37A4] border border-blue-200/80 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <span className="material-symbols-outlined text-[16px]">add</span>
               <span>Thêm lần đo</span>
             </button>
           </div>
 
-          {/* Giao diện Mobile (< md): Danh sách Thẻ Nhật Ký Đo không cần vuốt ngang */}
+          {/* Giao diện Mobile (< md): Danh sách Thẻ Nhật Ký Đo */}
           <div className="md:hidden divide-y divide-slate-100">
             {currentProfile.records.map((rec) => (
               <div key={rec.id} className="p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <div className="text-xs font-semibold tabular-nums text-slate-800 flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-[15px] text-[#2E37A4]">
                       schedule
                     </span>
@@ -771,114 +786,122 @@ export function ChronicCareView() {
                   </div>
 
                   {rec.status === 'normal' && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap shrink-0">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 whitespace-nowrap shrink-0">
                       Bình thường
                     </span>
                   )}
                   {rec.status === 'warning' && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap shrink-0">
-                      Hơi cao • Chú ý
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 whitespace-nowrap shrink-0">
+                      Hơi cao · Chú ý
                     </span>
                   )}
                   {rec.status === 'critical' && (
-                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200 whitespace-nowrap shrink-0">
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 whitespace-nowrap shrink-0">
                       Cần gọi Bác sĩ
                     </span>
                   )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col gap-0.5">
-                    <span className="text-[10px] text-slate-500">Huyết áp</span>
-                    <span className="font-mono font-extrabold text-sm text-[#2E37A4]">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 flex flex-col gap-0.5">
+                    <span className="text-[10px] text-slate-500 font-medium">Huyết áp</span>
+                    <span className="font-bold tabular-nums text-sm text-[#2E37A4]">
                       {rec.bpSystolic}/{rec.bpDiastolic}{' '}
                       <span className="text-[10px] font-normal text-slate-400">mmHg</span>
                     </span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col gap-0.5">
-                    <span className="text-[10px] text-slate-500">Đường huyết</span>
-                    <span className="font-mono font-extrabold text-sm text-slate-900">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 flex flex-col gap-0.5">
+                    <span className="text-[10px] text-slate-500 font-medium">Đường huyết</span>
+                    <span className="font-bold tabular-nums text-sm text-slate-900">
                       {rec.glucose}{' '}
                       <span className="text-[10px] font-normal text-slate-400">mmol/L</span>
                     </span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col gap-0.5">
-                    <span className="text-[10px] text-slate-500">Nhịp tim</span>
-                    <span className="font-mono font-bold text-xs text-slate-800">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 flex flex-col gap-0.5">
+                    <span className="text-[10px] text-slate-500 font-medium">Nhịp tim</span>
+                    <span className="font-semibold tabular-nums text-xs text-slate-800">
                       {rec.heartRate} nhịp/phút
                     </span>
                   </div>
-                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col gap-0.5">
-                    <span className="text-[10px] text-slate-500">Oxy máu (SpO2)</span>
-                    <span className="font-mono font-bold text-xs text-emerald-700">
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 flex flex-col gap-0.5">
+                    <span className="text-[10px] text-slate-500 font-medium">Oxy máu (SpO2)</span>
+                    <span className="font-semibold tabular-nums text-xs text-emerald-700">
                       {rec.spo2}%
                     </span>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1">
-                  <span>Ghi chú: <strong className="text-slate-700">{rec.notes || '—'}</strong></span>
+                <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                  <span>
+                    Ghi chú: <strong className="text-slate-700">{rec.notes || '—'}</strong>
+                  </span>
                   <span className="text-slate-400">{rec.device}</span>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Giao diện Desktop (>= md): Bảng 6 cột chuẩn lâm sàng */}
+          {/* Giao diện Desktop (>= md): Bảng chuẩn lâm sàng thoáng & đẹp */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/90 border-b border-slate-200/80 text-slate-600 font-bold">
+              <thead className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
                 <tr>
-                  <th className="p-4">Thời điểm &amp; Ghi chú đo</th>
-                  <th className="p-4">Huyết áp (SYS/DIA)</th>
-                  <th className="p-4">Đường huyết</th>
-                  <th className="p-4">Nhịp tim &amp; SpO2</th>
-                  <th className="p-4">Thiết bị ghi nhận</th>
-                  <th className="p-4 text-right">Đánh giá</th>
+                  <th className="py-3.5 px-6">Thời điểm &amp; Ghi chú</th>
+                  <th className="py-3.5 px-6">Huyết áp (SYS/DIA)</th>
+                  <th className="py-3.5 px-6">Đường huyết</th>
+                  <th className="py-3.5 px-6">Nhịp tim &amp; SpO2</th>
+                  <th className="py-3.5 px-6">Thiết bị ghi nhận</th>
+                  <th className="py-3.5 px-6 text-right">Đánh giá</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-800">
                 {currentProfile.records.map((rec) => (
-                  <tr key={rec.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="p-4">
-                      <div className="font-bold text-slate-900">{rec.timestamp}</div>
+                  <tr key={rec.id} className="hover:bg-slate-50/60 transition-colors">
+                    <td className="py-4 px-6">
+                      <div className="font-semibold tabular-nums text-slate-900">{rec.timestamp}</div>
                       <div className="text-[11px] text-slate-500 mt-0.5">{rec.notes || '—'}</div>
                     </td>
-                    <td className="p-4 whitespace-nowrap">
+                    <td className="py-4 px-6 whitespace-nowrap">
                       <span
-                        className={`font-mono font-extrabold text-sm ${
+                        className={`font-bold tabular-nums text-sm ${
                           rec.status === 'warning' || rec.status === 'critical'
-                            ? 'text-amber-700'
+                            ? 'text-amber-800'
                             : 'text-[#2E37A4]'
                         }`}
                       >
                         {rec.bpSystolic}/{rec.bpDiastolic}
                       </span>{' '}
-                      <span className="text-[11px] text-slate-400">mmHg</span>
+                      <span className="text-[11px] tabular-nums text-slate-400">mmHg</span>
                     </td>
-                    <td className="p-4 whitespace-nowrap">
-                      <span className="font-mono font-bold text-slate-900">{rec.glucose}</span>{' '}
-                      <span className="text-[11px] text-slate-400">mmol/L</span>
+                    <td className="py-4 px-6 whitespace-nowrap">
+                      <span className="font-bold tabular-nums text-sm text-slate-900">
+                        {rec.glucose}
+                      </span>{' '}
+                      <span className="text-[11px] tabular-nums text-slate-400">mmol/L</span>
                     </td>
-                    <td className="p-4 whitespace-nowrap font-mono">
-                      <span className="font-bold text-slate-800">{rec.heartRate} bpm</span>
-                      <span className="mx-1.5 text-slate-300">•</span>
-                      <span className="font-bold text-emerald-700">{rec.spo2}%</span>
+                    <td className="py-4 px-6 whitespace-nowrap">
+                      <span className="font-semibold tabular-nums text-slate-800">
+                        {rec.heartRate} bpm
+                      </span>
+                      <span className="mx-2 text-slate-300">·</span>
+                      <span className="font-semibold tabular-nums text-emerald-700">
+                        {rec.spo2}%
+                      </span>
                     </td>
-                    <td className="p-4 text-slate-500 whitespace-nowrap">{rec.device}</td>
-                    <td className="p-4 text-right whitespace-nowrap">
+                    <td className="py-4 px-6 text-slate-500 whitespace-nowrap">{rec.device}</td>
+                    <td className="py-4 px-6 text-right whitespace-nowrap">
                       {rec.status === 'normal' && (
-                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80">
                           Bình thường
                         </span>
                       )}
                       {rec.status === 'warning' && (
-                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                          Hơi cao • Chú ý
+                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">
+                          Hơi cao · Chú ý
                         </span>
                       )}
                       {rec.status === 'critical' && (
-                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
                           Cần gọi Bác sĩ
                         </span>
                       )}
@@ -888,28 +911,28 @@ export function ChronicCareView() {
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
       </main>
 
       {/* MODAL GHI NHẬN SỐ ĐO MỚI */}
       {showAddModal && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
           role="dialog"
           aria-modal="true"
         >
           <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
             {/* Header Modal */}
-            <div className="px-5 py-4 sm:px-6 sm:py-5 bg-gradient-to-r from-[#2E37A4] to-[#3d47c2] text-white flex items-center justify-between gap-3">
+            <div className="px-6 py-5 bg-[#2E37A4] text-white flex items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-[22px]">add_chart</span>
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-extrabold text-sm sm:text-base text-white truncate">
+                  <h3 className="font-bold text-base text-white truncate">
                     Ghi Nhận Số Đo Sức Khỏe Mới
                   </h3>
-                  <p className="text-[11px] text-indigo-100 truncate mt-0.5">
+                  <p className="text-xs text-blue-100 truncate mt-0.5">
                     Người thân: {currentProfile.name} ({currentProfile.age} tuổi)
                   </p>
                 </div>
@@ -919,22 +942,22 @@ export function ChronicCareView() {
                 type="button"
                 onClick={() => setShowAddModal(false)}
                 aria-label="Đóng cửa sổ"
-                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer shrink-0"
+                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleAddRecord} className="p-5 sm:p-6 space-y-4 text-xs">
+            <form onSubmit={handleAddRecord} className="p-6 space-y-4 text-xs">
               {/* Huyết áp SYS / DIA */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
+                <label className="block font-semibold text-slate-700 mb-1.5">
                   Chỉ số Huyết áp (mmHg) <span className="text-rose-500">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <span className="text-[11px] text-slate-500 block mb-1">
-                      Số trên - Tâm thu (SYS)
+                      Tâm thu (SYS)
                     </span>
                     <input
                       type="number"
@@ -944,12 +967,12 @@ export function ChronicCareView() {
                       value={newBpSys}
                       onChange={(e) => setNewBpSys(e.target.value)}
                       placeholder="120"
-                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-mono font-bold text-sm text-slate-900 focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/15 outline-none"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-sm text-slate-900 focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/15 outline-none"
                     />
                   </div>
                   <div>
                     <span className="text-[11px] text-slate-500 block mb-1">
-                      Số dưới - Tâm trương (DIA)
+                      Tâm trương (DIA)
                     </span>
                     <input
                       type="number"
@@ -959,7 +982,7 @@ export function ChronicCareView() {
                       value={newBpDia}
                       onChange={(e) => setNewBpDia(e.target.value)}
                       placeholder="80"
-                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-mono font-bold text-sm text-slate-900 focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/15 outline-none"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-sm text-slate-900 focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/15 outline-none"
                     />
                   </div>
                 </div>
@@ -968,7 +991,7 @@ export function ChronicCareView() {
               {/* Đường huyết, Nhịp tim, SpO2 */}
               <div className="grid grid-cols-3 gap-2.5">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Đường huyết
                   </label>
                   <input
@@ -977,12 +1000,12 @@ export function ChronicCareView() {
                     value={newGlucose}
                     onChange={(e) => setNewGlucose(e.target.value)}
                     placeholder="5.6"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-mono font-bold text-xs sm:text-sm text-slate-900 focus:border-[#2E37A4] outline-none"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-xs sm:text-sm text-slate-900 focus:border-[#2E37A4] outline-none"
                   />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">mmol/L</span>
+                  <span className="text-[10px] tabular-nums text-slate-400 mt-0.5 block">mmol/L</span>
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Nhịp tim
                   </label>
                   <input
@@ -990,12 +1013,12 @@ export function ChronicCareView() {
                     value={newHeartRate}
                     onChange={(e) => setNewHeartRate(e.target.value)}
                     placeholder="75"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-mono font-bold text-xs sm:text-sm text-slate-900 focus:border-[#2E37A4] outline-none"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-xs sm:text-sm text-slate-900 focus:border-[#2E37A4] outline-none"
                   />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">nhịp/phút</span>
+                  <span className="text-[10px] tabular-nums text-slate-400 mt-0.5 block">nhịp/phút</span>
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Oxy SpO2
                   </label>
                   <input
@@ -1003,15 +1026,15 @@ export function ChronicCareView() {
                     value={newSpo2}
                     onChange={(e) => setNewSpo2(e.target.value)}
                     placeholder="98"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-mono font-bold text-xs sm:text-sm text-slate-900 focus:border-[#2E37A4] outline-none"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-xs sm:text-sm text-slate-900 focus:border-[#2E37A4] outline-none"
                   />
-                  <span className="text-[10px] text-slate-400 mt-0.5 block">%</span>
+                  <span className="text-[10px] tabular-nums text-slate-400 mt-0.5 block">%</span>
                 </div>
               </div>
 
-              {/* Thời điểm / Ngữ cảnh đo (Có nút chọn nhanh 1 chạm) */}
+              {/* Thời điểm / Ngữ cảnh đo */}
               <div>
-                <label className="block font-bold text-slate-700 mb-1.5">
+                <label className="block font-semibold text-slate-700 mb-1.5">
                   Thời điểm / Ghi chú lúc đo
                 </label>
                 <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1048,13 +1071,13 @@ export function ChronicCareView() {
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-bold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">check_circle</span>
                   <span>Lưu số đo</span>
@@ -1087,5 +1110,3 @@ export function ChronicCareView() {
     </div>
   );
 }
-
-

@@ -94,7 +94,7 @@ export function ContractSigningWizard({
               Gia Hạn &amp; Ký Hợp Đồng Chăm Sóc Bác Sĩ Gia Đình
             </h2>
             <p className="text-xs text-blue-100 mt-0.5">
-              Gói dịch vụ: <span className="font-semibold text-white">{packageName}</span> • Mã hộ: <span className="font-mono text-white">#FAM-88219</span>
+              Gói dịch vụ: <span className="font-semibold text-white">{packageName}</span> • Mã hộ: <span className="font-bold tabular-nums text-white">#FAM-88219</span>
             </p>
           </div>
 

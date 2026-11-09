@@ -143,7 +143,7 @@ export const INITIAL_FAMILY_MEMBERS_DATA: Record<string, MemberHealthData> = {
     heartRate: '82 lần/phút',
     glucose: '4.8 mmol/L',
     glucoseStatus: 'Bình thường',
-    lastUpdated: '19:30 Hôm qua',
+    lastUpdated: '06:45 Sáng hôm nay',
     medicines: [
       {
         id: 'med-4',
@@ -245,47 +245,49 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
   const initials = getMemberInitials(currentMember.name);
   const takenCount = currentMember.medicines.filter((m) => m.status === 'taken').length;
+  const isWarning = currentMember.status === 'warning';
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
-      <main className="max-w-6xl mx-auto py-5 sm:py-7 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* 1. THANH ĐIỀU HƯỚNG QUAY LẠI & CHUYỂN NHANH THÀNH VIÊN */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Link
-              href="/family/members"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-700 hover:text-[#2E37A4] bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-2xs hover:shadow-xs transition-all"
-            >
-              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-              <span>Quản lý Thành viên</span>
-            </Link>
-
+      <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* 1. THANH ĐIỀU HƯỚNG & CHUYỂN ĐỔI THÀNH VIÊN NHANH (THOÁNG ĐÃNG, KHÔNG KHUNG HỘP NẶNG NỀ) */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <nav aria-label="Điều hướng trang" className="flex items-center gap-2 flex-wrap">
             <Link
               href="/family"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-slate-500 hover:text-[#2E37A4] bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-2xs hover:shadow-xs transition-all"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-[#2E37A4] bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition-all"
             >
-              <span className="material-symbols-outlined text-[18px]">family_restroom</span>
+              <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               <span>Bảng Sức khỏe Gia đình</span>
             </Link>
-          </div>
 
-          {/* Chuyển nhanh giữa các thành viên */}
-          <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-xl border border-slate-200/80 shadow-2xs overflow-x-auto">
+            <Link
+              href="/family/members"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-500 hover:text-[#2E37A4] px-3 py-2 rounded-xl hover:bg-slate-100/70 transition-all"
+            >
+              <span className="material-symbols-outlined text-[18px]">badge</span>
+              <span>Sổ Quản lý thành viên &amp; BHYT</span>
+            </Link>
+          </nav>
+
+          {/* Quick Family Switcher */}
+          <div className="flex items-center gap-1.5 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-xs overflow-x-auto">
             {Object.values(membersData).map((m) => {
               const isCurrent = m.id === activeId;
+              const hasWarn = m.status === 'warning';
               return (
                 <Link
                   key={m.id}
                   href={`/family/members/${m.id}`}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
                     isCurrent
-                      ? 'bg-[#2E37A4] text-white shadow-2xs'
+                      ? 'bg-[#2E37A4] text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
                 >
                   <span
-                    className={`w-2 h-2 rounded-full ${
-                      m.status === 'warning'
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      hasWarn
                         ? 'bg-amber-400'
                         : isCurrent
                         ? 'bg-emerald-300'
@@ -299,11 +301,12 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
           </div>
         </div>
 
-        {/* Toast thông báo cập nhật chỉ số */}
+        {/* Toast thông báo cập nhật số đo */}
         {vitalsToast && (
-          <div
+          <aside
             role="status"
-            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
+            aria-live="polite"
+            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-medium flex items-center justify-between shadow-xs animate-fade-in"
           >
             <div className="flex items-center gap-2.5">
               <span className="material-symbols-outlined text-[20px] text-emerald-600">
@@ -314,290 +317,302 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
             <button
               type="button"
               onClick={() => setVitalsToast(null)}
-              className="text-emerald-700 hover:text-emerald-900 p-1"
+              className="text-emerald-700 hover:text-emerald-900 p-1 cursor-pointer"
               aria-label="Đóng thông báo"
             >
               ✕
             </button>
-          </div>
+          </aside>
         )}
 
-        {/* 2. BANNER THÔNG TIN THÀNH VIÊN & LỐI TẮT HÀNH ĐỘNG */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5">
-            <div className="flex items-start sm:items-center gap-4">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white font-extrabold text-lg sm:text-xl flex items-center justify-center shadow-md ring-4 ring-[#2E37A4]/10 shrink-0">
-                {initials}
+        {/* 2. PROFILE BANNER THÀNH VIÊN — THIẾT KẾ THOÁNG MẮT, PHÂN TẦNG RÕ RÀNG */}
+        <section className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/70 shadow-xs space-y-6">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex items-start sm:items-center gap-5 min-w-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#2563eb] text-white font-bold text-2xl sm:text-3xl flex items-center justify-center shadow-sm shrink-0">
+                {currentMember.avatar || initials}
               </div>
 
-              <div className="space-y-1.5">
+              <div className="space-y-2 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-[#2E37A4] border border-blue-200/80">
-                    {currentMember.relation} • {currentMember.age} tuổi
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-[#2E37A4] bg-blue-50/80 border border-blue-200/70">
+                    {currentMember.relation} · <span className="tabular-nums font-bold">{currentMember.age}</span> tuổi
                   </span>
-                  <span className="px-2.5 py-0.5 rounded-md text-[11px] font-mono font-semibold bg-slate-100 text-slate-600 border border-slate-200/80">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tabular-nums bg-slate-100 text-slate-700 border border-slate-200/80">
                     Nhóm máu {currentMember.bloodType}
                   </span>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border inline-flex items-center gap-1 ${
-                      currentMember.status === 'warning'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                      isWarning
+                        ? 'bg-amber-50 text-amber-800 border-amber-200/90'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200/90'
                     }`}
                   >
                     <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        currentMember.status === 'warning'
-                          ? 'bg-amber-500 animate-pulse'
-                          : 'bg-emerald-500'
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        isWarning ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
                       }`}
                     />
-                    {currentMember.statusText}
+                    <span>{currentMember.statusText}</span>
                   </span>
                 </div>
 
-                <h1 className="text-lg sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
                   Chăm Sóc Hằng Ngày: {currentMember.name}
                 </h1>
 
-                <p className="text-xs text-slate-500">
-                  Theo dõi <strong>Chỉ số sức khỏe</strong>, <strong>Lịch hẹn khám</strong> và{' '}
-                  <strong>Lịch dùng thuốc hôm nay</strong> • Cập nhật: {currentMember.lastUpdated}
+                <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+                  Theo dõi sinh hiệu, nhắc lịch uống thuốc và lịch khám bác sĩ gia đình · Cập nhật: {currentMember.lastUpdated}
                 </p>
               </div>
             </div>
 
-            {/* Cụm nút hành động của thành viên */}
-            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 w-full lg:w-auto shrink-0">
+            {/* Cụm nút hành động chính */}
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowVitalsModal(true)}
-                className="col-span-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-3 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap outline-hidden"
               >
-                <span className="material-symbols-outlined text-[18px]">edit_note</span>
+                <span className="material-symbols-outlined text-[19px]">edit_note</span>
                 <span>Ghi số đo mới</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => window.print()}
-                className="col-span-1 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 sm:py-3 bg-blue-50/80 hover:bg-blue-100 text-[#2E37A4] border border-blue-200/80 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-medium shadow-xs hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap outline-hidden"
               >
-                <span className="material-symbols-outlined text-[18px]">print</span>
+                <span className="material-symbols-outlined text-[19px] text-[#2E37A4]">print</span>
                 <span>In hồ sơ bệnh án</span>
               </button>
             </div>
           </div>
 
-          {/* Tóm tắt bệnh nền & dị ứng dưới chân Banner */}
-          <div className="mt-4 pt-3.5 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-            <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[17px] text-[#2E37A4]">
+          {/* Dải thông tin lâm sàng trọng tâm (Bệnh nền, Dị ứng, BHYT) */}
+          <div className="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
+            <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center gap-3">
+              <span className="material-symbols-outlined text-[20px] text-[#2E37A4] shrink-0">
                 medical_information
               </span>
-              <span className="text-slate-500">Bệnh lý theo dõi:</span>
-              <strong className="text-slate-800 truncate">{currentMember.chronicCondition}</strong>
+              <div className="min-w-0">
+                <span className="text-slate-500 block text-[11px]">Bệnh lý theo dõi</span>
+                <strong className="text-slate-900 font-semibold truncate block mt-0.5">
+                  {currentMember.chronicCondition}
+                </strong>
+              </div>
             </div>
 
-            <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[17px] text-amber-600">warning</span>
-              <span className="text-slate-500">Dị ứng:</span>
-              <strong className="text-slate-800 truncate">{currentMember.allergies}</strong>
+            <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200/70 flex items-center gap-3">
+              <span className="material-symbols-outlined text-[20px] text-amber-700 shrink-0">
+                warning
+              </span>
+              <div className="min-w-0">
+                <span className="text-amber-800 block text-[11px] font-medium">Tiền sử dị ứng</span>
+                <strong className="text-amber-950 font-semibold truncate block mt-0.5">
+                  {currentMember.allergies}
+                </strong>
+              </div>
             </div>
 
-            <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[17px] text-emerald-600">badge</span>
-              <span className="text-slate-500">Mã BHYT:</span>
-              <strong className="text-slate-800 font-mono">{currentMember.bhyt}</strong>
+            <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center gap-3">
+              <span className="material-symbols-outlined text-[20px] text-emerald-600 shrink-0">
+                badge
+              </span>
+              <div className="min-w-0">
+                <span className="text-slate-500 block text-[11px]">Thẻ BHYT đăng ký</span>
+                <strong className="text-slate-900 font-bold tabular-nums truncate block mt-0.5">
+                  {currentMember.bhyt}
+                </strong>
+              </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* 3. KHỐI CHỈ SỐ SỨC KHỎE HÔM NAY */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#2E37A4]/10 text-[#2E37A4] flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[22px]">monitor_heart</span>
-              </div>
-              <div>
-                <h2 className="font-bold text-base text-slate-900">
-                  1. Chỉ Số Sức Khỏe Hôm Nay
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Số đo đồng bộ từ thiết bị y tế gia đình &amp; sổ theo dõi mạn tính
-                </p>
-              </div>
+        {/* 3. KHỐI 4 CHỈ SỐ SINH HIỆU HÔM NAY — BỐ CỤC THOÁNG ĐÃNG, RÕ RÀNG */}
+        <section className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                Chỉ Số Sinh Hiệu Hôm Nay
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                Đo lường từ thiết bị gia đình &amp; sổ theo dõi lâm sàng của {currentMember.name}
+              </p>
             </div>
 
             <Link
               href="/family/vitals"
-              className="self-start sm:self-auto text-xs font-bold text-[#2E37A4] hover:underline inline-flex items-center gap-1"
+              className="text-xs sm:text-sm font-semibold text-[#2E37A4] hover:text-[#222982] inline-flex items-center gap-1 hover:underline outline-hidden"
             >
               <span>Xem biểu đồ xu hướng &amp; lịch sử đo</span>
-              <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>
 
-          {/* 4 Cards Chỉ Số Sinh Hiệu Chuẩn Lâm Sàng */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {/* 1. Huyết Áp */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 flex flex-col justify-between gap-3">
+            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[18px]">vital_signs</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 border border-rose-100 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[19px]">vital_signs</span>
                   </span>
                   <span className="text-xs font-bold text-slate-700">Huyết áp</span>
                 </div>
-                <span className="text-[11px] font-mono text-slate-400">mmHg</span>
+                <span className="text-xs text-slate-400 font-medium">mmHg</span>
               </div>
 
               <div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+                  <span
+                    className={`text-2xl sm:text-3xl font-bold tabular-nums tracking-tight ${
+                      isWarning ? 'text-amber-800' : 'text-slate-900'
+                    }`}
+                  >
                     {currentMember.bp}
                   </span>
-                  <span className="text-[11px] text-slate-400 font-medium">SYS/DIA</span>
+                  <span className="text-xs text-slate-400 font-medium">SYS/DIA</span>
                 </div>
-                <div className="mt-2">
+                <div className="mt-2.5">
                   <span
-                    className={`text-[11px] font-bold px-2.5 py-0.5 rounded-md inline-flex items-center gap-1 border ${
-                      currentMember.status === 'warning'
-                        ? 'text-amber-700 bg-amber-50 border-amber-200/80'
-                        : 'text-emerald-700 bg-emerald-50 border-emerald-200/80'
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-full inline-flex items-center gap-1.5 border ${
+                      isWarning
+                        ? 'text-amber-800 bg-amber-50 border-amber-200/90'
+                        : 'text-emerald-800 bg-emerald-50 border-emerald-200/90'
                     }`}
                   >
                     <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        currentMember.status === 'warning' ? 'bg-amber-500' : 'bg-emerald-500'
+                      className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        isWarning ? 'bg-amber-500' : 'bg-emerald-500'
                       }`}
                     />
-                    {currentMember.bpStatus}
+                    <span>{currentMember.bpStatus}</span>
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* 2. Oxy SpO2 */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 flex flex-col justify-between gap-3">
+            {/* 2. Oxy máu SpO2 */}
+            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[18px]">air</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[19px]">air</span>
                   </span>
                   <span className="text-xs font-bold text-slate-700">Oxy máu (SpO2)</span>
                 </div>
-                <span className="text-[11px] font-mono text-slate-400">%</span>
+                <span className="text-xs text-slate-400 font-medium">%</span>
               </div>
 
               <div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900 tracking-tight">
                     {currentMember.spo2}
                   </span>
-                  <span className="text-[11px] text-slate-400 font-medium">SpO2</span>
+                  <span className="text-xs text-slate-400 font-medium">SpO2</span>
                 </div>
-                <div className="mt-2">
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-md inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Bão hòa oxy tốt (≥ 95%)
+                <div className="mt-2.5">
+                  <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/90 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span>Bão hòa oxy tốt (≥ 95%)</span>
                   </span>
                 </div>
               </div>
             </div>
 
             {/* 3. Nhịp Tim */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 flex flex-col justify-between gap-3">
+            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-pink-50 text-pink-600 border border-pink-100 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[18px]">favorite</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-9 h-9 rounded-xl bg-pink-50 text-pink-600 border border-pink-100 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[19px]">favorite</span>
                   </span>
                   <span className="text-xs font-bold text-slate-700">Nhịp tim</span>
                 </div>
-                <span className="text-[11px] font-mono text-slate-400">nhịp/phút</span>
+                <span className="text-xs text-slate-400 font-medium">BPM</span>
               </div>
 
               <div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900 tracking-tight">
                     {currentMember.heartRate.split(' ')[0]}
                   </span>
-                  <span className="text-[11px] text-slate-400 font-medium">BPM</span>
+                  <span className="text-xs text-slate-400 font-medium">nhịp/phút</span>
                 </div>
-                <div className="mt-2">
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-md inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    Nhịp xoang đều ổn định
+                <div className="mt-2.5">
+                  <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/90 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span>Nhịp xoang đều ổn định</span>
                   </span>
                 </div>
               </div>
             </div>
 
             {/* 4. Đường Huyết */}
-            <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 flex flex-col justify-between gap-3">
+            <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="w-8 h-8 rounded-lg bg-indigo-50 text-[#2E37A4] border border-indigo-100 flex items-center justify-center">
-                    <span className="material-symbols-outlined text-[18px]">water_drop</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-9 h-9 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-100 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[19px]">water_drop</span>
                   </span>
                   <span className="text-xs font-bold text-slate-700">Đường huyết</span>
                 </div>
-                <span className="text-[11px] font-mono text-slate-400">mmol/L</span>
+                <span className="text-xs text-slate-400 font-medium">mmol/L</span>
               </div>
 
               <div>
                 <div className="flex items-baseline gap-1.5">
-                  <span className="text-2xl font-black text-slate-900 font-mono tracking-tight">
+                  <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900 tracking-tight">
                     {currentMember.glucose.split(' ')[0]}
                   </span>
-                  <span className="text-[11px] text-slate-400 font-medium">mmol/L</span>
+                  <span className="text-xs text-slate-400 font-medium">mmol/L</span>
                 </div>
-                <div className="mt-2">
-                  <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2.5 py-0.5 rounded-md inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    {currentMember.glucoseStatus}
+                <div className="mt-2.5">
+                  <span className="text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/90 px-2.5 py-1 rounded-full inline-flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    <span>{currentMember.glucoseStatus}</span>
                   </span>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        </section>
 
-        {/* 4. LỊCH HẸN KHÁM SẮP TỚI & LỊCH DÙNG THUỐC HÔM NAY */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
+        {/* 4. LƯỚI 2 CỘT: LỊCH HẸN KHÁM SẮP TỚI & LỊCH DÙNG THUỐC HÔM NAY */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-stretch">
           {/* Cột 1: Lịch Hẹn Khám Sắp Tới */}
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between gap-5">
-            <div className="space-y-4">
+          <section className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-6">
+            <div className="space-y-5">
               <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#2E37A4]/10 text-[#2E37A4] flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-[20px]">event_available</span>
                   </div>
                   <div>
-                    <h2 className="font-bold text-sm sm:text-base text-slate-900">
-                      2. Lịch Hẹn Khám Sắp Tới
+                    <h2 className="font-bold text-base text-slate-900">
+                      Lịch Hẹn Khám Sắp Tới
                     </h2>
                     <p className="text-xs text-slate-500">
                       Lịch trình thăm khám của {currentMember.name}
                     </p>
                   </div>
                 </div>
+
                 <Link
                   href="/family/appointments"
-                  className="text-xs font-bold text-[#2E37A4] hover:underline flex items-center gap-1 shrink-0"
+                  className="text-xs font-semibold text-[#2E37A4] hover:underline flex items-center gap-1 shrink-0"
                 >
                   <span>Quản lý lịch hẹn</span>
-                  <span className="material-symbols-outlined text-[15px]">chevron_right</span>
+                  <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
                 </Link>
               </div>
 
               {currentMember.upcomingVisit ? (
-                <div className="space-y-3.5">
-                  <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200/80 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">
+                <div className="space-y-4">
+                  <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200/80 flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-[22px] text-[#2E37A4]">
                         {currentMember.upcomingVisit.mode === 'home' ? 'home_health' : 'videocam'}
                       </span>
                       <div>
@@ -606,47 +621,47 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                             ? 'Khám bác sĩ tại nhà'
                             : 'Tư vấn Telehealth Video'}
                         </div>
-                        <div className="font-extrabold text-sm sm:text-base text-slate-900">
-                          {currentMember.upcomingVisit.time} • {currentMember.upcomingVisit.date}
+                        <div className="font-bold tabular-nums text-sm sm:text-base text-slate-900 mt-0.5">
+                          {currentMember.upcomingVisit.time} · {currentMember.upcomingVisit.date}
                         </div>
                       </div>
                     </div>
 
-                    <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1.5">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                      Đã xác nhận
+                      <span>Đã xác nhận</span>
                     </span>
                   </div>
 
-                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-white border border-slate-200 text-[#2E37A4] flex items-center justify-center shrink-0 mt-0.5">
-                      <span className="material-symbols-outlined text-[18px]">stethoscope</span>
+                  <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-[#2E37A4] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                      <span className="material-symbols-outlined text-[19px]">stethoscope</span>
                     </div>
                     <div className="space-y-1 text-xs min-w-0">
                       <div className="font-bold text-slate-900 text-sm">
                         {currentMember.upcomingVisit.doctor}
                       </div>
                       <div className="text-slate-600 font-medium">
-                        {currentMember.upcomingVisit.specialty} •{' '}
-                        <span className="text-slate-800 font-semibold">
+                        {currentMember.upcomingVisit.specialty} ·{' '}
+                        <span className="text-slate-900 font-semibold">
                           {currentMember.upcomingVisit.hospital}
                         </span>
                       </div>
-                      <div className="text-slate-500 pt-1 border-t border-slate-200/60 leading-relaxed">
-                        <span className="font-semibold text-slate-700">Nội dung khám: </span>
-                        {currentMember.upcomingVisit.note}
+                      <div className="text-slate-600 pt-2 border-t border-slate-200/60 leading-relaxed">
+                        <strong className="text-slate-800">Nội dung khám: </strong>
+                        <span>{currentMember.upcomingVisit.note}</span>
                       </div>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-6 rounded-xl bg-slate-50 border border-dashed border-slate-300 text-center space-y-2">
+                <div className="p-8 rounded-xl bg-slate-50/70 border border-dashed border-slate-300 text-center space-y-2">
                   <p className="text-xs text-slate-500">
                     Chưa có lịch hẹn nào sắp tới cho {currentMember.name}.
                   </p>
                   <Link
                     href="/family/appointments"
-                    className="inline-block px-4 py-2 bg-[#2E37A4] text-white text-xs font-bold rounded-xl"
+                    className="inline-block px-4 py-2 bg-[#2E37A4] text-white text-xs font-semibold rounded-xl"
                   >
                     Đặt lịch khám mới
                   </Link>
@@ -655,88 +670,89 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
             </div>
 
             {currentMember.upcomingVisit && (
-              <div className="grid grid-cols-2 gap-2.5 pt-3 border-t border-slate-100">
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
                 <Link
                   href="/family/appointments"
-                  className="py-2.5 px-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-center text-slate-700 transition-colors flex items-center justify-center gap-1.5"
+                  className="py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-semibold text-center text-slate-700 transition-colors flex items-center justify-center gap-1.5"
                 >
-                  <span className="material-symbols-outlined text-[16px]">edit_calendar</span>
+                  <span className="material-symbols-outlined text-[17px]">edit_calendar</span>
                   <span>Đổi ngày giờ</span>
                 </Link>
                 {currentMember.upcomingVisit.mode === 'home' ? (
                   <button
                     type="button"
                     onClick={() => setShowHomeVisitGuide(true)}
-                    className="py-2.5 px-3 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold text-center transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                    className="py-2.5 px-4 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-semibold text-center transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                   >
-                    <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                    <span className="material-symbols-outlined text-[17px]">fact_check</span>
                     <span>Hướng dẫn đón BS</span>
                   </button>
                 ) : (
                   <Link
                     href="/family/appointments"
-                    className="py-2.5 px-3 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold text-center transition-colors flex items-center justify-center gap-1.5 shadow-2xs"
+                    className="py-2.5 px-4 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-semibold text-center transition-colors flex items-center justify-center gap-1.5 shadow-xs"
                   >
-                    <span className="material-symbols-outlined text-[16px]">videocam</span>
+                    <span className="material-symbols-outlined text-[17px]">videocam</span>
                     <span>Vào phòng Video</span>
                   </Link>
                 )}
               </div>
             )}
-          </div>
+          </section>
 
           {/* Cột 2: Lịch Dùng Thuốc Hôm Nay */}
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col justify-between gap-5">
-            <div className="space-y-4">
+          <section className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-6">
+            <div className="space-y-5">
               <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-[20px]">medication</span>
                   </div>
                   <div>
-                    <h2 className="font-bold text-sm sm:text-base text-slate-900">
-                      3. Lịch Dùng Thuốc Hôm Nay
+                    <h2 className="font-bold text-base text-slate-900">
+                      Lịch Dùng Thuốc Hôm Nay
                     </h2>
                     <p className="text-xs text-slate-500">
-                      Đơn thuốc đang áp dụng cho {currentMember.name}
+                      Đơn thuốc điều trị đang áp dụng cho {currentMember.name}
                     </p>
                   </div>
                 </div>
-                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 shrink-0">
+
+                <span className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums bg-slate-100 text-slate-700 shrink-0">
                   Đã dùng {takenCount}/{currentMember.medicines.length}
                 </span>
               </div>
 
-              <div className="space-y-2.5">
+              <div className="space-y-3">
                 {currentMember.medicines.map((med) => {
                   const isTaken = med.status === 'taken';
                   return (
                     <div
                       key={med.id}
-                      className={`p-3.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                      className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 ${
                         isTaken
-                          ? 'bg-emerald-50/40 border-emerald-200/90'
-                          : 'bg-slate-50/80 border-slate-200/80 hover:border-slate-300'
+                          ? 'bg-emerald-50/50 border-emerald-200/90'
+                          : 'bg-slate-50/70 border-slate-200/70 hover:border-slate-300'
                       }`}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-3.5 min-w-0">
                         <div
-                          className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             isTaken
-                              ? 'bg-emerald-100 text-emerald-700'
+                              ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-white border border-slate-200 text-[#2E37A4]'
                           }`}
                         >
                           <span className="material-symbols-outlined text-[18px]">
-                            {isTaken ? 'check_circle' : 'pill'}
+                            {isTaken ? 'check' : 'medication'}
                           </span>
                         </div>
 
                         <div className="min-w-0">
-                          <div className="font-bold text-xs sm:text-sm text-slate-900 truncate">
+                          <div className="font-semibold text-sm text-slate-900 truncate">
                             {med.name}
                           </div>
-                          <div className="text-[11px] text-slate-600 mt-0.5">{med.dosage}</div>
+                          <div className="text-xs text-slate-600 mt-0.5">{med.dosage}</div>
                           <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
                             <span className="material-symbols-outlined text-[14px] text-slate-400">
                               schedule
@@ -750,21 +766,13 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                         type="button"
                         aria-pressed={isTaken}
                         onClick={() => toggleMedicineStatus(med.id)}
-                        title={
+                        className={`min-h-9 px-4 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer whitespace-nowrap outline-hidden ${
                           isTaken
-                            ? 'Bấm để đổi lại thành chưa dùng'
-                            : 'Bấm để xác nhận đã dùng thuốc'
-                        }
-                        className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer ${
-                          isTaken
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
-                            : 'bg-white hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white border border-[#2E37A4]/30 hover:border-[#2E37A4] shadow-2xs'
+                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/90'
+                            : 'bg-white hover:bg-slate-100 text-[#2E37A4] border border-slate-300 shadow-2xs'
                         }`}
                       >
-                        <span className="material-symbols-outlined text-[16px]">
-                          {isTaken ? 'done_all' : 'radio_button_unchecked'}
-                        </span>
-                        <span>{isTaken ? 'Đã dùng' : 'Bấm đã dùng'}</span>
+                        {isTaken ? 'Đã uống' : 'Bấm đã uống'}
                       </button>
                     </div>
                   );
@@ -779,234 +787,165 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                 </span>
                 <span>Đơn thuốc điện tử ký số bởi Bác sĩ gia đình</span>
               </span>
-              <span className="font-bold text-slate-600">
-                Toa thuốc hợp lệ theo đợt khám
+              <span className="font-medium text-slate-600">
+                Hiệu lực theo hồ sơ khám
               </span>
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* 4. LỊCH SỬ KHÁM BỆNH & BỆNH ÁN ĐIỆN TỬ (THIẾT KẾ PHẲNG, THU GỌN THÔNG MINH, KHÔNG RỐI MẮT) */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] overflow-hidden">
-          {/* Header + Bộ lọc nằm gọn trên 1 thanh */}
-          <div className="p-5 sm:px-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#2E37A4]/10 text-[#2E37A4] flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[21px]">history_edu</span>
+        {/* 5. LỊCH SỬ KHÁM BỆNH & BỆNH ÁN ĐIỆN TỬ (EHR) — THIẾT KẾ PHẲNG, TINH TẾ */}
+        <section className="bg-white rounded-2xl border border-slate-200/70 shadow-xs overflow-hidden">
+          {/* Header + Bộ lọc trên 1 thanh thoáng đãng */}
+          <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100">
+            <div className="flex items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[22px]">history_edu</span>
               </div>
               <div>
-                <h2 className="font-bold text-base text-slate-900">
-                  4. Lịch Sử Khám Bệnh &amp; Xét Nghiệm ({filteredEhr.length})
+                <h2 className="font-bold text-base sm:text-lg text-slate-900">
+                  Lịch Sử Khám Bệnh &amp; Xét Nghiệm ({filteredEhr.length})
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Bấm vào từng đợt khám để xem chi tiết lời dặn bác sĩ, kết quả xét nghiệm và đơn thuốc
+                  Dòng thời gian bệnh án điện tử EHR đồng bộ chuẩn Bộ Y Tế
                 </p>
               </div>
             </div>
 
-            {/* Bộ lọc loại hồ sơ */}
-            <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-xl self-start sm:self-auto overflow-x-auto">
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl self-start sm:self-auto overflow-x-auto">
               {[
                 { id: 'all', label: 'Tất cả' },
                 { id: 'home_visit', label: 'Khám tại nhà' },
                 { id: 'telehealth', label: 'Telehealth' },
                 { id: 'lab_result', label: 'Xét nghiệm' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setEhrFilter(tab.id as typeof ehrFilter)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                    ehrFilter === tab.id
-                      ? 'bg-white text-[#2E37A4] shadow-2xs font-extrabold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+              ].map((f) => {
+                const isActive = ehrFilter === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    onClick={() => setEhrFilter(f.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                      isActive
+                        ? 'bg-white text-slate-900 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Danh sách phẳng, phân cách bằng đường kẻ ngang mảnh */}
+          {/* Danh sách các lần khám */}
           {filteredEhr.length === 0 ? (
-            <div className="p-8 text-center space-y-1.5">
-              <span className="material-symbols-outlined text-[32px] text-slate-300">
-                clinical_notes
-              </span>
-              <p className="text-xs font-bold text-slate-700">Chưa có hồ sơ trong mục này</p>
-              <p className="text-[11px] text-slate-400">
-                Các đợt khám mới sẽ tự động cập nhật sau khi bác sĩ hoàn tất buổi khám.
-              </p>
+            <div className="p-10 text-center space-y-2">
+              <span className="material-symbols-outlined text-4xl text-slate-300">folder_off</span>
+              <p className="text-xs text-slate-500">Chưa có hồ sơ khám bệnh nào trong danh mục này.</p>
             </div>
           ) : (
             <div className="divide-y divide-slate-100">
-              {filteredEhr.map((entry, idx) => {
-                const isExpanded =
-                  expandedEhrId === entry.id || (expandedEhrId === null && idx === 0);
-                const typeIcon =
-                  entry.type === 'home_visit'
-                    ? 'home_health'
-                    : entry.type === 'lab_result'
-                    ? 'biotech'
-                    : 'videocam';
-                const typeBadgeClass =
-                  entry.type === 'home_visit'
-                    ? 'bg-blue-50 text-[#2E37A4] border-blue-200/80'
-                    : entry.type === 'lab_result'
-                    ? 'bg-teal-50 text-teal-700 border-teal-200/80'
-                    : 'bg-sky-50 text-sky-700 border-sky-200/80';
-
+              {filteredEhr.map((entry) => {
+                const isExpanded = expandedEhrId === entry.id;
                 return (
-                  <div key={entry.id} className="transition-colors">
-                    {/* Hàng tóm tắt đợt khám (Luôn hiển thị, bấm để đóng/mở) */}
+                  <div key={entry.id} className="p-5 sm:p-6 transition-colors hover:bg-slate-50/50">
                     <div
-                      onClick={() =>
-                        setExpandedEhrId(isExpanded ? '__none__' : entry.id)
-                      }
-                      className="p-4 sm:px-6 hover:bg-slate-50/60 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer"
+                      onClick={() => setExpandedEhrId(isExpanded ? null : entry.id)}
                     >
                       <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-                        <div
-                          className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 ${typeBadgeClass}`}
-                        >
-                          <span className="material-symbols-outlined text-[20px]">{typeIcon}</span>
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-[#2E37A4] flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-[20px]">
+                            {entry.type === 'home_visit'
+                              ? 'home_health'
+                              : entry.type === 'telehealth'
+                              ? 'videocam'
+                              : 'biotech'}
+                          </span>
                         </div>
-
-                        <div className="min-w-0 space-y-1">
+                        <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="font-mono font-bold text-xs text-slate-900">
-                              {entry.date}
+                            <span className="font-bold text-sm sm:text-base text-slate-900 truncate">
+                              {entry.diagnosis}
                             </span>
-                            <span
-                              className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${typeBadgeClass}`}
-                            >
-                              {entry.typeLabel}
-                            </span>
-                            <span className="text-[11px] text-slate-500">
-                              • {entry.doctorName} ({entry.hospital})
+                            <span className="text-xs font-bold tabular-nums text-slate-500">
+                              (ICD-10: {entry.icd10})
                             </span>
                           </div>
-
-                          <h3 className="font-bold text-sm text-slate-900 leading-snug">
-                            {entry.diagnosis}
-                          </h3>
+                          <div className="text-xs text-slate-500 mt-0.5">
+                            <span className="font-semibold text-slate-700">{entry.doctorName}</span> · {entry.hospital} · <span className="tabular-nums">{entry.date}</span>
+                          </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-end gap-2 shrink-0">
-                        {entry.attachmentName && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              window.print();
-                            }}
-                            title={`Tải ${entry.attachmentName}`}
-                            className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-[#2E37A4] flex items-center justify-center transition-colors cursor-pointer"
-                          >
-                            <span className="material-symbols-outlined text-[17px]">download</span>
-                          </button>
-                        )}
-
-                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold inline-flex items-center gap-1">
-                          <span>{isExpanded ? 'Thu gọn' : 'Chi tiết'}</span>
-                          <span className="material-symbols-outlined text-[16px]">
-                            {isExpanded ? 'expand_less' : 'expand_more'}
-                          </span>
+                      <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#2E37A4] border border-blue-200/70">
+                          {entry.typeLabel}
+                        </span>
+                        <span className="material-symbols-outlined text-slate-400 text-[20px]">
+                          {isExpanded ? 'expand_less' : 'expand_more'}
                         </span>
                       </div>
                     </div>
 
-                    {/* Nội dung chi tiết khi mở (Trình bày phẳng, thoáng, không lồng hộp) */}
+                    {/* Chi tiết đợt khám (Khi mở rộng) */}
                     {isExpanded && (
-                      <div className="px-5 sm:px-6 pb-5 pt-2 bg-slate-50/40 border-t border-slate-100 space-y-4 text-xs">
-                        {/* 1. Dải chỉ số sinh hiệu lúc khám */}
-                        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 py-2.5 border-b border-slate-200/70 text-slate-600">
-                          <span>
-                            Mã ICD-10: <strong className="font-mono text-[#2E37A4]">{entry.icd10}</strong>
+                      <div className="mt-5 pt-5 border-t border-slate-100 space-y-4 text-xs leading-relaxed animate-fade-in">
+                        {/* Ghi chú bác sĩ */}
+                        <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/70 space-y-1">
+                          <span className="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
+                            Lời dặn &amp; Ghi chú lâm sàng của Bác sĩ:
                           </span>
-                          <span>
-                            Huyết áp:{' '}
-                            <strong className="font-mono text-slate-900">
-                              {entry.vitalSigns.bp}
-                            </strong>
-                          </span>
-                          <span>
-                            Nhịp tim:{' '}
-                            <strong className="font-mono text-slate-900">
-                              {entry.vitalSigns.heartRate}
-                            </strong>
-                          </span>
-                          <span>
-                            SpO2:{' '}
-                            <strong className="font-mono text-slate-900">
-                              {entry.vitalSigns.spo2}
-                            </strong>
-                          </span>
-                          <span>
-                            Cân nặng:{' '}
-                            <strong className="font-mono text-slate-900">
-                              {entry.vitalSigns.weight}
-                            </strong>
-                          </span>
+                          <p className="text-slate-800 text-sm leading-relaxed">{entry.doctorNotes}</p>
                         </div>
 
-                        {/* 2. Nhận định & Lời dặn của Bác sĩ */}
-                        <div className="space-y-1">
-                          <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                            Nhận định &amp; Lời dặn của bác sĩ
-                          </span>
-                          <p className="text-slate-700 leading-relaxed text-xs sm:text-sm">
-                            {entry.doctorNotes}
-                          </p>
-                        </div>
-
-                        {/* 3. Kết quả xét nghiệm (nếu có) — Bảng phẳng tối giản */}
-                        {entry.labResults && entry.labResults.length > 0 && (
-                          <div className="space-y-2 pt-2 border-t border-slate-200/70">
-                            <span className="text-[11px] font-bold text-teal-700 uppercase tracking-wider block">
-                              Kết quả xét nghiệm ({entry.labResults.length} chỉ số)
-                            </span>
-                            <div className="divide-y divide-slate-200/60">
-                              {entry.labResults.map((lr, lIdx) => (
-                                <div
-                                  key={lIdx}
-                                  className="py-2 flex flex-wrap items-center justify-between gap-2"
-                                >
-                                  <span className="font-medium text-slate-800">{lr.test}</span>
-                                  <div className="flex items-center gap-3">
-                                    <span className="font-mono font-bold text-[#2E37A4]">
-                                      {lr.result} {lr.unit}
-                                    </span>
-                                    <span className="text-[11px] text-slate-400 font-mono hidden sm:inline">
-                                      (Chuẩn: {lr.reference})
-                                    </span>
-                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
-                                      Bình thường
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
+                        {/* Chỉ số sinh hiệu lúc khám */}
+                        {entry.vitalSigns && (
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-blue-50/40 border border-blue-200/60">
+                            <div>
+                              <span className="text-slate-500 block text-[11px]">Huyết áp lúc khám:</span>
+                              <strong className="font-bold tabular-nums text-sm text-slate-900">
+                                {entry.vitalSigns.bp} mmHg
+                              </strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block text-[11px]">Nhịp tim:</span>
+                              <strong className="font-bold tabular-nums text-sm text-slate-900">
+                                {entry.vitalSigns.heartRate}
+                              </strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block text-[11px]">SpO2:</span>
+                              <strong className="font-bold tabular-nums text-sm text-slate-900">
+                                {entry.vitalSigns.spo2}
+                              </strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block text-[11px]">Cân nặng:</span>
+                              <strong className="font-bold tabular-nums text-sm text-slate-900">
+                                {entry.vitalSigns.weight}
+                              </strong>
                             </div>
                           </div>
                         )}
 
-                        {/* 4. Đơn thuốc kê trong đợt khám (nếu có) — Danh sách dòng phẳng */}
+                        {/* Đơn thuốc điều trị */}
                         {entry.prescriptions && entry.prescriptions.length > 0 && (
-                          <div className="space-y-2 pt-2 border-t border-slate-200/70">
-                            <span className="text-[11px] font-bold text-[#2E37A4] uppercase tracking-wider block">
-                              Đơn thuốc được kê ({entry.prescriptions.length} thuốc)
+                          <div className="space-y-2">
+                            <span className="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
+                              Toa thuốc điều trị chỉ định:
                             </span>
-                            <div className="divide-y divide-slate-200/60">
+                            <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/80 bg-white p-3 space-y-2">
                               {entry.prescriptions.map((rx, rIdx) => (
                                 <div
                                   key={rIdx}
-                                  className="py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-1"
+                                  className="pt-2 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1"
                                 >
-                                  <strong className="text-slate-900">{rx.name}</strong>
+                                  <strong className="text-slate-900 font-semibold">{rx.name}</strong>
                                   <span className="text-slate-600">
-                                    Liều: <strong>{rx.dosage}</strong> • {rx.frequency} ({rx.duration})
+                                    Liều: <strong className="text-slate-800">{rx.dosage}</strong> · {rx.frequency} ({rx.duration})
                                   </span>
                                 </div>
                               ))}
@@ -1020,15 +959,19 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
               })}
             </div>
           )}
-        </div>
+        </section>
       </main>
 
-      {/* MODAL HƯỚNG DẪN ĐÓN BÁC SĨ TẠI NHÀ */}
+      {/* MODAL 1: HƯỚNG DẪN ĐÓN BÁC SĨ TẠI NHÀ */}
       {showHomeVisitGuide && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2 text-[#2E37A4]">
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-fade-in">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3.5">
+              <div className="flex items-center gap-2.5 text-[#2E37A4]">
                 <span className="material-symbols-outlined text-[24px]">home_health</span>
                 <h3 className="font-bold text-base text-slate-900">
                   Hướng Dẫn Đón Bác Sĩ Tại Nhà
@@ -1037,29 +980,28 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
               <button
                 type="button"
                 onClick={() => setShowHomeVisitGuide(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 cursor-pointer"
+                aria-label="Đóng"
               >
                 ✕
               </button>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-600 leading-relaxed">
-              <div className="p-3 rounded-2xl bg-blue-50 border border-blue-100 text-slate-800">
-                <strong>Bác sĩ phụ trách:</strong> PGS.TS Nguyễn Trọng Nghĩa
-                <br />
-                <strong>Thời gian dự kiến:</strong> {currentMember.upcomingVisit?.time} •{' '}
-                {currentMember.upcomingVisit?.date}
+            <div className="space-y-4 text-xs text-slate-600 leading-relaxed">
+              <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200/70 text-slate-800 space-y-1">
+                <div><strong>Bác sĩ phụ trách:</strong> PGS.TS Nguyễn Trọng Nghĩa</div>
+                <div>
+                  <strong>Thời gian dự kiến:</strong> {currentMember.upcomingVisit?.time} ·{' '}
+                  {currentMember.upcomingVisit?.date}
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <p className="font-bold text-slate-800">Gia đình vui lòng chuẩn bị trước:</p>
-                <ul className="list-disc pl-5 space-y-1">
+              <div className="space-y-2">
+                <p className="font-bold text-slate-800 text-sm">Gia đình vui lòng chuẩn bị trước:</p>
+                <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
                   <li>Căn cước công dân và thẻ BHYT của người bệnh ({currentMember.name}).</li>
-                  <li>
-                    Tất cả các toa thuốc, phim X-quang hoặc kết quả xét nghiệm trong 3 tháng gần
-                    nhất.
-                  </li>
-                  <li>Không ăn sáng (nếu có lấy máu xét nghiệm đường huyết/mỡ máu).</li>
+                  <li>Các toa thuốc đang uống hoặc kết quả khám trong 3 tháng gần nhất.</li>
+                  <li>Không ăn sáng nếu có chỉ định lấy máu xét nghiệm đường huyết/mỡ máu.</li>
                   <li>Chuẩn bị khu vực khám thoáng mát, đủ ánh sáng và một ly nước ấm.</li>
                 </ul>
               </div>
@@ -1069,41 +1011,49 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
               <button
                 type="button"
                 onClick={() => setShowHomeVisitGuide(false)}
-                className="w-full py-2.5 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-bold text-xs cursor-pointer"
+                className="w-full py-3 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-semibold text-xs sm:text-sm cursor-pointer shadow-xs transition-colors"
               >
-                Đã hiểu &amp; Đóng
+                Đã hiểu &amp; Đóng hướng dẫn
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL GHI NHANH SỐ ĐO SỨC KHỎE */}
+      {/* MODAL 2: GHI NHANH SỐ ĐO SỨC KHỎE */}
       {showVitalsModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-base text-slate-900">
-                Ghi Số Đo: {currentMember.name}
-              </h3>
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-fade-in">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3.5">
+              <div>
+                <h3 className="font-bold text-base text-slate-900">
+                  Ghi Số Đo Mới
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">{currentMember.name}</p>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowVitalsModal(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 cursor-pointer"
+                aria-label="Đóng"
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleSaveVitals} className="space-y-3.5 text-xs">
+            <form onSubmit={handleSaveVitals} className="space-y-4 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1.5">
                   Huyết áp (mmHg)
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <span className="text-[10px] text-slate-400 block mb-0.5">
-                      Tâm thu (Systolic)
+                    <span className="text-[10px] text-slate-400 block mb-1">
+                      Tâm thu (SYS)
                     </span>
                     <input
                       type="number"
@@ -1113,12 +1063,12 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                       placeholder="120"
                       value={bpSystolic}
                       onChange={(e) => setBpSystolic(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm bg-white"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 font-bold tabular-nums text-sm bg-white focus:border-[#2E37A4] outline-hidden"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] text-slate-400 block mb-0.5">
-                      Tâm trương (Diastolic)
+                    <span className="text-[10px] text-slate-400 block mb-1">
+                      Tâm trương (DIA)
                     </span>
                     <input
                       type="number"
@@ -1128,15 +1078,15 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                       placeholder="80"
                       value={bpDiastolic}
                       onChange={(e) => setBpDiastolic(e.target.value)}
-                      className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm bg-white"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 font-bold tabular-nums text-sm bg-white focus:border-[#2E37A4] outline-hidden"
                     />
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Đường huyết (mmol/L)
+                <label className="block font-semibold text-slate-700 mb-1.5">
+                  Đường huyết mao mạch (mmol/L)
                 </label>
                 <input
                   type="number"
@@ -1147,21 +1097,21 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                   placeholder="Ví dụ: 5.6"
                   value={newGlucose}
                   onChange={(e) => setNewGlucose(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 font-mono font-bold text-sm bg-white"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 font-bold tabular-nums text-sm bg-white focus:border-[#2E37A4] outline-hidden"
                 />
               </div>
 
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2.5 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowVitalsModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50"
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-bold cursor-pointer"
+                  className="flex-1 py-2.5 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-semibold cursor-pointer shadow-xs transition-colors"
                 >
                   Lưu số đo
                 </button>

@@ -21,7 +21,7 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
     expect(screen.getByText('6.8')).toHaveClass('font-bold', 'tabular-nums');
   });
 
-  it('ensures all 6 Family Portal & ContractSigningWizard source files contain no font-mono, font-black, or font-extrabold', () => {
+  it('ensures all Family Portal & ContractSigningWizard source files contain no font-mono, font-black, or font-extrabold', () => {
     const familyFiles = [
       '../family-dashboard-view.tsx',
       '../../../family-members/components/family-members-view.tsx',
@@ -29,6 +29,7 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
       '../../../billing/components/family-billing-view.tsx',
       '../../../subscription-contract/components/subscription-contract-view.tsx',
       '../../../subscription-contract/components/contract-signing-wizard.tsx',
+      '../../../chronic-care/components/chronic-care-view.tsx',
     ];
 
     for (const relPath of familyFiles) {

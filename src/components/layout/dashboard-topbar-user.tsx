@@ -10,27 +10,27 @@ export function DashboardTopbarUser() {
   return (
     <Link
       href="/settings"
-      className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-100 transition-colors group"
+      className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-slate-200/70 transition-colors group outline-hidden"
       title="Hồ sơ tài khoản & Cài đặt"
     >
       <div className="relative">
-        <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center font-bold text-xs ring-2 ring-[#2E37A4]/20 group-hover:ring-[#2E37A4]/40 transition-all">
+        <div className="w-8 h-8 rounded-full bg-[#2E37A4] text-white flex items-center justify-center font-semibold text-xs shrink-0">
           {user?.avatarText || 'FD'}
         </div>
         <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
       </div>
       <div className="hidden md:flex flex-col text-left">
-        <span className="text-xs font-bold text-slate-800 leading-tight group-hover:text-[#2E37A4] transition-colors truncate max-w-[140px]">
+        <span className="text-xs font-semibold text-slate-900 leading-tight group-hover:text-[#2E37A4] transition-colors truncate max-w-[140px]">
           {user?.name}
         </span>
-        <span className="text-[10px] text-slate-400 font-medium leading-none mt-0.5">
+        <span className="text-xs text-slate-600 font-medium leading-tight mt-0.5">
           {role === 'ADMIN' && 'Super Admin'}
           {role === 'FACILITY' && 'Quản trị Cơ sở Y tế'}
           {role === 'DOCTOR' && 'Bác sĩ CCHN'}
           {(role === 'FAMILY' || role === 'PATIENT') && 'Đại diện Hộ gia đình'}
         </span>
       </div>
-      <span className="material-symbols-outlined text-[16px] text-slate-400 group-hover:text-slate-600 hidden md:block">
+      <span className="material-symbols-outlined text-[16px] text-slate-600 group-hover:text-slate-900 hidden md:block">
         keyboard_arrow_down
       </span>
     </Link>

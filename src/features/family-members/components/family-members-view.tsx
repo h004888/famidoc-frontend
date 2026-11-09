@@ -203,6 +203,7 @@ export function FamilyMembersView() {
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [showChangeDoctorModal, setShowChangeDoctorModal] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Form Thêm Người Thân Mới
   const [newName, setNewName] = useState('');
@@ -267,48 +268,69 @@ export function FamilyMembersView() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
+  const filteredMembers = membersList.filter((m) => {
+    if (!searchQuery.trim()) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      m.name.toLowerCase().includes(q) ||
+      m.bhytNumber.toLowerCase().includes(q) ||
+      m.relationship.toLowerCase().includes(q)
+    );
+  });
+
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
-      <main className="max-w-6xl mx-auto py-5 sm:py-7 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* 1. HEADER QUẢN LÝ THÀNH VIÊN & SỔ HỘ KHẨU Y TẾ (GỌN PHẲNG, KHÔNG HỘP LỒNG NHAU) */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-            <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-              <div className="w-12 h-12 rounded-2xl bg-[#2E37A4] text-white flex items-center justify-center shadow-xs shrink-0">
-                <span className="material-symbols-outlined text-[24px]">badge</span>
+      <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* 1. HEADER CANVAS THOÁNG ĐÃNG ĐỒNG BỘ VỚI /family */}
+        <header className="space-y-4">
+          <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
+            <Link
+              href="/family"
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-[#2E37A4] transition-colors"
+            >
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              <span>Bảng Sức Khỏe Gia Đình</span>
+            </Link>
+            <span className="text-slate-300">/</span>
+            <span className="text-slate-800 font-semibold">Danh Bạ Thành Viên</span>
+          </nav>
+
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="space-y-2 min-w-0">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                  Hộ #FAM-88219
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                  <span>{membersList.length} thành viên y tế</span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
+                  <span className="material-symbols-outlined text-[14px] text-slate-500">verified</span>
+                  <span>Đồng bộ VssID Quốc Gia</span>
+                </span>
               </div>
 
-              <div className="space-y-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[11px] font-mono font-bold text-[#2E37A4] bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200/80">
-                    Hộ #FAM-88219
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                    <span>{membersList.length} thành viên</span>
-                  </span>
-                </div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
+                Sổ Hộ Khẩu Y Tế &amp; Danh Bạ Thành Viên
+              </h1>
 
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
-                  Sổ Hộ Khẩu Y Tế &amp; Danh Bạ Thành Viên
-                </h1>
-
-                <p className="text-xs text-slate-500">
-                  Quản lý thông tin thẻ BHYT, nơi khám chữa bệnh ban đầu và bác sĩ phụ trách của từng
-                  người thân
-                </p>
-              </div>
+              <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
+                Quản lý tập trung hồ sơ sức khỏe, thẻ BHYT quốc gia, nơi khám chữa bệnh ban đầu và bác sĩ gia đình phụ trách cho từng người thân.
+              </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* Cụm nút hành động tinh gọn & phân cấp chuẩn */}
+            <div className="flex flex-wrap items-center gap-3 shrink-0">
               <button
                 type="button"
                 onClick={() => setShowAddMemberModal(true)}
-                className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all whitespace-nowrap outline-hidden cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[18px]">person_add</span>
+                <span className="material-symbols-outlined text-[20px]">person_add</span>
                 <span>Thêm thành viên</span>
               </button>
+
               <button
                 type="button"
                 onClick={() => {
@@ -316,88 +338,163 @@ export function FamilyMembersView() {
                   setTimeout(() => setToastMessage(null), 3000);
                   window.print();
                 }}
-                className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all whitespace-nowrap outline-hidden cursor-pointer"
               >
-                <span className="material-symbols-outlined text-[17px]">download</span>
+                <span className="material-symbols-outlined text-[18px] text-slate-500">download</span>
                 <span>Xuất PDF</span>
               </button>
             </div>
           </div>
+        </header>
 
-          {/* Dòng thông tin chung của hộ — Phẳng, thoáng, không đóng khung */}
-          <div className="mt-4 pt-3.5 border-t border-slate-100 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 text-xs text-slate-500">
-            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
-              <span>
-                Chủ hộ: <strong className="text-slate-800">Ông Nguyễn Văn Phúc</strong> (0912 345 678)
-              </span>
-              <span className="hidden sm:inline text-slate-300">•</span>
-              <span>
-                Địa chỉ khám tại nhà:{' '}
-                <strong className="text-slate-800">124 Nguyễn Đình Chiểu, Q.1, TP.HCM</strong>
-              </span>
+        {/* 2. DẢI THÔNG TIN HỘ GIA ĐÌNH (HOUSEHOLD OVERVIEW STRIP) */}
+        <section
+          aria-label="Thông tin hộ gia đình"
+          className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-xs"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            {/* Đại diện hộ */}
+            <div className="flex items-start gap-4 pt-2 md:pt-0">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0 border border-blue-100 shadow-2xs">
+                <span className="material-symbols-outlined text-[24px]">account_circle</span>
+              </div>
+              <div className="space-y-1 text-xs">
+                <span className="text-slate-400 font-medium block">Đại diện chủ hộ</span>
+                <div className="font-bold text-base text-slate-900">Ông Nguyễn Văn Phúc</div>
+                <div className="text-slate-500 tabular-nums">SĐT liên hệ: 0912 345 678</div>
+              </div>
             </div>
 
-            <span className="text-[#2E37A4] font-bold">
-              Gói Bác Sĩ Gia Đình Toàn Diện VIP
+            {/* Địa chỉ y tế */}
+            <div className="flex items-start gap-4 pt-4 md:pt-0 md:pl-6">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100 shadow-2xs">
+                <span className="material-symbols-outlined text-[24px]">home_health</span>
+              </div>
+              <div className="space-y-1 text-xs">
+                <span className="text-slate-400 font-medium block">Địa chỉ khám tại nhà</span>
+                <div className="font-bold text-base text-slate-900 truncate">
+                  124 Nguyễn Đình Chiểu, Q.1
+                </div>
+                <div className="text-slate-500">TP. Hồ Chí Minh · Bác sĩ đến trong 15p</div>
+              </div>
+            </div>
+
+            {/* Hợp đồng chăm sóc */}
+            <div className="flex items-start gap-4 pt-4 md:pt-0 md:pl-6">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#2E37A4] flex items-center justify-center shrink-0 border border-indigo-100 shadow-2xs">
+                <span className="material-symbols-outlined text-[24px]">workspace_premium</span>
+              </div>
+              <div className="space-y-1 text-xs">
+                <span className="text-slate-400 font-medium block">Gói chăm sóc hiện tại</span>
+                <div className="font-bold text-base text-[#2E37A4]">
+                  Gói Bác Sĩ Toàn Diện VIP
+                </div>
+                <div className="text-slate-500">
+                  Hợp đồng #FMD-HD-88219 · <span className="text-emerald-700 font-medium">Đang hiệu lực</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 3. BỘ LỌC TÌM KIẾM NHANH */}
+        <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">contacts</span>
+              <span>Danh Sách Người Thân ({filteredMembers.length})</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              Hồ sơ bảo hiểm y tế và phân bổ bác sĩ phụ trách từng cá nhân
+            </p>
+          </div>
+
+          <div className="relative w-full sm:w-80">
+            <span className="material-symbols-outlined absolute left-3.5 top-3 text-slate-400 text-[18px]">
+              search
             </span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo tên, mã BHYT, vai trò..."
+              className="w-full pl-10 pr-4 py-2.5 text-xs sm:text-sm bg-white border border-slate-200/90 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/10 shadow-xs"
+            />
           </div>
-        </div>
+        </section>
 
-        {/* 2. DANH SÁCH THÀNH VIÊN (THIẾT KẾ PHẲNG, PHÂN TÁCH BẰNG ĐƯỜNG KẺ MẢNH, KHÔNG HỘP LỒNG NHAU) */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] overflow-hidden">
-          {/* Tiêu đề cột trên Desktop */}
-          <div className="hidden lg:grid lg:grid-cols-12 gap-4 px-6 py-3.5 bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-            <div className="col-span-4">Thành viên &amp; Nhóm máu</div>
-            <div className="col-span-3">Mã thẻ BHYT &amp; Nơi KCB</div>
-            <div className="col-span-3">Bác sĩ &amp; Lưu ý y khoa</div>
-            <div className="col-span-2 text-right">Thao tác</div>
-          </div>
+        {/* 4. DANH SÁCH THÀNH VIÊN — THIẾT KẾ CARD THOÁNG ĐÃNG & CHI TIẾT */}
+        <section className="space-y-6">
+          {filteredMembers.map((m) => {
+            const initials = getInitials(m.name);
+            const ageDisplay = m.birthDate.split('(')[1]?.replace(')', '') || m.birthDate;
+            const birthOnly = m.birthDate.split('(')[0]?.trim() || m.birthDate;
+            const hasRealAllergy = !m.allergies.some((a) =>
+              a.toLowerCase().includes('không có')
+            );
+            const latestEHR = MOCK_EHR[m.id]?.[0];
 
-          {/* Các dòng thành viên phân cách bằng đường kẻ ngang nhẹ */}
-          <div className="divide-y divide-slate-100">
-            {membersList.map((m) => {
-              const initials = getInitials(m.name);
-              const ageDisplay = m.birthDate.split('(')[1]?.replace(')', '') || m.birthDate;
-              const birthOnly = m.birthDate.split('(')[0]?.trim() || m.birthDate;
-              const hasRealAllergy = !m.allergies.some((a) =>
-                a.toLowerCase().includes('không có')
-              );
-
-              return (
-                <div
-                  key={m.id}
-                  className="p-5 sm:px-6 hover:bg-slate-50/50 transition-colors grid grid-cols-1 lg:grid-cols-12 gap-4 lg:items-center"
-                >
-                  {/* Cột 1: Định danh thành viên */}
-                  <div className="lg:col-span-4 flex items-center gap-3.5 min-w-0">
-                    <div className="w-11 h-11 rounded-full bg-blue-50 text-[#2E37A4] font-extrabold text-xs flex items-center justify-center shrink-0">
+            return (
+              <div
+                key={m.id}
+                className="group bg-white rounded-2xl border border-slate-200/70 hover:border-slate-300 shadow-xs hover:shadow-md transition-all overflow-hidden space-y-5 p-6"
+              >
+                {/* Phần 1: Header của Thành Viên */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <div className="w-14 h-14 rounded-2xl bg-blue-50 text-[#2E37A4] font-bold text-base flex items-center justify-center shrink-0 border border-blue-100 shadow-2xs group-hover:scale-105 transition-transform">
                       {initials}
                     </div>
 
                     <div className="min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2.5">
                         <Link
                           href={`/family/members/${m.id}`}
-                          className="font-bold text-sm sm:text-base text-slate-900 hover:text-[#2E37A4] transition-colors truncate"
+                          className="font-bold text-base sm:text-lg text-slate-900 hover:text-[#2E37A4] transition-colors truncate"
                         >
                           {m.name}
                         </Link>
-                        <span className="text-[11px] font-mono font-bold text-rose-600 shrink-0">
-                          • Nhóm {m.bloodType}
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50/80 text-[#2E37A4] border border-blue-200/70">
+                          {m.relationship}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-rose-50 text-rose-700 border border-rose-200/70 inline-flex items-center gap-1">
+                          <span className="material-symbols-outlined text-[14px]">bloodtype</span>
+                          <span>Nhóm {m.bloodType}</span>
                         </span>
                       </div>
 
-                      <div className="text-xs text-slate-500 mt-0.5 truncate">
-                        {m.relationship} • {ageDisplay} ({birthOnly}) • {m.gender}
+                      <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2 font-medium">
+                        <span>{m.gender}</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="tabular-nums">{ageDisplay}</span>
+                        <span className="text-slate-300">·</span>
+                        <span className="tabular-nums">Sinh ngày: {birthOnly}</span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Cột 2: Thẻ BHYT & Nơi đăng ký KCB */}
-                  <div className="lg:col-span-3 text-xs space-y-0.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-slate-400 lg:hidden">BHYT:</span>
-                      <span className="font-mono font-bold text-slate-900">{m.bhytNumber}</span>
+                  <div className="flex items-center gap-3 shrink-0 self-start md:self-auto">
+                    <Link
+                      href={`/family/members/${m.id}`}
+                      className="min-h-10 px-4 py-2 rounded-xl bg-blue-50/80 hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white font-semibold text-xs sm:text-sm inline-flex items-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <span>Xem hồ sơ y bạ</span>
+                      <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Phần 2: 3 Khối Thông Tin Trọng Yếu (BHYT, Bác sĩ, Tiền sử) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  {/* Khối 1: Thẻ BHYT & Tuyến KCB */}
+                  <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-emerald-600">
+                          badge
+                        </span>
+                        <span>Mã Thẻ BHYT</span>
+                      </span>
                       <button
                         type="button"
                         onClick={() => {
@@ -405,95 +502,189 @@ export function FamilyMembersView() {
                           setToastMessage(`Đã sao chép mã BHYT: ${m.bhytNumber}`);
                           setTimeout(() => setToastMessage(null), 3000);
                         }}
-                        className="text-slate-400 hover:text-[#2E37A4] cursor-pointer inline-flex items-center"
+                        className="text-[11px] font-semibold text-[#2E37A4] hover:underline cursor-pointer inline-flex items-center gap-1"
                         title="Sao chép mã BHYT"
                       >
-                        <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                        <span className="material-symbols-outlined text-[13px]">content_copy</span>
+                        <span>Sao chép</span>
                       </button>
                     </div>
-                    <div className="text-slate-500 truncate">{m.bhytHospital}</div>
+
+                    <div className="font-bold tabular-nums text-sm text-slate-900 tracking-wide">
+                      {m.bhytNumber}
+                    </div>
+
+                    <div className="text-xs text-slate-500 flex items-start gap-1.5 pt-0.5">
+                      <span className="material-symbols-outlined text-[15px] text-slate-400 mt-0.5 shrink-0">
+                        local_hospital
+                      </span>
+                      <span className="line-clamp-2">{m.bhytHospital}</span>
+                    </div>
                   </div>
 
-                  {/* Cột 3: Bác sĩ phụ trách & Lưu ý bệnh nền */}
-                  <div className="lg:col-span-3 text-xs space-y-0.5 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-800 truncate">
-                        {m.assignedDoctor.name}
+                  {/* Khối 2: Bác sĩ gia đình phụ trách */}
+                  <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-[16px] text-[#2E37A4]">
+                          stethoscope
+                        </span>
+                        <span>Bác Sĩ Phụ Trách</span>
                       </span>
                       <button
                         type="button"
                         onClick={() => setShowChangeDoctorModal(m.id)}
-                        className="text-[11px] font-bold text-[#2E37A4] hover:underline shrink-0 cursor-pointer"
+                        className="text-[11px] font-semibold text-[#2E37A4] hover:underline cursor-pointer"
                       >
-                        Đổi
+                        Đổi bác sĩ
                       </button>
                     </div>
 
-                    <div className="text-slate-500 truncate">
-                      {m.chronicDiseases[0]}
-                      {hasRealAllergy && (
-                        <span className="text-amber-700 font-medium">
-                          {' '}
-                          • Dị ứng: {m.allergies[0]}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-slate-200 shrink-0 border border-slate-300">
+                        <img
+                          src={m.assignedDoctor.avatar}
+                          alt={m.assignedDoctor.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-xs text-slate-900 truncate">
+                          {m.assignedDoctor.name}
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate">
+                          {m.assignedDoctor.hospital}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-[11px] text-slate-500 truncate pt-0.5">
+                      {m.assignedDoctor.title}
                     </div>
                   </div>
 
-                  {/* Cột 4: Nút xem hồ sơ */}
-                  <div className="lg:col-span-2 flex items-center justify-end pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-                    <Link
-                      href={`/family/members/${m.id}`}
-                      className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-blue-50/80 hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white font-bold text-xs inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap"
-                    >
-                      <span>Xem hồ sơ</span>
-                      <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-                    </Link>
+                  {/* Khối 3: Bệnh nền mạn tính & Dị ứng */}
+                  <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-100 space-y-2">
+                    <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px] text-amber-600">
+                        warning
+                      </span>
+                      <span>Lưu Ý Bệnh Nền &amp; Dị Ứng</span>
+                    </div>
+
+                    <div className="space-y-1.5 text-xs">
+                      <div className="flex flex-wrap gap-1.5">
+                        {m.chronicDiseases.map((cd, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-slate-200/70 text-slate-700"
+                          >
+                            {cd}
+                          </span>
+                        ))}
+                      </div>
+
+                      {hasRealAllergy && (
+                        <div className="text-[11px] text-amber-800 bg-amber-50/80 border border-amber-200/70 px-2 py-1 rounded-md flex items-center gap-1.5">
+                          <span className="material-symbols-outlined text-[14px] text-amber-600 shrink-0">
+                            emergency
+                          </span>
+                          <span>Dị ứng: {m.allergies.join(', ')}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
 
-          {/* Dòng chân trang bảo mật gọn nhẹ */}
-          <div className="px-5 sm:px-6 py-3 bg-slate-50/60 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-500">
-            <span className="flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[15px] text-emerald-600">
-                verified_user
-              </span>
-              <span>
-                Dữ liệu hộ tịch &amp; bệnh án gia đình được bảo mật theo Nghị định 13/2023/NĐ-CP và
-                tiêu chuẩn HIPAA.
-              </span>
+                {/* Phần 3: Nhật ký tương tác khám y khoa gần nhất */}
+                {latestEHR && (
+                  <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                      <span className="text-slate-500 shrink-0">
+                        Lần khám gần nhất: <strong className="text-slate-700 tabular-nums">{latestEHR.date}</strong>
+                      </span>
+                      <span className="hidden md:inline text-slate-300">·</span>
+                      <span className="text-slate-600 truncate hidden md:inline">
+                        {latestEHR.typeLabel}: {latestEHR.diagnosis}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-3 shrink-0">
+                      {latestEHR.vitalSigns && (
+                        <div className="flex items-center gap-2 text-[11px] font-bold tabular-nums text-slate-700 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/60">
+                          <span>HA: {latestEHR.vitalSigns.bp}</span>
+                          <span className="text-slate-300">·</span>
+                          <span>SpO2: {latestEHR.vitalSigns.spo2}</span>
+                        </div>
+                      )}
+                      <Link
+                        href={`/family/members/${m.id}`}
+                        className="text-xs font-semibold text-[#2E37A4] hover:underline"
+                      >
+                        Chi tiết bệnh án
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </section>
+
+        {/* 5. CHÂN TRANG BẢO MẬT & ĐỒNG BỘ DỮ LIỆU */}
+        <footer className="p-5 rounded-2xl bg-white border border-slate-200/70 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
+              <span className="material-symbols-outlined text-[18px]">verified_user</span>
+            </div>
+            <span>
+              Dữ liệu hộ tịch &amp; bệnh án điện tử được mã hóa đầu cuối theo Nghị định 13/2023/NĐ-CP và tiêu chuẩn bảo mật y tế HIPAA.
             </span>
-            <span className="text-slate-400">Đã đồng bộ VssID Quốc gia</span>
           </div>
-        </div>
+          <span className="font-semibold text-slate-600 shrink-0 self-start sm:self-auto">
+            Hệ thống Quản lý Bác sĩ Gia đình FamiDoc Pro
+          </span>
+        </footer>
       </main>
 
       {/* MODAL THÊM THÀNH VIÊN MỚI */}
       {showAddMemberModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2 text-[#2E37A4]">
-                <span className="material-symbols-outlined text-[24px]">person_add</span>
-                <h3 className="font-bold text-base text-slate-900">
-                  Thêm Người Thân Vào Sổ Hộ Tịch Y Tế
-                </h3>
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
+            {/* Header Modal */}
+            <div className="px-6 py-5 bg-[#2E37A4] text-white flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[22px]">person_add</span>
+                </div>
+                <div className="min-w-0">
+                  <h3 className="font-bold text-base text-white truncate">
+                    Thêm Người Thân Vào Sổ Hộ Tịch Y Tế
+                  </h3>
+                  <p className="text-xs text-blue-100 truncate mt-0.5">
+                    Hộ gia đình #FAM-88219 · Gói Bác sĩ Gia đình Toàn diện VIP
+                  </p>
+                </div>
               </div>
+
               <button
                 type="button"
                 onClick={() => setShowAddMemberModal(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 cursor-pointer"
+                aria-label="Đóng cửa sổ"
+                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors"
               >
-                ✕
+                <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleAddMemberSubmit} className="space-y-3.5 text-xs">
+            <form onSubmit={handleAddMemberSubmit} className="p-6 space-y-4 text-xs">
               <div>
-                <label className="block font-bold text-slate-700 mb-1">
+                <label className="block font-semibold text-slate-700 mb-1">
                   Họ và tên người thân <span className="text-rose-500">*</span>
                 </label>
                 <input
@@ -502,13 +693,13 @@ export function FamilyMembersView() {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Ví dụ: Nguyễn Thị Lan"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/15 outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Quan hệ với chủ hộ
                   </label>
                   <select
@@ -527,7 +718,7 @@ export function FamilyMembersView() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Ngày tháng năm sinh
                   </label>
                   <input
@@ -541,27 +732,29 @@ export function FamilyMembersView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Giới tính
                   </label>
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
                       onClick={() => setNewGender('Nam')}
-                      className={`py-2 rounded-xl font-bold border transition-all cursor-pointer ${newGender === 'Nam'
+                      className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
+                        newGender === 'Nam'
                           ? 'bg-blue-50 border-[#2E37A4] text-[#2E37A4]'
                           : 'border-slate-200 text-slate-600'
-                        }`}
+                      }`}
                     >
                       Nam
                     </button>
                     <button
                       type="button"
                       onClick={() => setNewGender('Nữ')}
-                      className={`py-2 rounded-xl font-bold border transition-all cursor-pointer ${newGender === 'Nữ'
+                      className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
+                        newGender === 'Nữ'
                           ? 'bg-rose-50 border-rose-500 text-rose-600'
                           : 'border-slate-200 text-slate-600'
-                        }`}
+                      }`}
                     >
                       Nữ
                     </button>
@@ -569,7 +762,7 @@ export function FamilyMembersView() {
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Nhóm máu
                   </label>
                   <select
@@ -588,7 +781,7 @@ export function FamilyMembersView() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Mã số thẻ BHYT
                   </label>
                   <input
@@ -596,12 +789,12 @@ export function FamilyMembersView() {
                     value={newBhyt}
                     onChange={(e) => setNewBhyt(e.target.value)}
                     placeholder="VD: GD4790123891024"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-mono font-bold uppercase text-xs focus:border-[#2E37A4] outline-none"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-bold tabular-nums uppercase text-xs focus:border-[#2E37A4] outline-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">
+                  <label className="block font-semibold text-slate-700 mb-1">
                     Nơi ĐKKCB ban đầu
                   </label>
                   <input
@@ -614,7 +807,7 @@ export function FamilyMembersView() {
                 </div>
               </div>
 
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2.5">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
                     <label className="block font-semibold text-slate-600 mb-1 text-[11px]">
@@ -624,7 +817,7 @@ export function FamilyMembersView() {
                       type="text"
                       value={newAllergies}
                       onChange={(e) => setNewAllergies(e.target.value)}
-                      placeholder="VD: Penicillin..."
+                      placeholder="VD: Penicillin, Tôm cua..."
                       className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-xs focus:border-[#2E37A4] outline-none"
                     />
                   </div>
@@ -637,7 +830,7 @@ export function FamilyMembersView() {
                       type="text"
                       value={newChronic}
                       onChange={(e) => setNewChronic(e.target.value)}
-                      placeholder="VD: Huyết áp..."
+                      placeholder="VD: Huyết áp, Dạ dày..."
                       className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-xs focus:border-[#2E37A4] outline-none"
                     />
                   </div>
@@ -648,13 +841,13 @@ export function FamilyMembersView() {
                 <button
                   type="button"
                   onClick={() => setShowAddMemberModal(false)}
-                  className="flex-1 py-2.5 text-xs sm:text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 text-xs sm:text-sm font-bold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[18px]">check_circle</span>
                   <span>Lưu vào sổ hộ tịch</span>
@@ -667,22 +860,30 @@ export function FamilyMembersView() {
 
       {/* MODAL ĐỔI BÁC SĨ PHỤ TRÁCH */}
       {showChangeDoctorModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95">
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/80 space-y-4 animate-in fade-in zoom-in-95 my-auto">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-base text-slate-900">
-                Đổi Bác Sĩ Gia Đình Phụ Trách
-              </h3>
+              <div className="flex items-center gap-2.5 text-[#2E37A4]">
+                <span className="material-symbols-outlined text-[22px]">stethoscope</span>
+                <h3 className="font-bold text-base text-slate-900">
+                  Đổi Bác Sĩ Gia Đình Phụ Trách
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setShowChangeDoctorModal(null)}
-                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 cursor-pointer"
+                aria-label="Đóng cửa sổ"
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
               >
-                ✕
+                <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
             </div>
 
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-slate-500 leading-relaxed">
               Bạn có thể chỉ định bác sĩ gia đình phù hợp với nhu cầu chuyên khoa của từng thành viên (Nội khoa, Sản phụ khoa, Nhi khoa hoặc Lão khoa).
             </p>
 
@@ -701,13 +902,15 @@ export function FamilyMembersView() {
                     setShowChangeDoctorModal(null);
                     setTimeout(() => setToastMessage(null), 3000);
                   }}
-                  className="w-full p-3 rounded-xl border border-slate-200 hover:border-[#2E37A4] hover:bg-blue-50/50 text-left transition-colors flex items-center justify-between cursor-pointer"
+                  className="w-full p-3.5 rounded-xl border border-slate-200/80 hover:border-[#2E37A4] hover:bg-blue-50/40 text-left transition-colors flex items-center justify-between cursor-pointer group"
                 >
                   <div>
-                    <div className="font-bold text-slate-900">{doc.name}</div>
-                    <div className="text-[11px] text-slate-500">{doc.spec}</div>
+                    <div className="font-bold text-slate-900 group-hover:text-[#2E37A4] transition-colors">
+                      {doc.name}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-0.5">{doc.spec}</div>
                   </div>
-                  <span className="material-symbols-outlined text-[18px] text-[#2E37A4]">
+                  <span className="material-symbols-outlined text-[18px] text-slate-300 group-hover:text-[#2E37A4] transition-colors">
                     check_circle
                   </span>
                 </button>
@@ -732,7 +935,7 @@ export function FamilyMembersView() {
             className="ml-2 text-slate-400 hover:text-white cursor-pointer"
             aria-label="Đóng thông báo"
           >
-            ✕
+            <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
         </div>
       )}
