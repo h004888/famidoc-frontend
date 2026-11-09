@@ -141,9 +141,24 @@
 }
 
 /* Medsev Typography Standard: Poppins everywhere */
+:root {
+  --foreground: #0a1e30;
+}
+
 html, body, button, input, select, textarea {
   font-family: 'Poppins', var(--font-sans), sans-serif;
 }
+
+/* ─── Scrollbar tự ẩn — hiện khi rê chuột ─────────────── */
+* { --scrollbar-thumb: transparent; }
+*:hover { --scrollbar-thumb: color-mix(in oklch, var(--foreground, #09090b) 22%, transparent); }
+* { scrollbar-width: thin; scrollbar-color: var(--scrollbar-thumb) transparent; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: color-mix(in oklch, var(--foreground, #09090b) 38%, transparent); }
+.scrollbar-clean { scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-clean::-webkit-scrollbar { display: none; }
 
 body {
   background-color: var(--color-background);

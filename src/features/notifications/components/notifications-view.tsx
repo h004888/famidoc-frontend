@@ -3,88 +3,91 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 
-export type NotificationChannel = 'in_app' | 'sms' | 'zalo' | 'email';
+export type NotificationCategory = 'vitals' | 'appointment' | 'medication' | 'billing';
 
 export interface NotificationItem {
   id: string;
-  category: 'clinical' | 'telemetry' | 'financial' | 'system';
+  category: NotificationCategory;
+  categoryLabel: string;
   title: string;
   message: string;
   timestamp: string;
   isRead: boolean;
-  channels: NotificationChannel[];
-  linkHref?: string;
-  linkLabel?: string;
-  severity?: 'info' | 'warning' | 'urgent';
+  linkHref: string;
+  linkLabel: string;
+  isUrgent?: boolean;
 }
 
 const INITIAL_NOTIFICATIONS: NotificationItem[] = [
   {
     id: 'NOTIF-01',
-    category: 'telemetry',
-    title: 'Cảnh báo Chỉ số Huyết áp Vượt ngưỡng Mục tiêu',
-    message: 'Thiết bị IoT Omron ghi nhận huyết áp cụ Nguyễn Văn Phúc lúc 06:45 sáng nay là 142/92 mmHg. Bác sĩ gia đình PGS.TS Nguyễn Trọng Nghĩa đã được đồng bộ thông báo tự động.',
+    category: 'vitals',
+    categoryLabel: 'Cảnh báo sức khỏe',
+    title: 'Huyết áp của Ông Nguyễn Văn Phúc hơi cao (135/85 mmHg)',
+    message:
+      'Số đo sáng nay cao hơn ngưỡng mục tiêu. Gia đình nhắc Ông uống thuốc huyết áp đúng giờ và đo lại sau 30 phút nghỉ ngơi.',
     timestamp: '15 phút trước',
     isRead: false,
-    channels: ['in_app', 'sms', 'zalo'],
     linkHref: '/family/vitals',
-    linkLabel: 'Xem biểu đồ sinh tồn',
-    severity: 'urgent',
+    linkLabel: 'Xem chỉ số',
+    isUrgent: true,
   },
   {
     id: 'NOTIF-02',
-    category: 'clinical',
-    title: 'Bác sĩ Đã Phát hành & Ký số Đơn Thuốc Điện Tử (1NF)',
-    message: 'Đơn thuốc số #RX-88219-01 đã được ký số HSM Viettel-CA và cập nhật vào Tủ thuốc gia đình. Mã tra cứu đơn thuốc quốc gia: DT-2026-88219.',
+    category: 'appointment',
+    categoryLabel: 'Lịch hẹn khám',
+    title: 'Xác nhận lịch Bác sĩ khám tại nhà (09:30 • 27/10/2026)',
+    message:
+      'PGS.TS Nguyễn Trọng Nghĩa sẽ đến khám định kỳ và đo điện tim tại nhà cho Ông Nguyễn Văn Phúc.',
     timestamp: '1 giờ trước',
     isRead: false,
-    channels: ['in_app', 'zalo'],
-    linkHref: '/family/members',
-    linkLabel: 'Xem đơn thuốc chi tiết',
-    severity: 'info',
+    linkHref: '/family/appointments',
+    linkLabel: 'Xem lịch hẹn',
   },
   {
     id: 'NOTIF-03',
-    category: 'financial',
-    title: 'Xác nhận Quyết toán VietQR & Cấp Biên lai Kỳ hạn',
-    message: 'Giao dịch 4.245.000 đ cho gói Chăm Sóc Gia Đình Toàn Diện (Kỳ 1) đã được cổng BIDV Escrow xác thực tự động qua Webhook Napas 24/7.',
+    category: 'medication',
+    categoryLabel: 'Nhắc dùng thuốc',
+    title: 'Đã cập nhật đơn thuốc mới cho Ông Nguyễn Văn Phúc',
+    message:
+      'Bác sĩ phụ trách đã kê đơn thuốc điều trị huyết áp và đường huyết tháng 10 vào hồ sơ sức khỏe gia đình.',
     timestamp: '3 giờ trước',
     isRead: false,
-    channels: ['in_app', 'sms', 'email'],
-    linkHref: '/family/billing',
-    linkLabel: 'Tải biên lai thanh toán',
-    severity: 'info',
+    linkHref: '/family/members/mem-01',
+    linkLabel: 'Xem lịch thuốc',
   },
   {
     id: 'NOTIF-04',
-    category: 'clinical',
-    title: 'Nhắc Lịch Thăm Khám Y Học Gia Đình Tận Nhà',
-    message: 'Lịch khám định kỳ bệnh mạn tính cho cụ Nguyễn Văn Phúc dự kiến diễn ra vào Thứ Hai lúc 09:00 sáng. Bác sĩ trưởng khoa sẽ đến trực tiếp tại địa chỉ gia đình.',
+    category: 'billing',
+    categoryLabel: 'Thanh toán & Biên lai',
+    title: 'Đã phát hành biên lai điện tử gói Xét nghiệm tại nhà',
+    message:
+      'Khoản thanh toán 850.000 đ qua VietQR đã hoàn tất. Bạn có thể tải biên lai PDF bất kỳ lúc nào.',
     timestamp: 'Hôm qua, 18:30',
     isRead: true,
-    channels: ['in_app', 'sms', 'zalo'],
-    linkHref: '/family/appointments',
-    linkLabel: 'Kiểm tra lịch hẹn',
-    severity: 'info',
+    linkHref: '/family/billing',
+    linkLabel: 'Xem biên lai',
   },
   {
     id: 'NOTIF-05',
-    category: 'system',
-    title: 'Xác thực CCHN & Chữ Ký Số Y Tế Thành Công',
-    message: 'Hệ thống đã hoàn tất liên thông kiểm tra mã chứng chỉ hành nghề CCHN-004128/BYT trên cổng cơ sở dữ liệu Bộ Y Tế Việt Nam.',
+    category: 'appointment',
+    categoryLabel: 'Lịch hẹn khám',
+    title: 'Hoàn tất buổi tư vấn Video cho Con Nguyễn Minh Quân',
+    message:
+      'BS.CKII Trần Mai Phương đã gửi lời dặn chăm sóc hô hấp và đơn thuốc xịt mũi vào hồ sơ của bé.',
     timestamp: '2 ngày trước',
     isRead: true,
-    channels: ['in_app', 'email'],
-    linkHref: '/doctor/verification',
-    linkLabel: 'Xem hồ sơ CCHN',
-    severity: 'info',
+    linkHref: '/family/members/mem-03',
+    linkLabel: 'Xem hồ sơ bé',
   },
 ];
 
 export function NotificationsView() {
-  const [notifications, setNotifications] = useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedChannel, setSelectedChannel] = useState<string>('all');
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
+  const [activeFilter, setActiveFilter] = useState<
+    'all' | 'unread' | NotificationCategory
+  >('all');
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -103,227 +106,246 @@ export function NotificationsView() {
   };
 
   const filteredNotifications = notifications.filter((item) => {
-    const matchCategory =
-      selectedCategory === 'all' || item.category === selectedCategory;
-    const matchChannel =
-      selectedChannel === 'all' ||
-      item.channels.includes(selectedChannel as NotificationChannel);
-    return matchCategory && matchChannel;
+    if (activeFilter === 'all') return true;
+    if (activeFilter === 'unread') return !item.isRead;
+    return item.category === activeFilter;
   });
 
+  const getCategoryStyle = (category: NotificationCategory, isUrgent?: boolean) => {
+    if (isUrgent || category === 'vitals') {
+      return {
+        icon: 'vital_signs',
+        badgeBg: 'bg-rose-50 text-rose-600 border-rose-200/80',
+        tagText: 'text-rose-700 bg-rose-50',
+      };
+    }
+    if (category === 'appointment') {
+      return {
+        icon: 'calendar_month',
+        badgeBg: 'bg-blue-50 text-[#2E37A4] border-blue-200/80',
+        tagText: 'text-[#2E37A4] bg-blue-50',
+      };
+    }
+    if (category === 'medication') {
+      return {
+        icon: 'medication',
+        badgeBg: 'bg-emerald-50 text-emerald-600 border-emerald-200/80',
+        tagText: 'text-emerald-700 bg-emerald-50',
+      };
+    }
+    return {
+      icon: 'receipt_long',
+      badgeBg: 'bg-amber-50 text-amber-700 border-amber-200/80',
+      tagText: 'text-amber-800 bg-amber-50',
+    };
+  };
+
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      <div className="max-w-6xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Header Preclinic Style */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-              <span>Hệ thống</span>
-              <span className="text-slate-300">/</span>
-              <span className="text-[#2E37A4] font-semibold">Trung tâm thông báo đa kênh</span>
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+      <main className="max-w-6xl mx-auto py-5 sm:py-7 px-4 sm:px-6 lg:px-8 space-y-5">
+        {/* 1. HEADER THÔNG BÁO GIA ĐÌNH (GỌN GÀNG, DỄ HIỂU) */}
+        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-[#2E37A4] text-white flex items-center justify-center shadow-xs shrink-0">
+              <span className="material-symbols-outlined text-[24px]">
+                notifications_active
+              </span>
             </div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Multi-Channel Notification Hub
-              </h1>
-              {unreadCount > 0 && (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 text-rose-600 border border-rose-200 animate-pulse">
-                  {unreadCount} chưa đọc
-                </span>
-              )}
+
+            <div className="space-y-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                  Thông Báo Gia Đình
+                </h1>
+                {unreadCount > 0 ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200 tabular-nums">
+                    {unreadCount} tin chưa đọc
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Đã xem tất cả
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-slate-500">
+                Cập nhật cảnh báo chỉ số sức khỏe, lịch hẹn bác sĩ, đơn thuốc và biên lai của gia
+                đình
+              </p>
             </div>
-            <p className="text-xs text-slate-500 mt-1 max-w-2xl">
-              Giám sát và điều phối luồng thông báo y tế đa kênh tự động: In-App, SMS Brandname, Zalo ZNS và Email mã hóa.
-            </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
             <button
+              type="button"
               onClick={markAllAsRead}
               disabled={unreadCount === 0}
-              className="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 disabled:opacity-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
+              className="px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 disabled:opacity-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-colors inline-flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
             >
-              <span className="material-symbols-outlined text-[17px] text-[#2E37A4]">done_all</span>
-              <span>Đánh dấu đã đọc</span>
+              <span className="material-symbols-outlined text-[17px] text-[#2E37A4]">
+                done_all
+              </span>
+              <span>Đọc tất cả</span>
             </button>
+
             <Link
               href="/settings"
-              className="px-3.5 py-2 bg-[#2E37A4] hover:bg-[#222982] text-white font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
+              className="px-3.5 py-2.5 bg-blue-50/80 hover:bg-blue-100 text-[#2E37A4] border border-blue-200/80 font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1.5"
             >
               <span className="material-symbols-outlined text-[17px]">tune</span>
-              <span>Cài đặt nhận tin</span>
+              <span>Cài đặt</span>
             </Link>
           </div>
         </div>
 
-        {/* Filters Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-          {/* Categories Tab */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 scrollbar-none text-xs">
-            {[
-              { id: 'all', label: 'Tất cả' },
-              { id: 'telemetry', label: 'Cảnh báo Sinh tồn IoT' },
-              { id: 'clinical', label: 'Lịch khám & Đơn thuốc' },
-              { id: 'financial', label: 'Thanh toán & Escrow' },
-              { id: 'system', label: 'Hệ thống & CCHN' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setSelectedCategory(tab.id)}
-                className={`px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  selectedCategory === tab.id
-                    ? 'bg-[#2E37A4] text-white font-bold shadow-2xs'
-                    : 'bg-slate-50 text-slate-600 hover:text-slate-900 hover:bg-slate-100 border border-slate-200/80'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+        {/* 2. KHUNG DANH SÁCH THÔNG BÁO PHẲNG (GỘP THANH LỌC VÀ DANH SÁCH VÀO 1 MẶT PHẲNG) */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] overflow-hidden">
+          {/* Thanh lọc gọn trên đầu danh sách */}
+          <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3 overflow-x-auto">
+            <div className="flex items-center gap-1.5 text-xs">
+              {[
+                { id: 'all', label: `Tất cả (${notifications.length})` },
+                { id: 'unread', label: `Chưa đọc (${unreadCount})` },
+                { id: 'vitals', label: 'Sức khỏe' },
+                { id: 'appointment', label: 'Lịch khám' },
+                { id: 'medication', label: 'Đơn thuốc' },
+                { id: 'billing', label: 'Thanh toán' },
+              ].map((tab) => {
+                const isActive = activeFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setActiveFilter(tab.id as typeof activeFilter)}
+                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      isActive
+                        ? 'bg-[#2E37A4] text-white shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <span className="text-xs text-slate-400 hidden md:inline shrink-0">
+              Bấm vào thông báo để đánh dấu đã đọc
+            </span>
           </div>
 
-          {/* Channels Filter Dropdown / Pills */}
-          <div className="flex items-center gap-2 shrink-0 text-xs">
-            <span className="text-slate-400 font-medium hidden sm:inline">Kênh gửi:</span>
-            <select
-              value={selectedChannel}
-              onChange={(e) => setSelectedChannel(e.target.value)}
-              className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 font-semibold focus:outline-none focus:border-[#2E37A4]"
-            >
-              <option value="all">Mọi kênh phát tán</option>
-              <option value="in_app">Ứng dụng (In-App)</option>
-              <option value="sms">SMS Brandname FamiDoc</option>
-              <option value="zalo">Zalo ZNS Y Tế</option>
-              <option value="email">Email Thông Báo</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Notifications Stream */}
-        <div className="space-y-3">
+          {/* Danh sách thông báo ngăn cách bằng đường kẻ mảnh (Không dùng nhiều hộp rời rạc) */}
           {filteredNotifications.length === 0 ? (
-            <div className="bg-white p-12 text-center rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-3">
+            <div className="p-12 text-center space-y-2">
               <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-                <span className="material-symbols-outlined text-[28px]">notifications_off</span>
+                <span className="material-symbols-outlined text-[26px]">
+                  notifications_off
+                </span>
               </div>
-              <h3 className="font-bold text-slate-800 text-base">Không có thông báo nào phù hợp</h3>
-              <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                Hiện tại không có thông báo mới trong bộ lọc đã chọn. Bạn có thể chọn danh mục khác để xem lịch sử.
+              <h3 className="font-bold text-slate-800 text-sm">
+                Không có thông báo nào trong mục này
+              </h3>
+              <p className="text-xs text-slate-400">
+                Khi có lịch khám hoặc cập nhật sức khỏe mới, hệ thống sẽ hiển thị tại đây.
               </p>
             </div>
           ) : (
-            filteredNotifications.map((item) => (
-              <div
-                key={item.id}
-                onClick={() => markAsRead(item.id)}
-                className={`p-5 rounded-2xl border transition-all flex flex-col sm:flex-row items-start justify-between gap-4 cursor-pointer relative overflow-hidden ${
-                  !item.isRead
-                    ? 'bg-white border-[#2E37A4]/30 shadow-[0_2px_12px_rgba(46,55,164,0.06)] ring-1 ring-[#2E37A4]/10'
-                    : 'bg-white border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.02)] hover:border-slate-300'
-                }`}
-              >
-                {/* Active Indicator Bar */}
-                {!item.isRead && (
-                  <span className="absolute top-0 left-0 bottom-0 w-1 bg-[#2E37A4]"></span>
-                )}
+            <div className="divide-y divide-slate-100">
+              {filteredNotifications.map((item) => {
+                const style = getCategoryStyle(item.category, item.isUrgent);
 
-                <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                  {/* Category Icon */}
+                return (
                   <div
-                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      item.category === 'telemetry'
-                        ? 'bg-rose-50 text-rose-600'
-                        : item.category === 'clinical'
-                        ? 'bg-blue-50 text-[#2E37A4]'
-                        : item.category === 'financial'
-                        ? 'bg-emerald-50 text-emerald-600'
-                        : 'bg-slate-100 text-slate-600'
+                    key={item.id}
+                    onClick={() => markAsRead(item.id)}
+                    className={`p-4 sm:px-6 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer ${
+                      !item.isRead
+                        ? 'bg-blue-50/25 hover:bg-blue-50/40'
+                        : 'bg-white hover:bg-slate-50/60'
                     }`}
                   >
-                    <span className="material-symbols-outlined text-[20px]">
-                      {item.category === 'telemetry'
-                        ? 'vital_signs'
-                        : item.category === 'clinical'
-                        ? 'clinical_notes'
-                        : item.category === 'financial'
-                        ? 'payments'
-                        : 'notifications'}
-                    </span>
-                  </div>
-
-                  <div className="space-y-1 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3
-                        className={`text-sm font-bold truncate ${
-                          !item.isRead ? 'text-slate-900' : 'text-slate-700'
-                        }`}
+                    {/* Bên trái: Icon + Nội dung */}
+                    <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                      <div
+                        className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${style.badgeBg}`}
                       >
-                        {item.title}
-                      </h3>
-                      {!item.isRead && (
-                        <span className="w-2 h-2 rounded-full bg-[#2E37A4] shrink-0"></span>
-                      )}
-                      {item.severity === 'urgent' && (
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
-                          Khẩn cấp
+                        <span className="material-symbols-outlined text-[20px]">
+                          {style.icon}
                         </span>
-                      )}
-                    </div>
+                      </div>
 
-                    <p className="text-xs text-slate-600 leading-relaxed font-normal">
-                      {item.message}
-                    </p>
-
-                    {/* Metadata & Multi-Channels */}
-                    <div className="flex items-center gap-3 pt-2 text-[11px] text-slate-400 flex-wrap">
-                      <span className="flex items-center gap-1 tabular-nums">
-                        <span className="material-symbols-outlined text-[14px]">schedule</span>
-                        {item.timestamp}
-                      </span>
-                      <span>•</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-slate-500">Đã phát kênh:</span>
-                        {item.channels.map((ch) => (
+                      <div className="space-y-1 min-w-0 flex-1">
+                        {/* Dòng nhãn loại & thời gian */}
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
                           <span
-                            key={ch}
-                            className="px-1.5 py-0.2 rounded bg-slate-100 text-slate-600 tabular-nums font-bold uppercase text-[9px]"
+                            className={`px-2 py-0.5 rounded-md font-bold ${style.tagText}`}
                           >
-                            {ch === 'in_app' ? 'App' : ch === 'sms' ? 'SMS' : ch === 'zalo' ? 'ZNS' : 'Email'}
+                            {item.categoryLabel}
                           </span>
-                        ))}
+                          <span className="text-slate-400 font-medium">
+                            • {item.timestamp}
+                          </span>
+                          {!item.isRead && (
+                            <span className="inline-flex items-center gap-1 text-[#2E37A4] font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#2E37A4]" />
+                              Mới
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Tiêu đề thông báo */}
+                        <h3
+                          className={`text-sm leading-snug ${
+                            !item.isRead
+                              ? 'font-bold text-slate-900'
+                              : 'font-semibold text-slate-700'
+                          }`}
+                        >
+                          {item.title}
+                        </h3>
+
+                        {/* Nội dung chi tiết */}
+                        <p className="text-xs text-slate-500 leading-relaxed">
+                          {item.message}
+                        </p>
                       </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Right Action Items */}
-                <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                  {item.linkHref && (
-                    <Link
-                      href={item.linkHref}
-                      className="px-3 py-1.5 bg-slate-50 hover:bg-[#2E37A4]/10 text-[#2E37A4] hover:text-[#222982] rounded-xl text-xs font-bold transition-colors border border-slate-200/80 flex items-center gap-1"
-                    >
-                      <span>{item.linkLabel || 'Chi tiết'}</span>
-                      <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                    </Link>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      deleteNotification(item.id);
-                    }}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                    title="Xóa thông báo"
-                    aria-label="Xóa thông báo"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                  </button>
-                </div>
-              </div>
-            ))
+                    {/* Bên phải: Nút chuyển trang & Nút xóa */}
+                    <div className="flex items-center justify-end gap-2 shrink-0 pl-13 sm:pl-0">
+                      <Link
+                        href={item.linkHref}
+                        onClick={(e) => e.stopPropagation()}
+                        className="px-3.5 py-2 rounded-xl bg-slate-100/90 hover:bg-[#2E37A4] text-slate-700 hover:text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                      >
+                        <span>{item.linkLabel}</span>
+                        <span className="material-symbols-outlined text-[15px]">
+                          arrow_forward
+                        </span>
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteNotification(item.id);
+                        }}
+                        className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors cursor-pointer"
+                        title="Xóa thông báo"
+                        aria-label="Xóa thông báo"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          close
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
-      </div>
+      </main>
     </div>
   );
 }
-
