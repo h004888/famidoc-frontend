@@ -814,18 +814,18 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
             {/* Filter Tabs */}
             <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl self-start sm:self-auto overflow-x-auto">
-              {[
+              {([
                 { id: 'all', label: 'Tất cả' },
                 { id: 'home_visit', label: 'Khám tại nhà' },
                 { id: 'telehealth', label: 'Telehealth' },
                 { id: 'lab_result', label: 'Xét nghiệm' },
-              ].map((f) => {
+              ] as const).map((f) => {
                 const isActive = ehrFilter === f.id;
                 return (
                   <button
                     key={f.id}
                     type="button"
-                    onClick={() => setEhrFilter(f.id as any)}
+                    onClick={() => setEhrFilter(f.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                       isActive
                         ? 'bg-white text-slate-900 shadow-xs'
