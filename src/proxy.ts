@@ -65,8 +65,13 @@ export function proxy(request: NextRequest) {
       return redirectUserToRoleHome(currentRole, request);
     }
 
-    // 4. Phân hệ Gia đình: Chỉ tài khoản FAMILY hoặc PATIENT mới được vào
-    if (isProtectedFamily && currentRole !== 'FAMILY' && currentRole !== 'PATIENT') {
+    // 4. Phân hệ Gia đình: Chỉ tài khoản FAMILY, FAMILY_REP hoặc PATIENT mới được vào
+    if (
+      isProtectedFamily &&
+      currentRole !== 'FAMILY' &&
+      currentRole !== 'FAMILY_REP' &&
+      currentRole !== 'PATIENT'
+    ) {
       return redirectUserToRoleHome(currentRole, request);
     }
   }

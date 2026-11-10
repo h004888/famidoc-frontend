@@ -1,7 +1,8 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { patientsApi } from '@/lib/api';
 
 export interface MemberProfile {
   id: string;
@@ -205,6 +206,50 @@ export function FamilyMembersView() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  useEffect(() => {
+    let mounted = true;
+    patientsApi
+      .getFamilyMembers()
+      .then((data) => {
+        if (!mounted || !data || data.length === 0) return;
+        const mapped: MemberProfile[] = data.map((p) => {
+          const birthYear = p.dateOfBirth ? new Date(p.dateOfBirth).getFullYear() : 2000;
+          const age = Math.max(0, 2026 - birthYear);
+          return {
+            id: p.id,
+            name: p.fullName,
+            relationship: p.relationshipToHead === 'SELF' ? 'Chủ hộ (Đại diện)' : p.relationshipToHead,
+            birthDate: p.dateOfBirth ? `${new Date(p.dateOfBirth).toLocaleDateString('vi-VN')} (${age} tuổi)` : 'Chưa cập nhật',
+            gender: p.gender === 'FEMALE' ? 'Nữ' : 'Nam',
+            avatar: p.gender === 'FEMALE' ? '👩' : '👨',
+            bloodType: 'O+',
+            bhytNumber: p.healthInsuranceNumber || 'ĐANG CẬP NHẬT',
+            bhytHospital: 'BV Đại học Y Dược TP.HCM',
+            allergies: p.allergies && p.allergies.length > 0
+              ? p.allergies.map((a) => `${a.allergen} (${a.severity})`)
+              : ['Không có tiền sử dị ứng'],
+            chronicDiseases: ['Theo dõi định kỳ'],
+            emergencyContact: {
+              name: 'Đại diện gia đình',
+              phone: '0912 345 678',
+              relation: 'Đại diện hộ',
+            },
+            assignedDoctor: {
+              name: 'BS. CKII Lê Hoàng Nam',
+              title: 'Bác sĩ Gia đình Trưởng khoa',
+              hospital: 'BV Đại học Y Dược TP.HCM',
+              avatar: '👨‍⚕️',
+            },
+          };
+        });
+        setMembersList(mapped);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // Form Thêm Người Thân Mới
   const [newName, setNewName] = useState('');
   const [newBirthDate, setNewBirthDate] = useState('');
@@ -216,7 +261,7 @@ export function FamilyMembersView() {
   const [newAllergies, setNewAllergies] = useState('');
   const [newChronic, setNewChronic] = useState('');
 
-  const handleAddMemberSubmit = (e: React.FormEvent) => {
+  const handleAddMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
 
@@ -227,45 +272,91 @@ export function FamilyMembersView() {
       formattedBirth = `${d}/${m}/${y} (${age} tuổi)`;
     }
 
-    const newId = `mem-0${membersList.length + 1}`;
-    const createdMember: MemberProfile = {
-      id: newId,
-      name: newName.trim(),
-      relationship: newRelation,
-      birthDate: formattedBirth,
-      gender: newGender,
-      avatar: '👤',
-      bloodType: newBloodType,
-      bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
-      bhytHospital: newBhytHospital,
-      allergies: newAllergies.trim()
-        ? newAllergies.split(',').map((s) => s.trim()).filter(Boolean)
-        : ['Không có tiền sử dị ứng'],
-      chronicDiseases: newChronic.trim()
-        ? newChronic.split(',').map((s) => s.trim()).filter(Boolean)
-        : ['Không có bệnh nền mạn tính'],
-      emergencyContact: {
-        name: 'Nguyễn Văn Phúc (Chủ hộ)',
-        phone: '0912 345 678',
-        relation: 'Đại diện hộ gia đình',
-      },
-      assignedDoctor: {
-        name: 'PGS.TS Nguyễn Trọng Nghĩa',
-        title: 'Bác sĩ Gia đình Phụ trách Hộ #FAM-88219',
-        hospital: 'BV Đại học Y Dược TP.HCM',
-        avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-      },
-    };
+    try {
+      const created = await patientsApi.createFamilyMember({
+        fullName: newName.trim(),
+        dateOfBirth: newBirthDate || '2000-01-01',
+        gender: newGender === 'Nữ' ? 'FEMALE' : 'MALE',
+        relationshipToHead:
+          newRelation === 'Vợ' || newRelation === 'Chồng'
+            ? 'SPOUSE'
+            : newRelation.includes('Con')
+              ? 'CHILD'
+              : 'OTHER',
+        healthInsuranceNumber: newBhyt.trim() || undefined,
+      });
 
-    setMembersList((prev) => [...prev, createdMember]);
-    setShowAddMemberModal(false);
+      const createdMember: MemberProfile = {
+        id: created.id,
+        name: created.fullName,
+        relationship: newRelation,
+        birthDate: formattedBirth,
+        gender: newGender,
+        avatar: newGender === 'Nữ' ? '👩' : '👦',
+        bloodType: newBloodType,
+        bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
+        bhytHospital: newBhytHospital,
+        allergies: newAllergies.trim()
+          ? newAllergies.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['Không có tiền sử dị ứng'],
+        chronicDiseases: newChronic.trim()
+          ? newChronic.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['Không có bệnh nền mạn tính'],
+        emergencyContact: {
+          name: 'Nguyễn Văn Phúc (Chủ hộ)',
+          phone: '0912 345 678',
+          relation: 'Đại diện hộ gia đình',
+        },
+        assignedDoctor: {
+          name: 'BS. CKII Lê Hoàng Nam',
+          title: 'Bác sĩ Gia đình Trưởng khoa',
+          hospital: newBhytHospital,
+          avatar: '👨‍⚕️',
+        },
+      };
+
+      setMembersList((prev) => [...prev, createdMember]);
+      setShowAddMemberModal(false);
+      setToastMessage(`Đã thêm thành công người thân "${createdMember.name}" vào sổ hộ tịch y tế!`);
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch {
+      const newId = `mem-0${membersList.length + 1}`;
+      const createdMember: MemberProfile = {
+        id: newId,
+        name: newName.trim(),
+        relationship: newRelation,
+        birthDate: formattedBirth,
+        gender: newGender,
+        avatar: newGender === 'Nữ' ? '👩' : '👦',
+        bloodType: newBloodType,
+        bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
+        bhytHospital: newBhytHospital,
+        allergies: ['Không có tiền sử dị ứng'],
+        chronicDiseases: ['Không có bệnh nền mạn tính'],
+        emergencyContact: {
+          name: 'Nguyễn Văn Phúc (Chủ hộ)',
+          phone: '0912 345 678',
+          relation: 'Đại diện hộ gia đình',
+        },
+        assignedDoctor: {
+          name: 'BS. CKII Lê Hoàng Nam',
+          title: 'Bác sĩ Gia đình Trưởng khoa',
+          hospital: newBhytHospital,
+          avatar: '👨‍⚕️',
+        },
+      };
+
+      setMembersList((prev) => [...prev, createdMember]);
+      setShowAddMemberModal(false);
+      setToastMessage(`Đã thêm thành công người thân "${createdMember.name}" vào sổ hộ tịch y tế!`);
+      setTimeout(() => setToastMessage(null), 4000);
+    }
+
     setNewName('');
     setNewBirthDate('');
     setNewBhyt('');
     setNewAllergies('');
     setNewChronic('');
-    setToastMessage(`Đã thêm thành công người thân "${createdMember.name}" vào sổ hộ tịch y tế!`);
-    setTimeout(() => setToastMessage(null), 4000);
   };
 
   const filteredMembers = membersList.filter((m) => {

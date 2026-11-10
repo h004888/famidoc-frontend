@@ -10,13 +10,14 @@ import {
   clearAuthSession,
   getStoredAuthSession,
 } from '@/lib/auth-storage';
+import { httpClient } from '@/lib/api/http-client';
 
 interface AuthContextType {
   role: LoginRole;
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (role: LoginRole, phone?: string, password?: string) => Promise<void>;
+  login: (roleOrIdentifier: string, passwordOrPhone?: string, password?: string) => Promise<void>;
   logout: () => void;
   getDefaultPathForRole: (r: LoginRole) => string;
 }
@@ -64,21 +65,76 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, []);
 
-  const login = async (selectedRole: LoginRole) => {
+  const login = async (roleOrIdentifier: string, passwordOrPhone?: string, password?: string) => {
     setIsLoading(true);
-    const assignedUser = DEFAULT_USERS[selectedRole];
-    saveAuthSession(selectedRole, assignedUser);
-    setRole(selectedRole);
-    setUser(assignedUser);
-    setIsAuthenticated(true);
-    setIsLoading(false);
+    try {
+      const isRoleCall =
+        ['FAMILY', 'PATIENT', 'DOCTOR', 'FACILITY', 'ADMIN'].includes(roleOrIdentifier.toUpperCase()) &&
+        !password &&
+        !passwordOrPhone?.includes('@') &&
+        passwordOrPhone !== 'Password@123';
 
-    // Chuyển hướng vào trang riêng biệt của Role
-    const redirectPath = getDefaultPathForRole(selectedRole);
-    if (typeof window !== 'undefined') {
-      window.location.replace(redirectPath);
-    } else {
-      router.push(redirectPath);
+      if (isRoleCall) {
+        const selectedRole = roleOrIdentifier.toUpperCase() as LoginRole;
+        const assignedUser = DEFAULT_USERS[selectedRole];
+        saveAuthSession(selectedRole, assignedUser);
+        setRole(selectedRole);
+        setUser(assignedUser);
+        setIsAuthenticated(true);
+        setIsLoading(false);
+
+        const redirectPath = getDefaultPathForRole(selectedRole);
+        if (typeof window !== 'undefined') {
+          window.location.replace(redirectPath);
+        } else {
+          router.push(redirectPath);
+        }
+        return;
+      }
+
+      // Đăng nhập thực tế với Backend NestJS
+      const identifier = roleOrIdentifier.trim();
+      const pwd = password || passwordOrPhone || '';
+
+      const res = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier, password: pwd }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Tài khoản hoặc mật khẩu không chính xác');
+      }
+
+      const data = await res.json();
+      const assignedRole = (data.user?.role?.toUpperCase() as LoginRole) || 'FAMILY';
+      const assignedUser: AuthUser = {
+        id: data.user?.id || 'usr-1',
+        name: data.user?.fullName || identifier,
+        email: data.user?.email || identifier,
+        role: assignedRole,
+        avatarText: (data.user?.fullName || identifier).slice(0, 2).toUpperCase(),
+      };
+
+      if (data.accessToken) {
+        httpClient.setToken(data.accessToken);
+      }
+      saveAuthSession(assignedRole, assignedUser, data.accessToken);
+      setRole(assignedRole);
+      setUser(assignedUser);
+      setIsAuthenticated(true);
+      setIsLoading(false);
+
+      const redirectPath = getDefaultPathForRole(assignedRole);
+      if (typeof window !== 'undefined') {
+        window.location.replace(redirectPath);
+      } else {
+        router.push(redirectPath);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      throw err;
     }
   };
 

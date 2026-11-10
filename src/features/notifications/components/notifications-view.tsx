@@ -154,11 +154,11 @@ export function NotificationsView() {
 
             <div className="space-y-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">
+                <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
                   Thông Báo Gia Đình
                 </h1>
                 {unreadCount > 0 ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200">
+                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200 tabular-nums">
                     {unreadCount} tin chưa đọc
                   </span>
                 ) : (
@@ -297,7 +297,7 @@ export function NotificationsView() {
                         <h3
                           className={`text-sm leading-snug ${
                             !item.isRead
-                              ? 'font-extrabold text-slate-900'
+                              ? 'font-bold text-slate-900'
                               : 'font-semibold text-slate-700'
                           }`}
                         >

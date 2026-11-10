@@ -4,10 +4,13 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { loginSchema, LoginRole } from '../schemas/auth.schema';
-import { useAuth } from '../context/auth-context';
-import { DEFAULT_USERS } from '@/lib/auth-storage';
+import { useAuth, getDefaultPathForRole } from '../context/auth-context';
+import { saveAuthSession, AuthUser } from '@/lib/auth-storage';
+import { httpClient } from '@/lib/api/http-client';
+import { useRouter } from 'next/navigation';
 
 export function LoginForm() {
+  const router = useRouter();
   const { login } = useAuth();
   const searchParams = useSearchParams();
   const isRegisteredSuccess = searchParams.get('registered') === 'true';
@@ -35,24 +38,50 @@ export function LoginForm() {
     }
 
     setLoading(true);
-    // Tự động phân giải vai trò nếu nhập email hoặc số điện thoại thuộc các tài khoản hệ thống (hoặc mặc định FAMILY)
-    const cleanInput = email.trim().toLowerCase();
-    const cleanDigits = email.replace(/\D/g, '');
-    const matchedUser = Object.values(DEFAULT_USERS).find(
-      (u) =>
-        u.email?.toLowerCase() === cleanInput ||
-        (cleanDigits.length > 0 && u.phone?.replace(/\D/g, '') === cleanDigits)
-    );
-    const resolvedRole: LoginRole = matchedUser ? matchedUser.role : 'FAMILY';
 
     try {
-      await login(resolvedRole, email, password);
+      const res = await fetch('/api/v1/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identifier: email.trim(), password }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        setErrors({
+          global: errorData.message || 'Tài khoản hoặc mật khẩu không chính xác',
+        });
+        setLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      const rawRole = (data.user?.role?.toUpperCase() || 'FAMILY') as string;
+      const role: LoginRole = rawRole === 'FAMILY_REP' ? 'FAMILY' : (rawRole as LoginRole);
+      const authUser: AuthUser = {
+        id: data.user?.id || 'usr-1',
+        name: data.user?.fullName || email,
+        email: data.user?.email || email,
+        role,
+        avatarText: (data.user?.fullName || email).slice(0, 2).toUpperCase(),
+      };
+
+      if (data.accessToken) {
+        httpClient.setToken(data.accessToken);
+      }
+      saveAuthSession(role, authUser, data.accessToken);
+      setLoading(false);
+
+      const redirectPath = getDefaultPathForRole(role);
+      if (typeof window !== 'undefined') {
+        window.location.replace(redirectPath);
+      } else {
+        router.push(redirectPath);
+      }
     } catch {
       setLoading(false);
+      setErrors({ global: 'Không thể kết nối đến máy chủ đăng nhập' });
     }
-    setTimeout(() => {
-      setLoading(false);
-    }, 2500);
   };
 
   return (

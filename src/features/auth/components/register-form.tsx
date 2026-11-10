@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -97,7 +97,7 @@ export function RegisterForm() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
@@ -118,10 +118,33 @@ export function RegisterForm() {
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/v1/auth/register-representative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          phone: formData.phone,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          acceptTerms: formData.acceptTerms,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        setErrors({ global: errData.message || 'Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.' });
+        setLoading(false);
+        return;
+      }
+
       setLoading(false);
-      router.push('/login?registered=true');
-    }, 800);
+      router.push(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
+    } catch {
+      setLoading(false);
+      router.push(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
+    }
   };
 
   return (

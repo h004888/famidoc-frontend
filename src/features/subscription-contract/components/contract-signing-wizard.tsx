@@ -478,15 +478,23 @@ export function ContractSigningWizard({
                 </p>
               </div>
 
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 max-w-xs mx-auto space-y-2">
+              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 max-w-sm mx-auto space-y-2.5">
                 <div className="text-xs text-slate-500">Mã hóa đơn: <strong>INV-FMD-REGR821</strong></div>
                 <div className="text-lg font-bold tabular-nums text-[#2563eb]">{packagePrice}</div>
-                <Link
-                  href="/family/billing"
-                  className="block w-full py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
-                >
-                  Mở Mã VietQR Thanh Toán Ngay
-                </Link>
+                <div className="flex flex-col gap-2 pt-1">
+                  <Link
+                    href="/family/subscription/tracking"
+                    className="block w-full py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+                  >
+                    Theo dõi tiến độ ký kết 4 bên
+                  </Link>
+                  <Link
+                    href="/family/billing"
+                    className="block w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                  >
+                    Mở Mã VietQR Thanh Toán Ngay
+                  </Link>
+                </div>
               </div>
             </div>
           )}

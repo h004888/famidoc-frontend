@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import { DoctorDetailView } from './doctor-detail-view';
+import { publicApi } from '@/lib/api';
 
 // Types
 export interface Doctor {
@@ -318,9 +319,65 @@ export function DoctorDirectoryView() {
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [selectedDetailType] = useState<'doctor' | 'facility'>('doctor');
 
+  const [doctorsList, setDoctorsList] = useState<Doctor[]>(MOCK_DOCTORS);
+  const [facilitiesList, setFacilitiesList] = useState<Facility[]>(MOCK_FACILITIES);
+
+  useEffect(() => {
+    publicApi
+      .getDoctors()
+      .then((docs) => {
+        if (docs && docs.length > 0) {
+          const mapped: Doctor[] = docs.map((d) => ({
+            id: d.id,
+            name: d.fullName,
+            title: d.title || 'BS.CKII',
+            specialty: d.specialty || 'Y học Gia đình',
+            specialtyKey: 'general',
+            cchnNumber: 'CCHN-004128/HCM',
+            experienceYears: 15,
+            rating: d.rating || 4.9,
+            reviewCount: 48,
+            consultationCount: 210,
+            hospital: d.facilityName || 'Bệnh viện Đại học Y Dược TP.HCM',
+            location: 'TP. Hồ Chí Minh',
+            avatarUrl: d.avatar || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&auto=format&fit=crop&q=80',
+            services: ['home', 'telehealth', 'clinic'],
+            fee: '350.000đ',
+            bio: d.bio || 'Bác sĩ chuyên khoa y học gia đình và chăm sóc sức khỏe ban đầu.',
+            education: ['Đại học Y Dược TP.HCM'],
+            schedule: 'Thứ 2 - Thứ 6 (08:00 - 17:00)',
+          }));
+          setDoctorsList(mapped);
+        }
+      })
+      .catch(() => {});
+
+    publicApi
+      .getFacilities()
+      .then((facs) => {
+        if (facs && facs.length > 0) {
+          const mapped: Facility[] = facs.map((f) => ({
+            id: f.id,
+            name: f.name,
+            type: 'Bệnh viện Tuyến Trung Ương',
+            address: f.address || '215 Hồng Bàng, Phường 11, Quận 5, TP.HCM',
+            city: 'TP. Hồ Chí Minh',
+            phone: f.phone || '1900 6868',
+            workingHours: '24/7 (Cấp cứu & Ngoại trú)',
+            imageUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&auto=format&fit=crop&q=80',
+            specialties: ['Nội Tổng Quát', 'Lão Khoa', 'Nhi Khoa'],
+            privileges: ['Ưu tiên luồng khám', 'Bảo lãnh viện phí trực tiếp'],
+            bedCount: '1.000+ giường',
+          }));
+          setFacilitiesList(mapped);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Filtered Doctors
   const filteredDoctors = useMemo(() => {
-    return MOCK_DOCTORS.filter((doc) => {
+    return doctorsList.filter((doc) => {
       const matchSearch =
         searchQuery.trim() === '' ||
         doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -335,11 +392,11 @@ export function DoctorDirectoryView() {
 
       return matchSearch && matchSpecialty && matchCity;
     });
-  }, [searchQuery, selectedSpecialty, selectedCity]);
+  }, [doctorsList, searchQuery, selectedSpecialty, selectedCity]);
 
   // Filtered Facilities
   const filteredFacilities = useMemo(() => {
-    return MOCK_FACILITIES.filter((fac) => {
+    return facilitiesList.filter((fac) => {
       const matchSearch =
         searchQuery.trim() === '' ||
         fac.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -350,7 +407,7 @@ export function DoctorDirectoryView() {
 
       return matchSearch && matchCity;
     });
-  }, [searchQuery, selectedCity]);
+  }, [facilitiesList, searchQuery, selectedCity]);
 
   if (selectedDetailId) {
     return (
