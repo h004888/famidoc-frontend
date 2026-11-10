@@ -1,18 +1,24 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
 import { PackageItem } from '../schemas/package.schema';
 import { formatCurrencyVND } from '@/lib/utils';
+import { useAuth } from '@/features/auth/context/auth-context';
 
 export function PackageCard({ pkg, onSelect }: { pkg: PackageItem; onSelect?: (pkg: PackageItem) => void }) {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
 
   const handleRegister = () => {
     if (onSelect) {
       onSelect(pkg);
     } else {
-      router.push(`/register?packageId=${pkg.id}`);
+      if (isAuthenticated) {
+        router.push(`/family/subscription?packageId=${pkg.id}`);
+      } else {
+        router.push(`/register?packageId=${pkg.id}`);
+      }
     }
   };
 

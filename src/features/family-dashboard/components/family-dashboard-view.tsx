@@ -95,7 +95,7 @@ export function FamilyDashboardView() {
               </h1>
 
               <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                Trung tâm điều hành sức khỏe hằng ngày · Theo dõi chỉ số sinh hiệu, nhắc lịch uống thuốc và lịch khám bác sĩ tại nhà
+                Trung tâm điều hành sức khỏe hằng ngày · Theo dõi chỉ số sức khỏe, nhắc lịch uống thuốc và lịch khám bác sĩ tại nhà
               </p>
             </div>
 
@@ -110,7 +110,7 @@ export function FamilyDashboardView() {
               </Link>
 
               <Link
-                href="/family/appointments"
+                href="/family/telemedicine"
                 className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all whitespace-nowrap outline-hidden"
               >
                 <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">videocam</span>
@@ -223,12 +223,11 @@ export function FamilyDashboardView() {
           </div>
         </section>
 
-        {/* 4. MA TRẬN SINH HIỆU THÀNH VIÊN — THIẾT KẾ CARD THOÁNG MẮT, RÕ RÀNG */}
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-                Chỉ Số Sinh Hiệu Hôm Nay Của Các Thành Viên ({totalMembers})
+                Chỉ Số sức khỏe Hôm Nay Của Các Thành Viên ({totalMembers})
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                 Cập nhật tự động từ thiết bị đo IoT gia đình và sổ theo dõi hàng ngày
@@ -273,31 +272,27 @@ export function FamilyDashboardView() {
                     </div>
 
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${
-                        isWarning
-                          ? 'bg-amber-50 text-amber-800 border border-amber-200/80'
-                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
-                      }`}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${isWarning
+                        ? 'bg-amber-50 text-amber-800 border border-amber-200/80'
+                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
+                        }`}
                     >
                       <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                          isWarning ? 'bg-amber-500' : 'bg-emerald-500'
-                        }`}
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${isWarning ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
                       />
                       <span>{isWarning ? 'Cần chú ý' : 'Ổn định'}</span>
                     </span>
                   </div>
 
-                  {/* Hàng 2: 4 Chỉ số sinh hiệu hiển thị dạng ô mềm, thoáng và chuẩn tabular-nums */}
                   <div className="grid grid-cols-4 gap-2.5 p-3 rounded-xl bg-slate-50/70 border border-slate-100/90">
                     <div className="text-center">
                       <span className="text-[11px] font-medium text-slate-500 block truncate">
                         Huyết áp
                       </span>
                       <span
-                        className={`font-bold tabular-nums text-sm sm:text-base mt-1 block truncate ${
-                          isWarning ? 'text-amber-800' : 'text-slate-900'
-                        }`}
+                        className={`font-bold tabular-nums text-sm sm:text-base mt-1 block truncate ${isWarning ? 'text-amber-800' : 'text-slate-900'
+                          }`}
                       >
                         {m.bp}
                       </span>
@@ -331,13 +326,13 @@ export function FamilyDashboardView() {
                     </div>
                   </div>
 
-                  {/* Hàng 3: Tiến độ thuốc & Nút mở hồ sơ 360° */}
+                  {/* Hàng 3: Tiến độ thuốc & Nút mở hồ sơ chi tiết */}
                   <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-500">
                     <span className="truncate">
-                      Thuốc {medTaken}/{medTotal} cữ · {m.lastUpdated}
+                      Thuốc {medTaken}/{medTotal} liều thuốc · {m.lastUpdated}
                     </span>
                     <span className="font-semibold text-[#2E37A4] group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5 shrink-0">
-                      <span>Chi tiết 360°</span>
+                      <span>Chi tiết</span>
                       <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </span>
                   </div>
@@ -378,9 +373,8 @@ export function FamilyDashboardView() {
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
                       <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                          isTaken ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-[#2E37A4]'
-                        }`}
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isTaken ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-[#2E37A4]'
+                          }`}
                       >
                         <span className="material-symbols-outlined text-[18px]">
                           {isTaken ? 'check' : 'medication'}
@@ -399,11 +393,10 @@ export function FamilyDashboardView() {
                     <button
                       type="button"
                       onClick={() => handleToggleMedStatus(item.memberId, originalMedId)}
-                      className={`min-h-9 px-4 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-colors cursor-pointer outline-hidden whitespace-nowrap ${
-                        isTaken
-                          ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80'
-                          : 'bg-white hover:bg-slate-100 text-[#2E37A4] border border-slate-300'
-                      }`}
+                      className={`min-h-9 px-4 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-colors cursor-pointer outline-hidden whitespace-nowrap ${isTaken
+                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80'
+                        : 'bg-white hover:bg-slate-100 text-[#2E37A4] border border-slate-300'
+                        }`}
                     >
                       {isTaken ? 'Đã uống' : 'Bấm đã uống'}
                     </button>

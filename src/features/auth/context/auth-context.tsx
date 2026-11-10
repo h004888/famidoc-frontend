@@ -114,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 const fallbackAuthContext: AuthContextType = {
   role: 'FAMILY',
   user: DEFAULT_USERS.FAMILY,
-  isAuthenticated: true,
+  isAuthenticated: false,
   isLoading: false,
   login: async () => {},
   logout: () => {},

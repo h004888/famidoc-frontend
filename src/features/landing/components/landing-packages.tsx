@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/features/auth/context/auth-context';
 
 interface PackageItem {
   id: string;
@@ -96,6 +97,7 @@ const PACKAGES: PackageItem[] = [
 ];
 
 export function LandingPackages() {
+  const { isAuthenticated } = useAuth();
   return (
     <section className="py-20 bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
@@ -166,14 +168,18 @@ export function LandingPackages() {
               {/* Action Button */}
               <div className="pt-6 mt-6 border-t border-slate-100">
                 <Link
-                  href={`/register?packageId=${pkg.id}`}
+                  href={
+                    isAuthenticated
+                      ? `/family/subscription?packageId=${pkg.id}`
+                      : `/register?packageId=${pkg.id}`
+                  }
                   className={`w-full py-2.5 rounded-lg font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all duration-200 shadow-xs cursor-pointer ${
                     pkg.popular
                       ? 'bg-[#0046c0] hover:bg-[#003899] text-white hover:shadow-md'
                       : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-300 hover:border-slate-400'
                   }`}
                 >
-                  <span>{pkg.ctaText}</span>
+                  <span>{isAuthenticated ? 'Chọn gói này' : pkg.ctaText}</span>
                   <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
                     arrow_forward
                   </span>

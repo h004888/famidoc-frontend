@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Suspense } from 'react';
 import { SubscriptionContractView } from '@/features/subscription-contract';
 
 export const metadata: Metadata = {
@@ -8,6 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default function FamilySubscriptionPage() {
-  return <SubscriptionContractView />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-slate-500">Đang tải thông tin gói dịch vụ &amp; hợp đồng...</div>}>
+      <SubscriptionContractView />
+    </Suspense>
+  );
 }
 

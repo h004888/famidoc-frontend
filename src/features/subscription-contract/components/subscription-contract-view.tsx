@@ -2,7 +2,13 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { ContractSigningWizard } from './contract-signing-wizard';
+import {
+  useContractWorkflow,
+  updateContractStep,
+  resetContractWorkflow,
+} from '@/lib/contract-workflow-storage';
 
 interface QuotaItem {
   id: string;
@@ -64,58 +70,127 @@ const PACKAGE_QUOTAS: QuotaItem[] = [
   },
 ];
 
-const FOUR_PARTIES = [
-  {
-    code: 'BÊN A · ĐẠI DIỆN HỘ GIA ĐÌNH',
-    badgeClass: 'bg-blue-50 text-[#2E37A4] border-blue-200/80',
-    name: 'Ông Nguyễn Văn Phúc',
-    identifier: 'CCCD: 079048001293',
-    roleDesc: 'Chủ hộ gia đình · Mã hộ #FAM-88219',
-    signMethod: 'Đã ký điện tử eKYC & OTP',
-    signDetail: 'SĐT xác thực: 0903 882 190',
-    signedAt: '09:15 · 01/01/2026',
+const PACKAGE_DETAILS_MAP: Record<string, { name: string; price: string; code: string }> = {
+  BASIC: {
+    code: 'PKG-BASIC-01',
+    name: 'Gói Trải Nghiệm Gia Đình (1 Tháng)',
+    price: '1.000.000 đ',
   },
-  {
-    code: 'BÊN B · BÁC SĨ QUẢN NHIỆM',
-    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
-    name: 'PGS.TS Nguyễn Trọng Nghĩa',
-    identifier: 'CCHN: 004128/BYT',
-    roleDesc: 'Trưởng khoa Nội Tổng quát phụ trách hộ',
-    signMethod: 'Chữ ký số VIETTEL-CA',
-    signDetail: 'Chứng thư: 5402-8812-BYT',
-    signedAt: '09:40 · 01/01/2026',
+  'pkg-basic': {
+    code: 'PKG-BASIC-01',
+    name: 'Gói Trải Nghiệm Gia Đình (1 Tháng)',
+    price: '1.000.000 đ',
   },
-  {
-    code: 'BÊN C · CƠ SỞ Y TẾ ĐỐI TÁC',
-    badgeClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
-    name: 'BV Đại học Y Dược TP.HCM',
-    identifier: 'Mã CSYT: 79024 · Tuyến TW',
-    roleDesc: 'Bảo trợ chuyên môn, xét nghiệm & chuyển viện',
-    signMethod: 'Chữ ký số tổ chức VNPT-CA',
-    signDetail: 'Định danh: UMC-HCMC-CA',
-    signedAt: '10:05 · 01/01/2026',
+  FAMILY: {
+    code: 'PKG-FAMILY-03',
+    name: 'Gói Đồng Hành Gia Đình (3 Tháng)',
+    price: '2.850.000 đ',
   },
-  {
-    code: 'BÊN D · NỀN TẢNG FAMIDOC',
-    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-    name: 'FamiDoc Healthcare Corp',
-    identifier: 'MST: 0317892182',
-    roleDesc: 'Đơn vị vận hành hồ sơ EHR & điều phối 24/7',
-    signMethod: 'Dấu thời gian TSA & SHA-256',
-    signDetail: 'Chuẩn bảo mật HIPAA / ISO 27799',
-    signedAt: '10:10 · 01/01/2026',
+  'pkg-toan-dien': {
+    code: 'PKG-FAMILY-03',
+    name: 'Gói Đồng Hành Gia Đình (3 Tháng)',
+    price: '2.850.000 đ',
   },
-];
+  ELDERLY: {
+    code: 'PKG-ELDERLY-06',
+    name: 'Gói An Tâm Người Cao Tuổi (6 Tháng)',
+    price: '6.475.000 đ',
+  },
+  'pkg-nguoi-cao-tuoi': {
+    code: 'PKG-ELDERLY-06',
+    name: 'Gói An Tâm Người Cao Tuổi (6 Tháng)',
+    price: '6.475.000 đ',
+  },
+  ROYAL: {
+    code: 'PKG-ROYAL-12',
+    name: 'Gói Toàn Diện Gia Tộc (12 Tháng)',
+    price: '12.600.000 đ',
+  },
+  'pkg-hoang-gia': {
+    code: 'PKG-ROYAL-12',
+    name: 'Gói Toàn Diện Gia Tộc (12 Tháng)',
+    price: '12.600.000 đ',
+  },
+};
 
 export function SubscriptionContractView() {
+  const workflow = useContractWorkflow();
+  const searchParams = useSearchParams();
+  const packageParam = searchParams?.get('packageId');
+  const activePackageInfo = packageParam ? PACKAGE_DETAILS_MAP[packageParam] : null;
+
   const [activeTab, setActiveTab] = useState<'contract' | 'benefits'>('contract');
-  const [isSigningWizardOpen, setIsSigningWizardOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSigningWizardOpen, setIsSigningWizardOpen] = useState(Boolean(activePackageInfo));
+  const [toastMessage, setToastMessage] = useState<string | null>(
+    activePackageInfo
+      ? `Đã chọn ${activePackageInfo.name}. Mời quý khách xem điều khoản và ký hợp đồng 4 bên.`
+      : null
+  );
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
   };
+
+  const handleSimulatePaymentWebhook = () => {
+    updateContractStep('ACTIVE', {
+      paymentPaid: true,
+      paymentPaidAt: new Date().toLocaleString('vi-VN'),
+    });
+    showToast('Webhook Payment Gateway ghi nhận thanh toán thành công! Hợp đồng đã kích hoạt ACTIVE.');
+  };
+
+  const handleResetDemo = () => {
+    resetContractWorkflow();
+    showToast('Đã reset dữ liệu hợp đồng về trạng thái mẫu!');
+  };
+
+  const fourPartiesList = [
+    {
+      code: 'BÊN A · ĐẠI DIỆN HỘ GIA ĐÌNH',
+      badgeClass: 'bg-blue-50 text-[#2E37A4] border-blue-200/80',
+      name: workflow?.familyHeadName || 'Nguyễn Văn An',
+      identifier: `Mã hộ #${workflow?.familyId || 'FAM-88219'} · SĐT: ${workflow?.familyPhone || '0912345678'}`,
+      roleDesc: 'Đại diện Hộ Gia Đình ký kết gói chăm sóc',
+      signMethod: workflow?.familySigned ? 'Đã ký OTP Viettel' : 'Chưa ký số',
+      signDetail: workflow?.familyOtpMethod || 'Mã OTP Viettel 0988',
+      signedAt: workflow?.familySignedAt || 'Chưa hoàn tất',
+      isSigned: !!workflow?.familySigned,
+    },
+    {
+      code: 'BÊN B · NỀN TẢNG FAMIDOC',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+      name: 'FamiDoc Platform Administration',
+      identifier: 'MST: 0317892182 · SmartCA',
+      roleDesc: 'Đơn vị vận hành hồ sơ EHR & điều phối mạng lưới 24/7',
+      signMethod: workflow?.adminSigned ? 'Chứng thư số FamiDoc SmartCA' : 'Chờ Admin duyệt (Bên B)',
+      signDetail: workflow?.adminCertSerial || 'Chuẩn SHA-256 RSA',
+      signedAt: workflow?.adminSignedAt || 'Chờ ký duyệt',
+      isSigned: !!workflow?.adminSigned,
+    },
+    {
+      code: 'BÊN C · CƠ SỞ Y TẾ ĐỐI TÁC',
+      badgeClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
+      name: workflow?.facilityName || 'BV Đại học Y Dược TP.HCM',
+      identifier: 'Mã CSYT: 79024 · Tuyến TW',
+      roleDesc: workflow?.assignedDoctorName ? `Đã phân công: ${workflow.assignedDoctorName}` : 'Bảo trợ chuyên môn & phân công bác sĩ',
+      signMethod: workflow?.facilitySigned ? 'Chữ ký số Bệnh viện VNPT-CA' : 'Chờ cơ sở y tế (Bên C)',
+      signDetail: workflow?.facilitySignerName || 'Định danh: UMC-HCMC-CA',
+      signedAt: workflow?.facilitySignedAt || 'Chờ phân công & ký',
+      isSigned: !!workflow?.facilitySigned,
+    },
+    {
+      code: 'BÊN D · BÁC SĨ PHỤ TRÁCH',
+      badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
+      name: workflow?.assignedDoctorName || 'BS.CKII Trần Thanh Mai',
+      identifier: `CCHN: ${workflow?.doctorCchn || '004128/HCM'}`,
+      roleDesc: 'Bác sĩ gia đình quản nhiệm trực tiếp hộ',
+      signMethod: workflow?.doctorSigned ? 'Chữ ký số cá nhân Viettel-CA' : 'Chờ bác sĩ xác nhận (Bên D)',
+      signDetail: 'Cam kết trách nhiệm y đức & SLA',
+      signedAt: workflow?.doctorSignedAt || 'Chờ xác nhận chuyên môn',
+      isSigned: !!workflow?.doctorSigned,
+    },
+  ];
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
@@ -126,11 +201,17 @@ export function SubscriptionContractView() {
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
-                  #FMD-HD-88219
+                  #{workflow?.contractCode || 'CTR-4P-2026-88219'}
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>Đang hiệu lực · Còn 65 ngày</span>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
+                  workflow?.step === 'ACTIVE'
+                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
+                    : 'bg-amber-50 text-amber-800 border-amber-200/60 animate-pulse'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                    workflow?.step === 'ACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
+                  }`} />
+                  <span>{workflow?.statusLabel || 'Đang hiệu lực (ACTIVE)'}</span>
                 </span>
               </div>
 
@@ -153,6 +234,16 @@ export function SubscriptionContractView() {
               >
                 <span className="material-symbols-outlined text-[19px]">edit_document</span>
                 <span>Gia hạn hợp đồng</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetDemo}
+                className="min-h-11 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/90 rounded-xl text-xs font-semibold shadow-xs hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap outline-hidden"
+                title="Đặt lại trạng thái mẫu để test lại toàn bộ luồng 4 bên từ đầu"
+              >
+                <span className="material-symbols-outlined text-[17px] text-slate-500">restart_alt</span>
+                <span>Reset Demo</span>
               </button>
 
               <button
@@ -182,13 +273,13 @@ export function SubscriptionContractView() {
               </div>
               <div>
                 <span className="text-slate-500">Bác sĩ quản nhiệm: </span>
-                <strong className="text-slate-900 font-semibold">PGS.TS Nguyễn Trọng Nghĩa</strong>
+                <strong className="text-slate-900 font-semibold">{workflow?.assignedDoctorName || 'PGS.TS Nguyễn Trọng Nghĩa'}</strong>
                 <span className="text-slate-400 hidden sm:inline"> · BV Đại học Y Dược TP.HCM</span>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-slate-500 font-medium mr-1">Thành viên thụ hưởng (3/4):</span>
+              <span className="text-slate-500 font-medium mr-1">Thành viên thụ hưởng (4/4):</span>
               <Link
                 href="/family/members/mem-01"
                 className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
@@ -199,17 +290,112 @@ export function SubscriptionContractView() {
                 href="/family/members/mem-02"
                 className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
               >
-                Mẹ Mai (42t)
+                Anh An (42t)
               </Link>
               <Link
                 href="/family/members/mem-03"
                 className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
               >
-                Con Quân (12t)
+                Chị Hà (38t)
+              </Link>
+              <Link
+                href="/family/members"
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
+              >
+                Bé Minh An (6t)
               </Link>
             </div>
           </div>
         </header>
+
+        {/* 1.5. BANNER ĐIỀU HƯỚNG THEO TRẠNG THÁI LUỒNG TUẦN TỰ 4 BÊN (FLOW 2.2) */}
+        {workflow?.step === 'PENDING_PAYMENT' && (
+          <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">payments</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm sm:text-base text-slate-900">
+                  Cả 4 Bên Đã Hoàn Tất Ký Số Điện Tử! Chờ Thanh Toán VietQR (SCR-36)
+                </h3>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Đại diện Gia đình, Admin Nền tảng, Bệnh viện ĐHYD và Bác sĩ {workflow.assignedDoctorName} đã ký hợp lệ.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <button
+                type="button"
+                onClick={handleSimulatePaymentWebhook}
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                title="Giả lập nhận Webhook từ cổng thanh toán tự động kích hoạt hợp đồng"
+              >
+                <span className="material-symbols-outlined text-[16px]">bolt</span>
+                <span>Giả Lập Webhook VietQR (Kích hoạt ngay)</span>
+              </button>
+              <Link
+                href="/family/billing"
+                className="px-4 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
+                <span>Xem Mã VietQR</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {workflow?.step === 'PENDING_ADMIN_SIGN' && (
+          <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[20px] text-[#0052cc]">pending</span>
+              <span>
+                <strong>Hợp đồng đang chờ Quản trị viên FamiDoc ký số (Bên B):</strong> Đăng nhập email <code>admin.super@famidoc.pro</code> tại trang <code>/admin/contracts</code> để phê duyệt.
+              </span>
+            </div>
+            <Link
+              href="/admin/contracts"
+              className="px-3 py-1.5 bg-[#0052cc] text-white font-bold rounded-lg shrink-0 hover:bg-[#003da6]"
+            >
+              Sang Admin Ký Duyệt →
+            </Link>
+          </div>
+        )}
+
+        {workflow?.step === 'PENDING_FACILITY_SIGN' && (
+          <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[20px] text-indigo-600">local_hospital</span>
+              <span>
+                <strong>Hợp đồng đang chờ Cơ sở y tế phân công Bác sĩ (Bên C - SCR-22):</strong> Đăng nhập email <code>cooperation@umc.edu.vn</code> để phân công bác sĩ.
+              </span>
+            </div>
+            <Link
+              href="/facility/contracts"
+              className="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-lg shrink-0 hover:bg-indigo-700"
+            >
+              Sang Bệnh Viện Gán BS (SCR-22) →
+            </Link>
+          </div>
+        )}
+
+        {workflow?.step === 'PENDING_DOCTOR_SIGN' && (
+          <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="material-symbols-outlined text-[20px] text-teal-700">stethoscope</span>
+              <span>
+                <strong>Hợp đồng đang chờ Bác sĩ xác nhận cam kết chuyên môn (Bên D - SCR-16):</strong> Đăng nhập email <code>mai.tt@famidoc.pro</code> để ký cam kết.
+              </span>
+            </div>
+            <Link
+              href="/doctor/contracts"
+              className="px-3 py-1.5 bg-teal-700 text-white font-bold rounded-lg shrink-0 hover:bg-teal-800"
+            >
+              Sang Bác Sĩ Ký (SCR-16) →
+            </Link>
+          </div>
+        )}
 
         {/* 2. DẢI 3 CARD HẠN MỨC QUYỀN LỢI — THIẾT KẾ ĐỘC LẬP, THOÁNG MẮT, SỐ TO TABULAR-NUMS */}
         <section className="space-y-4">
@@ -341,10 +527,12 @@ export function SubscriptionContractView() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {FOUR_PARTIES.map((party) => (
+                {fourPartiesList.map((party) => (
                   <div
                     key={party.code}
-                    className="bg-white p-5 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-4"
+                    className={`bg-white p-5 rounded-2xl border shadow-xs flex flex-col justify-between gap-4 transition-all ${
+                      party.isSigned ? 'border-slate-200/80' : 'border-amber-200 bg-amber-50/20'
+                    }`}
                   >
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-2">
@@ -354,10 +542,12 @@ export function SubscriptionContractView() {
                           {party.code}
                         </span>
                         <span
-                          className="material-symbols-outlined text-emerald-600 text-[18px]"
-                          title="Đã xác thực chữ ký số"
+                          className={`material-symbols-outlined text-[18px] ${
+                            party.isSigned ? 'text-emerald-600' : 'text-amber-500 animate-pulse'
+                          }`}
+                          title={party.isSigned ? 'Đã xác thực chữ ký số' : 'Đang chờ ký'}
                         >
-                          verified
+                          {party.isSigned ? 'verified' : 'pending'}
                         </span>
                       </div>
 
@@ -590,9 +780,9 @@ export function SubscriptionContractView() {
       {/* Modal Ký Kết / Gia Hạn Hợp Đồng 4 Bên */}
       {isSigningWizardOpen && (
         <ContractSigningWizard
-          packageName="Gói Gia Đình Toàn Diện VIP (12 Tháng)"
-          packagePrice="9.600.000 đ"
-          doctorName="PGS.TS Nguyễn Trọng Nghĩa"
+          packageName={activePackageInfo?.name || "Gói Gia Đình Toàn Diện VIP (12 Tháng)"}
+          packagePrice={activePackageInfo?.price || "9.600.000 đ"}
+          doctorName={workflow?.assignedDoctorName || "PGS.TS Nguyễn Trọng Nghĩa"}
           onClose={() => setIsSigningWizardOpen(false)}
         />
       )}
