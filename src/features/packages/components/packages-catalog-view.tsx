@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
+import { useAuth } from '@/features/auth/context/auth-context';
 
 export interface CatalogPackageItem {
   id: string;
@@ -181,9 +182,24 @@ const BLOG_POSTS = [
 ];
 
 export function PackagesCatalogView() {
+  const { isAuthenticated } = useAuth();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'trial' | 'standard' | 'annual'>('all');
   const [isMonthlyView, setIsMonthlyView] = useState(false);
+
+  const getPackageHref = (pkgId: string) => {
+    const code =
+      pkgId === 'pkg-basic'
+        ? 'BASIC'
+        : pkgId === 'pkg-toan-dien'
+          ? 'FAMILY'
+          : pkgId === 'pkg-nguoi-cao-tuoi'
+            ? 'ELDERLY'
+            : 'ROYAL';
+    return isAuthenticated
+      ? `/family/subscription?packageId=${code}`
+      : `/register?packageId=${code}`;
+  };
 
   // Estimator interactive state
   const [selectedEstimatorPkgId, setSelectedEstimatorPkgId] = useState<string>('pkg-toan-dien');
@@ -459,14 +475,14 @@ export function PackagesCatalogView() {
                     {/* Card Actions */}
                     <div className="relative z-10 pt-5 mt-4 border-t border-slate-100 space-y-2">
                       <Link
-                        href={`/register?packageId=${pkg.id === 'pkg-basic' ? 'BASIC' : pkg.id === 'pkg-toan-dien' ? 'FAMILY' : pkg.id === 'pkg-nguoi-cao-tuoi' ? 'ELDERLY' : 'ROYAL'}`}
+                        href={getPackageHref(pkg.id)}
                         className={`w-full py-2.5 px-4 rounded-lg text-xs font-semibold text-center transition-all duration-200 flex items-center justify-center gap-1.5 shadow-xs cursor-pointer ${
                           pkg.popular
                             ? 'bg-[#0046c0] hover:bg-[#003899] text-white shadow-md'
                             : 'bg-slate-100 hover:bg-slate-200 text-slate-800'
                         }`}
                       >
-                        <span>{pkg.ctaText}</span>
+                        <span>{isAuthenticated ? 'Chọn đăng ký gói này' : pkg.ctaText}</span>
                         <span className="material-symbols-outlined text-sm">arrow_forward</span>
                       </Link>
                     </div>
@@ -633,10 +649,10 @@ export function PackagesCatalogView() {
                 </div>
 
                 <Link
-                  href={`/register?packageId=${estimatorPkg.id === 'pkg-basic' ? 'BASIC' : estimatorPkg.id === 'pkg-toan-dien' ? 'FAMILY' : estimatorPkg.id === 'pkg-nguoi-cao-tuoi' ? 'ELDERLY' : 'ROYAL'}`}
+                  href={getPackageHref(estimatorPkg.id)}
                   className="w-full py-2.5 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
                 >
-                  <span>Tiến hành đăng ký theo cấu hình này</span>
+                  <span>{isAuthenticated ? 'Tiến hành ký hợp đồng gói này' : 'Tiến hành đăng ký theo cấu hình này'}</span>
                   <span className="material-symbols-outlined text-sm">arrow_forward</span>
                 </Link>
               </div>

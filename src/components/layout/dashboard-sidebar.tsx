@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useAuth } from '@/features/auth/context/auth-context';
+import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
 
 interface NavItem {
@@ -43,6 +43,7 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200/80',
     items: [
       { href: '/facility', label: 'Tổng quan Cơ sở', shortLabel: 'Tổng quan', icon: 'local_hospital', exact: true, badge: 'Live Queue', badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
+      { href: '/facility/contracts', label: 'Hợp đồng 4 Bên & Gán BS', shortLabel: 'Hợp đồng', icon: 'history_edu', badge: 'SCR-22', badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200' },
       { href: '/facility/staff', label: 'Quản lý Nhân sự Y tế', shortLabel: 'Nhân sự', icon: 'badge' },
       { href: '/facility/coordination', label: 'Điều phối & Chuyển viện', shortLabel: 'Điều phối', icon: 'support_agent', badge: 'Hot', badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200' },
       { href: '/facility/revenue', label: 'Đối soát Doanh thu B2B', shortLabel: 'Doanh thu', icon: 'payments' },
@@ -54,6 +55,7 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200/80',
     items: [
       { href: '/doctor', label: 'Bảng Lâm sàng', shortLabel: 'Lâm sàng', icon: 'dashboard', exact: true, badge: '12 Ca', badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200' },
+      { href: '/doctor/contracts', label: 'Hợp đồng & Phụ trách Hộ', shortLabel: 'HĐ Phụ trách', icon: 'assignment_turned_in', badge: 'SCR-16', badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200' },
       { href: '/doctor/timetable', label: 'Lịch trực & Panel Cap', shortLabel: 'Lịch trực', icon: 'calendar_clock' },
       { href: '/doctor/encounters', label: 'Khám SOAP & Kê đơn', shortLabel: 'Khám SOAP', icon: 'clinical_notes' },
       { href: '/doctor/telemedicine', label: 'Tư vấn WebRTC 24/7', shortLabel: 'Telemed', icon: 'videocam', badge: 'HD', badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
@@ -68,6 +70,7 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       { href: '/family', label: 'Bảng Sức khỏe Gia đình', shortLabel: 'Gia đình', icon: 'family_restroom', exact: true },
       { href: '/family/members', label: 'Quản lý Thành viên', shortLabel: 'Thành viên', icon: 'group' },
       { href: '/family/appointments', label: 'Đặt lịch Home & Tele', shortLabel: 'Lịch hẹn', icon: 'event_available', badge: '1 Sắp tới', badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200' },
+      { href: '/family/telemedicine', label: 'Phòng khám Video 24/7', shortLabel: 'Telemed', icon: 'videocam', badge: 'HD', badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
       { href: '/family/vitals', label: 'Chỉ số & Cảnh báo IoT', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
       { href: '/family/subscription', label: 'Gói Chăm sóc & HĐ 4 Bên', shortLabel: 'Gói & HĐ', icon: 'history_edu' },
       { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
@@ -81,6 +84,7 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       { href: '/family', label: 'Bảng Sức khỏe Gia đình', shortLabel: 'Gia đình', icon: 'family_restroom', exact: true },
       { href: '/family/members', label: 'Quản lý Thành viên', shortLabel: 'Thành viên', icon: 'group' },
       { href: '/family/appointments', label: 'Đặt lịch Home & Tele', shortLabel: 'Lịch hẹn', icon: 'event_available', badge: '1 Sắp tới', badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200' },
+      { href: '/family/telemedicine', label: 'Phòng khám Video 24/7', shortLabel: 'Telemed', icon: 'videocam', badge: 'HD', badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
       { href: '/family/vitals', label: 'Chỉ số & Cảnh báo IoT', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
       { href: '/family/subscription', label: 'Gói Chăm sóc & HĐ 4 Bên', shortLabel: 'Gói & HĐ', icon: 'history_edu' },
       { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
@@ -114,10 +118,10 @@ export function DashboardSidebar() {
         }`}
       >
         <Link
-          href="/"
+          href={getDefaultPathForRole(role)}
           className="flex items-center overflow-hidden outline-hidden"
-          title="Trang chủ FamiDoc"
-          aria-label="Trang chủ FamiDoc"
+          title="Bảng điều khiển FamiDoc"
+          aria-label="Bảng điều khiển FamiDoc"
         >
           {isCollapsedState ? (
             <div className="w-10 h-10 flex items-center justify-center shrink-0">

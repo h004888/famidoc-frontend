@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { updateContractStep } from '@/lib/contract-workflow-storage';
 
 interface MemberItem {
   id: string;
@@ -74,6 +75,11 @@ export function ContractSigningWizard({
     setFormError(null);
     setIsSigning(true);
     setTimeout(() => {
+      updateContractStep('PENDING_ADMIN_SIGN', {
+        familySigned: true,
+        familySignedAt: new Date().toLocaleString('vi-VN'),
+        familySignerName: 'Nguyễn Văn An (Đại diện Hộ)',
+      });
       setIsSigning(false);
       setIsSignedComplete(true);
       if (onSuccess) onSuccess();
