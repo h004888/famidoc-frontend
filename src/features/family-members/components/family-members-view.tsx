@@ -625,7 +625,7 @@ export function FamilyMembersView() {
                     <div className="min-w-0 lg:w-4/12 space-y-1 text-xs">
                       <div className="flex items-center gap-2">
                         <span className="text-slate-400">BHYT:</span>
-                        <span className="font-mono font-bold text-slate-800">{m.bhytNumber}</span>
+                        <span className="font-bold tabular-nums text-slate-800">{m.bhytNumber}</span>
                         <button
                           type="button"
                           onClick={() => {
