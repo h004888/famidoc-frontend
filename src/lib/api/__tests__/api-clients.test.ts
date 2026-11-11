@@ -173,18 +173,52 @@ describe('Task 3: Typed API Client Services (Patients, Contracts, Auth)', () => 
   });
 
   describe('publicApi endpoints', () => {
-    it('calls GET /api/v1/public/doctors for public doctor directory', async () => {
-      const mockDocs = [{ id: 'doc-1', fullName: 'BS. Trần Văn A' }];
+    it('calls GET /api/v1/public/doctors with query params and extracts envelope pagination', async () => {
+      const mockEnvelope = {
+        success: true,
+        code: 200,
+        data: [
+          {
+            id: 'doc-1',
+            doctorName: 'BS. Nguyễn Văn A',
+            specialty: 'Y học gia đình',
+            academicTitle: 'PGS.TS',
+            ratingAvg: 4.9,
+            totalReviews: 120,
+            isAvailable: true,
+            avatarUrl: 'https://images.unsplash.com/doc-1',
+            facility: {
+              id: 'f-1',
+              facilityName: 'BV Đại học Y Dược',
+            },
+          },
+        ],
+        meta: {
+          pagination: {
+            page: 1,
+            pageSize: 9,
+            totalRecords: 45,
+            totalPages: 5,
+          },
+        },
+      };
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => mockDocs,
+        json: async () => mockEnvelope,
       } as Response);
 
-      const res = await publicApi.getDoctors();
-      expect(res).toEqual(mockDocs);
+      const res = await publicApi.getDoctors({
+        city: 'TP. Hồ Chí Minh',
+        specialty: 'general',
+        search: 'Nguyễn',
+      });
+
+      expect(res.items).toHaveLength(1);
+      expect(res.items[0].doctorName).toBe('BS. Nguyễn Văn A');
+      expect(res.pagination?.totalRecords).toBe(45);
       expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/public/doctors'),
+        expect.stringMatching(/\/api\/v1\/public\/doctors\?.*city=TP\.\+H%E1%BB%93\+Ch%C3%AD\+Minh/),
         expect.objectContaining({ method: 'GET' })
       );
       fetchSpy.mockRestore();
