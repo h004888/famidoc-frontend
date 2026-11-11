@@ -338,7 +338,10 @@ export function DoctorDirectoryView() {
   const [facilitiesList, setFacilitiesList] = useState<Facility[]>(MOCK_FACILITIES);
 
   useEffect(() => {
-    setIsLoading(true);
+    const timer = setTimeout(() => {
+      setIsLoading(true);
+    }, 0);
+
     publicApi
       .getDoctors({
         search: searchQuery.trim() || undefined,
@@ -352,13 +355,13 @@ export function DoctorDirectoryView() {
             name: d.doctorName || d.fullName || 'Bác sĩ',
             title: d.academicTitle || d.title || 'BS.CKII',
             specialty: d.specialty || 'Y học Gia đình',
-            specialtyKey: (selectedSpecialty !== 'all' ? selectedSpecialty : 'general') as any,
+            specialtyKey: (selectedSpecialty !== 'all' ? selectedSpecialty : 'general') as Doctor['specialtyKey'],
             experienceYears: d.experienceYears || 15,
             rating: d.ratingAvg || d.rating || 4.9,
             reviewCount: d.totalReviews || d.reviewCount || 48,
             consultationCount: 210,
             hospital: d.facility?.facilityName || d.facilityName || 'Bệnh viện Đại học Y Dược TP.HCM',
-            location: (selectedCity !== 'all' ? selectedCity : (d.facility?.address?.includes('Hà Nội') ? 'Hà Nội' : 'TP. Hồ Chí Minh')) as any,
+            location: (selectedCity !== 'all' ? selectedCity : (d.facility?.address?.includes('Hà Nội') ? 'Hà Nội' : 'TP. Hồ Chí Minh')) as Doctor['location'],
             avatarUrl: d.avatarUrl || d.avatar || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&auto=format&fit=crop&q=80',
             services: ['home', 'telehealth', 'clinic'],
             fee: '350.000đ',
@@ -373,8 +376,13 @@ export function DoctorDirectoryView() {
         setDoctorsList(MOCK_DOCTORS);
       })
       .finally(() => {
+        clearTimeout(timer);
         setIsLoading(false);
       });
+
+    return () => {
+      clearTimeout(timer);
+    };
   }, [searchQuery, selectedCity, selectedSpecialty]);
 
   useEffect(() => {

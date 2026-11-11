@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ContractStatus } from '@/features/four-party-contract';
@@ -126,14 +126,16 @@ export function ContractSigningTrackerView({
   pollingIntervalMs,
 }: ContractSigningTrackerViewProps) {
   const router = useRouter();
+  const [prevContract, setPrevContract] = useState(contract);
   const [currentContract, setCurrentContract] = useState<TrackedContract>(contract);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
+  if (contract !== prevContract) {
+    setPrevContract(contract);
     setCurrentContract(contract);
-  }, [contract]);
+  }
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     if (onRefresh) {
       onRefresh();
@@ -157,7 +159,7 @@ export function ContractSigningTrackerView({
         setIsRefreshing(false);
       }, 400);
     }
-  };
+  }, [currentContract.id, onRefresh]);
 
   useEffect(() => {
     if (!pollingIntervalMs || pollingIntervalMs <= 0) return;
@@ -165,7 +167,7 @@ export function ContractSigningTrackerView({
       handleRefresh();
     }, pollingIntervalMs);
     return () => clearInterval(timer);
-  }, [pollingIntervalMs, currentContract.id]);
+  }, [pollingIntervalMs, handleRefresh]);
 
   const currentStatus = currentContract.status;
   const isPaymentReady =
@@ -346,11 +348,10 @@ export function ContractSigningTrackerView({
         </div>
 
         <div className="space-y-4">
-          {STEP_DEFINITIONS.map((def, index) => {
+          {STEP_DEFINITIONS.map((def) => {
             const stepStatus = getStepStatus(def.step, currentStatus);
             const isCompleted = stepStatus === 'completed';
             const isCurrent = stepStatus === 'current';
-            const isPending = stepStatus === 'pending';
 
             return (
               <div

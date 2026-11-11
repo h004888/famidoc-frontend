@@ -4,14 +4,13 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { loginSchema, LoginRole } from '../schemas/auth.schema';
-import { useAuth, getDefaultPathForRole } from '../context/auth-context';
+import { getDefaultPathForRole } from '../context/auth-context';
 import { saveAuthSession, AuthUser } from '@/lib/auth-storage';
 import { httpClient } from '@/lib/api/http-client';
 import { useRouter } from 'next/navigation';
 
 export function LoginForm() {
   const router = useRouter();
-  const { login } = useAuth();
   const searchParams = useSearchParams();
   const isRegisteredSuccess = searchParams.get('registered') === 'true';
 

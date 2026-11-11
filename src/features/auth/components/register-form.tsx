@@ -57,16 +57,9 @@ export function RegisterForm() {
     'Mức độ tốt',
     'Mức độ an toàn cao (Khuyến nghị)',
   ];
-  const strengthColors = [
-    'text-[#ba1a1a]',
-    'text-[#ba1a1a]',
-    'text-[#fe8f1a]',
-    'text-[#0052cc]',
-    'text-[#16a34a]',
-  ];
+
 
   const strengthText = pass.length === 0 ? 'Chưa nhập mật khẩu' : strengthLabels[strengthCount] || 'Chưa đủ an toàn';
-  const activeColor = pass.length === 0 ? 'text-slate-400' : strengthColors[strengthCount] || 'text-[#ba1a1a]';
   const strengthScore = pass.length === 0 ? 0 : strengthCount;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {

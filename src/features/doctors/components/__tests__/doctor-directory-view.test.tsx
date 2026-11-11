@@ -19,11 +19,11 @@ vi.mock('@/features/landing', () => ({
 describe('DoctorDirectoryView Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (publicApi.getFacilities as any).mockResolvedValue([]);
+    vi.mocked(publicApi.getFacilities).mockResolvedValue([]);
   });
 
   it('renders doctors from API and does not depend on cchnNumber', async () => {
-    (publicApi.getDoctors as any).mockResolvedValue({
+    vi.mocked(publicApi.getDoctors).mockResolvedValue({
       items: [
         {
           id: 'doc-real-1',
@@ -61,7 +61,7 @@ describe('DoctorDirectoryView Component', () => {
   });
 
   it('triggers publicApi.getDoctors with city when city filter changes', async () => {
-    (publicApi.getDoctors as any).mockResolvedValue({
+    vi.mocked(publicApi.getDoctors).mockResolvedValue({
       items: [],
       pagination: { page: 1, pageSize: 9, totalRecords: 0, totalPages: 1 },
     });
@@ -82,12 +82,12 @@ describe('DoctorDirectoryView Component', () => {
   });
 
   it('renders skeleton cards while loading and does not render mock doctors initially', async () => {
-    let resolvePromise!: (value: any) => void;
+    let resolvePromise!: (value: unknown) => void;
     const pendingPromise = new Promise((resolve) => {
       resolvePromise = resolve;
     });
 
-    (publicApi.getDoctors as any).mockReturnValue(pendingPromise);
+    vi.mocked(publicApi.getDoctors).mockReturnValue(pendingPromise as never);
 
     render(<DoctorDirectoryView />);
 

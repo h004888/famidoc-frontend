@@ -61,14 +61,20 @@ export interface PublicFacilityDto {
   rating?: number;
 }
 
+interface RawPublicDoctorsApiResponse {
+  data?: PublicDoctorDto[];
+  meta?: { pagination?: PaginationMeta };
+  items?: PublicDoctorDto[];
+}
+
 export const publicApi = {
   getDoctors: async (params?: PublicDoctorsQuery): Promise<PublicDoctorsResponse> => {
-    const res = await httpClient.get<any>(
+    const res = await httpClient.get<RawPublicDoctorsApiResponse | PublicDoctorDto[]>(
       '/api/v1/public/doctors',
       params as Record<string, string | number | boolean | undefined>
     );
 
-    if (res && res.data && Array.isArray(res.data)) {
+    if (res && !Array.isArray(res) && res.data && Array.isArray(res.data)) {
       return {
         items: res.data,
         pagination: res.meta?.pagination,
