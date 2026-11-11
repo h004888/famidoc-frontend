@@ -187,6 +187,8 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
   const [newGlucose, setNewGlucose] = useState('5.6');
   const [vitalsToast, setVitalsToast] = useState<string | null>(null);
   const [showHomeVisitGuide, setShowHomeVisitGuide] = useState(false);
+  const [showPrescriptionQrModal, setShowPrescriptionQrModal] = useState<string | null>(null);
+  const [deliveryToast, setDeliveryToast] = useState<string | null>(null);
   const [ehrFilter, setEhrFilter] = useState<'all' | 'home_visit' | 'telehealth' | 'lab_result'>('all');
   const [expandedEhrId, setExpandedEhrId] = useState<string | null>('ehr-01');
 
@@ -814,18 +816,18 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
             {/* Filter Tabs */}
             <div className="flex items-center gap-1.5 bg-slate-100/80 p-1 rounded-xl self-start sm:self-auto overflow-x-auto">
-              {[
+              {([
                 { id: 'all', label: 'Tất cả' },
                 { id: 'home_visit', label: 'Khám tại nhà' },
                 { id: 'telehealth', label: 'Telehealth' },
                 { id: 'lab_result', label: 'Xét nghiệm' },
-              ].map((f) => {
+              ] as const).map((f) => {
                 const isActive = ehrFilter === f.id;
                 return (
                   <button
                     key={f.id}
                     type="button"
-                    onClick={() => setEhrFilter(f.id as any)}
+                    onClick={() => setEhrFilter(f.id)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                       isActive
                         ? 'bg-white text-slate-900 shadow-xs'
@@ -933,10 +935,27 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
                         {/* Đơn thuốc điều trị */}
                         {entry.prescriptions && entry.prescriptions.length > 0 && (
-                          <div className="space-y-2">
-                            <span className="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
-                              Toa thuốc điều trị chỉ định:
-                            </span>
+                          <div className="space-y-2.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <span className="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
+                                Toa thuốc điều trị chỉ định (Mã đơn quốc gia: <span className="text-[#2E37A4] font-bold tabular-nums">RX-2026-0088219</span>):
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                                  <span className="material-symbols-outlined text-[13px]">verified</span>
+                                  Đã ký số Viettel-CA
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPrescriptionQrModal(entry.id)}
+                                  className="inline-flex items-center gap-1 text-xs font-bold text-[#2E37A4] hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-xl border border-indigo-200 transition-colors cursor-pointer"
+                                  title="Xem mã QR để mang ra quầy thuốc mua"
+                                >
+                                  <span className="material-symbols-outlined text-[15px]">qr_code_2</span>
+                                  <span>Mã QR Đơn Thuốc</span>
+                                </button>
+                              </div>
+                            </div>
                             <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/80 bg-white p-3 space-y-2">
                               {entry.prescriptions.map((rx, rIdx) => (
                                 <div
@@ -1023,11 +1042,11 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
       {/* MODAL 2: GHI NHANH SỐ ĐO SỨC KHỎE */}
       {showVitalsModal && (
         <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
           role="dialog"
           aria-modal="true"
         >
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
             <div className="flex justify-between items-center border-b border-slate-100 pb-3.5">
               <div>
                 <h3 className="font-bold text-base text-slate-900">
@@ -1118,6 +1137,128 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* MODAL 3: MÃ QR ĐƠN THUỐC QUỐC GIA (THÔNG TƯ 04/2022/TT-BYT) */}
+      {showPrescriptionQrModal && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
+            <div className="flex justify-between items-start border-b border-slate-100 pb-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-200 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[24px]">qr_code_2</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">
+                    Đơn Thuốc Điện Tử Quốc Gia
+                  </h3>
+                  <p className="text-xs text-slate-500">Mã liên thông: <span className="font-bold tabular-nums text-[#2E37A4]">RX-2026-0088219</span></p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPrescriptionQrModal(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 cursor-pointer"
+                aria-label="Đóng"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* QR Code Container */}
+            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200/80 text-center space-y-3">
+              <div className="w-44 h-44 mx-auto bg-white p-3 rounded-2xl border-2 border-[#2E37A4]/20 shadow-xs flex flex-col items-center justify-center">
+                {/* Visual SVG QR Representation */}
+                <svg className="w-full h-full" viewBox="0 0 100 100" fill="none">
+                  <rect width="100" height="100" fill="white" />
+                  <path
+                    d="M10 10h28v28h-28z M16 16v16h16v-16z M62 10h28v28h-28z M68 16v16h16v-16z M10 62h28v28h-28z M16 68v16h16v-16z"
+                    fill="#2E37A4"
+                  />
+                  <rect x="22" y="22" width="4" height="4" fill="#2E37A4" />
+                  <rect x="74" y="22" width="4" height="4" fill="#2E37A4" />
+                  <rect x="22" y="74" width="4" height="4" fill="#2E37A4" />
+                  <rect x="44" y="10" width="8" height="8" fill="#2E37A4" />
+                  <rect x="44" y="24" width="8" height="8" fill="#2E37A4" />
+                  <rect x="44" y="38" width="8" height="8" fill="#2E37A4" />
+                  <rect x="10" y="44" width="8" height="8" fill="#2E37A4" />
+                  <rect x="24" y="44" width="8" height="8" fill="#2E37A4" />
+                  <rect x="62" y="44" width="12" height="6" fill="#2E37A4" />
+                  <rect x="80" y="44" width="10" height="6" fill="#2E37A4" />
+                  <rect x="44" y="62" width="8" height="8" fill="#2E37A4" />
+                  <rect x="44" y="76" width="8" height="8" fill="#2E37A4" />
+                  <rect x="62" y="62" width="8" height="8" fill="#2E37A4" />
+                  <rect x="76" y="62" width="14" height="8" fill="#2E37A4" />
+                  <rect x="62" y="76" width="14" height="8" fill="#2E37A4" />
+                  <rect x="82" y="86" width="8" height="4" fill="#2E37A4" />
+                </svg>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  Cổng Đơn Thuốc Quốc Gia (Bộ Y Tế)
+                </span>
+                <p className="text-xs text-slate-600 leading-snug">
+                  Quét mã QR tại bất kỳ quầy thuốc GPP trên toàn quốc (Long Châu, An Khang, Pharmacity...) để mua đúng thuốc theo phác đồ bác sĩ.
+                </p>
+              </div>
+            </div>
+
+            {/* Verification Metadata */}
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Bác sĩ ký số:</span>
+                <span className="font-semibold text-slate-800">PGS.TS Nguyễn Trọng Nghĩa</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Chứng thư số:</span>
+                <span className="font-bold text-emerald-700">Viettel-CA (SHA-256)</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Thời hạn mua thuốc:</span>
+                <span className="font-bold tabular-nums text-slate-800">30 ngày kể từ ngày ký</span>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeliveryToast('Đã gửi yêu cầu cấp phát & giao thuốc tận nhà (2h) tới nhà thuốc liên kết GPP!');
+                  setShowPrescriptionQrModal(null);
+                  setTimeout(() => setDeliveryToast(null), 5000);
+                }}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-[#2E37A4] hover:bg-indigo-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[16px]">local_shipping</span>
+                <span>Yêu Cầu Giao Thuốc Tận Nhà</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowPrescriptionQrModal(null)}
+                className="py-2.5 px-4 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Realtime Delivery Toast */}
+      {deliveryToast && (
+        <div
+          role="status"
+          className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-bold shadow-lg animate-in slide-in-from-bottom-3 flex items-center gap-2.5"
+        >
+          <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+          <span>{deliveryToast}</span>
         </div>
       )}
     </div>

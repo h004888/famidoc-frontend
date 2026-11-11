@@ -365,7 +365,7 @@ const FACILITY_CARE_PACKAGES = [
   },
 ];
 
-export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack }: DoctorDetailViewProps) {
+export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBack }: DoctorDetailViewProps) {
   const normalizedId = (id || 'doc-01').toLowerCase();
   const isFacility = type === 'facility' || normalizedId.startsWith('fac');
   const doctor = DOCTORS_DATA[normalizedId] || DOCTORS_DATA[id] || DOCTORS_DATA['doc-01']!;

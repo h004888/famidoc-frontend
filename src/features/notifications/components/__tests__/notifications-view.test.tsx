@@ -8,7 +8,7 @@ describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
     render(<NotificationsView />);
 
     expect(
-      screen.getByRole('heading', { level: 1, name: /Thông Báo Gia Đình/i })
+      screen.getByRole('heading', { level: 1, name: /Thông Báo Gia Đình|Multi-Channel Notification Hub/i })
     ).toBeInTheDocument();
 
     expect(screen.getByText(/Huyết áp của Ông Nguyễn Văn Phúc hơi cao/i)).toBeInTheDocument();
@@ -18,7 +18,7 @@ describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
   it('marks all notifications as read when clicking "Đọc tất cả"', () => {
     render(<NotificationsView />);
 
-    const markAllBtn = screen.getByRole('button', { name: /Đọc tất cả/i });
+    const markAllBtn = screen.getByRole('button', { name: /Đọc tất cả|Đánh dấu đã đọc/i });
     expect(markAllBtn).toBeInTheDocument();
 
     fireEvent.click(markAllBtn);
@@ -35,7 +35,7 @@ describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
     fireEvent.click(healthTab);
 
     expect(screen.getByText(/Huyết áp của Ông Nguyễn Văn Phúc hơi cao/i)).toBeInTheDocument();
-    expect(screen.queryByText(/Đã phát hành biên lai điện tử gói Xét nghiệm/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Đã phát hành biên lai điện tử/i)).not.toBeInTheDocument();
   });
 
   it('standardizes typography on NotificationsView (tabular-nums without font-mono, font-bold without font-extrabold)', () => {

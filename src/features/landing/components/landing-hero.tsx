@@ -149,27 +149,6 @@ export function LandingHero() {
               onMouseEnter={() => setIsPaused(true)}
               onMouseLeave={() => setIsPaused(false)}
             >
-              {/* Floating Badge 1: Top-Left (Doctor Profile & Credibility) */}
-              <div className="absolute -top-4 -left-1 sm:-top-5 sm:-left-5 z-20 bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3.5 shadow-2xl border border-white/80 flex items-center gap-2.5 sm:gap-3 text-slate-900 transition-transform duration-300 hover:scale-105">
-                <img
-                  src={currentSlide.doctorAvatar}
-                  alt={currentSlide.doctor}
-                  className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover ring-2 ring-[#0046c0]/25 shadow-xs shrink-0"
-                />
-                <div>
-                  <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5">
-                    <span>{currentSlide.doctor}</span>
-                    <span className="material-symbols-outlined text-sm text-blue-600">verified</span>
-                  </div>
-                  <div className="text-[10px] sm:text-[11px] text-[#0046c0] font-medium">{currentSlide.doctorUnit}</div>
-                  <div className="flex items-center gap-1 text-[10px] sm:text-[11px] text-amber-600 font-semibold mt-0.5">
-                    <span className="material-symbols-outlined text-xs fill-1 text-amber-500">star</span>
-                    <span>{currentSlide.rating}</span>
-                    <span className="text-slate-400 font-normal ml-1 hidden xs:inline sm:inline">• {currentSlide.responseTime}</span>
-                  </div>
-                </div>
-              </div>
-
               {/* Main Organic Visual Canvas */}
               <div className="relative rounded-3xl overflow-hidden aspect-[4/3] sm:aspect-[16/11] shadow-2xl border-2 border-white/40 bg-slate-900 group">
                 <img
@@ -203,39 +182,72 @@ export function LandingHero() {
                 </div>
               </div>
 
-              {/* Floating Badge 2: Bottom-Right (Family Care Status & Next Appointment) */}
-              <div className="absolute -bottom-4 -right-1 sm:-bottom-5 sm:-right-5 z-20 bg-white/95 backdrop-blur-md rounded-2xl p-2.5 sm:p-3.5 shadow-2xl border border-white/80 flex items-center gap-2.5 sm:gap-3 text-slate-900 transition-transform duration-300 hover:scale-105 max-w-[240px] sm:max-w-xs">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-50 text-[#0046c0] flex items-center justify-center shrink-0 shadow-xs">
-                  <span className="material-symbols-outlined text-lg sm:text-xl">home_health</span>
-                </div>
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700">{currentSlide.status}</span>
-                  </div>
-                  <div className="text-[11px] sm:text-xs font-semibold text-slate-800 truncate">{currentSlide.patient}</div>
-                  <div className="text-[10px] sm:text-[11px] text-slate-500 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs text-[#0046c0]">calendar_today</span>
-                    <span>Lịch: <strong>{currentSlide.nextVisit}</strong></span>
-                  </div>
-                </div>
+              {/* Interactive Specialist Doctor Selector Tabs */}
+              <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-2.5">
+                {HERO_SLIDES.map((slide, idx) => {
+                  const isActive = idx === activeSlide;
+                  return (
+                    <button
+                      key={slide.id}
+                      type="button"
+                      onClick={() => setActiveSlide(idx)}
+                      aria-label={`Xem ca khám của ${slide.doctor}`}
+                      className={`group relative text-left p-2 sm:p-2.5 rounded-xl transition-all duration-200 border cursor-pointer ${
+                        isActive
+                          ? 'bg-white/20 backdrop-blur-md border-white/50 shadow-lg ring-1 ring-white/40'
+                          : 'bg-white/8 hover:bg-white/15 backdrop-blur-sm border-white/15 opacity-75 hover:opacity-100'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="relative shrink-0">
+                          <img
+                            src={slide.doctorAvatar}
+                            alt={slide.doctor}
+                            className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full object-cover transition-all ${
+                              isActive ? 'ring-2 ring-white shadow-xs' : 'ring-1 ring-white/30'
+                            }`}
+                          />
+                          {isActive && (
+                            <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-[#0046c0]" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`text-[11px] sm:text-xs font-bold truncate leading-tight ${
+                              isActive ? 'text-white' : 'text-blue-100'
+                            }`}
+                          >
+                            {slide.doctor
+                              .replace('BS. CKI ', '')
+                              .replace('BSCKII ', '')
+                              .replace('ThS.BS ', '')}
+                          </p>
+                          <p className="text-[10px] text-blue-200/90 truncate mt-0.5">
+                            {slide.doctorUnit.replace(/[()]/g, '')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Active indicator bar */}
+                      {isActive && (
+                        <div className="absolute inset-x-2.5 bottom-0 h-0.5 bg-gradient-to-r from-blue-300 via-white to-blue-300 rounded-full" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Slider Dots Indicator */}
-              <div className="flex items-center justify-center gap-2 pt-8">
-                {HERO_SLIDES.map((slide, idx) => (
-                  <button
-                    key={slide.id}
-                    type="button"
-                    onClick={() => setActiveSlide(idx)}
-                    aria-label={`Chuyển đến ca khám ${idx + 1}`}
-                    className={`h-2 rounded-full transition-all duration-300 cursor-pointer ${
-                      activeSlide === idx
-                        ? 'w-7 bg-white shadow-md'
-                        : 'w-2 bg-white/40 hover:bg-white/70'
-                    }`}
-                  />
-                ))}
+              {/* Clinical Trust Strip */}
+              <div className="mt-3 flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/15 text-[11px] sm:text-xs text-blue-100 shadow-sm">
+                <div className="flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-amber-300 fill-1">star</span>
+                  <span className="font-bold text-white">5.0 / 5</span>
+                  <span className="text-blue-200/90 font-medium">• 2,400+ đánh giá hài lòng</span>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="material-symbols-outlined text-sm text-blue-200">schedule</span>
+                  <span className="font-medium text-white">{currentSlide.responseTime}</span>
+                </div>
               </div>
             </div>
           </div>

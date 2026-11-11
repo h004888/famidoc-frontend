@@ -113,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         id: data.user?.id || 'usr-1',
         name: data.user?.fullName || identifier,
         email: data.user?.email || identifier,
+        phone: data.user?.phone || '0912345678',
         role: assignedRole,
         avatarText: (data.user?.fullName || identifier).slice(0, 2).toUpperCase(),
       };
@@ -170,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 const fallbackAuthContext: AuthContextType = {
   role: 'FAMILY',
   user: DEFAULT_USERS.FAMILY,
-  isAuthenticated: true,
+  isAuthenticated: false,
   isLoading: false,
   login: async () => {},
   logout: () => {},

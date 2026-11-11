@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useContractWorkflow, updateContractStep } from '@/lib/contract-workflow-storage';
 
 interface Invoice {
   id: string;
@@ -72,6 +73,7 @@ const INITIAL_INVOICES: Invoice[] = [
 ];
 
 export function FamilyBillingView() {
+  const workflow = useContractWorkflow();
   const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
   const [selectedOptionId, setSelectedOptionId] = useState<string>(PAYMENT_OPTIONS[0].id);
   const [isCopied, setIsCopied] = useState<string | null>(null);
@@ -80,8 +82,24 @@ export function FamilyBillingView() {
   const [timeLeft, setTimeLeft] = useState(15 * 60);
   const [billingToast, setBillingToast] = useState<string | null>(null);
 
+  const activeOptions: PaymentOption[] =
+    workflow?.step === 'PENDING_PAYMENT'
+      ? [
+          {
+            id: 'contract-4p-activation',
+            title: `Kích hoạt Hợp đồng Dịch vụ Y tế Gia đình 4 Bên (${workflow.contractCode})`,
+            badge: 'Chờ thanh toán kích hoạt',
+            description: `Đã hoàn tất 4 chữ ký số. Thanh toán để kích hoạt hiệu lực gói ${workflow.packageName}`,
+            amountNumber: workflow.packagePrice,
+            amountFormatted: workflow.packagePriceFormatted,
+            transferMemo: `FMD ${workflow.familyId} CTR4P`,
+          },
+          ...PAYMENT_OPTIONS,
+        ]
+      : PAYMENT_OPTIONS;
+
   const selectedOption =
-    PAYMENT_OPTIONS.find((item) => item.id === selectedOptionId) || PAYMENT_OPTIONS[0];
+    activeOptions.find((item) => item.id === selectedOptionId) || activeOptions[0];
 
   const handleOpenQrModal = () => {
     setTimeLeft(15 * 60);
@@ -131,11 +149,18 @@ export function FamilyBillingView() {
         receiptUrl: `Bien_Lai_FMD_${Date.now()}.pdf`,
       };
 
+      if (workflow?.step === 'PENDING_PAYMENT') {
+        updateContractStep('ACTIVE', {
+          paymentPaid: true,
+          paymentPaidAt: dateStr,
+        });
+      }
+
       setInvoices((prev) => [newInvoice, ...prev]);
       setIsVerifying(false);
       setShowQrModal(false);
       setBillingToast(
-        `Đã xác nhận thanh toán ${selectedOption.amountFormatted} thành công! Biên lai điện tử mới đã được thêm vào lịch sử.`
+        `Đã xác nhận thanh toán ${selectedOption.amountFormatted} thành công! Hợp đồng đã kích hoạt ACTIVE.`
       );
       setTimeout(() => setBillingToast(null), 4500);
     }, 1000);
@@ -321,7 +346,7 @@ export function FamilyBillingView() {
 
           {/* Bước 1: Chọn dịch vụ muốn thanh toán */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {PAYMENT_OPTIONS.map((option) => {
+            {activeOptions.map((option) => {
               const isSelected = option.id === selectedOptionId;
               return (
                 <button

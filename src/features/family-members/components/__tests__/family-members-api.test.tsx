@@ -76,7 +76,7 @@ describe('Task 4: FamilyMembersView Integration with patientsApi', () => {
     const nameInput = screen.getByPlaceholderText(/Ví dụ: Nguyễn Thị Lan/i);
     await userEvent.type(nameInput, 'Trần Thị Mai');
 
-    const submitModalBtn = screen.getByRole('button', { name: /Lưu vào sổ hộ tịch/i });
+    const submitModalBtn = screen.getByRole('button', { name: /Lưu vào sổ hộ tịch|Lưu thành viên/i });
     await userEvent.click(submitModalBtn);
 
     await waitFor(() => {

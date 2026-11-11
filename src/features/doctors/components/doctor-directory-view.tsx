@@ -11,6 +11,7 @@ export interface Doctor {
   id: string;
   name: string;
   title: string; // PGS.TS, ThS.BS, BS.CKII, BS.CKI
+  cchnNumber?: string;
   specialty: string;
   specialtyKey: 'general' | 'pediatric' | 'geriatric' | 'cardio' | 'internal' | 'obgyn' | 'ortho' | 'ent' | 'traditional';
   experienceYears: number;

@@ -531,16 +531,14 @@ export function FamilyAppointmentsView() {
                         {/* Nút hành động theo trạng thái */}
                         {apt.status === 'confirmed' && (
                           <div className="space-y-2.5">
-                            {apt.type === 'telehealth' && apt.meetLink && (
-                              <a
-                                href={apt.meetLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                            {apt.type === 'telehealth' && (
+                              <Link
+                                href="/family/telemedicine"
                                 className="min-h-10 w-full py-2 px-4 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 shadow-xs transition-all"
                               >
                                 <span className="material-symbols-outlined text-[17px]">videocam</span>
                                 <span>Vào phòng khám Video</span>
-                              </a>
+                              </Link>
                             )}
 
                             {isHome && (

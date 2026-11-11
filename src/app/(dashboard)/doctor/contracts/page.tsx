@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import { DoctorContractsInboundView } from '@/features/doctor-dashboard';
 
 export const metadata: Metadata = {
-  title: 'Hợp Đồng Y Tế Phụ Trách | Bác Sĩ Gia Đình FamiDoc',
+  title: 'Hợp Đồng Phụ Trách & Tiếp Nhận Y Tế (SCR-16) | FamiDoc Doctor',
   description:
-    'Danh sách các hợp đồng chăm sóc sức khỏe gia đình được Cơ sở y tế phân công cho Bác sĩ tiếp nhận trách nhiệm chuyên môn.',
+    'Tiếp nhận phân công bác sĩ gia đình từ cơ sở y tế, xem xét tiền sử lâm sàng hộ gia đình và ký cam kết y đức.',
 };
 
 export default function DoctorContractsPage() {

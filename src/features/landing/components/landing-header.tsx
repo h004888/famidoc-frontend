@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 
 const NAV_LINKS = [
   { href: '/', label: 'Trang chủ' },
@@ -13,6 +14,7 @@ const NAV_LINKS = [
 
 export function LandingHeader() {
   const pathname = usePathname() || '/';
+  const { isAuthenticated, user, role, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const bottomNavItems = [
@@ -85,22 +87,50 @@ export function LandingHeader() {
             })}
           </nav>
 
-          {/* Action Buttons: Đăng nhập hiển thị cả mobile & desktop, Đăng ký hiển thị trên desktop */}
+          {/* Action Buttons: Khi đã đăng nhập thì hiển thị Avatar + Vào Dashboard + Đăng xuất, ngược lại hiển thị Đăng nhập & Đăng ký */}
           <div className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/login"
-              className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-slate-700 hover:text-[#0046c0] rounded-md transition-colors border border-slate-200 sm:border-transparent hover:border-slate-200"
-            >
-              Đăng nhập
-            </Link>
+            {isAuthenticated && user ? (
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Link
+                  href={getDefaultPathForRole(role)}
+                  className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-50 text-[#0046c0] hover:bg-blue-100/80 text-xs sm:text-sm font-semibold transition-colors border border-blue-200/70"
+                  title="Vào Bảng Điều Khiển"
+                >
+                  <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold border border-blue-300">
+                    {user.avatarText || user.name.charAt(0)}
+                  </div>
+                  <span className="hidden sm:inline max-w-[120px] truncate">{user.name}</span>
+                  <span className="material-symbols-outlined text-[18px]">dashboard</span>
+                </Link>
 
-            <Link
-              href="/register"
-              className="hidden md:inline-flex px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-md bg-[#0046c0] hover:bg-[#003899] text-white text-xs sm:text-sm font-medium transition-colors items-center gap-1.5 shadow-xs"
-            >
-              <span>Đăng ký</span>
-              <span className="material-symbols-outlined text-[16px] sm:text-[18px]">arrow_forward</span>
-            </Link>
+                <button
+                  type="button"
+                  onClick={logout}
+                  title="Đăng xuất"
+                  aria-label="Đăng xuất tài khoản"
+                  className="p-1.5 sm:p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-slate-200 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px] sm:text-[20px]">logout</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-slate-700 hover:text-[#0046c0] rounded-md transition-colors border border-slate-200 sm:border-transparent hover:border-slate-200"
+                >
+                  Đăng nhập
+                </Link>
+
+                <Link
+                  href="/register"
+                  className="hidden md:inline-flex px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-md bg-[#0046c0] hover:bg-[#003899] text-white text-xs sm:text-sm font-medium transition-colors items-center gap-1.5 shadow-xs"
+                >
+                  <span>Đăng ký</span>
+                  <span className="material-symbols-outlined text-[16px] sm:text-[18px]">arrow_forward</span>
+                </Link>
+              </>
+            )}
 
             {/* Mobile Hamburger Button */}
             <button
@@ -149,23 +179,60 @@ export function LandingHeader() {
             </nav>
 
             <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
-              <Link
-                href="/login"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2"
-              >
-                <span className="material-symbols-outlined text-lg">login</span>
-                <span>Đăng nhập tài khoản</span>
-              </Link>
+              {isAuthenticated && user ? (
+                <>
+                  <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
+                    <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold border border-slate-300 shrink-0">
+                      {user.avatarText || user.name.charAt(0)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-slate-900 truncate">{user.name}</div>
+                      <div className="text-xs text-slate-500 truncate">{user.email || user.phone}</div>
+                    </div>
+                  </div>
 
-              <Link
-                href="/register"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="w-full py-2.5 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-sm font-medium flex items-center justify-center gap-2 shadow-xs"
-              >
-                <span className="material-symbols-outlined text-lg">person_add</span>
-                <span>Đăng ký Bác sĩ Gia đình</span>
-              </Link>
+                  <Link
+                    href={getDefaultPathForRole(role)}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-full py-2.5 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-sm font-medium flex items-center justify-center gap-2 shadow-xs"
+                  >
+                    <span className="material-symbols-outlined text-lg">dashboard</span>
+                    <span>Vào Bảng Điều Khiển</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMobileMenuOpen(false);
+                      logout();
+                    }}
+                    className="w-full py-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 text-sm font-medium flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-lg">logout</span>
+                    <span>Đăng xuất tài khoản</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-lg">login</span>
+                    <span>Đăng nhập tài khoản</span>
+                  </Link>
+
+                  <Link
+                    href="/register"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="w-full py-2.5 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-sm font-medium flex items-center justify-center gap-2 shadow-xs"
+                  >
+                    <span className="material-symbols-outlined text-lg">person_add</span>
+                    <span>Đăng ký Bác sĩ Gia đình</span>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}
