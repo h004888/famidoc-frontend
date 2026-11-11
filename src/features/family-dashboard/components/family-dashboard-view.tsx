@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useContractWorkflow } from '@/lib/contract-workflow-storage';
 import {
   INITIAL_FAMILY_MEMBERS_DATA,
   MemberHealthData,
@@ -20,6 +21,7 @@ interface FamilyMedicationItem {
 }
 
 export function FamilyDashboardView() {
+  const workflow = useContractWorkflow();
   const [membersData, setMembersData] = useState<Record<string, MemberHealthData>>(
     INITIAL_FAMILY_MEMBERS_DATA
   );
@@ -84,10 +86,15 @@ export function FamilyDashboardView() {
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
                   Hộ #FAM-88219
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                <Link
+                  href="/family/subscription"
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/60 transition-colors cursor-pointer"
+                  title="Xem hợp đồng hoặc đổi Bác sĩ / Gói dịch vụ"
+                >
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                   <span>Gói Bác Sĩ Gia Đình Toàn Diện VIP</span>
-                </span>
+                  <span className="material-symbols-outlined text-[14px] text-emerald-700">arrow_forward</span>
+                </Link>
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
@@ -129,6 +136,37 @@ export function FamilyDashboardView() {
           </div>
         </header>
 
+        {/* 1.5. BANNER ONBOARDING CAO CẤP: CHƯA CÓ BÁC SĨ HOẶC MUỐN ĐĂNG KÝ BÁC SĨ MỚI */}
+        {workflow?.step !== 'ACTIVE' && (
+          <aside
+            aria-label="Đăng ký Bác sĩ gia đình"
+            className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-[#2E37A4] via-[#242c88] to-[#1a206b] text-white flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-lg shadow-blue-950/15"
+          >
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-white/15 text-blue-100 border border-white/20 inline-block">
+                  Quy Trình Chuẩn Bộ Y Tế 2026
+                </span>
+                <span className="text-xs text-blue-200">· Hợp đồng y tế điện tử 4 bên</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+                Bảo Vệ Sức Khỏe Gia Đình Toàn Diện Cùng Bác Sĩ Riêng Quản Nhiệm
+              </h2>
+              <p className="text-xs sm:text-sm text-blue-100 leading-relaxed">
+                Khám phá danh sách Bác sĩ gia đình chuyên môn cao (BV ĐHYD, Bạch Mai, Chợ Rẫy, Vinmec), chọn gói dịch vụ phù hợp và ký kết Hợp đồng điện tử 4 bên bảo chứng pháp lý.
+              </p>
+            </div>
+
+            <Link
+              href="/family/subscription/new"
+              className="px-6 py-3 bg-white hover:bg-slate-100 text-[#2E37A4] rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all self-start md:self-center shrink-0 flex items-center gap-2 cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[18px]">person_search</span>
+              <span>Chọn Bác Sĩ &amp; Đăng Ký Gói Ngay</span>
+            </Link>
+          </aside>
+        )}
+
         {/* 2. CẢNH BÁO SỨC KHỎE NHẸ NHÀNG (KHI CÓ CHỈ SỐ CẦN CHÚ Ý) */}
         {warningMembersCount > 0 && (
           <aside
@@ -144,7 +182,7 @@ export function FamilyDashboardView() {
                   Lưu ý sức khỏe hôm nay: Bác Nguyễn Văn Phúc (Huyết áp 135/85 mmHg)
                 </div>
                 <p className="text-xs sm:text-sm text-slate-700 mt-0.5 leading-relaxed">
-                  Chỉ số tâm thu hơi cao sau bữa sáng. Cần kiểm tra lại lúc 17:00 chiều và nhắc bác uống đúng cữ Metformin 500mg sau ăn tối.
+                  Chỉ số tâm thu hơi cao sau bữa sáng. Cần kiểm tra lại lúc 17:00 chiều và nhắc bác uống đúng giờ liều Metformin 500mg sau ăn tối.
                 </p>
               </div>
             </div>
@@ -184,12 +222,12 @@ export function FamilyDashboardView() {
           <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Tuân thủ thuốc hôm nay
+                Uống thuốc hôm nay
               </span>
               <span className="material-symbols-outlined text-slate-400 text-[20px]">medication</span>
             </div>
             <div className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
-              Đã dùng {takenMedicines}/{totalMedicines} cữ
+              Đã uống {takenMedicines}/{totalMedicines} lần
             </div>
             <div className="space-y-1.5 pt-1">
               <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
@@ -200,7 +238,7 @@ export function FamilyDashboardView() {
               </div>
               <div className="text-xs font-medium text-emerald-800 flex items-center justify-between">
                 <span>Đạt {medPercent}%</span>
-                <span className="text-slate-500 font-normal">Còn {totalMedicines - takenMedicines} cữ tối</span>
+                <span className="text-slate-500 font-normal">Còn {totalMedicines - takenMedicines} lần chưa uống</span>
               </div>
             </div>
           </div>
@@ -227,7 +265,7 @@ export function FamilyDashboardView() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-lg font-bold text-slate-900 tracking-tight">
-                Chỉ Số sức khỏe Hôm Nay Của Các Thành Viên ({totalMembers})
+                Chỉ Số Sức Khỏe Hôm Nay Của Các Thành Viên ({totalMembers})
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                 Cập nhật tự động từ thiết bị đo IoT gia đình và sổ theo dõi hàng ngày
@@ -245,8 +283,6 @@ export function FamilyDashboardView() {
 
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             {membersList.map((m) => {
-              const medTaken = m.medicines.filter((med) => med.status === 'taken').length;
-              const medTotal = m.medicines.length;
               const isWarning = m.status === 'warning';
 
               return (
@@ -326,13 +362,10 @@ export function FamilyDashboardView() {
                     </div>
                   </div>
 
-                  {/* Hàng 3: Tiến độ thuốc & Nút mở hồ sơ chi tiết */}
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2 text-xs text-slate-500">
-                    <span className="truncate">
-                      Thuốc {medTaken}/{medTotal} liều thuốc · {m.lastUpdated}
-                    </span>
+                  {/* Hàng 3: Nút mở hồ sơ chi tiết */}
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-end text-xs">
                     <span className="font-semibold text-[#2E37A4] group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5 shrink-0">
-                      <span>Chi tiết</span>
+                      <span>Xem hồ sơ chi tiết</span>
                       <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                     </span>
                   </div>
@@ -410,7 +443,7 @@ export function FamilyDashboardView() {
           <aside className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-5">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-bold text-base text-slate-900">
-                Bác Sĩ Quản Nhiệm
+                Bác Sĩ Gia Đình
               </h2>
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/80">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

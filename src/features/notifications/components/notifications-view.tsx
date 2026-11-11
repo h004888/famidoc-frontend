@@ -28,8 +28,8 @@ const INITIAL_NOTIFICATIONS: NotificationItem[] = [
       'Số đo sáng nay cao hơn ngưỡng mục tiêu. Gia đình nhắc Ông uống thuốc huyết áp đúng giờ và đo lại sau 30 phút nghỉ ngơi.',
     timestamp: '15 phút trước',
     isRead: false,
-    linkHref: '/family/vitals',
-    linkLabel: 'Xem chỉ số',
+    linkHref: '/family/members/mem-01',
+    linkLabel: 'Xem sổ sức khỏe',
     isUrgent: true,
   },
   {

@@ -19,6 +19,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
           {/* Right Action Items */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Quick link to Landing / Public Homepage */}
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-[#2E37A4] hover:bg-slate-100 transition-colors border border-slate-200/80 outline-hidden"
+              title="Xem giao diện Trang Chủ công khai"
+            >
+              <span className="material-symbols-outlined text-[17px]">home</span>
+              <span className="hidden sm:inline">Trang Chủ</span>
+            </Link>
 
             {/* Notifications Button */}
             <div className="relative">

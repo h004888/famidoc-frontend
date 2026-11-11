@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
@@ -14,6 +14,7 @@ interface NavItem {
   exact?: boolean;
   badge?: string;
   badgeColor?: string;
+  section?: string;
 }
 
 interface RoleMenuConfig {
@@ -110,6 +111,15 @@ export function DashboardSidebar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [clinicDropdownOpen, setClinicDropdownOpen] = useState(false);
   const [selectedClinic, setSelectedClinic] = useState(CLINIC_LIST[0]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
+  const displayName = mounted ? (user?.name || '') : '';
+  const userSubtitle = mounted ? (user?.facilityOrTitle || user?.phone || '') : '';
 
   // Chỉ lấy menu của đúng Role hiện tại đang đăng nhập
   const currentMenu = ROLE_MENUS[role] || ROLE_MENUS.FAMILY;
@@ -152,8 +162,41 @@ export function DashboardSidebar() {
         </Link>
       </div>
 
-      {/* Preclinic Clinic Switcher Dropdown */}
-      {!isCollapsedState ? (
+      {/* Sub-Header Context Widget: Gia đình hiển thị Hộ tịch, CSYT/Admin hiển thị Switcher */}
+      {role === 'FAMILY' || role === 'PATIENT' ? (
+        !isCollapsedState ? (
+          <div className="p-3 border-b border-slate-100 bg-white">
+            <div className="w-full bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-2.5 rounded-xl border border-blue-200/60 flex items-center justify-between">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-[#2E37A4] text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <span className="material-symbols-outlined text-[18px]">cottage</span>
+                </div>
+                <div className="min-w-0">
+                  <div className="text-xs font-bold text-slate-900 truncate">
+                    Hộ #FAM-88219
+                  </div>
+                  <div className="text-[11px] text-slate-500 truncate">
+                    Gói Toàn Diện VIP · 4/6 slot
+                  </div>
+                </div>
+              </div>
+              <Link
+                href="/family/subscription"
+                title="Xem chi tiết hợp đồng gia đình"
+                className="p-1 text-[#2E37A4] hover:text-[#222982] transition-colors"
+              >
+                <span className="material-symbols-outlined text-[16px]">verified</span>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <div className="py-3 flex justify-center border-b border-slate-100 text-[#2E37A4]">
+            <span className="material-symbols-outlined text-[20px]" title="Hộ #FAM-88219 (Gói Toàn Diện VIP)">
+              cottage
+            </span>
+          </div>
+        )
+      ) : !isCollapsedState ? (
         <div className="p-3 border-b border-slate-100 relative bg-white">
           <button
             type="button"
@@ -220,95 +263,103 @@ export function DashboardSidebar() {
       {/* Nav Items List */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
         <div className="space-y-1">
-          {currentMenu.items.map((item) => {
+          {currentMenu.items.map((item, idx) => {
             const isActive = item.exact
               ? pathname === item.href
               : pathname.startsWith(item.href);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                title={isCollapsedState ? item.label : undefined}
-                aria-label={item.label}
-                className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors group outline-hidden ${
-                  isActive
-                    ? 'bg-[#2E37A4] text-white font-semibold'
-                    : 'text-slate-700 hover:text-[#2E37A4] hover:bg-slate-200/70'
-                } ${isCollapsedState ? 'justify-center px-2' : ''}`}
-              >
-                <div className="flex items-center gap-3 truncate">
-                  <span
-                    className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
-                      isActive
-                        ? 'text-white'
-                        : 'text-slate-600 group-hover:text-[#2E37A4]'
-                    }`}
-                  >
-                    {item.icon}
-                  </span>
-                  {!isCollapsedState && <span className="truncate">{item.label}</span>}
-                </div>
-                {!isCollapsedState && item.badge && (
-                  <span
-                    className={`text-xs px-2 py-0.5 rounded-full font-semibold shrink-0 transition-colors ${
-                      isActive
-                        ? 'bg-white/20 text-white'
-                        : item.badgeColor || 'bg-slate-100 text-slate-700'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
+              <React.Fragment key={item.href}>
+                {item.section && !isCollapsedState && (
+                  <div className={`${idx > 0 ? 'pt-3' : 'pt-0.5'} pb-1 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider`}>
+                    {item.section}
+                  </div>
                 )}
-              </Link>
+                <Link
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  title={isCollapsedState ? item.label : undefined}
+                  aria-label={item.label}
+                  className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors group outline-hidden ${
+                    isActive
+                      ? 'bg-[#2E37A4] text-white font-semibold shadow-xs'
+                      : 'text-slate-700 hover:text-[#2E37A4] hover:bg-slate-100'
+                  } ${isCollapsedState ? 'justify-center px-2' : ''}`}
+                >
+                  <div className="flex items-center gap-3 truncate">
+                    <span
+                      className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
+                        isActive
+                          ? 'text-white'
+                          : 'text-slate-600 group-hover:text-[#2E37A4]'
+                      }`}
+                    >
+                      {item.icon}
+                    </span>
+                    {!isCollapsedState && <span className="truncate">{item.label}</span>}
+                  </div>
+                  {!isCollapsedState && item.badge && (
+                    <span
+                      className={`text-[11px] px-2 py-0.5 rounded-full font-semibold shrink-0 transition-colors ${
+                        isActive
+                          ? 'bg-white/20 text-white'
+                          : item.badgeColor || 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              </React.Fragment>
             );
           })}
         </div>
 
-        {/* Global Settings & Utilities */}
-        <div className="pt-2 border-t border-slate-100 space-y-1">
-          <Link
-            href="/packages"
-            onClick={() => setMobileMenuOpen(false)}
-            title={isCollapsedState ? 'Danh mục Gói Dịch vụ' : undefined}
-            aria-label="Danh mục Gói Dịch vụ"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors group outline-hidden ${
-              pathname === '/packages'
-                ? 'bg-[#2E37A4] text-white font-semibold'
-                : 'text-slate-700 hover:text-[#2E37A4] hover:bg-slate-200/70'
-            } ${isCollapsedState ? 'justify-center px-2' : ''}`}
-          >
-            <span
-              className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
-                pathname === '/packages' ? 'text-white' : 'text-slate-600 group-hover:text-[#2E37A4]'
-              }`}
+        {/* Global Settings & Utilities (Chỉ hiện cho Doctor/Facility/Admin) */}
+        {role !== 'FAMILY' && role !== 'PATIENT' && (
+          <div className="pt-2 border-t border-slate-100 space-y-1">
+            <Link
+              href="/packages"
+              onClick={() => setMobileMenuOpen(false)}
+              title={isCollapsedState ? 'Danh mục Gói Dịch vụ' : undefined}
+              aria-label="Danh mục Gói Dịch vụ"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors group outline-hidden ${
+                pathname === '/packages'
+                  ? 'bg-[#2E37A4] text-white font-semibold'
+                  : 'text-slate-700 hover:text-[#2E37A4] hover:bg-slate-200/70'
+              } ${isCollapsedState ? 'justify-center px-2' : ''}`}
             >
-              inventory_2
-            </span>
-            {!isCollapsedState && <span>Danh mục Gói Dịch vụ</span>}
-          </Link>
+              <span
+                className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
+                  pathname === '/packages' ? 'text-white' : 'text-slate-600 group-hover:text-[#2E37A4]'
+                }`}
+              >
+                inventory_2
+              </span>
+              {!isCollapsedState && <span>Danh mục Gói Dịch vụ</span>}
+            </Link>
 
-          <Link
-            href="/settings"
-            onClick={() => setMobileMenuOpen(false)}
-            title={isCollapsedState ? 'Cài đặt & Hồ sơ BHYT' : undefined}
-            aria-label="Cài đặt & Hồ sơ BHYT"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors group outline-hidden ${
-              pathname === '/settings'
-                ? 'bg-[#2E37A4] text-white font-semibold'
-                : 'text-slate-700 hover:text-[#2E37A4] hover:bg-slate-200/70'
-            } ${isCollapsedState ? 'justify-center px-2' : ''}`}
-          >
-            <span
-              className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
-                pathname === '/settings' ? 'text-white' : 'text-slate-600 group-hover:text-[#2E37A4]'
-              }`}
+            <Link
+              href="/settings"
+              onClick={() => setMobileMenuOpen(false)}
+              title={isCollapsedState ? 'Cài đặt & Hồ sơ BHYT' : undefined}
+              aria-label="Cài đặt & Hồ sơ BHYT"
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-colors group outline-hidden ${
+                pathname === '/settings'
+                  ? 'bg-[#2E37A4] text-white font-semibold'
+                  : 'text-slate-700 hover:text-[#2E37A4] hover:bg-slate-200/70'
+              } ${isCollapsedState ? 'justify-center px-2' : ''}`}
             >
-              settings
-            </span>
-            {!isCollapsedState && <span>Cài đặt &amp; Hồ sơ BHYT</span>}
-          </Link>
-        </div>
+              <span
+                className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
+                  pathname === '/settings' ? 'text-white' : 'text-slate-600 group-hover:text-[#2E37A4]'
+                }`}
+              >
+                settings
+              </span>
+              {!isCollapsedState && <span>Cài đặt &amp; Hồ sơ BHYT</span>}
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* User Footer Profile & Logout */}
@@ -316,33 +367,50 @@ export function DashboardSidebar() {
         <div className="flex items-center justify-between gap-2">
           <Link
             href="/settings"
-            title={user?.name || 'Hồ sơ tài khoản'}
-            aria-label={user?.name || 'Hồ sơ tài khoản'}
+            title={displayName || 'Hồ sơ tài khoản'}
+            aria-label={displayName || 'Hồ sơ tài khoản'}
             className={`flex items-center gap-2.5 p-1.5 rounded-xl hover:bg-slate-200/70 transition-colors flex-1 min-w-0 outline-hidden ${
               isCollapsedState ? 'justify-center' : ''
             }`}
           >
-            <div className="w-8 h-8 rounded-full bg-[#2E37A4] text-white flex items-center justify-center font-semibold text-xs shrink-0">
-              {user?.avatarText || 'FD'}
+            <div
+              className="w-8 h-8 rounded-full bg-[#2E37A4] text-white flex items-center justify-center font-semibold text-xs shrink-0"
+              suppressHydrationWarning
+            >
+              {avatarText}
             </div>
             {!isCollapsedState && (
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-slate-900 truncate">{user?.name}</div>
-                <div className="text-xs text-slate-600 truncate">{user?.facilityOrTitle || user?.phone}</div>
+                <div className="text-xs font-semibold text-slate-900 truncate" suppressHydrationWarning>
+                  {displayName}
+                </div>
+                <div className="text-xs text-slate-600 truncate" suppressHydrationWarning>
+                  {userSubtitle}
+                </div>
               </div>
             )}
           </Link>
 
           {!isCollapsedState && (
-            <button
-              type="button"
-              onClick={logout}
-              className="p-2 rounded-lg text-slate-600 hover:text-rose-700 hover:bg-rose-500/10 transition-colors shrink-0 flex items-center justify-center outline-hidden cursor-pointer"
-              title="Đăng xuất khỏi tài khoản"
-              aria-label="Đăng xuất"
-            >
-              <span className="material-symbols-outlined text-[18px]">logout</span>
-            </button>
+            <div className="flex items-center gap-1 shrink-0">
+              <Link
+                href="/"
+                className="p-2 rounded-lg text-slate-500 hover:text-[#2E37A4] hover:bg-blue-50 transition-colors flex items-center justify-center outline-hidden"
+                title="Xem Trang chủ công khai"
+                aria-label="Xem Trang chủ"
+              >
+                <span className="material-symbols-outlined text-[18px]">home</span>
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                className="p-2 rounded-lg text-slate-600 hover:text-rose-700 hover:bg-rose-500/10 transition-colors flex items-center justify-center outline-hidden cursor-pointer"
+                title="Đăng xuất khỏi tài khoản"
+                aria-label="Đăng xuất"
+              >
+                <span className="material-symbols-outlined text-[18px]">logout</span>
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -402,8 +470,9 @@ export function DashboardSidebar() {
             href="/settings"
             className="w-8 h-8 rounded-full bg-[#2E37A4] text-white flex items-center justify-center font-semibold text-xs outline-hidden"
             aria-label="Hồ sơ tài khoản & Cài đặt"
+            suppressHydrationWarning
           >
-            {user?.avatarText || 'FD'}
+            {avatarText}
           </Link>
         </div>
       </div>

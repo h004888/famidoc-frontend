@@ -170,7 +170,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 // Fallback an toàn cho test hoặc ngoài provider
 const fallbackAuthContext: AuthContextType = {
   role: 'FAMILY',
-  user: DEFAULT_USERS.FAMILY,
+  user: null,
   isAuthenticated: false,
   isLoading: false,
   login: async () => {},

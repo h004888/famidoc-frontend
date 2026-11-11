@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -12,6 +12,7 @@ export interface MemberProfile {
   gender: string;
   avatar: string;
   bloodType: string;
+  cccd?: string;
   bhytNumber: string;
   bhytHospital: string;
   allergies: string[];
@@ -72,6 +73,7 @@ export const MEMBERS: MemberProfile[] = [
     gender: 'Nam',
     avatar: '👨‍🦳',
     bloodType: 'O+',
+    cccd: '079048001234',
     bhytNumber: 'GD4790123891024',
     bhytHospital: 'BV Đại học Y Dược TP.HCM (Tuyến TW)',
     allergies: ['Penicillin', 'Hải sản vỏ cứng'],
@@ -87,6 +89,7 @@ export const MEMBERS: MemberProfile[] = [
     gender: 'Nữ',
     avatar: '👩',
     bloodType: 'A+',
+    cccd: '079184005678',
     bhytNumber: 'GD4790882194012',
     bhytHospital: 'BV Từ Dũ (Tuyến Tỉnh)',
     allergies: ['Không có tiền sử dị ứng'],
@@ -102,6 +105,7 @@ export const MEMBERS: MemberProfile[] = [
     gender: 'Nam',
     avatar: '👦',
     bloodType: 'O+',
+    cccd: '079214009012',
     bhytNumber: 'TE4790998124512',
     bhytHospital: 'BV Nhi Đồng 1 (Tuyến Tỉnh)',
     allergies: ['Bụi phấn hoa', 'Lông động vật'],
@@ -253,6 +257,7 @@ export function FamilyMembersView() {
   const [newRelation, setNewRelation] = useState('Con gái');
   const [newGender, setNewGender] = useState<'Nam' | 'Nữ'>('Nữ');
   const [newBloodType, setNewBloodType] = useState('O+');
+  const [newCccd, setNewCccd] = useState('');
   const [newBhyt, setNewBhyt] = useState('');
   const [newBhytHospital, setNewBhytHospital] = useState('BV Đại học Y Dược TP.HCM');
   const [newAllergies, setNewAllergies] = useState('');
@@ -345,6 +350,7 @@ export function FamilyMembersView() {
 
     setNewName('');
     setNewBirthDate('');
+    setNewCccd('');
     setNewBhyt('');
     setNewAllergies('');
     setNewChronic('');
@@ -411,10 +417,17 @@ export function FamilyMembersView() {
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
                   Hộ #FAM-88219
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>{membersList.length} thành viên y tế</span>
-                </span>
+                  <span>Đã thêm <strong className="tabular-nums font-bold">{membersList.length}/6</strong> thành viên (Gói VIP)</span>
+                  <div className="w-16 h-1.5 bg-emerald-200/60 rounded-full overflow-hidden hidden sm:block">
+                    <div
+                      className="h-full bg-emerald-600 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (membersList.length / 6) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-emerald-700 font-normal hidden sm:inline">(Còn {Math.max(0, 6 - membersList.length)} slot)</span>
+                </div>
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
                   <span className="material-symbols-outlined text-[14px] text-slate-500">verified</span>
                   <span>Đồng bộ VssID Quốc Gia</span>
@@ -706,9 +719,12 @@ export function FamilyMembersView() {
                       </div>
                     </div>
 
-                    {/* Cột 2: BHYT & Sức khỏe tóm tắt */}
+                    {/* Cột 2: CCCD, BHYT & Sức khỏe tóm tắt */}
                     <div className="min-w-0 lg:w-4/12 space-y-1 text-xs">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="text-slate-400">CCCD:</span>
+                        <span className="font-bold tabular-nums text-slate-700">{m.cccd || '079026008899'}</span>
+                        <span className="text-slate-300">•</span>
                         <span className="text-slate-400">BHYT:</span>
                         <span className="font-bold tabular-nums text-slate-800">{m.bhytNumber}</span>
                         <button
@@ -927,6 +943,20 @@ export function FamilyMembersView() {
                 </div>
               </div>
 
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Số CCCD / Định danh cá nhân (12 số)
+                </label>
+                <input
+                  type="text"
+                  value={newCccd}
+                  onChange={(e) => setNewCccd(e.target.value)}
+                  placeholder="VD: 079048001234"
+                  maxLength={12}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-bold tabular-nums text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">
@@ -1080,6 +1110,22 @@ export function FamilyMembersView() {
                     <option value="Chưa rõ">Chưa rõ nhóm máu</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Số CCCD / Định danh cá nhân (12 số)
+                </label>
+                <input
+                  type="text"
+                  value={editingMember.cccd || ''}
+                  onChange={(e) =>
+                    setEditingMember({ ...editingMember, cccd: e.target.value })
+                  }
+                  placeholder="VD: 079048001234"
+                  maxLength={12}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-bold tabular-nums text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

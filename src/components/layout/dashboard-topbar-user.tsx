@@ -1,11 +1,19 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/features/auth/context/auth-context';
 
 export function DashboardTopbarUser() {
   const { user, role } = useAuth();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
+  const displayName = mounted ? (user?.name || '') : '';
 
   return (
     <Link
@@ -14,14 +22,20 @@ export function DashboardTopbarUser() {
       title="Hồ sơ tài khoản & Cài đặt"
     >
       <div className="relative">
-        <div className="w-8 h-8 rounded-full bg-[#2E37A4] text-white flex items-center justify-center font-semibold text-xs shrink-0">
-          {user?.avatarText || 'FD'}
+        <div
+          className="w-8 h-8 rounded-full bg-[#2E37A4] text-white flex items-center justify-center font-semibold text-xs shrink-0"
+          suppressHydrationWarning
+        >
+          {avatarText}
         </div>
         <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
       </div>
       <div className="hidden md:flex flex-col text-left">
-        <span className="text-xs font-semibold text-slate-900 leading-tight group-hover:text-[#2E37A4] transition-colors truncate max-w-[140px]">
-          {user?.name}
+        <span
+          className="text-xs font-semibold text-slate-900 leading-tight group-hover:text-[#2E37A4] transition-colors truncate max-w-[140px]"
+          suppressHydrationWarning
+        >
+          {displayName}
         </span>
         <span className="text-xs text-slate-600 font-medium leading-tight mt-0.5">
           {role === 'ADMIN' && 'Super Admin'}

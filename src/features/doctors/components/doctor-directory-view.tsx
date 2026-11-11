@@ -31,15 +31,22 @@ export interface Doctor {
 export interface Facility {
   id: string;
   name: string;
+  facility_name?: string;
   type: 'Bệnh viện Tuyến Trung Ương' | 'Bệnh viện Đa Khoa Quốc Tế' | 'Phòng khám Đa Khoa Kỹ Thuật Cao';
   address: string;
   city: 'Hà Nội' | 'TP. Hồ Chí Minh' | 'Đà Nẵng';
   phone: string;
+  hotline?: string;
   workingHours: string;
   imageUrl: string;
   specialties: string[];
   privileges: string[];
   bedCount: string;
+  license_number?: string;
+  tax_code?: string;
+  verification_status?: 'VERIFIED' | 'PENDING' | 'REJECTED';
+  created_at?: string;
+  updated_at?: string;
 }
 
 function DoctorCardSkeleton() {
@@ -731,12 +738,21 @@ export function DoctorDirectoryView() {
                               <span className="material-symbols-outlined text-sm text-amber-500 material-symbols-filled">star</span>
                               {doc.rating} <span className="font-normal text-slate-400">({doc.reviewCount})</span>
                             </span>
-                            <Link
-                              href={`/doctors/${doc.id}`}
-                              className="font-bold text-[#0046c0] hover:underline cursor-pointer"
-                            >
-                              Xem chi tiết →
-                            </Link>
+                            <div className="flex items-center gap-2">
+                              <Link
+                                href={`/doctors/${doc.id}`}
+                                className="font-semibold text-slate-500 hover:text-slate-800"
+                              >
+                                Chi tiết
+                              </Link>
+                              <span className="text-slate-300">•</span>
+                              <Link
+                                href={`/family/subscription/new?doctorId=${doc.id}`}
+                                className="font-bold text-[#0046c0] hover:underline cursor-pointer"
+                              >
+                                Đăng ký Bác sĩ →
+                              </Link>
+                            </div>
                           </div>
                         </div>
                       </article>
@@ -840,18 +856,13 @@ export function DoctorDirectoryView() {
                         </div>
 
                         {/* Footer Actions */}
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
+                        <div className="p-4 bg-slate-50 border-t border-slate-100">
                           <Link
                             href={`/doctors/${fac.id}`}
-                            className="flex-1 py-2.5 px-3 rounded-lg border border-slate-300 hover:bg-slate-100 bg-white text-xs font-semibold text-slate-700 text-center transition-colors cursor-pointer"
+                            className="w-full py-2.5 px-3 rounded-lg border border-slate-300 hover:bg-[#0046c0] hover:text-white hover:border-[#0046c0] bg-white text-xs font-semibold text-slate-700 text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                           >
-                            Chi tiết cơ sở
-                          </Link>
-                          <Link
-                            href={`/doctors/${fac.id}#dat-lich`}
-                            className="flex-1 py-2.5 px-3 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-semibold text-center transition-colors shadow-xs cursor-pointer"
-                          >
-                            Yêu cầu nhập viện
+                            <span>Xem chi tiết cơ sở</span>
+                            <span className="material-symbols-outlined text-base">arrow_forward</span>
                           </Link>
                         </div>
                       </article>

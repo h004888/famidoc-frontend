@@ -121,6 +121,15 @@ export function SubscriptionContractView() {
 
   const [activeTab, setActiveTab] = useState<'contract' | 'benefits'>('contract');
   const [isSigningWizardOpen, setIsSigningWizardOpen] = useState(Boolean(activePackageInfo));
+  const [isAddendumModalOpen, setIsAddendumModalOpen] = useState(false);
+  const [isTerminationModalOpen, setIsTerminationModalOpen] = useState(false);
+  const [isActionsDropdownOpen, setIsActionsDropdownOpen] = useState(false);
+  const [selectedAddendum, setSelectedAddendum] = useState<'home-visit-1' | 'home-visit-3' | 'telehealth-5' | 'member-slot' | 'upgrade-royal'>('home-visit-1');
+  const [terminationReason, setTerminationReason] = useState('Chuyển nơi cư trú ra ngoài địa bàn');
+  const [terminationBankInfo, setTerminationBankInfo] = useState('0912345678 - MB Bank - NGUYEN VAN AN');
+  const [terminationNote, setTerminationNote] = useState('');
+  const [quotas, setQuotas] = useState<QuotaItem[]>(PACKAGE_QUOTAS);
+  const [contractPlanName, setContractPlanName] = useState('Gói Bác Sĩ Gia Đình Toàn Diện VIP (12 Tháng)');
   const [toastMessage, setToastMessage] = useState<string | null>(
     activePackageInfo
       ? `Đã chọn ${activePackageInfo.name}. Mời quý khách xem điều khoản và ký hợp đồng 4 bên.`
@@ -130,6 +139,57 @@ export function SubscriptionContractView() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 4000);
+  };
+
+  const handleApplyAddendum = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedAddendum === 'home-visit-1') {
+      setQuotas((prev) =>
+        prev.map((q) =>
+          q.id === 'home-visit'
+            ? { ...q, total: q.total + 1, remainingLabel: `Còn ${q.total - q.used + 1} / ${q.total + 1} lượt` }
+            : q
+        )
+      );
+      showToast('Đã mua thêm thành công 01 lượt khám tại nhà (+850.000 đ). Hạn mức đã được cộng ngay!');
+    } else if (selectedAddendum === 'home-visit-3') {
+      setQuotas((prev) =>
+        prev.map((q) =>
+          q.id === 'home-visit'
+            ? { ...q, total: q.total + 3, remainingLabel: `Còn ${q.total - q.used + 3} / ${q.total + 3} lượt` }
+            : q
+        )
+      );
+      showToast('Đã mua thêm thành công 03 lượt khám tại nhà (+2.400.000 đ). Hạn mức đã được cộng ngay!');
+    } else if (selectedAddendum === 'telehealth-5') {
+      setQuotas((prev) =>
+        prev.map((q) =>
+          q.id === 'telehealth'
+            ? { ...q, total: q.total + 5, remainingLabel: `Còn ${q.total - q.used + 5} / ${q.total + 5} lượt` }
+            : q
+        )
+      );
+      showToast('Đã mua thêm thành công 05 lượt tư vấn Video Telehealth (+900.000 đ)!');
+    } else if (selectedAddendum === 'member-slot') {
+      showToast('Đã ký phụ lục mở rộng thêm 02 slot thành viên (+150.000 đ/tháng)!');
+    } else if (selectedAddendum === 'upgrade-royal') {
+      setContractPlanName('Gói Bác Sĩ Gia Đình Hoàng Gia Toàn Diện (12 Tháng)');
+      setQuotas((prev) =>
+        prev.map((q) => {
+          if (q.id === 'home-visit') return { ...q, total: q.total + 5, remainingLabel: `Còn ${q.total - q.used + 5} / ${q.total + 5} lượt` };
+          if (q.id === 'telehealth') return { ...q, total: q.total + 20, remainingLabel: `Còn ${q.total - q.used + 20} / ${q.total + 20} lượt` };
+          return q;
+        })
+      );
+      showToast('Nâng cấp lên Gói Hoàng Gia thành công! Đã mở rộng hạn mức khám tại nhà và Telehealth.');
+    }
+    setIsAddendumModalOpen(false);
+  };
+
+  const handleTerminationSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsTerminationModalOpen(false);
+    showToast('Đã gửi yêu cầu thanh lý hợp đồng. Bộ phận CSKH & Tài chính sẽ đối soát Escrow và hoàn phí trong 24-48h.');
   };
 
   const handleSimulatePaymentWebhook = () => {
@@ -184,7 +244,7 @@ export function SubscriptionContractView() {
       badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
       name: workflow?.assignedDoctorName || 'BS.CKII Trần Thanh Mai',
       identifier: `CCHN: ${workflow?.doctorCchn || '004128/HCM'}`,
-      roleDesc: 'Bác sĩ gia đình quản nhiệm trực tiếp hộ',
+      roleDesc: 'Bác sĩ gia đình phụ trách trực tiếp hộ',
       signMethod: workflow?.doctorSigned ? 'Chữ ký số cá nhân Viettel-CA' : 'Chờ bác sĩ xác nhận (Bên D)',
       signDetail: 'Cam kết trách nhiệm y đức & SLA',
       signedAt: workflow?.doctorSignedAt || 'Chờ xác nhận chuyên môn',
@@ -195,84 +255,154 @@ export function SubscriptionContractView() {
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
       <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* 1. HEADER HỢP ĐỒNG THOÁNG ĐÃNG TRỰC TIẾP TRÊN NỀN CANVAS (GIẢI PHÓNG HỘP CỨNG) */}
+        {/* 1. HEADER HỢP ĐỒNG TINH GỌN, CÂN ĐỐI & THOÁNG ĐÃNG */}
         <header className="space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2 min-w-0">
+          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+            {/* Cột trái: Thông tin hợp đồng rộng rãi, chữ không bị gãy rụng */}
+            <div className="space-y-2.5 flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
                   #{workflow?.contractCode || 'CTR-4P-2026-88219'}
                 </span>
-                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
-                  workflow?.step === 'ACTIVE'
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
-                    : 'bg-amber-50 text-amber-800 border-amber-200/60 animate-pulse'
-                }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                    workflow?.step === 'ACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
-                  }`} />
+                <span
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
+                    workflow?.step === 'ACTIVE'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
+                      : 'bg-amber-50 text-amber-800 border-amber-200/60 animate-pulse'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      workflow?.step === 'ACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
+                    }`}
+                  />
                   <span>{workflow?.statusLabel || 'Đang hiệu lực (ACTIVE)'}</span>
                 </span>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
-                Gói Bác Sĩ Gia Đình Toàn Diện VIP (12 Tháng)
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
+                {contractPlanName}
               </h1>
 
-              <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                Hiệu lực từ <strong className="text-slate-800">01/01/2026 – 31/12/2026</strong> · Phí thường niên trọn gói:{' '}
-                <strong className="text-[#2E37A4] tabular-nums font-bold">9.600.000 đ/năm</strong> (Bảo lãnh 100% quyền lợi)
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                Hiệu lực từ <strong className="text-slate-800 font-semibold">01/01/2026 – 31/12/2026</strong> · Phí thường niên trọn gói:{' '}
+                <strong className="text-[#2E37A4] tabular-nums font-bold">9.600.000 đ/năm</strong> (Bảo lãnh 100% quyền lợi Escrow)
               </p>
             </div>
 
-            {/* Cụm nút hành động chuẩn phân cấp */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* Cột phải: Cụm nút hành động tinh gọn & phân cấp chuẩn UX */}
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start">
+              {/* Nút Chọn Bác Sĩ & Đăng Ký Gói Mới (Toàn Màn Hình) */}
+              <Link
+                href="/family/subscription/new"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap"
+              >
+                <span className="material-symbols-outlined text-[19px]">person_search</span>
+                <span>Chọn Bác Sĩ &amp; Đăng Ký Gói</span>
+              </Link>
+
+              {/* Nút Phụ: Mua Thêm Lượt / Nâng Gói */}
               <button
                 type="button"
-                onClick={() => setIsSigningWizardOpen(true)}
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap outline-hidden"
+                onClick={() => setIsAddendumModalOpen(true)}
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-3.5 py-2.5 bg-blue-50 hover:bg-blue-100/80 text-[#2E37A4] border border-blue-200/80 rounded-xl text-sm font-semibold shadow-xs transition-all cursor-pointer whitespace-nowrap"
               >
-                <span className="material-symbols-outlined text-[19px]">edit_document</span>
-                <span>Gia hạn hợp đồng</span>
+                <span className="material-symbols-outlined text-[19px]">add_circle</span>
+                <span>Mua Thêm Lượt</span>
               </button>
 
-              <button
-                type="button"
-                onClick={handleResetDemo}
-                className="min-h-11 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/90 rounded-xl text-xs font-semibold shadow-xs hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap outline-hidden"
-                title="Đặt lại trạng thái mẫu để test lại toàn bộ luồng 4 bên từ đầu"
-              >
-                <span className="material-symbols-outlined text-[17px] text-slate-500">restart_alt</span>
-                <span>Reset Demo</span>
-              </button>
-
+              {/* Nút hành động phụ (Secondary) */}
               <button
                 type="button"
                 onClick={() => showToast('Đang tải file Hợp đồng PDF có chứng thư ký số 4 bên...')}
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap outline-hidden"
+                className="min-h-11 inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-sm font-semibold shadow-xs hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap"
+                title="Tải bản PDF hợp đồng có chữ ký số 4 bên"
               >
                 <span className="material-symbols-outlined text-[19px] text-rose-500">picture_as_pdf</span>
                 <span>Tải bản PDF</span>
               </button>
 
-              <Link
-                href="/family/billing"
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50/80 hover:bg-blue-100/80 text-[#2E37A4] border border-blue-200/80 rounded-xl text-sm font-semibold transition-all whitespace-nowrap outline-hidden"
-              >
-                <span className="material-symbols-outlined text-[19px]">receipt_long</span>
-                <span>Xem biên lai</span>
-              </Link>
+              {/* Menu tùy chọn bổ sung (Dropdown gom các thao tác ít dùng) */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setIsActionsDropdownOpen((prev) => !prev)}
+                  className="min-h-11 w-11 inline-flex items-center justify-center bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl shadow-xs hover:border-slate-300 transition-all cursor-pointer"
+                  title="Tùy chọn khác"
+                  aria-label="Tùy chọn khác"
+                  aria-expanded={isActionsDropdownOpen}
+                >
+                  <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                </button>
+
+                {isActionsDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setIsActionsDropdownOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                      <Link
+                        href="/family/billing"
+                        onClick={() => setIsActionsDropdownOpen(false)}
+                        className="w-full px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 font-semibold transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-[#2E37A4]">receipt_long</span>
+                        <span>Xem biên lai thanh toán</span>
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsActionsDropdownOpen(false);
+                          setIsSigningWizardOpen(true);
+                        }}
+                        className="w-full px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 font-semibold transition-colors cursor-pointer text-left"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-[#2E37A4]">edit_document</span>
+                        <span>Gia hạn hợp đồng mới</span>
+                      </button>
+
+                      <div className="my-1 border-t border-slate-100" />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsActionsDropdownOpen(false);
+                          setIsTerminationModalOpen(true);
+                        }}
+                        className="w-full px-4 py-2.5 text-xs text-rose-600 hover:bg-rose-50 flex items-center gap-2.5 font-semibold transition-colors cursor-pointer text-left"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-rose-500">cancel</span>
+                        <span>Yêu cầu thanh lý hợp đồng</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsActionsDropdownOpen(false);
+                          handleResetDemo();
+                        }}
+                        className="w-full px-4 py-2 text-[11px] text-slate-500 hover:bg-slate-50 flex items-center gap-2 transition-colors cursor-pointer text-left"
+                      >
+                        <span className="material-symbols-outlined text-[16px] text-slate-400">restart_alt</span>
+                        <span>Đặt lại dữ liệu mẫu (Reset Demo)</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
-          {/* Dải thông tin Bác sĩ phụ trách & Người thụ hưởng */}
-          <div className="pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-slate-600">
+          {/* Dải thông tin Bác sĩ gia đình phụ trách & Người thụ hưởng (Card nền trắng tinh tế) */}
+          <div className="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-slate-600">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#2E37A4] font-bold text-xs flex items-center justify-center border border-blue-200/80 shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#2E37A4] font-bold text-xs flex items-center justify-center border border-blue-200/80 shrink-0">
                 TN
               </div>
               <div>
-                <span className="text-slate-500">Bác sĩ quản nhiệm: </span>
+                <span className="text-slate-500">Bác sĩ gia đình phụ trách: </span>
                 <strong className="text-slate-900 font-semibold">{workflow?.assignedDoctorName || 'PGS.TS Nguyễn Trọng Nghĩa'}</strong>
                 <span className="text-slate-400 hidden sm:inline"> · BV Đại học Y Dược TP.HCM</span>
               </div>
@@ -282,33 +412,33 @@ export function SubscriptionContractView() {
               <span className="text-slate-500 font-medium mr-1">Thành viên thụ hưởng (4/4):</span>
               <Link
                 href="/family/members/mem-01"
-                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
               >
                 Ông Phúc (78t)
               </Link>
               <Link
                 href="/family/members/mem-02"
-                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
               >
-                Anh An (42t)
+                Chị Mai (42t)
               </Link>
               <Link
                 href="/family/members/mem-03"
-                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
               >
-                Chị Hà (38t)
+                Cháu Quân (12t)
               </Link>
               <Link
                 href="/family/members"
-                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-slate-50 border border-slate-200 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
               >
-                Bé Minh An (6t)
+                Bé An (6t)
               </Link>
             </div>
           </div>
         </header>
 
-        {/* 1.5. BANNER ĐIỀU HƯỚNG THEO TRẠNG THÁI LUỒNG TUẦN TỰ 4 BÊN (FLOW 2.2) */}
+        {/* 1.5. BANNER THÔNG BÁO TIẾN TRÌNH KÝ DUYỆT & THANH TOÁN */}
         {workflow?.step === 'PENDING_PAYMENT' && (
           <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
             <div className="flex items-center gap-3">
@@ -317,83 +447,65 @@ export function SubscriptionContractView() {
               </div>
               <div>
                 <h3 className="font-bold text-sm sm:text-base text-slate-900">
-                  Cả 4 Bên Đã Hoàn Tất Ký Số Điện Tử! Chờ Thanh Toán VietQR (SCR-36)
+                  Hợp Đồng Đã Ký Số Thành Công! Chờ Hoàn Tất Thanh Toán
                 </h3>
                 <p className="text-xs text-amber-800 mt-0.5">
-                  Đại diện Gia đình, Admin Nền tảng, Bệnh viện ĐHYD và Bác sĩ {workflow.assignedDoctorName} đã ký hợp lệ.
+                  Các bên đã hoàn tất thủ tục ký điện tử. Quý gia đình vui lòng thanh toán để kích hoạt quyền lợi gói chăm sóc.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5 shrink-0">
-              <button
-                type="button"
-                onClick={handleSimulatePaymentWebhook}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
-                title="Giả lập nhận Webhook từ cổng thanh toán tự động kích hoạt hợp đồng"
-              >
-                <span className="material-symbols-outlined text-[16px]">bolt</span>
-                <span>Giả Lập Webhook VietQR (Kích hoạt ngay)</span>
-              </button>
               <Link
                 href="/family/billing"
-                className="px-4 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5"
+                className="px-4 py-2 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-colors"
               >
                 <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
-                <span>Xem Mã VietQR</span>
+                <span>Thanh Toán VietQR</span>
               </Link>
             </div>
           </div>
         )}
 
         {workflow?.step === 'PENDING_ADMIN_SIGN' && (
-          <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-[#0052cc]">pending</span>
-              <span>
-                <strong>Hợp đồng đang chờ Quản trị viên FamiDoc ký số (Bên B):</strong> Đăng nhập email <code>admin.super@famidoc.pro</code> tại trang <code>/admin/contracts</code> để phê duyệt.
-              </span>
+          <div className="p-4 rounded-2xl bg-blue-50/80 border border-blue-200/80 text-blue-900 flex items-center gap-3 text-xs sm:text-sm">
+            <span className="material-symbols-outlined text-[22px] text-[#2E37A4] shrink-0">pending</span>
+            <div className="space-y-0.5">
+              <div className="font-bold text-slate-900">
+                Hợp đồng đang trong quá trình phê duyệt ký số điện tử
+              </div>
+              <p className="text-slate-600 text-xs">
+                Ban quản trị nền tảng FamiDoc đang tiến hành rà soát điều khoản và chứng thực số (SmartCA). Quý gia đình sẽ nhận được thông báo ngay khi hoàn tất.
+              </p>
             </div>
-            <Link
-              href="/admin/contracts"
-              className="px-3 py-1.5 bg-[#0052cc] text-white font-bold rounded-lg shrink-0 hover:bg-[#003da6]"
-            >
-              Sang Admin Ký Duyệt →
-            </Link>
           </div>
         )}
 
         {workflow?.step === 'PENDING_FACILITY_SIGN' && (
-          <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-indigo-600">local_hospital</span>
-              <span>
-                <strong>Hợp đồng đang chờ Cơ sở y tế phân công Bác sĩ (Bên C - SCR-22):</strong> Đăng nhập email <code>cooperation@umc.edu.vn</code> để phân công bác sĩ.
-              </span>
+          <div className="p-4 rounded-2xl bg-indigo-50/80 border border-indigo-200/80 text-indigo-900 flex items-center gap-3 text-xs sm:text-sm">
+            <span className="material-symbols-outlined text-[22px] text-indigo-600 shrink-0">local_hospital</span>
+            <div className="space-y-0.5">
+              <div className="font-bold text-slate-900">
+                Bệnh viện đối tác đang phân công Bác sĩ gia đình phụ trách
+              </div>
+              <p className="text-slate-600 text-xs">
+                Cơ sở y tế đang hoàn tất phân công chuyên môn và thực hiện ký số xác nhận bảo trợ y tế cho gia đình.
+              </p>
             </div>
-            <Link
-              href="/facility/contracts"
-              className="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-lg shrink-0 hover:bg-indigo-700"
-            >
-              Sang Bệnh Viện Gán BS (SCR-22) →
-            </Link>
           </div>
         )}
 
         {workflow?.step === 'PENDING_DOCTOR_SIGN' && (
-          <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-teal-700">stethoscope</span>
-              <span>
-                <strong>Hợp đồng đang chờ Bác sĩ xác nhận cam kết chuyên môn (Bên D - SCR-16):</strong> Đăng nhập email <code>mai.tt@famidoc.pro</code> để ký cam kết.
-              </span>
+          <div className="p-4 rounded-2xl bg-teal-50/80 border border-teal-200/80 text-teal-900 flex items-center gap-3 text-xs sm:text-sm">
+            <span className="material-symbols-outlined text-[22px] text-teal-700 shrink-0">stethoscope</span>
+            <div className="space-y-0.5">
+              <div className="font-bold text-slate-900">
+                Bác sĩ gia đình đang xác nhận cam kết chuyên môn
+              </div>
+              <p className="text-slate-600 text-xs">
+                Bác sĩ phụ trách đang rà soát hồ sơ sức khỏe ban đầu của hộ để ký số cam kết trách nhiệm chăm sóc y tế.
+              </p>
             </div>
-            <Link
-              href="/doctor/contracts"
-              className="px-3 py-1.5 bg-teal-700 text-white font-bold rounded-lg shrink-0 hover:bg-teal-800"
-            >
-              Sang Bác Sĩ Ký (SCR-16) →
-            </Link>
           </div>
         )}
 
@@ -414,7 +526,7 @@ export function SubscriptionContractView() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6">
-            {PACKAGE_QUOTAS.map((q) => {
+            {quotas.map((q) => {
               const remaining = q.total - q.used;
               const remainingPercent = Math.round((remaining / q.total) * 100);
 
@@ -639,7 +751,7 @@ export function SubscriptionContractView() {
                       <span>Điều 1: Phạm vi chăm sóc</span>
                     </div>
                     <p className="text-xs leading-relaxed text-slate-600">
-                      Bác sĩ quản nhiệm (Bên B) và FamiDoc (Bên D) cung cấp gói chăm sóc sức khỏe
+                      Bác sĩ gia đình phụ trách (Bên B) và FamiDoc (Bên D) cung cấp gói chăm sóc sức khỏe
                       trọn năm cho hộ gia đình Bên A gồm: <strong>05 lượt khám tại nhà</strong>,{' '}
                       <strong>20 lượt tư vấn Telehealth</strong>, quản lý hồ sơ bệnh án điện tử EHR
                       và <strong>02 đợt lấy mẫu xét nghiệm</strong> định kỳ tại nhà.
@@ -654,7 +766,7 @@ export function SubscriptionContractView() {
                     <p className="text-xs leading-relaxed text-slate-600">
                       Bệnh viện Đại học Y Dược TP.HCM (Bên C) tiếp nhận thành viên hộ Bên A theo
                       luồng ưu tiên <strong>Fast-Track</strong> khi có chỉ định chuyển viện điện tử
-                      từ Bác sĩ quản nhiệm; đồng bộ sẵn kết quả xét nghiệm và hỗ trợ hưởng BHYT đúng
+                      từ Bác sĩ gia đình phụ trách; đồng bộ sẵn kết quả xét nghiệm và hỗ trợ hưởng BHYT đúng
                       tuyến.
                     </p>
                   </div>
@@ -747,7 +859,7 @@ export function SubscriptionContractView() {
                     verified
                   </span>
                   <span>
-                    <strong>Quyền đổi Bác sĩ quản nhiệm:</strong> Gia đình có thể yêu cầu đổi Bác sĩ
+                    <strong>Quyền đổi Bác sĩ gia đình:</strong> Gia đình có thể yêu cầu đổi Bác sĩ
                     phụ trách miễn phí nếu muốn thay đổi chuyên khoa phù hợp hơn với nhu cầu thực tế.
                   </span>
                 </li>
@@ -777,14 +889,284 @@ export function SubscriptionContractView() {
         )}
       </main>
 
-      {/* Modal Ký Kết / Gia Hạn Hợp Đồng 4 Bên */}
+      {/* Modal Ký Kết / Đăng Ký Gói & Chọn Bác Sĩ 4 Bên */}
       {isSigningWizardOpen && (
         <ContractSigningWizard
-          packageName={activePackageInfo?.name || "Gói Gia Đình Toàn Diện VIP (12 Tháng)"}
+          packageName={activePackageInfo?.name || "Gói Toàn Diện Gia Đình VIP (12 Tháng)"}
           packagePrice={activePackageInfo?.price || "9.600.000 đ"}
-          doctorName={workflow?.assignedDoctorName || "PGS.TS Nguyễn Trọng Nghĩa"}
+          doctorName={workflow?.assignedDoctorName || "BS.CKII Trần Thanh Mai"}
           onClose={() => setIsSigningWizardOpen(false)}
+          onSuccess={() => {
+            showToast('Ký hợp đồng thành công! Vui lòng quét mã VietQR để kích hoạt gói dịch vụ.');
+          }}
         />
+      )}
+
+      {/* MODAL: KÝ PHỤ LỤC HỢP ĐỒNG & MUA THÊM LƯỢT / NÂNG GÓI */}
+      {isAddendumModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 my-auto">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[22px]">add_circle</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">
+                    Ký Phụ Lục Hợp Đồng &amp; Mua Thêm Lượt
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Mã phụ lục: <span className="tabular-nums font-bold text-emerald-800">PL-CTR-88219-01</span> · Bảo lãnh Escrow FamiDoc
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsAddendumModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 cursor-pointer"
+                aria-label="Đóng"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleApplyAddendum} className="space-y-4 text-xs">
+              <div className="space-y-2">
+                <label className="block font-semibold text-slate-700">
+                  Chọn hạng mục bổ sung vào hợp đồng hiện hành:
+                </label>
+
+                {([
+                  {
+                    id: 'home-visit-1',
+                    title: '+1 Lượt Khám Tại Nhà',
+                    price: '850.000 đ',
+                    desc: 'BS Gia đình mang máy ECG, siêu âm xách tay & dụng cụ lấy mẫu tới nhà.',
+                  },
+                  {
+                    id: 'home-visit-3',
+                    title: '+3 Lượt Khám Tại Nhà (Ưu đãi)',
+                    price: '2.400.000 đ',
+                    desc: 'Tiết kiệm 150.000 đ so với mua lẻ. Thích hợp người già bệnh mạn tính.',
+                  },
+                  {
+                    id: 'telehealth-5',
+                    title: '+5 Lượt Video Telehealth 24/7',
+                    price: '900.000 đ',
+                    desc: 'Tư vấn video trực tiếp cùng Bác sĩ gia đình và chuyên khoa tuyến trên.',
+                  },
+                  {
+                    id: 'member-slot',
+                    title: 'Mở rộng +2 Slot Thành Viên Gia Đình',
+                    price: '150.000 đ/tháng',
+                    desc: 'Nâng hạn mức từ 4 lên 6 người, chia sẻ quyền lợi dùng chung.',
+                  },
+                  {
+                    id: 'upgrade-royal',
+                    title: 'Nâng Cấp Gói Hoàng Gia Toàn Diện',
+                    price: '+3.000.000 đ',
+                    desc: 'Tăng +5 lượt khám nhà, +20 lượt Telehealth & cam kết điều dưỡng túc trực.',
+                  },
+                ] as const).map((opt) => (
+                  <label
+                    key={opt.id}
+                    className={`flex items-start gap-3 p-3.5 rounded-2xl border cursor-pointer transition-all ${
+                      selectedAddendum === opt.id
+                        ? 'border-emerald-600 bg-emerald-50/50 shadow-2xs'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="addendum_option"
+                      checked={selectedAddendum === opt.id}
+                      onChange={() => setSelectedAddendum(opt.id)}
+                      className="mt-1 text-emerald-600 focus:ring-emerald-500"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <strong className="text-slate-900 font-bold text-xs sm:text-sm">
+                          {opt.title}
+                        </strong>
+                        <span className="tabular-nums font-bold text-emerald-700 text-xs sm:text-sm shrink-0">
+                          {opt.price}
+                        </span>
+                      </div>
+                      <p className="text-slate-500 text-[11px] mt-0.5 leading-relaxed">
+                        {opt.desc}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+
+              {/* Thông tin xác thực & Phương thức thanh toán */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-700 space-y-1.5 leading-relaxed">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Chữ ký điện tử:</span>
+                  <span className="font-semibold text-slate-800">Xác thực OTP qua SĐT chủ hộ (0912 345 678)</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Bảo lãnh tài chính:</span>
+                  <span className="font-bold text-emerald-700">Tài khoản phong tỏa Escrow FamiDoc</span>
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsAddendumModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer shadow-xs transition-colors inline-flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">verified</span>
+                  <span>Ký Phụ Lục &amp; Thanh Toán</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: YÊU CẦU CHẤM DỨT HỢP ĐỒNG SỚM & HOÀN PHÍ ESCROW */}
+      {isTerminationModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in overflow-y-auto"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95 my-auto">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3.5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[22px]">cancel</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-slate-900">
+                    Yêu Cầu Chấm Dứt &amp; Thanh Lý Hợp Đồng
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Hợp đồng #{workflow?.contractCode || 'CTR-4P-2026-88219'} · Bảo vệ quyền lợi Escrow
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsTerminationModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 cursor-pointer"
+                aria-label="Đóng"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleTerminationSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Lý do chấm dứt hợp đồng <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={terminationReason}
+                  onChange={(e) => setTerminationReason(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 font-medium text-xs sm:text-sm bg-white focus:border-rose-500 outline-hidden"
+                >
+                  <option value="Chuyển nơi cư trú ra ngoài địa bàn">Chuyển nơi cư trú ra ngoài địa bàn TP.HCM</option>
+                  <option value="Thay đổi nhu cầu chăm sóc sức khỏe">Thay đổi nhu cầu chăm sóc sức khỏe gia đình</option>
+                  <option value="Bác sĩ gia đình không phù hợp">Bác sĩ gia đình không phù hợp phong cách giao tiếp</option>
+                  <option value="Lý do cá nhân khác">Lý do cá nhân khác</option>
+                </select>
+              </div>
+
+              {/* Bảng tính toán hoàn phí Escrow minh bạch */}
+              <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/80 space-y-2 text-slate-700">
+                <div className="font-bold text-amber-900 text-xs sm:text-sm flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[17px] text-amber-700">account_balance</span>
+                  <span>Bảng Tính Hoàn Phí Escrow Minh Bạch:</span>
+                </div>
+                <div className="divide-y divide-amber-200/50 text-[11px] space-y-1.5 pt-1">
+                  <div className="flex justify-between pt-1">
+                    <span className="text-slate-600">Tổng phí dịch vụ đã đóng:</span>
+                    <strong className="tabular-nums font-bold text-slate-800">9.600.000 đ (12 Tháng)</strong>
+                  </div>
+                  <div className="flex justify-between pt-1">
+                    <span className="text-slate-600">Thời gian đã phục vụ (6 tháng):</span>
+                    <strong className="tabular-nums font-bold text-slate-800">- 4.800.000 đ</strong>
+                  </div>
+                  <div className="flex justify-between pt-1 text-xs">
+                    <strong className="text-emerald-900">Số dư hoàn trả vào tài khoản (Dự kiến):</strong>
+                    <strong className="tabular-nums font-bold text-emerald-700 text-sm">4.800.000 đ</strong>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 italic pt-1">
+                  * Tiền hoàn sẽ được chuyển khoản trực tiếp qua tài khoản ngân hàng trong vòng 24 - 48 giờ làm việc.
+                </p>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Thông tin tài khoản nhận tiền hoàn <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Số tài khoản - Ngân hàng - Tên chủ tài khoản"
+                  value={terminationBankInfo}
+                  onChange={(e) => setTerminationBankInfo(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 font-semibold tabular-nums text-xs sm:text-sm bg-white focus:border-[#2E37A4] outline-hidden"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Ghi chú hoặc ý kiến đóng góp cho FamiDoc
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Chia sẻ lý do cụ thể để FamiDoc cải thiện chất lượng dịch vụ..."
+                  value={terminationNote}
+                  onChange={(e) => setTerminationNote(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-white focus:border-[#2E37A4] outline-hidden"
+                />
+              </div>
+
+              {/* Cam kết bảo lưu hồ sơ EHR trọn đời */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 flex items-start gap-2">
+                <span className="material-symbols-outlined text-[16px] text-blue-600 shrink-0 mt-0.5">verified_user</span>
+                <span>
+                  <strong>Cam kết bảo lưu hồ sơ EHR:</strong> Toàn bộ lịch sử bệnh án, chỉ số sinh hiệu và kết quả xét nghiệm của gia đình vẫn được bảo mật và lưu trữ trọn đời trên FamiDoc.
+                </span>
+              </div>
+
+              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsTerminationModalOpen(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+                >
+                  Giữ lại hợp đồng
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-semibold cursor-pointer shadow-xs transition-colors inline-flex items-center justify-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">send</span>
+                  <span>Gửi Yêu Cầu Thanh Lý</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Toast phản hồi */}

@@ -96,10 +96,15 @@ export function LandingHeader() {
                   className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-50 text-[#0046c0] hover:bg-blue-100/80 text-xs sm:text-sm font-semibold transition-colors border border-blue-200/70"
                   title="Vào Bảng Điều Khiển"
                 >
-                  <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold border border-blue-300">
+                  <div
+                    className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold border border-blue-300"
+                    suppressHydrationWarning
+                  >
                     {user.avatarText || user.name.charAt(0)}
                   </div>
-                  <span className="hidden sm:inline max-w-[120px] truncate">{user.name}</span>
+                  <span className="hidden sm:inline max-w-[120px] truncate" suppressHydrationWarning>
+                    {user.name}
+                  </span>
                   <span className="material-symbols-outlined text-[18px]">dashboard</span>
                 </Link>
 

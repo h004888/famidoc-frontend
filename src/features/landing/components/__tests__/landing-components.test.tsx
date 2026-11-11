@@ -99,12 +99,11 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
     expect(screen.getByText(/Xem toàn bộ 1.200\+ bác sĩ/i)).toBeInTheDocument();
   });
 
-  it('UT-CMP-09: Bấm nút "Đặt lịch khám" trên thẻ bác sĩ', async () => {
-    const user = userEvent.setup();
+  it('UT-CMP-09: Render liên kết "Xem hồ sơ chi tiết" trên thẻ bác sĩ', () => {
     render(<LandingDoctors />);
-    const buttons = screen.getAllByRole('button', { name: /Đặt lịch khám/i });
-    expect(buttons.length).toBeGreaterThanOrEqual(2);
-    await user.click(buttons[0]!);
+    const links = screen.getAllByRole('link', { name: /xem hồ sơ chi tiết/i });
+    expect(links.length).toBeGreaterThanOrEqual(3);
+    expect(links[0]).toHaveAttribute('href', '/doctors/doc-01');
   });
 
   it('UT-CMP-10: CTA Banner render tiêu đề kêu gọi và nút Hotline', () => {
