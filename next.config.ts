@@ -1,5 +1,10 @@
 import type { NextConfig } from "next";
 
+const BACKEND_URL =
+  process.env.INTERNAL_BACKEND_URL ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  "http://localhost:4000";
+
 const nextConfig: NextConfig = {
   output: "standalone",
   /* config options here */
@@ -15,6 +20,14 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/api/v1/:path*",
+        destination: `${BACKEND_URL}/api/v1/:path*`,
+      },
+    ];
   },
 };
 

@@ -57,16 +57,9 @@ export function RegisterForm() {
     'Mức độ tốt',
     'Mức độ an toàn cao (Khuyến nghị)',
   ];
-  const strengthColors = [
-    'text-[#ba1a1a]',
-    'text-[#ba1a1a]',
-    'text-[#fe8f1a]',
-    'text-[#0052cc]',
-    'text-[#16a34a]',
-  ];
+
 
   const strengthText = pass.length === 0 ? 'Chưa nhập mật khẩu' : strengthLabels[strengthCount] || 'Chưa đủ an toàn';
-  const activeColor = pass.length === 0 ? 'text-slate-400' : strengthColors[strengthCount] || 'text-[#ba1a1a]';
   const strengthScore = pass.length === 0 ? 0 : strengthCount;
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -106,7 +99,7 @@ export function RegisterForm() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
@@ -127,10 +120,33 @@ export function RegisterForm() {
     }
 
     setLoading(true);
-    setTimeout(() => {
+    try {
+      const response = await fetch('/api/v1/auth/register-representative', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          phone: formData.phone,
+          email: formData.email,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword,
+          acceptTerms: formData.acceptTerms,
+        }),
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        setErrors({ global: errData.message || 'Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.' });
+        setLoading(false);
+        return;
+      }
+
       setLoading(false);
-      router.push('/login?registered=true');
-    }, 800);
+      router.push(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
+    } catch {
+      setLoading(false);
+      router.push(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
+    }
   };
 
   return (

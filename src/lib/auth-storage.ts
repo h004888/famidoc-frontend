@@ -81,17 +81,17 @@ export function removeCookie(name: string): void {
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; Max-Age=0; SameSite=Lax`;
 }
 
-export function saveAuthSession(role: LoginRole, user?: AuthUser): void {
+export function saveAuthSession(role: LoginRole, user?: AuthUser, token?: string): void {
   const finalUser = user || DEFAULT_USERS[role];
-  const mockToken = `mock-jwt-token-${role.toLowerCase()}-${Date.now()}`;
+  const finalToken = token || `jwt-token-${role.toLowerCase()}-${Date.now()}`;
 
   setCookie(COOKIE_KEYS.ROLE, role);
-  setCookie(COOKIE_KEYS.TOKEN, mockToken);
+  setCookie(COOKIE_KEYS.TOKEN, finalToken);
   setCookie(COOKIE_KEYS.USER, JSON.stringify(finalUser));
 
   if (typeof window !== 'undefined') {
     localStorage.setItem(COOKIE_KEYS.ROLE, role);
-    localStorage.setItem(COOKIE_KEYS.TOKEN, mockToken);
+    localStorage.setItem(COOKIE_KEYS.TOKEN, finalToken);
     localStorage.setItem(COOKIE_KEYS.USER, JSON.stringify(finalUser));
   }
 }

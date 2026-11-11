@@ -1,18 +1,19 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import { DoctorDetailView } from './doctor-detail-view';
+import { publicApi } from '@/lib/api';
 
 // Types
 export interface Doctor {
   id: string;
   name: string;
   title: string; // PGS.TS, ThS.BS, BS.CKII, BS.CKI
+  cchnNumber?: string;
   specialty: string;
   specialtyKey: 'general' | 'pediatric' | 'geriatric' | 'cardio' | 'internal' | 'obgyn' | 'ortho' | 'ent' | 'traditional';
-  cchnNumber: string;
   experienceYears: number;
   rating: number;
   reviewCount: number;
@@ -41,6 +42,29 @@ export interface Facility {
   bedCount: string;
 }
 
+function DoctorCardSkeleton() {
+  return (
+    <div
+      data-testid="doctor-skeleton"
+      className="bg-white rounded-2xl shadow-[0_4px_25px_0_rgba(0,0,0,0.06)] border border-slate-100 overflow-hidden animate-pulse flex flex-col justify-between"
+    >
+      <div className="aspect-[4/4] bg-slate-200" />
+      <div className="p-6 space-y-3 flex-1 flex flex-col justify-between">
+        <div className="space-y-2">
+          <div className="h-3 bg-slate-200 rounded-full w-1/3 mx-auto" />
+          <div className="h-5 bg-slate-200 rounded-md w-2/3 mx-auto" />
+          <div className="h-4 bg-slate-200 rounded-md w-1/2 mx-auto" />
+          <div className="h-3 bg-slate-200 rounded-md w-3/4 mx-auto" />
+        </div>
+        <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+          <div className="h-4 bg-slate-200 rounded w-1/4" />
+          <div className="h-4 bg-slate-200 rounded w-1/4" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Medsev Authentic 9 Qualified Doctors
 const MOCK_DOCTORS: Doctor[] = [
   {
@@ -49,7 +73,6 @@ const MOCK_DOCTORS: Doctor[] = [
     title: 'PGS. TS. Bác sĩ',
     specialty: 'Bác sĩ Gia đình & Nội Tổng Quát',
     specialtyKey: 'general',
-    cchnNumber: 'CCHN-001892/BYT-CCHN',
     experienceYears: 24,
     rating: 4.96,
     reviewCount: 384,
@@ -73,7 +96,6 @@ const MOCK_DOCTORS: Doctor[] = [
     title: 'ThS. BS. CKII',
     specialty: 'Nhi Khoa & Dinh Dưỡng Trẻ Em',
     specialtyKey: 'pediatric',
-    cchnNumber: 'CCHN-004521/BYT-CCHN',
     experienceYears: 16,
     rating: 4.98,
     reviewCount: 512,
@@ -97,7 +119,6 @@ const MOCK_DOCTORS: Doctor[] = [
     title: 'BS. CKII',
     specialty: 'Tim Mạch & Lão Khoa',
     specialtyKey: 'geriatric',
-    cchnNumber: 'CCHN-002341/BYT-CCHN',
     experienceYears: 19,
     rating: 4.92,
     reviewCount: 290,
@@ -121,7 +142,6 @@ const MOCK_DOCTORS: Doctor[] = [
     title: 'TS. Bác sĩ',
     specialty: 'Nội Tiết & Bệnh Chuyển Hóa',
     specialtyKey: 'internal',
-    cchnNumber: 'CCHN-006129/BYT-CCHN',
     experienceYears: 15,
     rating: 4.89,
     reviewCount: 215,
@@ -144,7 +164,6 @@ const MOCK_DOCTORS: Doctor[] = [
     title: 'ThS. Bác sĩ',
     specialty: 'Sản Phụ Khoa & Chăm Sóc Thai Kỳ',
     specialtyKey: 'obgyn',
-    cchnNumber: 'CCHN-005118/BYT-CCHN',
     experienceYears: 12,
     rating: 4.95,
     reviewCount: 420,
@@ -167,7 +186,6 @@ const MOCK_DOCTORS: Doctor[] = [
     title: 'BS. CKI',
     specialty: 'Y Học Gia Đình & Sức Khỏe Toàn Diện',
     specialtyKey: 'general',
-    cchnNumber: 'CCHN-008273/BYT-CCHN',
     experienceYears: 10,
     rating: 4.88,
     reviewCount: 180,
@@ -190,7 +208,6 @@ const MOCK_DOCTORS: Doctor[] = [
     title: 'BS. CKII',
     specialty: 'Cơ Xương Khớp & Phục Hồi Chức Năng',
     specialtyKey: 'ortho',
-    cchnNumber: 'CCHN-009142/BYT-CCHN',
     experienceYears: 21,
     rating: 4.94,
     reviewCount: 310,
@@ -213,7 +230,6 @@ const MOCK_DOCTORS: Doctor[] = [
     title: 'BS. CKI',
     specialty: 'Tai Mũi Họng & Hô Hấp Trẻ Em',
     specialtyKey: 'ent',
-    cchnNumber: 'CCHN-007812/BYT-CCHN',
     experienceYears: 14,
     rating: 4.91,
     reviewCount: 265,
@@ -236,7 +252,6 @@ const MOCK_DOCTORS: Doctor[] = [
     title: 'ThS. Bác sĩ',
     specialty: 'Y Học Cổ Truyền & Dưỡng Sinh Gia Đình',
     specialtyKey: 'traditional',
-    cchnNumber: 'CCHN-003671/BYT-CCHN',
     experienceYears: 18,
     rating: 4.97,
     reviewCount: 450,
@@ -318,15 +333,90 @@ export function DoctorDirectoryView() {
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [selectedDetailType] = useState<'doctor' | 'facility'>('doctor');
 
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [doctorsList, setDoctorsList] = useState<Doctor[]>([]);
+  const [facilitiesList, setFacilitiesList] = useState<Facility[]>(MOCK_FACILITIES);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsLoading(true);
+    }, 0);
+
+    publicApi
+      .getDoctors({
+        search: searchQuery.trim() || undefined,
+        city: selectedCity !== 'all' ? selectedCity : undefined,
+        specialty: selectedSpecialty !== 'all' ? selectedSpecialty : undefined,
+      })
+      .then((docs) => {
+        if (docs && docs.items) {
+          const mapped: Doctor[] = docs.items.map((d) => ({
+            id: d.id,
+            name: d.doctorName || d.fullName || 'Bác sĩ',
+            title: d.academicTitle || d.title || 'BS.CKII',
+            specialty: d.specialty || 'Y học Gia đình',
+            specialtyKey: (selectedSpecialty !== 'all' ? selectedSpecialty : 'general') as Doctor['specialtyKey'],
+            experienceYears: d.experienceYears || 15,
+            rating: d.ratingAvg || d.rating || 4.9,
+            reviewCount: d.totalReviews || d.reviewCount || 48,
+            consultationCount: 210,
+            hospital: d.facility?.facilityName || d.facilityName || 'Bệnh viện Đại học Y Dược TP.HCM',
+            location: (selectedCity !== 'all' ? selectedCity : (d.facility?.address?.includes('Hà Nội') ? 'Hà Nội' : 'TP. Hồ Chí Minh')) as Doctor['location'],
+            avatarUrl: d.avatarUrl || d.avatar || 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=200&auto=format&fit=crop&q=80',
+            services: ['home', 'telehealth', 'clinic'],
+            fee: '350.000đ',
+            bio: d.bio || 'Bác sĩ chuyên khoa y học gia đình và chăm sóc sức khỏe ban đầu.',
+            education: ['Đại học Y Dược TP.HCM'],
+            schedule: 'Thứ 2 - Thứ 6 (08:00 - 17:00)',
+          }));
+          setDoctorsList(mapped);
+        }
+      })
+      .catch(() => {
+        setDoctorsList(MOCK_DOCTORS);
+      })
+      .finally(() => {
+        clearTimeout(timer);
+        setIsLoading(false);
+      });
+
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchQuery, selectedCity, selectedSpecialty]);
+
+  useEffect(() => {
+    publicApi
+      .getFacilities()
+      .then((facs) => {
+        if (facs && facs.length > 0) {
+          const mapped: Facility[] = facs.map((f) => ({
+            id: f.id,
+            name: f.name,
+            type: 'Bệnh viện Tuyến Trung Ương',
+            address: f.address || '215 Hồng Bàng, Phường 11, Quận 5, TP.HCM',
+            city: 'TP. Hồ Chí Minh',
+            phone: f.phone || '1900 6868',
+            workingHours: '24/7 (Cấp cứu & Ngoại trú)',
+            imageUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&auto=format&fit=crop&q=80',
+            specialties: ['Nội Tổng Quát', 'Lão Khoa', 'Nhi Khoa'],
+            privileges: ['Ưu tiên luồng khám', 'Bảo lãnh viện phí trực tiếp'],
+            bedCount: '1.000+ giường',
+          }));
+          setFacilitiesList(mapped);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   // Filtered Doctors
   const filteredDoctors = useMemo(() => {
-    return MOCK_DOCTORS.filter((doc) => {
+    return doctorsList.filter((doc) => {
       const matchSearch =
         searchQuery.trim() === '' ||
         doc.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         doc.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.hospital.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doc.cchnNumber.toLowerCase().includes(searchQuery.toLowerCase());
+        doc.hospital.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchSpecialty =
         selectedSpecialty === 'all' || doc.specialtyKey === selectedSpecialty;
@@ -335,11 +425,11 @@ export function DoctorDirectoryView() {
 
       return matchSearch && matchSpecialty && matchCity;
     });
-  }, [searchQuery, selectedSpecialty, selectedCity]);
+  }, [doctorsList, searchQuery, selectedSpecialty, selectedCity]);
 
   // Filtered Facilities
   const filteredFacilities = useMemo(() => {
-    return MOCK_FACILITIES.filter((fac) => {
+    return facilitiesList.filter((fac) => {
       const matchSearch =
         searchQuery.trim() === '' ||
         fac.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -350,7 +440,7 @@ export function DoctorDirectoryView() {
 
       return matchSearch && matchCity;
     });
-  }, [searchQuery, selectedCity]);
+  }, [facilitiesList, searchQuery, selectedCity]);
 
   if (selectedDetailId) {
     return (
@@ -416,7 +506,7 @@ export function DoctorDirectoryView() {
                       : 'bg-slate-200 text-slate-700'
                       }`}
                   >
-                    {filteredDoctors.length}
+                    {isLoading ? '...' : filteredDoctors.length}
                   </span>
                 </button>
                 <button
@@ -557,7 +647,16 @@ export function DoctorDirectoryView() {
             {/* TAB 1: DOCTORS DIRECTORY (3-Column Grid) */}
             {activeTab === 'doctors' && (
               <div>
-                {filteredDoctors.length === 0 ? (
+                {isLoading ? (
+                  <div
+                    data-testid="doctors-skeleton-grid"
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+                  >
+                    {Array.from({ length: 6 }).map((_, idx) => (
+                      <DoctorCardSkeleton key={idx} />
+                    ))}
+                  </div>
+                ) : filteredDoctors.length === 0 ? (
                   <div role="status" className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4 max-w-lg mx-auto shadow-xs">
                     <div className="w-14 h-14 bg-blue-50 text-[#0046c0] rounded-full flex items-center justify-center mx-auto">
                       <span className="material-symbols-outlined text-3xl">person_search</span>

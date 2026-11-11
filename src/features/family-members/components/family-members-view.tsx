@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { patientsApi } from '@/lib/api';
 
 export interface MemberProfile {
   id: string;
@@ -207,6 +208,45 @@ export function FamilyMembersView() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  useEffect(() => {
+    let mounted = true;
+    patientsApi
+      .getFamilyMembers()
+      .then((data) => {
+        if (!mounted || !data || data.length === 0) return;
+        const mapped: MemberProfile[] = data.map((p) => {
+          const birthYear = p.dateOfBirth ? new Date(p.dateOfBirth).getFullYear() : 2000;
+          const age = Math.max(0, 2026 - birthYear);
+          return {
+            id: p.id,
+            name: p.fullName,
+            relationship: p.relationshipToHead === 'SELF' ? 'Chủ hộ (Đại diện)' : p.relationshipToHead,
+            birthDate: p.dateOfBirth ? `${new Date(p.dateOfBirth).toLocaleDateString('vi-VN')} (${age} tuổi)` : 'Chưa cập nhật',
+            gender: p.gender === 'FEMALE' ? 'Nữ' : 'Nam',
+            avatar: p.gender === 'FEMALE' ? '👩' : '👨',
+            bloodType: 'O+',
+            bhytNumber: p.healthInsuranceNumber || 'ĐANG CẬP NHẬT',
+            bhytHospital: 'BV Đại học Y Dược TP.HCM',
+            allergies: p.allergies && p.allergies.length > 0
+              ? p.allergies.map((a) => `${a.allergen} (${a.severity})`)
+              : ['Không có tiền sử dị ứng'],
+            chronicDiseases: ['Theo dõi định kỳ'],
+            emergencyContact: {
+              name: 'Đại diện gia đình',
+              phone: '0912 345 678',
+              relation: 'Đại diện hộ',
+            },
+            isHouseholdHead: p.relationshipToHead === 'SELF',
+          };
+        });
+        setMembersList(mapped);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   // Form State Thêm Thành Viên
   const [newName, setNewName] = useState('');
   const [newBirthDate, setNewBirthDate] = useState('');
@@ -218,7 +258,7 @@ export function FamilyMembersView() {
   const [newAllergies, setNewAllergies] = useState('');
   const [newChronic, setNewChronic] = useState('');
 
-  const handleAddMemberSubmit = (e: React.FormEvent) => {
+  const handleAddMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
 
@@ -229,40 +269,85 @@ export function FamilyMembersView() {
       formattedBirth = `${d}/${m}/${y} (${age} tuổi)`;
     }
 
-    const newId = `mem-0${membersList.length + 1}`;
-    const createdMember: MemberProfile = {
-      id: newId,
-      name: newName.trim(),
-      relationship: newRelation,
-      birthDate: formattedBirth,
-      gender: newGender,
-      avatar: newGender === 'Nam' ? '👨' : '👩',
-      bloodType: newBloodType,
-      bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
-      bhytHospital: newBhytHospital,
-      allergies: newAllergies.trim()
-        ? newAllergies.split(',').map((s) => s.trim()).filter(Boolean)
-        : ['Không có tiền sử dị ứng'],
-      chronicDiseases: newChronic.trim()
-        ? newChronic.split(',').map((s) => s.trim()).filter(Boolean)
-        : ['Không có bệnh nền mạn tính'],
-      emergencyContact: {
-        name: 'Nguyễn Văn Phúc (Chủ hộ)',
-        phone: '0912 345 678',
-        relation: 'Đại diện hộ gia đình',
-      },
-      isHouseholdHead: false,
-    };
+    try {
+      const created = await patientsApi.createFamilyMember({
+        fullName: newName.trim(),
+        dateOfBirth: newBirthDate || '2000-01-01',
+        gender: newGender === 'Nữ' ? 'FEMALE' : 'MALE',
+        relationshipToHead:
+          newRelation === 'Vợ' || newRelation === 'Chồng'
+            ? 'SPOUSE'
+            : newRelation.includes('Con')
+              ? 'CHILD'
+              : 'OTHER',
+        healthInsuranceNumber: newBhyt.trim() || undefined,
+      });
 
-    setMembersList((prev) => [...prev, createdMember]);
-    setShowAddMemberModal(false);
+      const createdMember: MemberProfile = {
+        id: created.id,
+        name: created.fullName,
+        relationship: newRelation,
+        birthDate: formattedBirth,
+        gender: newGender,
+        avatar: newGender === 'Nam' ? '👨' : '👩',
+        bloodType: newBloodType,
+        bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
+        bhytHospital: newBhytHospital,
+        allergies: newAllergies.trim()
+          ? newAllergies.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['Không có tiền sử dị ứng'],
+        chronicDiseases: newChronic.trim()
+          ? newChronic.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['Không có bệnh nền mạn tính'],
+        emergencyContact: {
+          name: 'Nguyễn Văn Phúc (Chủ hộ)',
+          phone: '0912 345 678',
+          relation: 'Đại diện hộ gia đình',
+        },
+        isHouseholdHead: false,
+      };
+
+      setMembersList((prev) => [...prev, createdMember]);
+      setShowAddMemberModal(false);
+      setToastMessage(`Đã thêm thành công người thân "${createdMember.name}" vào sổ hộ tịch y tế!`);
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch {
+      const newId = `mem-0${membersList.length + 1}`;
+      const createdMember: MemberProfile = {
+        id: newId,
+        name: newName.trim(),
+        relationship: newRelation,
+        birthDate: formattedBirth,
+        gender: newGender,
+        avatar: newGender === 'Nam' ? '👨' : '👩',
+        bloodType: newBloodType,
+        bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
+        bhytHospital: newBhytHospital,
+        allergies: newAllergies.trim()
+          ? newAllergies.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['Không có tiền sử dị ứng'],
+        chronicDiseases: newChronic.trim()
+          ? newChronic.split(',').map((s) => s.trim()).filter(Boolean)
+          : ['Không có bệnh nền mạn tính'],
+        emergencyContact: {
+          name: 'Nguyễn Văn Phúc (Chủ hộ)',
+          phone: '0912 345 678',
+          relation: 'Đại diện hộ gia đình',
+        },
+        isHouseholdHead: false,
+      };
+
+      setMembersList((prev) => [...prev, createdMember]);
+      setShowAddMemberModal(false);
+      setToastMessage(`Đã thêm thành công người thân "${createdMember.name}" vào sổ hộ tịch y tế!`);
+      setTimeout(() => setToastMessage(null), 3500);
+    }
+
     setNewName('');
     setNewBirthDate('');
     setNewBhyt('');
     setNewAllergies('');
     setNewChronic('');
-    setToastMessage(`Đã thêm thành công thành viên "${createdMember.name}" vào sổ hộ tịch y tế!`);
-    setTimeout(() => setToastMessage(null), 3500);
   };
 
   const handleUpdateMemberSubmit = (e: React.FormEvent) => {

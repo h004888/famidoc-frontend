@@ -23,15 +23,16 @@ describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
 
     fireEvent.click(markAllBtn);
 
-    // Unread count badge should disappear
+    // Unread count badge should disappear and display "Đã xem tất cả"
     expect(screen.queryByText(/tin chưa đọc/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Đã xem tất cả/i)).toBeInTheDocument();
   });
 
   it('filters notifications when selecting category tabs', () => {
     render(<NotificationsView />);
 
-    const vitalsTab = screen.getByRole('button', { name: /Sức khỏe/i });
-    fireEvent.click(vitalsTab);
+    const healthTab = screen.getByRole('button', { name: /Sức khỏe/i });
+    fireEvent.click(healthTab);
 
     expect(screen.getByText(/Huyết áp của Ông Nguyễn Văn Phúc hơi cao/i)).toBeInTheDocument();
     expect(screen.queryByText(/Đã phát hành biên lai điện tử/i)).not.toBeInTheDocument();

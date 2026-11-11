@@ -63,4 +63,39 @@ describe('UT-CMP-02..03, UT-CMP-08..10: LoginForm Component Interactions & A11y'
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toHaveClass('font-bold');
   });
+
+  it('submits valid credentials to auth API and redirects to role home', async () => {
+    mockSearchParams = new URLSearchParams();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        accessToken: 'real-jwt-token-family',
+        user: {
+          id: 'usr-123',
+          email: 'rep@famidoc.vn',
+          fullName: 'Nguyễn Văn Đại Diện',
+          role: 'FAMILY',
+          status: 'ACTIVE',
+        },
+      }),
+    } as Response);
+
+    render(<LoginForm />);
+
+    await userEvent.type(screen.getByLabelText(/Email/i), 'rep@famidoc.vn');
+    await userEvent.type(screen.getByLabelText(/^Mật khẩu$/i), 'Password@123');
+
+    const submitBtn = screen.getByRole('button', { name: /Đăng nhập hệ thống/i });
+    await userEvent.click(submitBtn);
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining('/api/v1/auth/login'),
+      expect.objectContaining({
+        method: 'POST',
+      }),
+    );
+
+    fetchSpy.mockRestore();
+  });
 });

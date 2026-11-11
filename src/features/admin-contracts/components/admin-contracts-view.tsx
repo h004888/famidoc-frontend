@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   useContractWorkflow,
   updateContractStep,
@@ -280,16 +281,26 @@ export function AdminContractsView() {
                         )}
                       </td>
                       <td className="py-3.5 px-4 text-right">
-                        <button
-                          onClick={() => setSelectedContract(c)}
-                          className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer ${
-                            c.status === 'pending_signature'
-                              ? 'bg-[#0052cc] hover:bg-[#003da6] text-white shadow-xs'
-                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                          }`}
-                        >
-                          {c.status === 'pending_signature' ? 'Xem & Ký Duyệt' : 'Chi tiết'}
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {isFourParty && (
+                            <Link
+                              href={`/admin/contracts/${c.id}/review`}
+                              className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-colors"
+                            >
+                              Thẩm định 4 Bên
+                            </Link>
+                          )}
+                          <button
+                            onClick={() => setSelectedContract(c)}
+                            className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer ${
+                              c.status === 'pending_signature'
+                                ? 'bg-[#0052cc] hover:bg-[#003da6] text-white shadow-xs'
+                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                            }`}
+                          >
+                            {c.status === 'pending_signature' ? 'Xem & Ký Duyệt' : 'Chi tiết'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -395,7 +406,15 @@ export function AdminContractsView() {
                   >
                     Đóng
                   </button>
-                  {selectedContract.status === 'pending_signature' && (
+                  {selectedContract.type === 'four_parties' && (
+                    <Link
+                      href={`/admin/contracts/${selectedContract.id}/review`}
+                      className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold"
+                    >
+                      Thẩm định &amp; Ký 4 bên
+                    </Link>
+                  )}
+                  {selectedContract.status === 'pending_signature' && selectedContract.type !== 'four_parties' && (
                     <button
                       type="button"
                       disabled={isSigningAdmin}

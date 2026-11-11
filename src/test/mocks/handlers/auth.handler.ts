@@ -24,7 +24,7 @@ export const authHandlers = [
     }, { status: 200 });
   }),
 
-  http.post(`${API_URL}/api/v1/auth/register`, async ({ request }) => {
+  http.post(`${API_URL}/api/v1/auth/register-representative`, async ({ request }) => {
     const body = (await request.json()) as { phone?: string; fullName?: string; identityCard?: string };
     if (!body.phone || !body.fullName || !body.identityCard) {
       return HttpResponse.json({ message: 'Vui lòng điền đủ thông tin bắt buộc' }, { status: 400 });
