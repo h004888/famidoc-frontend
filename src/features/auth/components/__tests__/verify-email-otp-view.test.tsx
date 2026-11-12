@@ -1,3 +1,5 @@
+'use client';
+
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
@@ -205,5 +207,126 @@ describe('Màn 6: VerifyEmailOtpView (Xác thực mã OTP qua Email)', () => {
     const { container } = render(<VerifyEmailOtpView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');
+  });
+
+  // ===========================================================================
+  // VerifyEmailOtpView integration with authApi & sessionStorage (Task 4)
+  // ===========================================================================
+  describe('VerifyEmailOtpView integration with authApi & sessionStorage (Task 4)', () => {
+    it('reads devOtp from sessionStorage and displays development hint badge', async () => {
+      const removeSpy = vi.fn();
+      const setItemSpy = vi.fn();
+      // Override sessionStorage của outer beforeEach để inject data
+      Object.defineProperty(window, 'sessionStorage', {
+        value: {
+          getItem: (key: string) => {
+            if (key === 'famidoc_pending_otp_meta') {
+              return JSON.stringify({
+                email: 'an.nguyen@famidoc.vn',
+                expiresInSeconds: 300,
+                devOtp: '888999',
+              });
+            }
+            return null;
+          },
+          setItem: setItemSpy,
+          removeItem: removeSpy,
+        } as unknown as Storage,
+        writable: true,
+      });
+
+      render(<VerifyEmailOtpView email="an.nguyen@famidoc.vn" />);
+
+      // đợi useEffect đọc sessionStorage
+      await act(async () => {});
+
+      // Hiển thị gợi ý devOtp
+      expect(screen.getByText(/Mã OTP môi trường dev/)).toBeInTheDocument();
+      expect(screen.getByText('888999')).toBeInTheDocument();
+    });
+
+    it('deletes sessionStorage metadata after successful OTP verification', async () => {
+      const removeSpy = vi.fn();
+      // Override sessionStorage của outer beforeEach
+      Object.defineProperty(window, 'sessionStorage', {
+        value: {
+          getItem: (key: string) => {
+            if (key === 'famidoc_pending_otp_meta') {
+              return JSON.stringify({
+                email: 'an.nguyen@famidoc.vn',
+                expiresInSeconds: 300,
+                devOtp: '888999',
+              });
+            }
+            return null;
+          },
+          setItem: vi.fn(),
+          removeItem: removeSpy,
+        } as unknown as Storage,
+        writable: true,
+      });
+
+      // Mock success response với Unified Envelope unwrap
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          code: 200,
+          message: 'Xác thực thành công',
+          data: { accessToken: 'mock-token', role: 'FAMILY', user: { id: 'u1', email: 'a', fullName: '', role: '' } },
+        }),
+      } as Response);
+
+      render(<VerifyEmailOtpView email="an.nguyen@famidoc.vn" />);
+
+      const inputs = screen.getAllByRole('textbox');
+
+      act(() => {
+        ['1', '2', '3', '4', '5', '6'].forEach((digit, idx) => {
+          fireEvent.change(inputs[idx], { target: { value: digit } });
+        });
+      });
+
+      const submitBtn = screen.getByRole('button', { name: /Xác nhận|Xác thực/i });
+      await act(async () => {
+        fireEvent.click(submitBtn);
+      });
+
+      expect(mockPush).toHaveBeenCalledWith('/login?registered=true');
+      // Kiểm tra đã gọi removeItem đúng key
+      expect(removeSpy).toHaveBeenCalledWith('famidoc_pending_otp_meta');
+
+      fetchSpy.mockRestore();
+    });
+
+    it('displays RFC 9457 error on HTTP 401 verify failure', async () => {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({
+          success: false,
+          code: 401,
+          error: { detail: 'Invalid or expired OTP' },
+        }),
+      } as Response);
+
+      render(<VerifyEmailOtpView email="an.nguyen@famidoc.vn" />);
+
+      const inputs = screen.getAllByRole('textbox');
+
+      act(() => {
+        inputs.forEach((input) => {
+          fireEvent.change(input, { target: { value: '0' } });
+        });
+      });
+
+      const submitBtn = screen.getByRole('button', { name: /Xác nhận|Xác thực/i });
+      await act(async () => {
+        fireEvent.click(submitBtn);
+      });
+
+      expect(screen.getByRole('alert')).toHaveTextContent(/Mã xác thực OTP không chính xác hoặc đã hết hạn/i);
+    });
   });
 });

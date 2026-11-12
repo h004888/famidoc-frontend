@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { registerFamilySchema } from '../schemas/auth.schema';
 import { useAuth } from '../context/auth-context';
+import { authApi, mapRegistrationErrorToFields } from '@/lib/api/auth.api';
+import { ApiError } from '@/lib/http/errors';
 
 export function RegisterForm() {
   const router = useRouter();
@@ -69,6 +71,14 @@ export function RegisterForm() {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+    // Xóa lỗi của trường tương ứng khi người dùng gõ lại (cải thiện UX sau API 409 error)
+    if (errors[name as keyof typeof errors]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[name as keyof typeof prev];
+        return next;
+      });
+    }
   };
 
   // Real-time onBlur field validation
@@ -121,31 +131,30 @@ export function RegisterForm() {
 
     setLoading(true);
     try {
-      const response = await fetch('/api/v1/auth/register-representative', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fullName: formData.fullName,
-          phone: formData.phone,
-          email: formData.email,
-          password: formData.password,
-          confirmPassword: formData.confirmPassword,
-          acceptTerms: formData.acceptTerms,
-        }),
+      const result = await authApi.registerRepresentative({
+        fullName: formData.fullName,
+        phone: formData.phone,
+        email: formData.email,
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        acceptTerms: formData.acceptTerms,
       });
 
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        setErrors({ global: errData.message || 'Đăng ký không thành công. Vui lòng kiểm tra lại thông tin.' });
-        setLoading(false);
-        return;
+      setLoading(false);
+      // Lưu OTP metadata để VerifyEmailOtpView đọc từ sessionStorage
+      sessionStorage.setItem(
+        'famidoc_pending_otp_meta',
+        JSON.stringify(result)
+      );
+      router.push(`/verify-otp?email=${encodeURIComponent(result.email)}`);
+    } catch (err) {
+      setLoading(false);
+      if (err instanceof ApiError) {
+        const fieldErrors = mapRegistrationErrorToFields(err);
+        setErrors(fieldErrors);
+      } else {
+        setErrors({ global: 'Lỗi kết nối máy chủ. Vui lòng thử lại sau.' });
       }
-
-      setLoading(false);
-      router.push(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
-    } catch {
-      setLoading(false);
-      router.push(`/verify-otp?email=${encodeURIComponent(formData.email)}`);
     }
   };
 
@@ -329,6 +338,21 @@ export function RegisterForm() {
                 <Link href="/packages" className="text-xs text-blue-600 underline hover:text-blue-800">
                   Đổi gói
                 </Link>
+              </div>
+            )}
+
+            {/* Global error banner (from authApi errors) */}
+            {errors.global && (
+              <div
+                role="alert"
+                className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2"
+              >
+                <svg className="w-4 h-4 shrink-0 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" x2="12" y1="8" y2="12" />
+                  <line x1="12" x2="12.01" y1="16" y2="16" />
+                </svg>
+                <span className="font-medium">{errors.global}</span>
               </div>
             )}
 
@@ -651,6 +675,13 @@ export function RegisterForm() {
 
               {/* Terms Checkboxes */}
               <div className="pt-2 space-y-2.5" data-purpose="terms-checkboxes">
+                {/* errors.acceptTerms */}
+                {errors.acceptTerms && (
+                  <p role="alert" className="text-xs text-red-600 font-medium">
+                    {errors.acceptTerms}
+                  </p>
+                )}
+
                 {/* Term 1 */}
                 <label className="flex items-start space-x-2.5 cursor-pointer">
                   <input
