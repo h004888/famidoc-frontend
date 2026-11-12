@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import { Doctor, Facility } from './doctor-directory-view';
+import { publicApi, type PublicDoctorDetailDto, type PublicDoctorReviewDto, type PublicDoctorCarePackageDto } from '@/lib/api';
 
 export interface DoctorDetailViewProps {
   id?: string;
   type?: 'doctor' | 'facility';
   onBack?: () => void;
+  initialDoctor?: PublicDoctorDetailDto | null;
 }
 
 // Complete mock data repository matching Medsev standards
@@ -365,17 +367,63 @@ const FACILITY_CARE_PACKAGES = [
   },
 ];
 
-export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBack }: DoctorDetailViewProps) {
-  const normalizedId = (id || 'doc-01').toLowerCase();
-  const isFacility = type === 'facility' || normalizedId.startsWith('fac');
-  const doctor = DOCTORS_DATA[normalizedId] || DOCTORS_DATA[id] || DOCTORS_DATA['doc-01']!;
+export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBack, initialDoctor }: DoctorDetailViewProps) {
+  const normalizedId = (initialDoctor?.id || id || 'doc-01').toLowerCase();
+  const isFacility = type === 'facility' || (!initialDoctor && normalizedId.startsWith('fac'));
+  const defaultDoctor = DOCTORS_DATA[normalizedId] || DOCTORS_DATA[id] || DOCTORS_DATA['doc-01']!;
   const facility = FACILITIES_DATA[normalizedId] || FACILITIES_DATA[id] || FACILITIES_DATA['fac-01']!;
 
+  const doctor: Doctor = initialDoctor
+    ? {
+        id: initialDoctor.id,
+        name: initialDoctor.doctorName || initialDoctor.fullName || defaultDoctor.name,
+        title: initialDoctor.academicTitle || initialDoctor.title || defaultDoctor.title,
+        specialty: initialDoctor.specialty || defaultDoctor.specialty,
+        specialtyKey: (initialDoctor.specialtyKey as Doctor['specialtyKey']) || defaultDoctor.specialtyKey,
+        cchnNumber: defaultDoctor.cchnNumber,
+        experienceYears: initialDoctor.experienceYears ?? defaultDoctor.experienceYears,
+        rating: initialDoctor.ratingAvg ?? initialDoctor.rating ?? defaultDoctor.rating,
+        reviewCount: initialDoctor.totalReviews ?? initialDoctor.reviewCount ?? defaultDoctor.reviewCount,
+        consultationCount: initialDoctor.consultationCount ?? defaultDoctor.consultationCount,
+        hospital: initialDoctor.hospital || defaultDoctor.hospital,
+        location: (initialDoctor.location as Doctor['location']) || defaultDoctor.location,
+        avatarUrl: initialDoctor.avatarUrl || initialDoctor.avatar || defaultDoctor.avatarUrl,
+        services:
+          initialDoctor.services && initialDoctor.services.length > 0
+            ? (initialDoctor.services as Doctor['services'])
+            : defaultDoctor.services,
+        fee: defaultDoctor.fee,
+        bio: initialDoctor.bio || defaultDoctor.bio,
+        education: initialDoctor.education && initialDoctor.education.length > 0 ? initialDoctor.education : defaultDoctor.education,
+        schedule: initialDoctor.schedule || defaultDoctor.schedule,
+      }
+    : defaultDoctor;
+
   // Care Package Selection & Registration State
-  const packagesList = isFacility ? FACILITY_CARE_PACKAGES : DOCTOR_CARE_PACKAGES;
-  const [selectedPackageId, setSelectedPackageId] = useState<string>(
-    isFacility ? 'FAC_STANDARD' : 'FAMILY'
-  );
+  const packagesList = isFacility
+    ? FACILITY_CARE_PACKAGES
+    : (initialDoctor?.carePackages && initialDoctor.carePackages.length > 0
+        ? initialDoctor.carePackages.map((pkg: PublicDoctorCarePackageDto) => ({
+            id: pkg.id,
+            name: pkg.name || pkg.packageName || 'Gói Chăm Sóc',
+            badge: pkg.badge || (pkg.durationMonths ? `${pkg.durationMonths} tháng` : 'Trọn gói'),
+            price: pkg.formattedPrice || (typeof pkg.price === 'number' ? `${pkg.price.toLocaleString('vi-VN')}đ` : pkg.price) || (pkg.basePrice ? `${pkg.basePrice.toLocaleString('vi-VN')}đ` : 'Liên hệ'),
+            monthlyPrice: pkg.monthlyPrice || '',
+            popular: !!pkg.popular,
+            highlight: pkg.highlight || '',
+            features: pkg.features || [],
+          }))
+        : DOCTOR_CARE_PACKAGES);
+
+  const [selectedPackageId, setSelectedPackageId] = useState<string>(() => {
+    if (isFacility) return 'FAC_STANDARD';
+    if (initialDoctor?.carePackages && initialDoctor.carePackages.length > 0) {
+      const popular = initialDoctor.carePackages.find((p) => p.popular);
+      return popular ? popular.id : initialDoctor.carePackages[0].id;
+    }
+    return 'FAMILY';
+  });
+
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -383,18 +431,93 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBa
     note: '',
   });
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [submittedTicketId, setSubmittedTicketId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
 
-  const activePackage =
-    packagesList.find((p) => p.id === selectedPackageId) || packagesList[0]!;
+  // Reviews state with dynamic fetching
+  const [reviews, setReviews] = useState<PublicDoctorReviewDto[]>(() => {
+    if (initialDoctor?.reviews && initialDoctor.reviews.length > 0) {
+      return initialDoctor.reviews;
+    }
+    return [];
+  });
+  const reviewTargetId = initialDoctor?.id || id;
+  const hasInitialReviews = !!initialDoctor?.reviews && initialDoctor.reviews.length > 0;
+  const shouldFetchReviews = !isFacility && !hasInitialReviews && !!reviewTargetId;
+  const [isLoadingReviews, setIsLoadingReviews] = useState(shouldFetchReviews);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (!shouldFetchReviews) return;
+    publicApi
+      .getDoctorReviews(reviewTargetId, { page: 1, limit: 5 })
+      .then((res) => {
+        if (res?.items && res.items.length > 0) {
+          setReviews(res.items);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load reviews:', err);
+      })
+      .finally(() => {
+        setIsLoadingReviews(false);
+      });
+  }, [shouldFetchReviews, reviewTargetId]);
+
+  const activePackage =
+    packagesList.find((p) => p.id === selectedPackageId) || packagesList[0] || {
+      id: selectedPackageId,
+      name: 'Gói Chăm Sóc Sức Khỏe',
+      badge: 'Tiêu chuẩn',
+      price: 'Liên hệ',
+      monthlyPrice: '',
+      popular: false,
+      highlight: '',
+      features: [],
+    };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitted(true);
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      let familyMemberCount = 3;
+      if (formData.memberCount.includes('1-2')) familyMemberCount = 2;
+      else if (formData.memberCount.includes('3')) familyMemberCount = 3;
+      else if (formData.memberCount.includes('5')) familyMemberCount = 5;
+      else {
+        const match = formData.memberCount.match(/\d+/);
+        if (match) familyMemberCount = parseInt(match[0], 10);
+      }
+
+      const res = await publicApi.submitConsultationRequest({
+        fullName: formData.name,
+        phone: formData.phone,
+        preferredPackageId: selectedPackageId,
+        familyMemberCount,
+        healthNeeds: formData.note || 'Tư vấn gói bác sĩ gia đình',
+      });
+
+      const ticketId = res.data?.ticketId || res.ticketId || 'PKG-8921';
+      setSubmittedTicketId(ticketId);
+      setIsSubmitted(true);
+    } catch (err: unknown) {
+      console.error('Error submitting consultation request:', err);
+      const errorMessage = err instanceof Error ? err.message : undefined;
+      setSubmitError(
+        errorMessage || 'Có lỗi xảy ra khi gửi yêu cầu. Vui lòng thử lại sau.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetForm = () => {
     setIsSubmitted(false);
+    setSubmittedTicketId(null);
+    setSubmitError(null);
     setFormData({ name: '', phone: '', memberCount: '3 thành viên', note: '' });
   };
 
@@ -617,43 +740,76 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBa
                 </div>
 
                 <div className="space-y-2.5">
-                  <div className="p-3.5 rounded-md bg-slate-50 border border-slate-100 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-slate-800">Chị Mai Lan</span>
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                          ✓ Hội viên Gói Đồng Hành (Quận 7)
-                        </span>
+                  {reviews.length > 0 ? (
+                    reviews.map((rev) => (
+                      <div key={rev.id} className="p-3.5 rounded-md bg-slate-50 border border-slate-100 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-800">{rev.authorName}</span>
+                            {rev.badge && (
+                              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                                ✓ {rev.badge}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex text-amber-500">
+                            {Array.from({ length: rev.rating || 5 }).map((_, i) => (
+                              <span key={i} className="material-symbols-outlined text-xs material-symbols-filled">
+                                star
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 italic leading-snug">
+                          &quot;{rev.comment}&quot;
+                        </p>
                       </div>
-                      <div className="flex text-amber-500">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <span key={i} className="material-symbols-outlined text-xs material-symbols-filled">star</span>
-                        ))}
-                      </div>
+                    ))
+                  ) : isLoadingReviews ? (
+                    <div className="py-4 text-center text-xs text-slate-500">
+                      Đang tải đánh giá từ bệnh nhân...
                     </div>
-                    <p className="text-xs text-slate-600 italic leading-snug">
-                      &quot;Gia đình tôi đăng ký gói chăm sóc có bác sĩ Hoài phụ trách đã được 6 tháng. Bác sĩ đến tận nhà kiểm tra tim mạch và huyết áp định kỳ cho mẹ tôi rất ân cần, bố mẹ tôi cực kỳ yên tâm.&quot;
-                    </p>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="p-3.5 rounded-md bg-slate-50 border border-slate-100 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-800">Chị Mai Lan</span>
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                              ✓ Hội viên Gói Đồng Hành (Quận 7)
+                            </span>
+                          </div>
+                          <div className="flex text-amber-500">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                              <span key={i} className="material-symbols-outlined text-xs material-symbols-filled">star</span>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 italic leading-snug">
+                          &quot;Gia đình tôi đăng ký gói chăm sóc có bác sĩ Hoài phụ trách đã được 6 tháng. Bác sĩ đến tận nhà kiểm tra tim mạch và huyết áp định kỳ cho mẹ tôi rất ân cần, bố mẹ tôi cực kỳ yên tâm.&quot;
+                        </p>
+                      </div>
 
-                  <div className="p-3.5 rounded-md bg-slate-50 border border-slate-100 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-xs text-slate-800">Anh Quốc Bảo</span>
-                        <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
-                          ✓ Hội viên Gói An Tâm (Bình Thạnh)
-                        </span>
+                      <div className="p-3.5 rounded-md bg-slate-50 border border-slate-100 space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-xs text-slate-800">Anh Quốc Bảo</span>
+                            <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                              ✓ Hội viên Gói An Tâm (Bình Thạnh)
+                            </span>
+                          </div>
+                          <div className="flex text-amber-500">
+                            {[1, 2, 3, 4, 5].map((i) => (
+                              <span key={i} className="material-symbols-outlined text-xs material-symbols-filled">star</span>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-xs text-slate-600 italic leading-snug">
+                          &quot;Có bác sĩ gia đình riêng như bác sĩ Hoài thực sự tiện lợi. Bác sĩ nắm rõ toàn bộ tiền sử bệnh của cả nhà, gọi video tư vấn lúc nào cũng cặn kẽ.&quot;
+                        </p>
                       </div>
-                      <div className="flex text-amber-500">
-                        {[1, 2, 3, 4, 5].map((i) => (
-                          <span key={i} className="material-symbols-outlined text-xs material-symbols-filled">star</span>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-xs text-slate-600 italic leading-snug">
-                      &quot;Có bác sĩ gia đình riêng như bác sĩ Hoài thực sự tiện lợi. Bác sĩ nắm rõ toàn bộ tiền sử bệnh của cả nhà, gọi video tư vấn lúc nào cũng cặn kẽ.&quot;
-                    </p>
-                  </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -672,7 +828,7 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBa
                     <div>
                       <h3 className="text-lg font-bold text-slate-900">Đăng Ký Gói Thành Công!</h3>
                       <p className="text-xs text-slate-600 mt-1 max-w-xs mx-auto leading-relaxed">
-                        Mã đăng ký: <strong className="tabular-nums text-[#0046c0]">#PKG-8921</strong>.
+                        Mã đăng ký: <strong className="tabular-nums text-[#0046c0]">#{submittedTicketId || 'PKG-8921'}</strong>.
                         Chuyên viên FamiDoc và bác sĩ sẽ liên hệ số điện thoại <strong className="text-slate-900 tabular-nums">{formData.phone}</strong> trong vòng 15 phút để hoàn tất hồ sơ sức khỏe và hẹn buổi khám đầu tiên.
                       </p>
                     </div>
@@ -837,13 +993,29 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBa
                         />
                       </div>
 
+                      {submitError && (
+                        <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 text-xs rounded-md">
+                          {submitError}
+                        </div>
+                      )}
+
                       {/* Primary CTA Button */}
                       <button
                         type="submit"
-                        className="w-full py-2.5 bg-[#0046c0] hover:bg-[#003899] text-white text-center font-bold text-xs sm:text-sm rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                        disabled={isSubmitting}
+                        className="w-full py-2.5 bg-[#0046c0] hover:bg-[#003899] disabled:bg-slate-400 disabled:cursor-not-allowed text-white text-center font-bold text-xs sm:text-sm rounded-md transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                       >
-                        <span className="material-symbols-outlined text-base">card_membership</span>
-                        <span>Đăng Ký Gói Chăm Sóc Ngay</span>
+                        {isSubmitting ? (
+                          <>
+                            <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                            <span>Đang gửi thông tin...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-base">card_membership</span>
+                            <span>Đăng Ký Gói Chăm Sóc Ngay</span>
+                          </>
+                        )}
                       </button>
 
                       <p className="text-[10px] text-center text-slate-500 leading-snug">

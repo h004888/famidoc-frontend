@@ -241,4 +241,58 @@ describe('Task 3: Typed API Client Services (Patients, Contracts, Auth)', () => 
       fetchSpy.mockRestore();
     });
   });
+
+  describe('httpClient Dual-Storage token lifecycle (Remember Me)', () => {
+    const TOKEN_KEY = 'famidoc_token';
+    const LEGACY_TOKEN_KEY = 'famidoc_auth_token';
+
+    beforeEach(() => {
+      localStorage.clear();
+      sessionStorage.clear();
+      httpClient.clearToken();
+      (httpClient as unknown as { token: string | null }).token = null;
+    });
+
+    it('Case 1: setToken(token, false) lưu vào sessionStorage, không lưu localStorage', () => {
+      httpClient.setToken('tok-session', false);
+
+      expect(sessionStorage.getItem(TOKEN_KEY)).toBe('tok-session');
+      expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+    });
+
+    it('Case 2: setToken(token, true) lưu vào localStorage, không lưu sessionStorage', () => {
+      httpClient.setToken('tok-persist', true);
+
+      expect(localStorage.getItem(TOKEN_KEY)).toBe('tok-persist');
+      expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull();
+    });
+
+    it('Case 3: clearToken xóa token trong bộ nhớ và cả khóa chuẩn lẫn khóa cũ trên cả 2 storage', () => {
+      localStorage.setItem(TOKEN_KEY, 'persistent-token');
+      localStorage.setItem(LEGACY_TOKEN_KEY, 'legacy-token');
+      sessionStorage.setItem(TOKEN_KEY, 'session-token');
+      sessionStorage.setItem(LEGACY_TOKEN_KEY, 'legacy-session-token');
+
+      httpClient.clearToken();
+
+      expect((httpClient as unknown as { token: string | null }).token).toBeNull();
+      expect(localStorage.getItem(TOKEN_KEY)).toBeNull();
+      expect(localStorage.getItem(LEGACY_TOKEN_KEY)).toBeNull();
+      expect(sessionStorage.getItem(TOKEN_KEY)).toBeNull();
+      expect(sessionStorage.getItem(LEGACY_TOKEN_KEY)).toBeNull();
+    });
+
+    it('Case 4: getToken fallback memory -> sessionStorage -> localStorage', () => {
+      sessionStorage.setItem(TOKEN_KEY, 'from-session');
+      expect(httpClient.getToken()).toBe('from-session');
+
+      (httpClient as unknown as { token: string | null }).token = null;
+      sessionStorage.removeItem(TOKEN_KEY);
+      localStorage.setItem(TOKEN_KEY, 'from-local');
+      expect(httpClient.getToken()).toBe('from-local');
+
+      (httpClient as unknown as { token: string | null }).token = 'from-memory';
+      expect(httpClient.getToken()).toBe('from-memory');
+    });
+  });
 });

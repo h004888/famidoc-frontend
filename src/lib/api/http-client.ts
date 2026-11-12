@@ -1,4 +1,7 @@
 import { ApiError } from '../http/errors';
+import { COOKIE_KEYS } from '@/lib/auth-storage';
+
+const LEGACY_TOKEN_KEY = 'famidoc_auth_token';
 
 class HttpClient {
   private baseUrl: string;
@@ -10,27 +13,41 @@ class HttpClient {
       process.env.NEXT_PUBLIC_API_URL ||
       'http://localhost:8080';
     if (typeof window !== 'undefined') {
-      this.token = localStorage.getItem('famidoc_auth_token');
+      this.token =
+        sessionStorage.getItem(COOKIE_KEYS.TOKEN) ||
+        localStorage.getItem(COOKIE_KEYS.TOKEN);
     }
   }
 
-  setToken(token: string) {
+  setToken(token: string, rememberMe = true) {
     this.token = token;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('famidoc_auth_token', token);
+      const targetStorage = rememberMe ? localStorage : sessionStorage;
+      const staleStorage = rememberMe ? sessionStorage : localStorage;
+
+      targetStorage.setItem(COOKIE_KEYS.TOKEN, token);
+      staleStorage.removeItem(COOKIE_KEYS.TOKEN);
+      localStorage.removeItem(LEGACY_TOKEN_KEY);
+      sessionStorage.removeItem(LEGACY_TOKEN_KEY);
     }
   }
 
   clearToken() {
     this.token = null;
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('famidoc_auth_token');
+      localStorage.removeItem(COOKIE_KEYS.TOKEN);
+      localStorage.removeItem(LEGACY_TOKEN_KEY);
+      sessionStorage.removeItem(COOKIE_KEYS.TOKEN);
+      sessionStorage.removeItem(LEGACY_TOKEN_KEY);
     }
   }
 
   getToken(): string | null {
-    if (!this.token && typeof window !== 'undefined') {
-      this.token = localStorage.getItem('famidoc_auth_token');
+    if (this.token) return this.token;
+    if (typeof window !== 'undefined') {
+      this.token =
+        sessionStorage.getItem(COOKIE_KEYS.TOKEN) ||
+        localStorage.getItem(COOKIE_KEYS.TOKEN);
     }
     return this.token;
   }
@@ -71,8 +88,11 @@ class HttpClient {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
+        const detailMessage =
+          (errorData as { error?: { detail?: string } })?.error?.detail ||
+          (errorData as { message?: string })?.message;
         throw new ApiError(
-          (errorData as { message?: string }).message || `API error (${res.status})`,
+          detailMessage || `API error (${res.status})`,
           res.status,
           errorData
         );

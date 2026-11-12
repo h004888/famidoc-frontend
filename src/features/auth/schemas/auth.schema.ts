@@ -30,12 +30,15 @@ export const registerFamilySchema = z.object({
   fullName: z
     .string()
     .min(2, 'Họ và tên phải có ít nhất 2 ký tự')
-    .max(70, 'Họ và tên tối đa 70 ký tự'),
+    .max(70, 'Họ và tên tối đa 70 ký tự')
+    .transform((val) => val.trim()),
   phone: z
     .string()
-    .regex(/^(0[3|5|7|8|9])+([0-9]{8})$/, 'Số điện thoại không đúng định dạng Việt Nam'),
+    .refine((val) => /^(\+84|0)([35789])[0-9]{8,9}$/.test(val.replace(/\s+/g, '')), 'Số điện thoại không đúng định dạng Việt Nam')
+    .transform((val) => val.replace(/\s+/g, '')),
   email: z
     .string()
+    .trim()
     .email('Email không đúng định dạng')
     .optional()
     .or(z.literal('')),
@@ -51,6 +54,7 @@ export const registerFamilySchema = z.object({
   password: z
     .string()
     .min(8, 'Mật khẩu phải có ít nhất 8 ký tự')
+    .max(64, 'Mật khẩu tối đa 64 ký tự')
     .regex(/[A-Z]/, 'Mật khẩu phải chứa ít nhất 1 chữ hoa')
     .regex(/[0-9]/, 'Mật khẩu phải chứa ít nhất 1 chữ số'),
   confirmPassword: z.string(),

@@ -6,6 +6,14 @@ export const COOKIE_KEYS = {
   USER: 'famidoc_user',
 } as const;
 
+const REMEMBER_ME_DAYS = 7;
+
+function clearStorageKeys(storage: Storage): void {
+  storage.removeItem(COOKIE_KEYS.ROLE);
+  storage.removeItem(COOKIE_KEYS.TOKEN);
+  storage.removeItem(COOKIE_KEYS.USER);
+}
+
 export interface AuthUser {
   id: string;
   name: string;
@@ -64,10 +72,13 @@ export const DEFAULT_USERS: Record<LoginRole, AuthUser> = {
   },
 };
 
-export function setCookie(name: string, value: string, days = 7): void {
+export function setCookie(name: string, value: string, days?: number): void {
   if (typeof document === 'undefined') return;
-  const expires = new Date(Date.now() + days * 864e5).toUTCString();
-  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Lax`;
+  const expiresAttribute =
+    typeof days === 'number' && days > 0
+      ? `; expires=${new Date(Date.now() + days * 864e5).toUTCString()}; max-age=${days * 86400}`
+      : '';
+  document.cookie = `${name}=${encodeURIComponent(value)}${expiresAttribute}; path=/; SameSite=Lax`;
 }
 
 export function getCookie(name: string): string | null {
@@ -81,18 +92,30 @@ export function removeCookie(name: string): void {
   document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; Max-Age=0; SameSite=Lax`;
 }
 
-export function saveAuthSession(role: LoginRole, user?: AuthUser, token?: string): void {
+export function saveAuthSession(
+  role: LoginRole,
+  user?: AuthUser,
+  token?: string,
+  rememberMe = true,
+): void {
   const finalUser = user || DEFAULT_USERS[role];
   const finalToken = token || `jwt-token-${role.toLowerCase()}-${Date.now()}`;
+  const days = rememberMe ? REMEMBER_ME_DAYS : undefined;
+  const userJson = JSON.stringify(finalUser);
 
-  setCookie(COOKIE_KEYS.ROLE, role);
-  setCookie(COOKIE_KEYS.TOKEN, finalToken);
-  setCookie(COOKIE_KEYS.USER, JSON.stringify(finalUser));
+  setCookie(COOKIE_KEYS.ROLE, role, days);
+  setCookie(COOKIE_KEYS.TOKEN, finalToken, days);
+  setCookie(COOKIE_KEYS.USER, userJson, days);
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem(COOKIE_KEYS.ROLE, role);
-    localStorage.setItem(COOKIE_KEYS.TOKEN, finalToken);
-    localStorage.setItem(COOKIE_KEYS.USER, JSON.stringify(finalUser));
+    const targetStorage = rememberMe ? localStorage : sessionStorage;
+    const staleStorage = rememberMe ? sessionStorage : localStorage;
+
+    targetStorage.setItem(COOKIE_KEYS.ROLE, role);
+    targetStorage.setItem(COOKIE_KEYS.TOKEN, finalToken);
+    targetStorage.setItem(COOKIE_KEYS.USER, userJson);
+
+    clearStorageKeys(staleStorage);
   }
 }
 
@@ -102,9 +125,8 @@ export function clearAuthSession(): void {
   removeCookie(COOKIE_KEYS.USER);
 
   if (typeof window !== 'undefined') {
-    localStorage.removeItem(COOKIE_KEYS.ROLE);
-    localStorage.removeItem(COOKIE_KEYS.TOKEN);
-    localStorage.removeItem(COOKIE_KEYS.USER);
+    clearStorageKeys(localStorage);
+    clearStorageKeys(sessionStorage);
   }
 }
 
@@ -113,14 +135,16 @@ export function getStoredAuthSession(): {
   token: string | null;
   user: AuthUser | null;
 } {
-  let role = (getCookie(COOKIE_KEYS.ROLE) as LoginRole) || null;
-  let token = getCookie(COOKIE_KEYS.TOKEN) || null;
-  const rawUser = getCookie(COOKIE_KEYS.USER);
+  const readValue = (key: string): string | null => {
+    const cookieValue = getCookie(key);
+    if (cookieValue) return cookieValue;
+    if (typeof window === 'undefined') return null;
+    return sessionStorage.getItem(key) ?? localStorage.getItem(key);
+  };
 
-  if (!role && typeof window !== 'undefined') {
-    role = (localStorage.getItem(COOKIE_KEYS.ROLE) as LoginRole) || null;
-    token = localStorage.getItem(COOKIE_KEYS.TOKEN) || null;
-  }
+  const role = (readValue(COOKIE_KEYS.ROLE) as LoginRole) || null;
+  const token = readValue(COOKIE_KEYS.TOKEN) || null;
+  const rawUser = readValue(COOKIE_KEYS.USER);
 
   let user: AuthUser | null = null;
   if (rawUser) {

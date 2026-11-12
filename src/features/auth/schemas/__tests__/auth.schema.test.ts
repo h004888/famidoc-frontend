@@ -70,6 +70,103 @@ describe('UT-SCH-01..05: Auth Schemas & Contracts Validation', () => {
         expect(result.error.flatten().fieldErrors.identityCard).toBeDefined();
       }
     });
+
+    // ===========================================================================
+    // Phone normalization & extended format support (Task 2)
+    // ===========================================================================
+    describe('phone normalization & extended formats (Task 2)', () => {
+      it('accepts phone with spaces and strips them', () => {
+        const result = registerFamilySchema.safeParse({
+          fullName: 'Nguyễn Văn An',
+          phone: '0912 345 678',
+          email: 'an.nguyen@famidoc.vn',
+          relationship: 'Chủ hộ',
+          password: 'Password123',
+          confirmPassword: 'Password123',
+          acceptTerms: true,
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.phone).toBe('0912345678');
+        }
+      });
+
+      it('accepts +84 international prefix format', () => {
+        const result = registerFamilySchema.safeParse({
+          fullName: 'Nguyễn Văn An',
+          phone: '+84912345678',
+          email: 'an.nguyen@famidoc.vn',
+          relationship: 'Chủ hộ',
+          password: 'Password123',
+          confirmPassword: 'Password123',
+          acceptTerms: true,
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          // giữ nguyên tiền tố +84 sau khi đã xóa khoảng trắng
+          expect(result.data.phone).toBe('+84912345678');
+        }
+      });
+    });
+
+    // ===========================================================================
+    // Password max-length (Task 2)
+    // ===========================================================================
+    describe('password max 64 characters (Task 2)', () => {
+      it('rejects password longer than 64 characters', () => {
+        const longPassword = 'A'.repeat(65);
+        const result = registerFamilySchema.safeParse({
+          fullName: 'Nguyễn Văn An',
+          phone: '0912345678',
+          email: 'an.nguyen@famidoc.vn',
+          relationship: 'Chủ hộ',
+          password: longPassword,
+          confirmPassword: longPassword,
+          acceptTerms: true,
+        });
+        expect(result.success).toBe(false);
+        if (!result.success) {
+          expect(result.error.flatten().fieldErrors.password).toBeDefined();
+        }
+      });
+    });
+
+    // ===========================================================================
+    // trim fullName and email (Task 2 Refactor)
+    // ===========================================================================
+    describe('trim fullName and email (Task 2 Refactor)', () => {
+      it('trims whitespace from fullName', () => {
+        const result = registerFamilySchema.safeParse({
+          fullName: '  Nguyễn Văn An  ',
+          phone: '0912345678',
+          email: 'an.nguyen@famidoc.vn',
+          relationship: 'Chủ hộ',
+          password: 'Password123',
+          confirmPassword: 'Password123',
+          acceptTerms: true,
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.fullName).toBe('Nguyễn Văn An');
+        }
+      });
+
+      it('trims whitespace from email', () => {
+        const result = registerFamilySchema.safeParse({
+          fullName: 'Nguyễn Văn An',
+          phone: '0912345678',
+          email: '  an.nguyen@famidoc.vn  ',
+          relationship: 'Chủ hộ',
+          password: 'Password123',
+          confirmPassword: 'Password123',
+          acceptTerms: true,
+        });
+        expect(result.success).toBe(true);
+        if (result.success) {
+          expect(result.data.email).toBe('an.nguyen@famidoc.vn');
+        }
+      });
+    });
   });
 
   describe('forgotPasswordSchema', () => {
