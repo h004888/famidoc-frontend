@@ -347,6 +347,7 @@ export function DoctorDirectoryView() {
         search: searchQuery.trim() || undefined,
         city: selectedCity !== 'all' ? selectedCity : undefined,
         specialty: selectedSpecialty !== 'all' ? selectedSpecialty : undefined,
+        limit: 50,
       })
       .then((docs) => {
         if (docs && docs.items) {

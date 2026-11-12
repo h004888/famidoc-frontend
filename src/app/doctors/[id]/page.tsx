@@ -1,8 +1,8 @@
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
+import { notFound } from 'next/navigation';
 import { DoctorDetailView } from '@/features/doctors';
-
-export const instant = false;
+import { publicApi, type PublicDoctorDetailDto } from '@/lib/api/public.api';
 
 export async function generateMetadata({
   params,
@@ -10,19 +10,45 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  return {
-    title: `Hồ Sơ Bác Sĩ & Chuyên Gia Y Tế | FamiDoc Pro`,
-    description: `Xem chi tiết tiểu sử chuyên môn, chứng chỉ hành nghề Bộ Y Tế, bằng cấp và đặt lịch khám cùng chuyên gia ${id}.`,
-  };
+  try {
+    const doctor = await publicApi.getDoctorDetail(id);
+    const doctorTitle = doctor?.academicTitle
+      ? `${doctor.academicTitle} ${doctor.doctorName}`
+      : doctor?.doctorName || doctor?.fullName || `Chuyên gia ${id}`;
+
+    return {
+      title: `${doctorTitle} | FamiDoc Pro`,
+      description:
+        doctor?.bio ||
+        `Xem chi tiết tiểu sử chuyên môn, chứng chỉ hành nghề Bộ Y Tế, bằng cấp và đặt lịch khám cùng chuyên gia ${doctorTitle}.`,
+    };
+  } catch (_error) {
+    return {
+      title: 'Hồ Sơ Bác Sĩ & Chuyên Gia Y Tế | FamiDoc Pro',
+      description: `Xem chi tiết tiểu sử chuyên môn, chứng chỉ hành nghề Bộ Y Tế, bằng cấp và đặt lịch khám cùng chuyên gia ${id}.`,
+    };
+  }
 }
 
-async function DoctorDetailPageContent({
+export async function DoctorDetailPageContent({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <DoctorDetailView id={id} />;
+  let doctor: PublicDoctorDetailDto | null = null;
+
+  try {
+    doctor = await publicApi.getDoctorDetail(id);
+  } catch (_error) {
+    notFound();
+  }
+
+  if (!doctor || !doctor.id) {
+    notFound();
+  }
+
+  return <DoctorDetailView id={id} initialDoctor={doctor} />;
 }
 
 export default function DoctorDetailPage({
@@ -42,4 +68,3 @@ export default function DoctorDetailPage({
     </Suspense>
   );
 }
-
