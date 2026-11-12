@@ -55,7 +55,7 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
         data: mockDoctorDetail,
       };
 
-      const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValueOnce(envelopeResponse as any);
+      const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValueOnce(envelopeResponse);
 
       const result = await publicApi.getDoctorDetail('doc-01');
 
@@ -72,7 +72,7 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
         specialty: 'Nhi Khoa & Dinh Dưỡng Trẻ Em',
       };
 
-      vi.spyOn(httpClient, 'get').mockResolvedValueOnce(rawDoctor as any);
+      vi.spyOn(httpClient, 'get').mockResolvedValueOnce(rawDoctor);
 
       const result = await publicApi.getDoctorDetail('doc-02');
       expect(result.id).toBe('doc-02');
@@ -107,7 +107,7 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
         },
       };
 
-      const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValueOnce(mockReviewsEnvelope as any);
+      const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValueOnce(mockReviewsEnvelope);
 
       const result: PublicDoctorReviewsResponse = await publicApi.getDoctorReviews('doc-01', {
         page: 1,
@@ -128,7 +128,7 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
       vi.spyOn(httpClient, 'get').mockResolvedValueOnce({
         success: true,
         data: null,
-      } as any);
+      });
 
       const result = await publicApi.getDoctorReviews('doc-none');
       expect(result.items).toEqual([]);
@@ -144,7 +144,7 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
           createdAt: '2026-10-20T10:00:00.000Z',
         },
       ];
-      vi.spyOn(httpClient, 'get').mockResolvedValueOnce(rawReviews as any);
+      vi.spyOn(httpClient, 'get').mockResolvedValueOnce(rawReviews);
 
       const result = await publicApi.getDoctorReviews('doc-01');
       expect(result.items).toEqual(rawReviews);
@@ -173,7 +173,7 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
       const postSpy = vi.spyOn(httpClient, 'post').mockResolvedValueOnce({
         success: true,
         data: mockResponse,
-      } as any);
+      });
 
       const result = await publicApi.submitConsultationRequest(payload);
 
@@ -195,7 +195,7 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
         message: 'Đã nhận hồ sơ',
       };
 
-      vi.spyOn(httpClient, 'post').mockResolvedValueOnce(mockResponse as any);
+      vi.spyOn(httpClient, 'post').mockResolvedValueOnce(mockResponse);
 
       const result = await publicApi.submitConsultationRequest(payload);
       expect(result.ticketId).toBe('CRQ-DIRECT-1234');

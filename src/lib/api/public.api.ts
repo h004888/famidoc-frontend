@@ -29,8 +29,11 @@ export interface PublicDoctorFacilityDto {
 export interface PublicDoctorCarePackageDto {
   id: string;
   name: string;
+  packageName?: string;
   code?: string;
   price?: number | string;
+  formattedPrice?: string;
+  basePrice?: number;
   monthlyPrice?: string;
   durationMonths?: number;
   description?: string;
@@ -38,7 +41,7 @@ export interface PublicDoctorCarePackageDto {
   badge?: string;
   popular?: boolean;
   highlight?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface PublicDoctorDto {
@@ -99,7 +102,7 @@ export interface PublicDoctorReviewDto {
   serviceName?: string;
   verified?: boolean;
   badge?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface PublicDoctorReviewsQuery {

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import { Doctor, Facility } from './doctor-directory-view';
-import { publicApi, type PublicDoctorDetailDto, type PublicDoctorReviewDto } from '@/lib/api';
+import { publicApi, type PublicDoctorDetailDto, type PublicDoctorReviewDto, type PublicDoctorCarePackageDto } from '@/lib/api';
 
 export interface DoctorDetailViewProps {
   id?: string;
@@ -379,16 +379,19 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBa
         name: initialDoctor.doctorName || initialDoctor.fullName || defaultDoctor.name,
         title: initialDoctor.academicTitle || initialDoctor.title || defaultDoctor.title,
         specialty: initialDoctor.specialty || defaultDoctor.specialty,
-        specialtyKey: initialDoctor.specialtyKey || defaultDoctor.specialtyKey,
+        specialtyKey: (initialDoctor.specialtyKey as Doctor['specialtyKey']) || defaultDoctor.specialtyKey,
         cchnNumber: defaultDoctor.cchnNumber,
         experienceYears: initialDoctor.experienceYears ?? defaultDoctor.experienceYears,
         rating: initialDoctor.ratingAvg ?? initialDoctor.rating ?? defaultDoctor.rating,
         reviewCount: initialDoctor.totalReviews ?? initialDoctor.reviewCount ?? defaultDoctor.reviewCount,
         consultationCount: initialDoctor.consultationCount ?? defaultDoctor.consultationCount,
         hospital: initialDoctor.hospital || defaultDoctor.hospital,
-        location: initialDoctor.location || defaultDoctor.location,
+        location: (initialDoctor.location as Doctor['location']) || defaultDoctor.location,
         avatarUrl: initialDoctor.avatarUrl || initialDoctor.avatar || defaultDoctor.avatarUrl,
-        services: initialDoctor.services && initialDoctor.services.length > 0 ? initialDoctor.services : defaultDoctor.services,
+        services:
+          initialDoctor.services && initialDoctor.services.length > 0
+            ? (initialDoctor.services as Doctor['services'])
+            : defaultDoctor.services,
         fee: defaultDoctor.fee,
         bio: initialDoctor.bio || defaultDoctor.bio,
         education: initialDoctor.education && initialDoctor.education.length > 0 ? initialDoctor.education : defaultDoctor.education,
@@ -400,7 +403,7 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBa
   const packagesList = isFacility
     ? FACILITY_CARE_PACKAGES
     : (initialDoctor?.carePackages && initialDoctor.carePackages.length > 0
-        ? initialDoctor.carePackages.map((pkg: any) => ({
+        ? initialDoctor.carePackages.map((pkg: PublicDoctorCarePackageDto) => ({
             id: pkg.id,
             name: pkg.name || pkg.packageName || 'Gói Chăm Sóc',
             badge: pkg.badge || (pkg.durationMonths ? `${pkg.durationMonths} tháng` : 'Trọn gói'),
@@ -440,30 +443,27 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBa
     }
     return [];
   });
-  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const reviewTargetId = initialDoctor?.id || id;
+  const hasInitialReviews = !!initialDoctor?.reviews && initialDoctor.reviews.length > 0;
+  const shouldFetchReviews = !isFacility && !hasInitialReviews && !!reviewTargetId;
+  const [isLoadingReviews, setIsLoadingReviews] = useState(shouldFetchReviews);
 
   useEffect(() => {
-    if (isFacility) return;
-    const targetId = initialDoctor?.id || id;
-    if (!initialDoctor?.reviews || initialDoctor.reviews.length === 0) {
-      if (targetId) {
-        setIsLoadingReviews(true);
-        publicApi
-          .getDoctorReviews(targetId, { page: 1, limit: 5 })
-          .then((res) => {
-            if (res?.items && res.items.length > 0) {
-              setReviews(res.items);
-            }
-          })
-          .catch((err) => {
-            console.error('Failed to load reviews:', err);
-          })
-          .finally(() => {
-            setIsLoadingReviews(false);
-          });
-      }
-    }
-  }, [initialDoctor, id, isFacility]);
+    if (!shouldFetchReviews) return;
+    publicApi
+      .getDoctorReviews(reviewTargetId, { page: 1, limit: 5 })
+      .then((res) => {
+        if (res?.items && res.items.length > 0) {
+          setReviews(res.items);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load reviews:', err);
+      })
+      .finally(() => {
+        setIsLoadingReviews(false);
+      });
+  }, [shouldFetchReviews, reviewTargetId]);
 
   const activePackage =
     packagesList.find((p) => p.id === selectedPackageId) || packagesList[0] || {
@@ -500,13 +500,14 @@ export function DoctorDetailView({ id = 'doc-01', type = 'doctor', onBack: _onBa
         healthNeeds: formData.note || 'Tư vấn gói bác sĩ gia đình',
       });
 
-      const ticketId = (res as any)?.data?.ticketId || (res as any)?.ticketId || 'PKG-8921';
+      const ticketId = res.data?.ticketId || res.ticketId || 'PKG-8921';
       setSubmittedTicketId(ticketId);
       setIsSubmitted(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error submitting consultation request:', err);
+      const errorMessage = err instanceof Error ? err.message : undefined;
       setSubmitError(
-        err?.message || 'Có lỗi xảy ra khi gửi yêu cầu. Vui lòng thử lại sau.'
+        errorMessage || 'Có lỗi xảy ra khi gửi yêu cầu. Vui lòng thử lại sau.'
       );
     } finally {
       setIsSubmitting(false);

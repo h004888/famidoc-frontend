@@ -22,7 +22,7 @@ export async function generateMetadata({
         doctor?.bio ||
         `Xem chi tiết tiểu sử chuyên môn, chứng chỉ hành nghề Bộ Y Tế, bằng cấp và đặt lịch khám cùng chuyên gia ${doctorTitle}.`,
     };
-  } catch (_error) {
+  } catch {
     return {
       title: 'Hồ Sơ Bác Sĩ & Chuyên Gia Y Tế | FamiDoc Pro',
       description: `Xem chi tiết tiểu sử chuyên môn, chứng chỉ hành nghề Bộ Y Tế, bằng cấp và đặt lịch khám cùng chuyên gia ${id}.`,
@@ -40,7 +40,7 @@ export async function DoctorDetailPageContent({
 
   try {
     doctor = await publicApi.getDoctorDetail(id);
-  } catch (_error) {
+  } catch {
     notFound();
   }
 
