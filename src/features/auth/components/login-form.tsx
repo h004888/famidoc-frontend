@@ -458,21 +458,6 @@ export function LoginForm() {
                   Đăng ký ngay
                 </Link>
               </div>
-
-              {/* Compliance Badge */}
-              <div className="flex items-center justify-center gap-1.5 text-[11px] sm:text-xs text-slate-500">
-                <svg
-                  className="w-3.5 h-3.5 text-emerald-600 shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  <polyline points="9 12 11 14 15 10" />
-                </svg>
-                <span>Bảo mật theo Nghị định 13/2023/NĐ-CP</span>
-              </div>
             </div>
           </div>
         </section>

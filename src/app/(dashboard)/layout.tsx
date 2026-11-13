@@ -6,7 +6,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-[#f5f6f8] text-slate-900 antialiased font-sans">
       {/* Sidenav - Thanh điều hướng dọc chuẩn Preclinic */}
-      <Suspense fallback={<div className="hidden lg:block w-16 bg-white border-r border-slate-200/90 shrink-0" />}>
+      <Suspense fallback={<div className="hidden lg:block w-64 bg-white border-r border-slate-200/90 shrink-0" />}>
         <DashboardSidebar />
       </Suspense>
 

@@ -239,7 +239,7 @@ export function PackagesCatalogView() {
   const handleSelectEstimatorPkg = (pkgId: string) => {
     setSelectedEstimatorPkgId(pkgId);
     const p = PACKAGES.find((item) => item.id === pkgId);
-    if (p && memberCount < p.defaultMembers) {
+    if (p) {
       setMemberCount(p.defaultMembers);
     }
   };
@@ -551,7 +551,9 @@ export function PackagesCatalogView() {
                       type="button"
                       disabled={memberCount <= 1}
                       onClick={() => setMemberCount((prev) => Math.max(1, prev - 1))}
-                      className="w-11 h-11 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 flex items-center justify-center font-bold text-lg disabled:opacity-40 cursor-pointer"
+                      aria-label="Giảm số thành viên gia đình"
+                      title={memberCount <= 1 ? 'Tối thiểu 1 người' : 'Giảm thành viên'}
+                      className="w-11 h-11 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 flex items-center justify-center font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
                     >
                       -
                     </button>
@@ -560,24 +562,30 @@ export function PackagesCatalogView() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => setMemberCount((prev) => prev + 1)}
-                      className="w-11 h-11 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 flex items-center justify-center font-bold text-lg cursor-pointer"
+                      disabled={memberCount >= estimatorPkg.defaultMembers}
+                      onClick={() => setMemberCount((prev) => Math.min(estimatorPkg.defaultMembers, prev + 1))}
+                      aria-label="Tăng số thành viên gia đình"
+                      title={
+                        memberCount >= estimatorPkg.defaultMembers
+                          ? `Gói ${estimatorPkg.name} áp dụng tối đa ${estimatorPkg.defaultMembers} thành viên`
+                          : 'Tăng thành viên'
+                      }
+                      className="w-11 h-11 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 flex items-center justify-center font-bold text-lg disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer transition-all"
                     >
                       +
                     </button>
                   </div>
 
-                  {isOverMaxLimit && (
-                    <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2">
-                      <span className="material-symbols-outlined text-amber-600 text-base shrink-0 mt-0.5">warning</span>
+                  {memberCount >= estimatorPkg.defaultMembers ? (
+                    <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-blue-600 text-sm">info</span>
                       <span>
-                        Số người vượt trần tối đa ({estimatorPkg.maxMembers} người) của gói {estimatorPkg.name}. Hệ thống gợi ý bạn nên chọn gói dài hạn hơn để đảm bảo định mức chăm sóc.
+                        Gói {estimatorPkg.name} áp dụng tối đa <strong>{estimatorPkg.defaultMembers} người</strong>. Nếu cần chăm sóc thêm thành viên, bạn có thể chọn gói quy mô lớn hơn ở Bước 1.
                       </span>
-                    </div>
-                  )}
-                  {!isOverMaxLimit && extraMembers > 0 && (
+                    </p>
+                  ) : (
                     <p className="text-xs text-slate-500">
-                      Phụ phí thêm người: 75.000đ/người/tháng × {extraMembers} người × {estimatorPkg.months} tháng.
+                      Gói này hỗ trợ tối đa {estimatorPkg.defaultMembers} người theo định mức tiêu chuẩn.
                     </p>
                   )}
                 </div>
@@ -619,7 +627,11 @@ export function PackagesCatalogView() {
 
                   <div className="flex justify-between py-1 border-b border-slate-100">
                     <span className="text-slate-600">Phụ phí thêm người ({extraMembers} người):</span>
-                    <span className="font-semibold text-slate-900">+{extraMemberFeeTotal.toLocaleString('vi-VN')} đ</span>
+                    <span className="font-semibold text-slate-900">
+                      {extraMembers > 0
+                        ? `+${extraMemberFeeTotal.toLocaleString('vi-VN')} đ`
+                        : '0 đ (Đã gồm trong gói)'}
+                    </span>
                   </div>
 
                   <div className="flex justify-between py-1 border-b border-slate-100">

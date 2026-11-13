@@ -107,6 +107,7 @@ const CLINIC_LIST = [
 export function DashboardSidebar() {
   const pathname = usePathname() || '/family';
   const { role, user, logout } = useAuth();
+  const [isPinned, setIsPinned] = useState(true);
   const [isHovered, setIsHovered] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [clinicDropdownOpen, setClinicDropdownOpen] = useState(false);
@@ -115,7 +116,29 @@ export function DashboardSidebar() {
 
   useEffect(() => {
     setMounted(true);
+    try {
+      const savedPinned = localStorage.getItem('famidoc_sidebar_pinned');
+      if (savedPinned !== null) {
+        setIsPinned(savedPinned === 'true');
+      }
+    } catch {
+      // ignore storage access restrictions
+    }
   }, []);
+
+  const togglePin = () => {
+    setIsPinned((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('famidoc_sidebar_pinned', String(next));
+      } catch {
+        // ignore
+      }
+      return next;
+    });
+    // Giữ hover để tránh giật giao diện khi vừa bấm bỏ ghim
+    setIsHovered(true);
+  };
 
   const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
   const displayName = mounted ? (user?.name || '') : '';
@@ -129,7 +152,7 @@ export function DashboardSidebar() {
       {/* Brand Header */}
       <div
         className={`flex items-center h-16 border-b border-slate-100 shrink-0 bg-white ${
-          isCollapsedState ? 'justify-center px-2' : 'justify-start px-4'
+          isCollapsedState ? 'justify-center px-2' : 'justify-between px-3.5'
         }`}
       >
         <Link
@@ -149,17 +172,44 @@ export function DashboardSidebar() {
               />
             </div>
           ) : (
-            <div className="h-10 w-[150px] flex items-center shrink-0">
+            <div className="h-10 w-[140px] flex items-center shrink-0">
               <img
                 src="/images/FamiDoc Healthcare Logo.png"
                 alt="FamiDoc Logo"
-                width={150}
-                height={40}
-                className="h-10 w-[150px] object-contain"
+                width={140}
+                height={36}
+                className="h-9 w-[140px] object-contain"
               />
             </div>
           )}
         </Link>
+
+        {/* Nút ghim / bỏ ghim thanh điều hướng (Desktop) */}
+        {!isCollapsedState && (
+          <button
+            type="button"
+            onClick={togglePin}
+            className={`hidden lg:inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors cursor-pointer outline-hidden shrink-0 ${
+              isPinned
+                ? 'text-[#2E37A4] bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 shadow-2xs'
+                : 'text-slate-400 hover:text-[#2E37A4] hover:bg-slate-100 border border-slate-200/60'
+            }`}
+            title={
+              isPinned
+                ? 'Bỏ ghim thanh điều hướng (Tự động thu gọn khi rời chuột)'
+                : 'Ghim cố định thanh điều hướng'
+            }
+            aria-label={isPinned ? 'Bỏ ghim thanh điều hướng' : 'Ghim thanh điều hướng'}
+          >
+            <span
+              className={`material-symbols-outlined text-[18px] transition-transform duration-200 ${
+                isPinned ? 'material-symbols-filled -rotate-45 text-[#2E37A4]' : 'text-slate-500 hover:text-[#2E37A4]'
+              }`}
+            >
+              push_pin
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Sub-Header Context Widget: Gia đình hiển thị Hộ tịch, CSYT/Admin hiển thị Switcher */}
@@ -548,9 +598,11 @@ export function DashboardSidebar() {
         </div>
       </nav>
 
-      {/* Desktop Sidenav: Thu gọn ban đầu (w-20), hover vào thì mở rộng (w-64) */}
+      {/* Desktop Sidenav: Cho phép ghim (w-64) cố định hoặc thả ghim linh động (w-20, hover mở rộng w-64) */}
       <aside
-        className="hidden lg:block shrink-0 w-20 relative sticky top-0 h-screen z-40"
+        className={`hidden lg:block shrink-0 relative sticky top-0 h-screen z-40 transition-[width] duration-300 ease-in-out ${
+          isPinned ? 'w-64' : 'w-20'
+        }`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => {
           setIsHovered(false);
@@ -558,11 +610,15 @@ export function DashboardSidebar() {
         }}
       >
         <div
-          className={`h-full absolute top-0 left-0 bg-white transition-all duration-300 ease-in-out border-r border-slate-200/90 overflow-hidden ${
-            isHovered ? 'w-64 shadow-xl z-40' : 'w-20 shadow-xs'
+          className={`h-full absolute top-0 left-0 bg-white transition-[width,box-shadow] duration-300 ease-in-out border-r border-slate-200/90 overflow-hidden ${
+            isPinned
+              ? 'w-64 shadow-xs'
+              : isHovered
+              ? 'w-64 shadow-2xl z-40'
+              : 'w-20 shadow-xs'
           }`}
         >
-          {renderSidebar(!isHovered)}
+          {renderSidebar(!isPinned && !isHovered)}
         </div>
       </aside>
 

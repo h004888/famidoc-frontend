@@ -70,4 +70,36 @@ describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
       expect(source, `Violation in ${relPath}`).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     }
   });
+
+  it('UT-ESTIMATOR-CAP: caps member count in pricing estimator to package defaultMembers and dims + button at limit', async () => {
+    render(<PackagesCatalogView />);
+
+    // Default package is Gói Đồng Hành (defaultMembers: 3)
+    const plusBtn = screen.getByRole('button', { name: 'Tăng số thành viên gia đình' });
+    const minusBtn = screen.getByRole('button', { name: 'Giảm số thành viên gia đình' });
+
+    // Initial memberCount should be 3 and plus button should be disabled (dimmed)
+    expect(screen.getByText(/Gói gồm mặc định:/i)).toBeInTheDocument();
+    expect(plusBtn).toBeDisabled();
+
+    // Decrease memberCount to 2
+    await userEvent.click(minusBtn);
+    expect(plusBtn).not.toBeDisabled();
+
+    // Click plus back to 3
+    await userEvent.click(plusBtn);
+    expect(plusBtn).toBeDisabled();
+
+    // Switch to Gói Trải Nghiệm (defaultMembers: 1)
+    const basicPkgBtn = screen.getByRole('button', { name: /Gói Trải Nghiệm/i });
+    await userEvent.click(basicPkgBtn);
+    expect(plusBtn).toBeDisabled();
+    expect(minusBtn).toBeDisabled();
+
+    // Switch to Gói Toàn Diện (defaultMembers: 6)
+    const royalPkgBtn = screen.getByRole('button', { name: /Gói Toàn Diện/i });
+    await userEvent.click(royalPkgBtn);
+    expect(plusBtn).toBeDisabled();
+    expect(minusBtn).not.toBeDisabled();
+  });
 });

@@ -711,23 +711,9 @@ export function RegisterForm() {
 
             {/* Card Footer */}
             <div
-              className="mt-2.5 sm:mt-3 pt-2 sm:pt-2.5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-[11px] gap-2 whitespace-nowrap"
+              className="mt-3 sm:mt-4 pt-3 sm:pt-3.5 border-t border-slate-100 flex flex-col items-center justify-center gap-2 text-center"
               data-purpose="card-footer"
             >
-              {/* Compliance Badge */}
-              <div className="flex items-center space-x-1.5 text-slate-600 font-medium whitespace-nowrap shrink-0">
-                <svg
-                  className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  <polyline points="9 12 11 14 15 10" />
-                </svg>
-                <span className="whitespace-nowrap">Bảo mật theo Nghị định 13/2023/NĐ-CP</span>
-              </div>
               {/* Sign-in Link */}
               <div className="text-slate-500 whitespace-nowrap shrink-0">
                 Đã có tài khoản?{' '}
