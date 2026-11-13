@@ -139,15 +139,46 @@ export interface ConsultationResponseDto {
   };
 }
 
+export interface PublicFacilityFeaturedDoctorDto {
+  id: string;
+  doctorName?: string;
+  fullName?: string;
+  academicTitle?: string | null;
+  title?: string;
+  specialty: string;
+  avatarUrl?: string | null;
+  avatar?: string;
+  rating?: number;
+  experienceYears?: number;
+  cchnNumber?: string;
+}
+
 export interface PublicFacilityDto {
   id: string;
   name?: string;
   facilityName?: string;
   facility_name?: string;
+  type?: string;
+  tier?: string;
+  status?: string;
   address?: string;
+  city?: string;
   phone?: string;
   hotline?: string;
-  type?: string;
+  email?: string;
+  websiteUrl?: string;
+  website?: string;
+  workingHours?: string;
+  working_hours?: string;
+  bedCount?: string;
+  bed_count?: string;
+  imageUrl?: string;
+  image_url?: string;
+  logoUrl?: string;
+  logo_url?: string;
+  specialties?: string[];
+  privileges?: string[];
+  featuredDoctors?: PublicFacilityFeaturedDoctorDto[];
   rating?: number;
   licenseNumber?: string;
   license_number?: string;
@@ -157,7 +188,6 @@ export interface PublicFacilityDto {
   bankName?: string;
   bankAccountNumber?: string;
   bankAccountName?: string;
-  status?: string;
   createdAt?: string;
   created_at?: string;
   [key: string]: unknown;

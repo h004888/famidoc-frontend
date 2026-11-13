@@ -29,6 +29,7 @@ export function FacilityDetailView({ id, initialFacility }: FacilityDetailViewPr
 
       const displayName = found.facilityName || found.facility_name || found.name || 'Cơ sở y tế đối tác';
       const displayPhone = found.phone || found.hotline || '1900 6868';
+      const displayHotline = found.hotline || found.phone || '1900 6868';
       const displayLicense = found.licenseNumber || found.license_number || found.operatingLicense;
 
       const determinedType =
@@ -39,26 +40,52 @@ export function FacilityDetailView({ id, initialFacility }: FacilityDetailViewPr
             ? 'Phòng khám Đa Khoa Kỹ Thuật Cao'
             : 'Bệnh viện Tuyến Trung Ương');
 
+      const specialties =
+        Array.isArray(found.specialties) && found.specialties.length > 0
+          ? found.specialties
+          : ['Nội Tổng Quát', 'Lão Khoa', 'Nhi Khoa', 'Tim Mạch Can Thiệp'];
+
+      const privileges =
+        Array.isArray(found.privileges) && found.privileges.length > 0
+          ? found.privileges
+          : [
+            'Lối đi tiếp đón ưu tiên FamiDoc Fast-Track',
+            'Bảo lãnh viện phí trực tiếp và liên thông BHYT',
+            'Đồng bộ dữ liệu xét nghiệm vào Bệnh án điện tử EMR FamiDoc',
+          ];
+
+      const bedCount =
+        found.bedCount ||
+        (found as { bed_count?: string }).bed_count ||
+        (displayName.toLowerCase().includes('phòng khám') ? 'Lưu viện ngắn hạn' : '500+ giường');
+
+      const workingHours =
+        found.workingHours ||
+        (found as { working_hours?: string }).working_hours ||
+        'Thứ 2 - Thứ 6: 06:30 - 16:30 | Thứ 7: 06:30 - 11:30 | Cấp cứu: 24/7';
+
       return {
         id: found.id,
         name: displayName,
         facility_name: displayName,
-        type: determinedType as Facility['type'],
+        type: determinedType,
+        tier: found.tier,
+        status: found.status || 'ACTIVE',
         address: rawAddress || 'Địa chỉ liên kết hệ thống FamiDoc',
         city: detectedCity,
         phone: displayPhone,
-        hotline: displayPhone,
+        hotline: displayHotline,
+        email: found.email,
+        websiteUrl: found.websiteUrl || (found as { website?: string }).website,
+        workingHours,
+        imageUrl: (found.imageUrl as string) || (found as { image_url?: string }).image_url || '/images/medsev/home-one/4.jpg',
+        logoUrl: (found.logoUrl as string) || (found as { logo_url?: string }).logo_url,
+        specialties,
+        privileges,
+        bedCount,
         license_number: typeof displayLicense === 'string' ? displayLicense : undefined,
         tax_code: typeof found.taxCode === 'string' ? found.taxCode : (typeof found.tax_code === 'string' ? found.tax_code : undefined),
-        workingHours: '24/7 (Cấp cứu & Ngoại trú)',
-        imageUrl: (found.imageUrl as string) || '/images/medsev/home-one/4.jpg',
-        specialties: ['Nội Tổng Quát', 'Lão Khoa', 'Nhi Khoa', 'Tim Mạch Can Thiệp'],
-        privileges: [
-          'Lối đi ưu tiên FamiDoc Fast-Track',
-          'Liên thông dữ liệu bệnh án điện tử EMR',
-          'Bảo lãnh viện phí trực tiếp',
-        ],
-        bedCount: displayName.toLowerCase().includes('phòng khám') ? 'Lưu viện ngắn hạn' : '500+ giường',
+        featuredDoctors: Array.isArray(found.featuredDoctors) ? found.featuredDoctors : undefined,
       };
     };
 

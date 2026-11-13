@@ -485,6 +485,33 @@ export function DoctorDetailView({
     let isMounted = true;
     setIsLoadingFacilityDoctors(true);
 
+    if (facility?.featuredDoctors && facility.featuredDoctors.length > 0) {
+      setFacilityDoctors(
+        facility.featuredDoctors.map((d) => ({
+          id: d.id,
+          name: d.doctorName || d.fullName || d.name || 'Bác sĩ',
+          title: d.academicTitle || d.title || 'BS.CKII',
+          specialty: d.specialty || 'Chuyên khoa',
+          specialtyKey: 'general',
+          cchnNumber: d.cchnNumber || 'Chứng thực CCHN BYT',
+          experienceYears: d.experienceYears || 15,
+          rating: d.rating || 4.95,
+          reviewCount: 120,
+          consultationCount: 1500,
+          hospital: facility.name,
+          location: (facility.city || 'TP. Hồ Chí Minh') as Doctor['location'],
+          avatarUrl: d.avatarUrl || '/images/medsev/home-one/doctor/1.jpg',
+          services: ['clinic', 'telehealth'],
+          fee: 'Liên hệ',
+          bio: '',
+          education: [],
+          schedule: '',
+        }))
+      );
+      setIsLoadingFacilityDoctors(false);
+      return;
+    }
+
     const fetchPromise = publicApi?.getDoctors
       ? publicApi.getDoctors({ limit: 50 })
       : Promise.resolve({ items: [] });
@@ -655,7 +682,10 @@ export function DoctorDetailView({
                     {isFacility ? 'Cơ sở y tế đối tác' : 'Bác sĩ gia đình'}
                   </button>
                 ) : (
-                  <Link href="/doctors" className="hover:text-[#0046c0] transition-colors">
+                  <Link
+                    href={isFacility ? '/facilities' : '/doctors'}
+                    className="hover:text-[#0046c0] transition-colors"
+                  >
                     {isFacility ? 'Cơ sở y tế đối tác' : 'Bác sĩ gia đình'}
                   </Link>
                 )}
@@ -683,29 +713,34 @@ export function DoctorDetailView({
         <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
 
-            {/* LEFT COLUMN: DOCTOR PROFILE & CLINICAL EVIDENCE (Full width on facility profile) */}
-            <div className={`${isFacility ? 'lg:col-span-12' : 'lg:col-span-7'} space-y-4`}>
+            {/* LEFT COLUMN: DOCTOR PROFILE & CLINICAL EVIDENCE (8 cols on facility profile, 7 cols on doctor profile) */}
+            <div className={`${isFacility ? 'lg:col-span-8' : 'lg:col-span-7'} space-y-4`}>
 
-              {/* Card 1: Reorganized Doctor Identity (Reduced whitespace, tight hierarchy, removed raw CCHN per Items 3, 4, 5) */}
+              {/* Card 1: Reorganized Doctor / Facility Identity */}
               <div className="bg-white rounded-lg border border-slate-200 p-5">
                 <div className="flex flex-col sm:flex-row items-start gap-4">
-                  {/* Doctor Photo */}
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                  {/* Photo or Facility Logo/Banner */}
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden bg-slate-100 border border-slate-200 shrink-0 relative flex items-center justify-center">
                     <img
-                      src={isFacility ? facility.imageUrl : doctor.avatarUrl}
+                      src={isFacility ? (facility.logoUrl || facility.imageUrl) : doctor.avatarUrl}
                       alt={isFacility ? facility.name : doctor.name}
-                      className="w-full h-full object-cover object-top"
+                      className="w-full h-full object-cover object-center"
                     />
                   </div>
 
-                  {/* Doctor Info (Tight, cleanly aligned, no dead space) */}
+                  {/* Info */}
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-blue-50 text-[#0046c0] text-[11px] font-semibold border border-blue-200/70">
                         <span className="material-symbols-outlined text-xs">verified</span>
-                        <span>{isFacility ? 'Cơ sở chuẩn Bộ Y Tế' : 'Đã chứng thực CCHN'}</span>
+                        <span>{isFacility ? (facility.tier || 'Cơ sở chuẩn Bộ Y Tế') : 'Đã chứng thực CCHN'}</span>
                       </span>
-                      {!isFacility && (
+                      {isFacility ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-200/70">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                          <span>{facility.status === 'ACTIVE' ? 'Đối tác bảo trợ chính thức' : (facility.status || 'Đang hoạt động')}</span>
+                        </span>
+                      ) : (
                         <span className="inline-flex items-center gap-1 text-[11px] text-emerald-700 font-medium">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                           <span>Nhận phụ trách gia đình mới</span>
@@ -734,14 +769,26 @@ export function DoctorDetailView({
                         <span>{isFacility ? facility.city : `${doctor.location} • Nhận khám tại nhà`}</span>
                       </div>
                     </div>
+
+                    {isFacility && (facility.license_number || facility.tax_code) && (
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pt-1 text-[11px] text-slate-500">
+                        {facility.license_number && (
+                          <span>Giấy phép KCB: <strong className="text-slate-700 font-medium">{facility.license_number}</strong></span>
+                        )}
+                        {facility.license_number && facility.tax_code && <span>•</span>}
+                        {facility.tax_code && (
+                          <span>Mã số thuế: <strong className="text-slate-700 font-medium">{facility.tax_code}</strong></span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {/* Quick Stats Row (Compact, tight, clean) */}
+                {/* Quick Stats Row */}
                 <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
                   <div className="py-1.5 px-2 rounded-md bg-slate-50 border border-slate-100">
                     <span className="block text-xs font-bold text-slate-900 tabular-nums">
-                      {isFacility ? '500+' : `${doctor.experienceYears} năm`}
+                      {isFacility ? (facility.bedCount || '1.000+') : `${doctor.experienceYears} năm`}
                     </span>
                     <span className="text-[10px] text-slate-500">
                       {isFacility ? 'Quy mô giường' : 'Kinh nghiệm'}
@@ -753,19 +800,21 @@ export function DoctorDetailView({
                       <span>{isFacility ? '4.95' : doctor.rating}</span>
                     </span>
                     <span className="text-[10px] text-slate-500">
-                      {isFacility ? '1.500+ vote' : `${doctor.reviewCount} đánh giá`}
+                      {isFacility ? (facility.tier || 'Tuyến Trung Ương') : `${doctor.reviewCount} đánh giá`}
                     </span>
                   </div>
                   <div className="py-1.5 px-2 rounded-md bg-slate-50 border border-slate-100">
                     <span className="block text-xs font-bold text-[#0046c0] tabular-nums">
-                      {isFacility ? '12.000+' : `${doctor.consultationCount}+`}
+                      {isFacility ? '24/7' : `${doctor.consultationCount}+`}
                     </span>
-                    <span className="text-[10px] text-slate-500">Ca thăm khám</span>
+                    <span className="text-[10px] text-slate-500">
+                      {isFacility ? 'Cấp cứu & Điều phối' : 'Ca thăm khám'}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              {/* Card 2: Scope of Clinical Services (Reduced corner radius per Item 4) */}
+              {/* Card 2: Scope of Clinical Services */}
               <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -782,9 +831,11 @@ export function DoctorDetailView({
                 {isFacility ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {facility.specialties.map((spec, idx) => (
-                      <div key={idx} className="p-3 bg-slate-50 rounded-md border border-slate-100 flex items-center gap-2 text-xs text-slate-800 font-medium">
-                        <span className="material-symbols-outlined text-[#0046c0] text-base">check_circle</span>
-                        <span>{spec}</span>
+                      <div key={idx} className="p-3 bg-slate-50 rounded-md border border-slate-100 flex items-center gap-2.5 text-xs text-slate-800 font-medium hover:bg-blue-50/40 transition-colors">
+                        <span className="w-7 h-7 rounded-md bg-blue-100/70 text-[#0046c0] flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-base">medical_services</span>
+                        </span>
+                        <span className="leading-snug">{spec}</span>
                       </div>
                     ))}
                   </div>
@@ -823,19 +874,21 @@ export function DoctorDetailView({
                 )}
               </div>
 
-              {/* Card 3: Verified Medical Degrees & Credentials (Reduced corner radius per Item 4) */}
+              {/* Card 3: Verified Medical Degrees & Credentials / Privileges */}
               <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#0046c0] text-lg">school</span>
-                  <span>{isFacility ? 'Đặc Quyền Cơ Sở' : 'Quá Trình Đào Tạo & Bằng Cấp Kiểm Định'}</span>
+                  <span className="material-symbols-outlined text-[#0046c0] text-lg">
+                    {isFacility ? 'stars' : 'school'}
+                  </span>
+                  <span>{isFacility ? 'Đặc Quyền Hội Viên FamiDoc Fast-Track' : 'Quá Trình Đào Tạo & Bằng Cấp Kiểm Định'}</span>
                 </h2>
 
                 {isFacility ? (
                   <div className="space-y-2">
                     {facility.privileges.map((priv, idx) => (
-                      <div key={idx} className="flex items-start gap-2 p-2.5 rounded-md bg-slate-50 border border-slate-100 text-xs text-slate-700">
-                        <span className="material-symbols-outlined text-emerald-600 text-base shrink-0 mt-0.5">verified</span>
-                        <span className="font-medium">{priv}</span>
+                      <div key={idx} className="flex items-start gap-2.5 p-3 rounded-md bg-blue-50/50 border border-blue-100/70 text-xs text-slate-800">
+                        <span className="material-symbols-outlined text-[#0046c0] text-base shrink-0 mt-0.5">verified</span>
+                        <span className="font-medium leading-relaxed">{priv}</span>
                       </div>
                     ))}
                   </div>
@@ -1035,8 +1088,116 @@ export function DoctorDetailView({
 
             </div>
 
-            {/* RIGHT COLUMN (5 COLUMNS): CARE PACKAGE SUBSCRIPTION WIDGET (Excluded for facilities) */}
-            {!isFacility && (
+            {/* RIGHT COLUMN: CARE PACKAGE (FOR DOCTORS) OR FACILITY ACTION CARD (FOR FACILITIES) */}
+            {isFacility ? (
+              <div id="facility-widget" className="lg:col-span-4 lg:sticky lg:top-20 space-y-4">
+                {/* 1. Fast-Track & Contact Card */}
+                <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs relative space-y-4">
+                  <div className="h-1 bg-gradient-to-r from-[#0046c0] to-blue-500 -mt-5 -mx-5 rounded-t-lg mb-2" />
+
+                  <div className="space-y-1">
+                    <span className="text-[11px] font-bold text-[#0046c0] uppercase tracking-wider block">
+                      Liên hệ &amp; Tiếp nhận khẩn cấp
+                    </span>
+                    <h3 className="text-base font-bold text-slate-900">
+                      Tổng Đài Tiếp Nhận 24/7
+                    </h3>
+                  </div>
+
+                  {/* Hotline Action */}
+                  <a
+                    href={`tel:${(facility.hotline || facility.phone || '19006868').replace(/\s+/g, '')}`}
+                    className="w-full py-3 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-xs group"
+                  >
+                    <span className="material-symbols-outlined text-lg group-hover:scale-110 transition-transform">call</span>
+                    <span>Hotline: {facility.hotline || facility.phone || '1900 6868'}</span>
+                  </a>
+
+                  {/* Secondary Phone if different */}
+                  {facility.phone && facility.hotline && facility.phone !== facility.hotline && (
+                    <div className="flex items-center justify-between text-xs text-slate-600 py-1.5 px-3 bg-slate-50 rounded-md border border-slate-100">
+                      <span className="text-slate-500">Số bàn hành chính:</span>
+                      <a href={`tel:${facility.phone.replace(/\s+/g, '')}`} className="font-semibold text-slate-800 hover:text-[#0046c0]">
+                        {facility.phone}
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Working Hours */}
+                  <div className="space-y-1.5 p-3 rounded-md bg-blue-50/60 border border-blue-100/80 text-xs">
+                    <div className="flex items-center gap-1.5 font-bold text-[#0046c0]">
+                      <span className="material-symbols-outlined text-base">schedule</span>
+                      <span>Lịch tiếp nhận bệnh nhân</span>
+                    </div>
+                    <p className="text-slate-700 leading-snug text-[11px]">
+                      {facility.workingHours}
+                    </p>
+                  </div>
+
+                  {/* Address & Google Maps button */}
+                  <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                    <div className="flex items-start gap-2 text-slate-600">
+                      <span className="material-symbols-outlined text-base text-slate-400 shrink-0 mt-0.5">location_on</span>
+                      <span className="leading-snug">{facility.address}</span>
+                    </div>
+
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(facility.name + ' ' + facility.address)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-3 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-base text-[#0046c0]">directions</span>
+                      <span>Chỉ đường trên Google Maps</span>
+                    </a>
+                  </div>
+
+                  {/* Email & Website links */}
+                  {(facility.email || facility.websiteUrl) && (
+                    <div className="space-y-1.5 pt-2 border-t border-slate-100 text-xs text-slate-600">
+                      {facility.email && (
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="material-symbols-outlined text-base text-slate-400 shrink-0">mail</span>
+                          <a href={`mailto:${facility.email}`} className="text-[#0046c0] hover:underline truncate">
+                            {facility.email}
+                          </a>
+                        </div>
+                      )}
+                      {facility.websiteUrl && (
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="material-symbols-outlined text-base text-slate-400 shrink-0">language</span>
+                          <a href={facility.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-[#0046c0] hover:underline truncate">
+                            {facility.websiteUrl.replace(/^https?:\/\//, '')}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Fast-Track Consultation Button */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <Link
+                      href="/facilities"
+                      className="w-full py-2.5 px-3 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-bold transition-all duration-200 flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">apartment</span>
+                      <span>Xem mạng lưới cơ sở y tế</span>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* 2. Fast-Track Hospital Notice */}
+                <div className="p-4 rounded-lg bg-emerald-50/70 border border-emerald-200 text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-800">
+                    <span className="material-symbols-outlined text-sm">verified_user</span>
+                    <span>Quy trình Fast-Track FamiDoc</span>
+                  </div>
+                  <p className="text-emerald-700 leading-relaxed text-[11px]">
+                    Hội viên FamiDoc khi đến khám tại viện được ưu tiên tiếp nhận tại quầy tiếp đón liên kết, bảo lãnh viện phí trực tiếp và đồng bộ hồ sơ bệnh án điện tử.
+                  </p>
+                </div>
+              </div>
+            ) : (
               <div id="booking-widget" className="lg:col-span-5 lg:sticky lg:top-20 space-y-3">
                 <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs relative">
                   <div className="h-1 bg-[#0046c0] -mt-5 -mx-5 rounded-t-lg mb-4" />
@@ -1265,8 +1426,25 @@ export function DoctorDetailView({
       {/* 4. UNIFIED MEDSEV FOOTER */}
       <LandingFooter />
 
-      {/* 5. STICKY MOBILE BOOKING BAR (Excluded for facilities) */}
-      {!isFacility && (
+      {/* 5. STICKY MOBILE BOOKING / ACTION BAR */}
+      {isFacility ? (
+        <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2.5 md:hidden flex items-center justify-between gap-3 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+          <div className="min-w-0 flex-1">
+            <span className="text-[10px] text-slate-500 block uppercase font-medium truncate">{facility.name}</span>
+            <span className="font-bold text-xs text-red-600 tabular-nums flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">call</span>
+              <span>{facility.hotline || facility.phone || '1900 6868'}</span>
+            </span>
+          </div>
+          <a
+            href={`tel:${(facility.hotline || facility.phone || '19006868').replace(/\s+/g, '')}`}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md text-xs font-bold transition-colors shrink-0 shadow-xs flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-sm">call</span>
+            <span>Gọi viện</span>
+          </a>
+        </div>
+      ) : (
         <div className="fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 p-2.5 md:hidden flex items-center justify-between gap-3 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
           <div>
             <span className="text-[10px] text-slate-500 block uppercase font-medium">Gói chăm sóc từ:</span>

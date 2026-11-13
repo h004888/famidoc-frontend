@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { DoctorDetailView, type Facility } from '@/features/doctors';
 import { publicApi, type PublicDoctorDetailDto } from '@/lib/api/public.api';
 
@@ -109,7 +109,7 @@ export async function DoctorDetailPageContent({
   }
 
   if (facilityItem) {
-    return <DoctorDetailView id={id} type="facility" initialFacility={facilityItem} />;
+    redirect(`/facilities/${id}`);
   }
 
   return <DoctorDetailView id={id} initialDoctor={doctor} />;
