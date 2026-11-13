@@ -57,6 +57,11 @@ export function LandingFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/facilities" className="hover:text-[#0037c1] transition-colors">
+                  Mạng lưới bệnh viện đối tác
+                </Link>
+              </li>
+              <li>
                 <Link href="/packages" className="hover:text-[#0037c1] transition-colors">
                   Quản lý bệnh mạn tính gia đình
                 </Link>

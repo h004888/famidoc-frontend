@@ -15,23 +15,25 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
   it('UT-CMP-01: Header hiển thị đầy đủ Logo, Concierge Navigation, nút Khẩn Cấp và Auth button pair', () => {
     render(<LandingHeader />);
     expect(screen.getByText(/FamiDoc/i)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Trang chủ/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Gói chăm sóc/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Bác sĩ & Cơ sở y tế/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Liên hệ & Tư vấn/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Trang chủ' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Gói chăm sóc' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Bác sĩ gia đình' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Cơ sở y tế đối tác' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Liên hệ & Tư vấn' })).toBeInTheDocument();
     const emergencyBtn = screen.queryByRole('button', { name: /Cấp cứu: 1900 8821/i });
     if (emergencyBtn) expect(emergencyBtn).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Đăng nhập/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Đăng ký/i })).toBeInTheDocument();
   });
 
   it('UT-CMP-02: Header điều hướng đúng liên kết cho khách vãng lai theo các chương', () => {
     render(<LandingHeader />);
-    expect(screen.getByRole('link', { name: /Trang chủ/i })).toHaveAttribute('href', '/');
-    expect(screen.getByRole('link', { name: /Gói chăm sóc/i })).toHaveAttribute('href', '/packages');
-    expect(screen.getByRole('link', { name: /Bác sĩ & Cơ sở y tế/i })).toHaveAttribute('href', '/doctors');
-    expect(screen.getByRole('link', { name: /Liên hệ & Tư vấn/i })).toHaveAttribute('href', '/contact');
-    expect(screen.getByRole('link', { name: /Đăng nhập/i })).toHaveAttribute('href', '/login');
+    expect(screen.getByRole('link', { name: 'Trang chủ' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('link', { name: 'Gói chăm sóc' })).toHaveAttribute('href', '/packages');
+    expect(screen.getByRole('link', { name: 'Bác sĩ gia đình' })).toHaveAttribute('href', '/doctors');
+    expect(screen.getByRole('link', { name: 'Cơ sở y tế đối tác' })).toHaveAttribute('href', '/facilities');
+    expect(screen.getByRole('link', { name: 'Liên hệ & Tư vấn' })).toHaveAttribute('href', '/contact');
+    expect(screen.getByRole('link', { name: 'Đăng nhập' })).toHaveAttribute('href', '/login');
     expect(screen.getByRole('link', { name: /Đăng ký/i })).toHaveAttribute('href', '/register');
   });
 

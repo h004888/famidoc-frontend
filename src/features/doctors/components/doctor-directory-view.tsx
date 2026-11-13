@@ -339,7 +339,8 @@ export function DoctorDirectoryView() {
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
-  const [selectedDetailType] = useState<'doctor' | 'facility'>('doctor');
+  const [selectedDetailType, setSelectedDetailType] = useState<'doctor' | 'facility'>('doctor');
+  const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
   const [doctorPage, setDoctorPage] = useState(1);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -400,19 +401,53 @@ export function DoctorDirectoryView() {
       .getFacilities()
       .then((facs) => {
         if (facs && facs.length > 0) {
-          const mapped: Facility[] = facs.map((f) => ({
-            id: f.id,
-            name: f.name,
-            type: 'Bệnh viện Tuyến Trung Ương',
-            address: f.address || '215 Hồng Bàng, Phường 11, Quận 5, TP.HCM',
-            city: 'TP. Hồ Chí Minh',
-            phone: f.phone || '1900 6868',
-            workingHours: '24/7 (Cấp cứu & Ngoại trú)',
-            imageUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&auto=format&fit=crop&q=80',
-            specialties: ['Nội Tổng Quát', 'Lão Khoa', 'Nhi Khoa'],
-            privileges: ['Ưu tiên luồng khám', 'Bảo lãnh viện phí trực tiếp'],
-            bedCount: '1.000+ giường',
-          }));
+          const fallbackImages = [
+            '/images/medsev/home-one/4.jpg',
+            '/images/medsev/home-one/1.jpg',
+            '/images/medsev/home-one/6.jpg',
+            '/images/medsev/home-one/7.jpg',
+            'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=600&auto=format&fit=crop&q=80',
+            'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&auto=format&fit=crop&q=80',
+          ];
+
+          const mapped: Facility[] = facs.map((f, idx) => {
+            const rawAddress = f.address || '';
+            const detectedCity: Facility['city'] =
+              rawAddress.toLowerCase().includes('hà nội') || rawAddress.toLowerCase().includes('ha noi')
+                ? 'Hà Nội'
+                : rawAddress.toLowerCase().includes('đà nẵng') || rawAddress.toLowerCase().includes('da nang')
+                  ? 'Đà Nẵng'
+                  : 'TP. Hồ Chí Minh';
+
+            const displayName = f.facilityName || f.facility_name || f.name || 'Cơ sở y tế đối tác';
+            const displayPhone = f.phone || f.hotline || '1900 6868';
+            const displayLicense = f.licenseNumber || f.license_number || f.operatingLicense;
+
+            const determinedType: Facility['type'] =
+              displayName.toLowerCase().includes('quốc tế') || displayName.toLowerCase().includes('vinmec')
+                ? 'Bệnh viện Đa Khoa Quốc Tế'
+                : displayName.toLowerCase().includes('phòng khám') || displayName.toLowerCase().includes('clinic')
+                  ? 'Phòng khám Đa Khoa Kỹ Thuật Cao'
+                  : 'Bệnh viện Tuyến Trung Ương';
+
+            return {
+              id: f.id,
+              name: displayName,
+              facility_name: displayName,
+              type: (f.type as Facility['type']) || determinedType,
+              address: rawAddress || 'Địa chỉ liên kết hệ thống FamiDoc',
+              city: detectedCity,
+              phone: displayPhone,
+              hotline: displayPhone,
+              license_number: typeof displayLicense === 'string' ? displayLicense : undefined,
+              tax_code: typeof f.taxCode === 'string' ? f.taxCode : (typeof f.tax_code === 'string' ? f.tax_code : undefined),
+              workingHours: '24/7 (Cấp cứu & Ngoại trú)',
+              imageUrl: (typeof f.imageUrl === 'string' && f.imageUrl) ? f.imageUrl : fallbackImages[idx % fallbackImages.length],
+              specialties: ['Nội Tổng Quát', 'Lão Khoa', 'Nhi Khoa'],
+              privileges: ['Ưu tiên luồng khám Fast-Track', 'Bảo lãnh viện phí trực tiếp'],
+              bedCount: displayName.toLowerCase().includes('phòng khám') ? 'Lưu viện ngắn hạn' : '500+ giường',
+            };
+          });
           setFacilitiesList(mapped);
         }
       })
@@ -466,7 +501,11 @@ export function DoctorDirectoryView() {
       <DoctorDetailView
         id={selectedDetailId}
         type={selectedDetailType}
-        onBack={() => setSelectedDetailId(null)}
+        initialFacility={selectedFacility}
+        onBack={() => {
+          setSelectedDetailId(null);
+          setSelectedFacility(null);
+        }}
       />
     );
   }
@@ -511,42 +550,22 @@ export function DoctorDirectoryView() {
               <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex items-center p-1 bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold shrink-0">
                 <button
                   type="button"
-                  onClick={() => setActiveTab('doctors')}
-                  className={`w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${activeTab === 'doctors'
-                    ? 'bg-[#0046c0] text-white shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900 font-medium'
-                    }`}
+                  className="w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg inline-flex items-center gap-2 whitespace-nowrap shrink-0 bg-[#0046c0] text-white shadow-xs font-bold"
                 >
                   <span className="material-symbols-outlined text-base sm:text-lg shrink-0">stethoscope</span>
                   <span className="whitespace-nowrap">Đội ngũ Bác sĩ</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 leading-none transition-colors ${activeTab === 'doctors'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 text-slate-700'
-                      }`}
-                  >
+                  <span className="px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 leading-none bg-white/20 text-white">
                     {isLoading ? '...' : filteredDoctors.length}
                   </span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('facilities')}
-                  className={`w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${activeTab === 'facilities'
-                    ? 'bg-[#0046c0] text-white shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900 font-medium'
-                    }`}
+                <Link
+                  href="/facilities"
+                  className="w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 text-slate-600 hover:text-[#0046c0] hover:bg-white font-medium"
                 >
                   <span className="material-symbols-outlined text-base sm:text-lg shrink-0">local_hospital</span>
-                  <span className="whitespace-nowrap">Cơ sở &amp; Bệnh viện</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 leading-none transition-colors ${activeTab === 'facilities'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 text-slate-700'
-                      }`}
-                  >
-                    {filteredFacilities.length}
-                  </span>
-                </button>
+                  <span className="whitespace-nowrap">Mạng lưới Cơ sở Y tế</span>
+                  <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                </Link>
               </div>
 
               {/* City Quick Filter & Smart Matching Wizard Button: stacked full width on mobile, inline flex on sm+ */}
@@ -825,7 +844,15 @@ export function DoctorDirectoryView() {
                       >
                         <div>
                           {/* Image banner */}
-                          <div className="relative h-52 w-full overflow-hidden bg-slate-100">
+                          <div
+                            onClick={() => {
+                              setSelectedDetailId(fac.id);
+                              setSelectedDetailType('facility');
+                              setSelectedFacility(fac);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="relative h-52 w-full overflow-hidden bg-slate-100 cursor-pointer"
+                          >
                             <img
                               src={fac.imageUrl}
                               alt={fac.name}
@@ -843,12 +870,23 @@ export function DoctorDirectoryView() {
                           {/* Content */}
                           <div className="p-6 space-y-4">
                             <div>
-                              <Link
-                                href={`/doctors/${fac.id}`}
-                                className="text-lg font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer block"
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedDetailId(fac.id);
+                                  setSelectedDetailType('facility');
+                                  setSelectedFacility(fac);
+                                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                                }}
+                                className="text-lg font-bold text-slate-900 hover:text-[#0046c0] transition-colors cursor-pointer text-left block"
                               >
                                 {fac.name}
-                              </Link>
+                              </button>
+                              {fac.license_number && (
+                                <p className="text-[11px] text-slate-400 mt-0.5 font-medium">
+                                  Giấy phép: {fac.license_number}
+                                </p>
+                              )}
                               <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-1.5">
                                 <span className="material-symbols-outlined text-base text-slate-400 shrink-0">location_on</span>
                                 <span>{fac.address}</span>
@@ -885,14 +923,38 @@ export function DoctorDirectoryView() {
                         </div>
 
                         {/* Footer Actions */}
-                        <div className="p-4 bg-slate-50 border-t border-slate-100">
-                          <Link
-                            href={`/doctors/${fac.id}`}
-                            className="w-full py-2.5 px-3 rounded-lg border border-slate-300 hover:bg-[#0046c0] hover:text-white hover:border-[#0046c0] bg-white text-xs font-semibold text-slate-700 text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                        <div className="p-4 bg-slate-50 border-t border-slate-100 space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedDetailId(fac.id);
+                              setSelectedDetailType('facility');
+                              setSelectedFacility(fac);
+                              window.scrollTo({ top: 0, behavior: 'smooth' });
+                            }}
+                            className="w-full py-2.5 px-3 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-semibold text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
                           >
                             <span>Xem chi tiết cơ sở</span>
                             <span className="material-symbols-outlined text-base">arrow_forward</span>
-                          </Link>
+                          </button>
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={`tel:${fac.phone.replace(/[^0-9+]/g, '')}`}
+                              className="flex-1 py-2 px-2.5 rounded-lg border border-slate-300 hover:bg-slate-100 bg-white text-[11px] font-semibold text-slate-700 text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1 shadow-2xs truncate"
+                            >
+                              <span className="material-symbols-outlined text-sm text-emerald-600">call</span>
+                              <span className="truncate">{fac.phone}</span>
+                            </a>
+                            <a
+                              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fac.name + ' ' + fac.address)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-1 py-2 px-2.5 rounded-lg border border-slate-300 hover:bg-slate-100 bg-white text-[11px] font-semibold text-slate-700 text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                            >
+                              <span className="material-symbols-outlined text-sm text-[#0046c0]">near_me</span>
+                              <span>Chỉ đường</span>
+                            </a>
+                          </div>
                         </div>
                       </article>
                     ))}

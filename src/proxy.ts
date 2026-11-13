@@ -33,10 +33,10 @@ export function proxy(request: NextRequest) {
   }
 
   // 3. Xử lý các Route Protected cần quyền truy cập riêng biệt
-  const isProtectedAdmin = pathname.startsWith('/admin');
-  const isProtectedFacility = pathname.startsWith('/facility');
-  const isProtectedDoctor = pathname.startsWith('/doctor');
-  const isProtectedFamily = pathname.startsWith('/family');
+  const isProtectedAdmin = pathname === '/admin' || pathname.startsWith('/admin/');
+  const isProtectedFacility = pathname === '/facility' || pathname.startsWith('/facility/');
+  const isProtectedDoctor = pathname === '/doctor' || pathname.startsWith('/doctor/');
+  const isProtectedFamily = pathname === '/family' || pathname.startsWith('/family/');
 
   const isProtectedRoute =
     isProtectedAdmin || isProtectedFacility || isProtectedDoctor || isProtectedFamily;

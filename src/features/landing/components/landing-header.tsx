@@ -8,7 +8,8 @@ import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-con
 const NAV_LINKS = [
   { href: '/', label: 'Trang chủ' },
   { href: '/packages', label: 'Gói chăm sóc' },
-  { href: '/doctors', label: 'Bác sĩ & Cơ sở y tế' },
+  { href: '/doctors', label: 'Bác sĩ gia đình' },
+  { href: '/facilities', label: 'Cơ sở y tế đối tác' },
   { href: '/contact', label: 'Liên hệ & Tư vấn' },
 ];
 
@@ -38,6 +39,13 @@ export function LandingHeader() {
       ariaLabel: 'Đội ngũ bác sĩ gia đình FamiDoc',
       icon: 'stethoscope',
       isActive: pathname.startsWith('/doctors'),
+    },
+    {
+      href: '/facilities',
+      label: 'Cơ sở y tế',
+      ariaLabel: 'Mạng lưới cơ sở y tế FamiDoc',
+      icon: 'apartment',
+      isActive: pathname.startsWith('/facilities'),
     },
     {
       href: '/contact',

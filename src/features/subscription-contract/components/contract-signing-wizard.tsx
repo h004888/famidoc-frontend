@@ -817,7 +817,7 @@ export function ContractSigningWizard({
 
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 max-w-sm mx-auto space-y-2.5">
                 <div className="text-xs text-slate-500">Mã hóa đơn: <strong>INV-FMD-REGR821</strong></div>
-                <div className="text-lg font-bold tabular-nums text-[#2563eb]">{packagePrice}</div>
+                <div className="text-lg font-bold tabular-nums text-[#2563eb]">{selectedPackage.priceFormatted}</div>
                 <div className="flex flex-col gap-2 pt-1">
                   <Link
                     href="/family/subscription/tracking"

@@ -141,11 +141,26 @@ export interface ConsultationResponseDto {
 
 export interface PublicFacilityDto {
   id: string;
-  name: string;
+  name?: string;
+  facilityName?: string;
+  facility_name?: string;
   address?: string;
   phone?: string;
+  hotline?: string;
   type?: string;
   rating?: number;
+  licenseNumber?: string;
+  license_number?: string;
+  operatingLicense?: string;
+  taxCode?: string;
+  tax_code?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankAccountName?: string;
+  status?: string;
+  createdAt?: string;
+  created_at?: string;
+  [key: string]: unknown;
 }
 
 interface RawPublicEnvelopeResponse<T> {
@@ -183,8 +198,50 @@ export const publicApi = {
     return { items: [] };
   },
 
-  getFacilities: (): Promise<PublicFacilityDto[]> => {
-    return httpClient.get<PublicFacilityDto[]>('/api/v1/public/facilities');
+  getFacilities: async (): Promise<PublicFacilityDto[]> => {
+    const res = await httpClient.get<
+      RawPublicEnvelopeResponse<PublicFacilityDto[]> | PublicFacilityDto[] | { items?: PublicFacilityDto[]; data?: { items?: PublicFacilityDto[] } }
+    >('/api/v1/public/facilities');
+
+    if (Array.isArray(res)) {
+      return res;
+    }
+
+    if (res && typeof res === 'object') {
+      if ('data' in res && Array.isArray((res as { data?: unknown }).data)) {
+        return (res as { data: PublicFacilityDto[] }).data;
+      }
+      if (
+        'data' in res &&
+        (res as { data?: unknown }).data &&
+        typeof (res as { data?: unknown }).data === 'object' &&
+        'items' in ((res as { data: { items?: unknown } }).data) &&
+        Array.isArray((res as { data: { items: PublicFacilityDto[] } }).data.items)
+      ) {
+        return (res as { data: { items: PublicFacilityDto[] } }).data.items;
+      }
+      if ('items' in res && Array.isArray((res as { items?: unknown }).items)) {
+        return (res as { items: PublicFacilityDto[] }).items;
+      }
+    }
+
+    return [];
+  },
+
+  getFacilityDetail: async (id: string): Promise<PublicFacilityDto | null> => {
+    try {
+      const res = await httpClient.get<RawPublicEnvelopeResponse<PublicFacilityDto> | PublicFacilityDto>(
+        `/api/v1/public/facilities/${id}`
+      );
+
+      if (res && typeof res === 'object' && 'data' in res && (res as { data?: PublicFacilityDto }).data) {
+        return (res as { data: PublicFacilityDto }).data;
+      }
+
+      return (res as PublicFacilityDto) || null;
+    } catch {
+      return null;
+    }
   },
 
   getDoctorDetail: async (id: string): Promise<PublicDoctorDetailDto> => {
