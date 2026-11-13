@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { authApi } from '@/lib/api/auth.api';
+import { ApiError } from '@/lib/http/errors';
 
 export interface VerifyEmailOtpViewProps {
   email?: string;
@@ -32,6 +34,7 @@ export function VerifyEmailOtpView({
   const [resendNotice, setResendNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [isVerified, setIsVerified] = useState<boolean>(false);
+  const [devOtpDisplay, setDevOtpDisplay] = useState<string | null>(null);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -39,6 +42,23 @@ export function VerifyEmailOtpView({
   useEffect(() => {
     inputRefs.current[0]?.focus();
   }, []);
+
+  // Đọc OTP metadata từ sessionStorage (Task 4)
+  useEffect(() => {
+    queueMicrotask(() => {
+      try {
+        const raw = sessionStorage.getItem('famidoc_pending_otp_meta');
+        if (raw) {
+          const meta = JSON.parse(raw) as { email?: string; devOtp?: string };
+          if (meta.devOtp && (!initialEmail || meta.email === initialEmail)) {
+            setDevOtpDisplay(meta.devOtp);
+          }
+        }
+      } catch {
+        // Bỏ qua nếu sessionStorage không khả dụng (SSR)
+      }
+    });
+  }, [initialEmail]);
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -104,7 +124,7 @@ export function VerifyEmailOtpView({
     inputRefs.current[nextIndex]?.focus();
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (timeLeft > 0) return;
     setTimeLeft(cooldownSeconds);
     setDigits(['', '', '', '', '', '']);
@@ -112,13 +132,17 @@ export function VerifyEmailOtpView({
     setResendNotice(`Mã OTP 6 số mới đã được gửi lại tới email ${targetEmail}.`);
     inputRefs.current[0]?.focus();
 
-    void fetch('/api/v1/auth/resend-email-otp', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: targetEmail }),
-    }).catch(() => {
-      // Giữ trải nghiệm thông báo cho người dùng
-    });
+    try {
+      await authApi.resendEmailOtp(targetEmail);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 429) {
+        setResendNotice('Vui lòng chờ 60 giây trước khi yêu cầu gửi lại mã OTP.');
+        // Reset countdown vì còn đang trong cooldown
+        setTimeLeft(cooldownSeconds);
+      } else {
+        // Giữ trải nghiệm thông báo cho người dùng
+      }
+    }
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -150,24 +174,7 @@ export function VerifyEmailOtpView({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/v1/auth/verify-email-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: targetEmail,
-          otp: code,
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json().catch(() => ({}));
-        setErrorMessage(
-          errData.message ||
-            'Mã xác thực OTP không chính xác hoặc đã hết hạn. Vui lòng kiểm tra lại.',
-        );
-        setIsSubmitting(false);
-        return;
-      }
+      const _result = await authApi.verifyEmailOtp({ email: targetEmail, otp: code });
 
       setIsVerified(true);
       setIsSubmitting(false);
@@ -176,6 +183,11 @@ export function VerifyEmailOtpView({
         onSuccess(code);
       }
 
+      // Xóa metadata OTP khỏi sessionStorage sau khi xác thực thành công
+      try {
+        sessionStorage.removeItem('famidoc_pending_otp_meta');
+      } catch { /* Bỏ qua nếu không khả dụng */ }
+
       // Kích hoạt thành công -> chuyển về trang Đăng nhập hoặc URL redirect
       const defaultSuccessPath = '/login?registered=true';
       router.push(
@@ -183,11 +195,19 @@ export function VerifyEmailOtpView({
           ? queryRedirect
           : defaultSuccessPath,
       );
-    } catch {
-      setErrorMessage(
-        'Không thể kết nối đến máy chủ xác thực. Vui lòng thử lại sau.',
-      );
+    } catch (err) {
       setIsSubmitting(false);
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          setErrorMessage('Mã xác thực OTP không chính xác hoặc đã hết hạn. Vui lòng kiểm tra lại.');
+        } else if (err.status === 429) {
+          setErrorMessage('Vui lòng chờ 60 giây trước khi yêu cầu gửi lại mã OTP.');
+        } else {
+          setErrorMessage('Không thể kết nối đến máy chủ xác thực. Vui lòng thử lại sau.');
+        }
+      } else {
+        setErrorMessage('Không thể kết nối đến máy chủ xác thực. Vui lòng thử lại sau.');
+      }
     }
   };
 
@@ -233,6 +253,20 @@ export function VerifyEmailOtpView({
                 check_circle
               </span>
               <span>{resendNotice}</span>
+            </div>
+          )}
+
+          {/* Dev OTP hint badge (Task 4) */}
+          {devOtpDisplay && (
+            <div
+              role="status"
+              className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 flex items-center gap-2"
+            >
+              <span className="material-symbols-outlined text-[18px] text-amber-600 shrink-0">
+                terminal
+              </span>
+              <span className="font-medium">Mã OTP môi trường dev:</span>
+              <code className="ml-auto font-bold text-amber-900">{devOtpDisplay}</code>
             </div>
           )}
 

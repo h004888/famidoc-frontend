@@ -7,6 +7,7 @@ import { loginSchema, LoginRole } from '../schemas/auth.schema';
 import { getDefaultPathForRole } from '../context/auth-context';
 import { saveAuthSession, AuthUser } from '@/lib/auth-storage';
 import { httpClient } from '@/lib/api/http-client';
+import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
 import { useRouter } from 'next/navigation';
 
 export function LoginForm() {
@@ -38,33 +39,17 @@ export function LoginForm() {
 
     setLoading(true);
 
-    const redirectParam = searchParams?.get('redirect');
-    const doctorParam = searchParams?.get('doctorId');
-    const packageParam = searchParams?.get('packageId');
-    let customTarget: string | undefined = redirectParam || undefined;
-    if (!customTarget && doctorParam) {
-      customTarget = `/family/subscription/new?doctorId=${doctorParam}${packageParam ? `&packageId=${packageParam}` : ''}`;
-    }
+    const validData = validation.data;
 
     try {
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: email.trim(), password }),
+      const data = await authApi.login({
+        email: email.trim(),
+        password,
+        rememberMe: validData.rememberMe,
       });
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        setErrors({
-          global: errorData.message || 'Tài khoản hoặc mật khẩu không chính xác',
-        });
-        setLoading(false);
-        return;
-      }
-
-      const data = await res.json();
-      const rawRole = (data.user?.role?.toUpperCase() || 'FAMILY') as string;
-      const role: LoginRole = rawRole === 'FAMILY_REP' ? 'FAMILY' : (rawRole as LoginRole);
+      const rawRole = (data.user?.role || data.role || 'FAMILY').toUpperCase();
+      const role: LoginRole = (mapBackendRoleToFrontendRole(rawRole) as LoginRole) || 'FAMILY';
       const authUser: AuthUser = {
         id: data.user?.id || 'usr-1',
         name: data.user?.fullName || email,
@@ -75,9 +60,9 @@ export function LoginForm() {
       };
 
       if (data.accessToken) {
-        httpClient.setToken(data.accessToken);
+        httpClient.setToken(data.accessToken, validData.rememberMe);
       }
-      saveAuthSession(role, authUser, data.accessToken);
+      saveAuthSession(role, authUser, data.accessToken, validData.rememberMe);
       setLoading(false);
 
       const redirectPath = getDefaultPathForRole(role);
@@ -86,9 +71,11 @@ export function LoginForm() {
       } else {
         router.push(redirectPath);
       }
-    } catch {
+    } catch (err: unknown) {
       setLoading(false);
-      setErrors({ global: 'Không thể kết nối đến máy chủ đăng nhập' });
+      setErrors({
+        global: err instanceof Error ? err.message : 'Tài khoản hoặc mật khẩu không chính xác',
+      });
     }
   };
 
@@ -272,7 +259,20 @@ export function LoginForm() {
             )}
 
             {/* Form Đăng Nhập */}
-            <form onSubmit={handleSubmit} className="space-y-2.5 sm:space-y-3" data-purpose="login-form">
+            <form onSubmit={handleSubmit} className="space-y-4" data-purpose="login-form">
+              {/* Thông báo lỗi chung (Global error alert) */}
+              {errors.global && (
+                <div
+                  role="alert"
+                  className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2.5 shadow-2xs"
+                >
+                  <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-xs shrink-0 font-bold">
+                    !
+                  </span>
+                  <span>{errors.global}</span>
+                </div>
+              )}
+
               {/* Trường Email / Tên đăng nhập */}
               <div className="space-y-1" data-purpose="field-email">
                 <label htmlFor="login-email" className="block text-xs font-semibold text-slate-700">

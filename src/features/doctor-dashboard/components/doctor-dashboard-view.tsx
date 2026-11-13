@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Pagination } from '@/components/ui/pagination';
 
 export function DoctorDashboardView() {
   const router = useRouter();
@@ -11,6 +12,7 @@ export function DoctorDashboardView() {
   const [showSignModal, setShowSignModal] = useState<boolean>(false);
   const [isSigning, setIsSigning] = useState<boolean>(false);
   const [signSuccessToast, setSignSuccessToast] = useState<string | null>(null);
+  const [queuePage, setQueuePage] = useState<number>(1);
 
   const patients = [
     {
@@ -65,6 +67,14 @@ export function DoctorDashboardView() {
       plan: 'Chườm lạnh 15 phút x 3 lần/ngày. Giảm vận động nặng. Paracetamol 500mg khi đau. Siêu âm kiểm tra nếu còn đau sau 3 ngày.',
     },
   ];
+
+  const QUEUE_PAGE_SIZE = 2;
+  const totalQueuePages = Math.max(Math.ceil(patients.length / QUEUE_PAGE_SIZE), 1);
+  const safeQueuePage = Math.min(queuePage, totalQueuePages);
+  const paginatedPatients = patients.slice(
+    (safeQueuePage - 1) * QUEUE_PAGE_SIZE,
+    safeQueuePage * QUEUE_PAGE_SIZE
+  );
 
   const currentPatient = patients.find((p) => p.id === selectedPatientId) || patients[0];
 
@@ -287,7 +297,7 @@ export function DoctorDashboardView() {
             </div>
 
             <div className="space-y-3">
-              {patients.map((p) => {
+              {paginatedPatients.map((p) => {
                 const isSelected = p.id === selectedPatientId;
                 return (
                   <div
@@ -347,6 +357,14 @@ export function DoctorDashboardView() {
                 );
               })}
             </div>
+
+            {totalQueuePages > 1 && (
+              <Pagination
+                currentPage={safeQueuePage}
+                totalPages={totalQueuePages}
+                onPageChange={setQueuePage}
+              />
+            )}
           </div>
 
           {/* Right: Quick SOAP Note Pad */}

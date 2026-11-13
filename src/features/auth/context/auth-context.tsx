@@ -11,13 +11,19 @@ import {
   getStoredAuthSession,
 } from '@/lib/auth-storage';
 import { httpClient } from '@/lib/api/http-client';
+import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
 
 interface AuthContextType {
   role: LoginRole;
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (roleOrIdentifier: string, passwordOrPhone?: string, password?: string) => Promise<void>;
+  login: (
+    roleOrIdentifier: string,
+    passwordOrPhone?: string,
+    password?: string,
+    rememberMe?: boolean,
+  ) => Promise<void>;
   logout: () => void;
   getDefaultPathForRole: (r: LoginRole) => string;
 }
@@ -65,8 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, []);
 
-  const login = async (roleOrIdentifier: string, passwordOrPhone?: string, password?: string) => {
+  const login = async (
+    roleOrIdentifier: string,
+    passwordOrPhone?: string,
+    password?: string,
+    rememberMe?: boolean,
+  ) => {
     setIsLoading(true);
+    const isRemember = rememberMe ?? true;
     try {
       const isRoleCall =
         ['FAMILY', 'PATIENT', 'DOCTOR', 'FACILITY', 'ADMIN'].includes(roleOrIdentifier.toUpperCase()) &&
@@ -77,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isRoleCall) {
         const selectedRole = roleOrIdentifier.toUpperCase() as LoginRole;
         const assignedUser = DEFAULT_USERS[selectedRole];
-        saveAuthSession(selectedRole, assignedUser);
+        saveAuthSession(selectedRole, assignedUser, undefined, isRemember);
         setRole(selectedRole);
         setUser(assignedUser);
         setIsAuthenticated(true);
@@ -92,36 +104,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Đăng nhập thực tế với Backend NestJS
-      const identifier = roleOrIdentifier.trim();
+      // Đăng nhập thực tế với Backend NestJS qua authApi.login
+      const email = roleOrIdentifier.trim();
       const pwd = password || passwordOrPhone || '';
 
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier, password: pwd }),
+      const data = await authApi.login({
+        email,
+        password: pwd,
+        rememberMe: isRemember,
       });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || 'Tài khoản hoặc mật khẩu không chính xác');
-      }
-
-      const data = await res.json();
-      const assignedRole = (data.user?.role?.toUpperCase() as LoginRole) || 'FAMILY';
+      const rawRole = (data.user?.role || data.role || 'FAMILY').toUpperCase();
+      const assignedRole = (mapBackendRoleToFrontendRole(rawRole) as LoginRole) || 'FAMILY';
       const assignedUser: AuthUser = {
         id: data.user?.id || 'usr-1',
-        name: data.user?.fullName || identifier,
-        email: data.user?.email || identifier,
+        name: data.user?.fullName || email,
+        email: data.user?.email || email,
         phone: data.user?.phone || '0912345678',
         role: assignedRole,
-        avatarText: (data.user?.fullName || identifier).slice(0, 2).toUpperCase(),
+        avatarText: (data.user?.fullName || email).slice(0, 2).toUpperCase(),
       };
 
       if (data.accessToken) {
-        httpClient.setToken(data.accessToken);
+        httpClient.setToken(data.accessToken, isRemember);
       }
-      saveAuthSession(assignedRole, assignedUser, data.accessToken);
+      saveAuthSession(assignedRole, assignedUser, data.accessToken, isRemember);
       setRole(assignedRole);
       setUser(assignedUser);
       setIsAuthenticated(true);
@@ -141,6 +147,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     clearAuthSession();
+    httpClient.clearToken();
     setIsAuthenticated(false);
     setUser(null);
     if (typeof window !== 'undefined') {

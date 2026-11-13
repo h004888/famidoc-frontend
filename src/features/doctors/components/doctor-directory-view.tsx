@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import { DoctorDetailView } from './doctor-detail-view';
 import { publicApi } from '@/lib/api';
+import { Pagination } from '@/components/ui/pagination';
 
 // Types
 export interface Doctor {
@@ -339,6 +340,7 @@ export function DoctorDirectoryView() {
   const [selectedCity, setSelectedCity] = useState<string>('all');
   const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [selectedDetailType] = useState<'doctor' | 'facility'>('doctor');
+  const [doctorPage, setDoctorPage] = useState(1);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [doctorsList, setDoctorsList] = useState<Doctor[]>([]);
@@ -354,6 +356,7 @@ export function DoctorDirectoryView() {
         search: searchQuery.trim() || undefined,
         city: selectedCity !== 'all' ? selectedCity : undefined,
         specialty: selectedSpecialty !== 'all' ? selectedSpecialty : undefined,
+        limit: 50,
       })
       .then((docs) => {
         if (docs && docs.items) {
@@ -433,6 +436,15 @@ export function DoctorDirectoryView() {
       return matchSearch && matchSpecialty && matchCity;
     });
   }, [doctorsList, searchQuery, selectedSpecialty, selectedCity]);
+
+  // Phân trang phía client trên danh sách bác sĩ đã lọc
+  const DOCTOR_PAGE_SIZE = 6;
+  const totalDoctorPages = Math.max(Math.ceil(filteredDoctors.length / DOCTOR_PAGE_SIZE), 1);
+  const safeDoctorPage = Math.min(doctorPage, totalDoctorPages);
+  const paginatedDoctors = filteredDoctors.slice(
+    (safeDoctorPage - 1) * DOCTOR_PAGE_SIZE,
+    safeDoctorPage * DOCTOR_PAGE_SIZE
+  );
 
   // Filtered Facilities
   const filteredFacilities = useMemo(() => {
@@ -687,8 +699,9 @@ export function DoctorDirectoryView() {
                     </button>
                   </div>
                 ) : (
+                  <>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                    {filteredDoctors.map((doc) => (
+                    {paginatedDoctors.map((doc) => (
                       <article
                         key={doc.id}
                         className="bg-white rounded-2xl shadow-[0_4px_25px_0_rgba(0,0,0,0.06)] hover:shadow-[0_15px_35px_0_rgba(0,70,192,0.18)] hover:-translate-y-2 transition-all duration-300 text-center flex flex-col justify-between overflow-hidden group border border-slate-100"
@@ -758,6 +771,22 @@ export function DoctorDirectoryView() {
                       </article>
                     ))}
                   </div>
+
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-10 text-xs text-slate-500">
+                    <span>
+                      Hiển thị {paginatedDoctors.length} trong tổng {filteredDoctors.length} bác sĩ
+                    </span>
+                    <span className="font-semibold text-slate-700">Trang {safeDoctorPage} / {totalDoctorPages}</span>
+                  </div>
+
+                  <div className="mt-6">
+                    <Pagination
+                      currentPage={safeDoctorPage}
+                      totalPages={totalDoctorPages}
+                      onPageChange={setDoctorPage}
+                    />
+                  </div>
+                  </>
                 )}
               </div>
             )}

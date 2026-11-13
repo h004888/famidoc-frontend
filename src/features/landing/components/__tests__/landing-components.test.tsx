@@ -99,7 +99,15 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
     expect(screen.getByText(/Xem toàn bộ 1.200\+ bác sĩ/i)).toBeInTheDocument();
   });
 
-  it('UT-CMP-09: Render liên kết "Xem hồ sơ chi tiết" trên thẻ bác sĩ', () => {
+  it('UT-CMP-08a: Link "Xem toàn bộ 1.200+ bác sĩ" trên LandingDoctors trỏ về /doctors', () => {
+    render(<LandingDoctors />);
+    expect(
+      screen.getByRole('link', { name: /Xem toàn bộ 1\.200\+ bác sĩ/i })
+    ).toHaveAttribute('href', '/doctors');
+  });
+
+  it('UT-CMP-09: Bấm nút "Đặt lịch khám" trên thẻ bác sĩ', async () => {
+    const user = userEvent.setup();
     render(<LandingDoctors />);
     const links = screen.getAllByRole('link', { name: /xem hồ sơ chi tiết/i });
     expect(links.length).toBeGreaterThanOrEqual(3);
