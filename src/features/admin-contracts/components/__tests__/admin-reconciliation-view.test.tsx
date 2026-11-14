@@ -8,6 +8,10 @@ vi.mock('@/lib/api', () => ({
   contractsApi: {
     recheckPaymentActivation: vi.fn().mockResolvedValue({ activated: true }),
   },
+  paymentsApi: {
+    listTransactions: vi.fn().mockResolvedValue([]),
+    retryWebhook: vi.fn().mockResolvedValue({ success: true }),
+  },
 }));
 
 vi.mock('next/navigation', () => ({

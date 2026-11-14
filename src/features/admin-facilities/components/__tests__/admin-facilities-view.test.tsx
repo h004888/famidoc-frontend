@@ -28,10 +28,8 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (F
 
   it('renders header, stat counters and initial facilities list', async () => {
     vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
-      statusCode: 200,
-      message: 'OK',
       data: [mockFacility],
-      pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+      total: 1,
     });
 
     render(<AdminFacilitiesView />);
@@ -45,10 +43,8 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (F
 
   it('opens detail modal when clicking "Chi tiết & Thẩm định"', async () => {
     vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
-      statusCode: 200,
-      message: 'OK',
       data: [mockFacility],
-      pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+      total: 1,
     });
 
     render(<AdminFacilitiesView />);
@@ -64,10 +60,8 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (F
 
   it('executes Duyệt Cấp 1 to issue portal account and default password', async () => {
     vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
-      statusCode: 200,
-      message: 'OK',
       data: [mockFacility],
-      pagination: { page: 1, limit: 10, total: 1, totalPages: 1 },
+      total: 1,
     });
     vi.mocked(facilitiesApi.approveAccount).mockResolvedValue({ statusCode: 200 });
 
@@ -91,5 +85,50 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (F
     await waitFor(() => {
       expect(facilitiesApi.approveAccount).toHaveBeenCalledWith('FAC-TEST-001');
     });
+  });
+
+  it('renders standard header, breadcrumbs, and responsive container layout', async () => {
+    vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
+      data: [mockFacility],
+      total: 1,
+    });
+
+    const { container } = render(<AdminFacilitiesView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Trang chủ')).toBeInTheDocument();
+      expect(screen.getByText('Quản trị viên')).toBeInTheDocument();
+      expect(screen.getAllByText('Cơ sở Y tế').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/Ban Quản Trị Hệ Thống • Thẩm Định Cơ Sở Y Tế B2B/i)).toBeInTheDocument();
+
+      const mainEl = container.querySelector('main');
+      expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
+
+      expect(screen.getByRole('button', { name: /Làm mới/i })).toBeInTheDocument();
+      expect(screen.getByText(/cơ sở đối tác/i)).toBeInTheDocument();
+    });
+  });
+
+  it('does not display "Đại diện & Liên hệ" column in table, but displays contact details in the detail modal', async () => {
+    vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
+      data: [mockFacility],
+      total: 1,
+    });
+
+    render(<AdminFacilitiesView />);
+
+    await screen.findAllByText('Bệnh viện Kiểm Thử FamiDoc');
+
+    // Column header "Đại diện & Liên hệ" should not exist
+    expect(screen.queryByText(/Đại diện & Liên hệ/i)).toBeNull();
+
+    // Opening detail modal displays full representative and contact info
+    const detailButtons = screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i });
+    fireEvent.click(detailButtons[0]);
+
+    expect(screen.getByText(/Đại diện pháp luật:/i)).toBeInTheDocument();
+    expect(screen.getByText('TS. Nguyễn Văn A')).toBeInTheDocument();
+    expect(screen.getByText(/0912345678/i)).toBeInTheDocument();
+    expect(screen.getByText(/test@hospital.vn/i)).toBeInTheDocument();
   });
 });

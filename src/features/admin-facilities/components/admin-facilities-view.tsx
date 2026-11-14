@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { doctorsApi } from '@/lib/api/doctors.api';
 import { Pagination } from '@/components/ui/pagination';
@@ -159,12 +160,10 @@ export function AdminFacilitiesView() {
   // Approval Dialog states (Duyệt Cấp 1)
   const [showApproveAccountModal, setShowApproveAccountModal] = useState(false);
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchFacilities = () => {
     facilitiesApi
       .getAdminFacilities()
       .then((res: any) => {
-        if (!isMounted) return;
         let baseList: AdminFacilityItem[] = [];
         if (res && res.data && Array.isArray(res.data)) {
           baseList = res.data;
@@ -179,10 +178,10 @@ export function AdminFacilitiesView() {
         console.warn('API fallback for admin facilities:', err);
         setFacilities(applyFacilityOverrides(INITIAL_FACILITIES));
       });
+  };
 
-    return () => {
-      isMounted = false;
-    };
+  useEffect(() => {
+    fetchFacilities();
   }, []);
 
   const showToast = (msg: string) => {
@@ -322,7 +321,7 @@ export function AdminFacilitiesView() {
   };
 
   return (
-    <div className="space-y-6 pb-12">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
       {/* Toast Notification */}
       {toastMessage && (
         <div
@@ -336,170 +335,206 @@ export function AdminFacilitiesView() {
         </div>
       )}
 
-      {/* Breadcrumbs & Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs text-slate-500 font-medium mb-1">
-            <span>Admin Backoffice</span>
-            <span>/</span>
-            <span className="text-blue-600 font-semibold">Quản trị & Thẩm định Cơ sở Y tế</span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Quản trị & Thẩm định Cơ sở Y tế (Duyệt 2 Cấp)
-          </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Quy trình hợp tác nền tảng B2B: Duyệt cấp tài khoản Portal (Cấp 1) &amp; Hậu kiểm pháp lý CSDL Quốc gia (Cấp 2).
-          </p>
-        </div>
-      </div>
+      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Header with Preclinic Breadcrumb & Badges */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            {/* Breadcrumb matching project style */}
+            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+              <Link href="/" className="hover:text-[#2E37A4] transition-colors">Trang chủ</Link>
+              <span className="text-slate-300">/</span>
+              <Link href="/admin" className="hover:text-[#2E37A4] transition-colors">Quản trị viên</Link>
+              <span className="text-slate-300">/</span>
+              <span className="text-[#2E37A4] font-semibold">Cơ sở Y tế</span>
+            </div>
 
-      {/* KPI Stat Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-slate-500">Tổng cơ sở y tế</span>
-            <span className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold">
-              🏥
-            </span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-slate-900">{facilities.length}</div>
-          <div className="mt-1 text-[11px] text-slate-500">Đối tác bệnh viện &amp; phòng khám</div>
-        </div>
+            {/* Subtitle tag badge with icon matching admin-contracts */}
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#0052cc] uppercase tracking-wider mb-1">
+              <span className="material-symbols-outlined text-[17px]">domain</span>
+              <span>Ban Quản Trị Hệ Thống • Thẩm Định Cơ Sở Y Tế B2B</span>
+            </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-amber-200/80 shadow-xs bg-amber-50/20">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-amber-700">Chờ Duyệt Cấp 1</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
-              Cấp Portal
-            </span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-amber-900">{countPendingApproval}</div>
-          <div className="mt-1 text-[11px] text-amber-700">Yêu cầu đăng ký mới chưa cấp tài khoản</div>
-        </div>
+            {/* Main title */}
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+              Quản trị &amp; Thẩm định Cơ sở Y tế (Duyệt 2 Cấp)
+            </h1>
 
-        <div className="bg-white p-4 rounded-2xl border border-indigo-200/80 shadow-xs bg-indigo-50/20">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-indigo-700">Chờ Duyệt Cấp 2</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800">
-              Pháp lý GPHĐ
-            </span>
+            {/* Description */}
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Quy trình hợp tác nền tảng B2B: Duyệt cấp tài khoản Portal (Cấp 1) &amp; Hậu kiểm pháp lý CSDL Quốc gia (Cấp 2)
+            </p>
           </div>
-          <div className="mt-2 text-2xl font-bold text-indigo-900">{countPendingLegal}</div>
-          <div className="mt-1 text-[11px] text-indigo-700">Cần đối soát CSDL Cục QLKCB</div>
-        </div>
 
-        <div className="bg-white p-4 rounded-2xl border border-emerald-200/80 shadow-xs bg-emerald-50/20">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-emerald-700">Đang hoạt động</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-              ACTIVE
-            </span>
-          </div>
-          <div className="mt-2 text-2xl font-bold text-emerald-900">{countActive}</div>
-          <div className="mt-1 text-[11px] text-emerald-700">Được phép mở hợp đồng B2B &amp; Bác sĩ</div>
-        </div>
-      </div>
-
-      {/* Tabs & Search Filter Bar */}
-      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          {/* Status Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+          {/* Right Action & Status Counters matching admin-contracts / admin-disputes */}
+          <div className="flex items-center flex-wrap gap-2.5">
             <button
               type="button"
               onClick={() => {
-                setActiveTab('ALL');
-                setCurrentPage(1);
+                fetchFacilities();
+                showToast('Đã làm mới danh sách cơ sở y tế đối tác');
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'ALL'
-                  ? 'bg-white text-blue-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
+              className="px-3.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
             >
-              Tất cả ({facilities.length})
+              <span className="material-symbols-outlined text-[16px] text-slate-500">refresh</span>
+              <span>Làm mới</span>
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('PENDING_APPROVAL');
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'PENDING_APPROVAL'
-                  ? 'bg-white text-amber-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Chờ Duyệt Cấp 1 ({countPendingApproval})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('PENDING_LEGAL');
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'PENDING_LEGAL'
-                  ? 'bg-white text-indigo-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Chờ Pháp Lý Cấp 2 ({countPendingLegal})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('ACTIVE');
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'ACTIVE'
-                  ? 'bg-white text-emerald-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Đang Hoạt Động ({countActive})
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setActiveTab('DOCTOR_VERIFY');
-                setCurrentPage(1);
-              }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                activeTab === 'DOCTOR_VERIFY'
-                  ? 'bg-white text-purple-700 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Duyệt CCHN Bác Sĩ ({doctorsList.length})
-            </button>
-          </div>
-
-          {/* Search Box */}
-          {activeTab !== 'DOCTOR_VERIFY' && (
-            <div className="relative min-w-[280px]">
-              <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" x2="16.65" y1="21" y2="16.65" />
-                </svg>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold shadow-2xs">
+              <span className="material-symbols-outlined text-[16px] text-amber-400">verified</span>
+              <span>Tổng cộng: {facilities.length} cơ sở đối tác</span>
+            </div>
+            {(countPendingApproval + countPendingLegal > 0) && (
+              <span className="px-3 py-1.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5 shadow-2xs">
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                <span>{countPendingApproval + countPendingLegal} hồ sơ cần xử lý</span>
               </span>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
+            )}
+          </div>
+        </div>
+
+        {/* KPI Stat Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-sm transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-slate-500">Tổng cơ sở y tế</span>
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#0052cc] flex items-center justify-center font-bold">
+                <span className="material-symbols-outlined text-[18px]">domain</span>
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-slate-900">{facilities.length}</div>
+            <div className="mt-1 text-[11px] text-slate-500">Đối tác bệnh viện &amp; phòng khám</div>
+          </div>
+
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-amber-200/80 shadow-xs bg-amber-50/20 hover:shadow-sm transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-amber-800">Chờ Duyệt Cấp 1</span>
+              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                <span className="material-symbols-outlined text-[18px]">how_to_reg</span>
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-amber-900">{countPendingApproval}</div>
+            <div className="mt-1 text-[11px] text-amber-700">Yêu cầu đăng ký mới chưa cấp tài khoản</div>
+          </div>
+
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-indigo-200/80 shadow-xs bg-indigo-50/20 hover:shadow-sm transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-indigo-800">Chờ Duyệt Cấp 2</span>
+              <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold">
+                <span className="material-symbols-outlined text-[18px]">gavel</span>
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-indigo-900">{countPendingLegal}</div>
+            <div className="mt-1 text-[11px] text-indigo-700">Cần đối soát CSDL Cục QLKCB</div>
+          </div>
+
+          <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-200/80 shadow-xs bg-emerald-50/20 hover:shadow-sm transition-all">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-emerald-800">Đang hoạt động</span>
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
+                <span className="material-symbols-outlined text-[18px]">verified</span>
+              </div>
+            </div>
+            <div className="mt-2 text-2xl font-bold tabular-nums text-emerald-900">{countActive}</div>
+            <div className="mt-1 text-[11px] text-emerald-700">Được phép mở hợp đồng B2B &amp; Bác sĩ</div>
+          </div>
+        </div>
+
+        {/* Tabs & Search Filter Bar */}
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            {/* Status Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('ALL');
                   setCurrentPage(1);
                 }}
-                placeholder="Tìm theo tên CSYT, người đại diện, SĐT..."
-                className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-800 placeholder-slate-400"
-              />
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'ALL'
+                    ? 'bg-white text-blue-700 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Tất cả ({facilities.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('PENDING_APPROVAL');
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'PENDING_APPROVAL'
+                    ? 'bg-white text-amber-700 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Chờ Duyệt Cấp 1 ({countPendingApproval})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('PENDING_LEGAL');
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'PENDING_LEGAL'
+                    ? 'bg-white text-indigo-700 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Chờ Pháp Lý Cấp 2 ({countPendingLegal})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('ACTIVE');
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'ACTIVE'
+                    ? 'bg-white text-emerald-700 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Đang Hoạt Động ({countActive})
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveTab('DOCTOR_VERIFY');
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  activeTab === 'DOCTOR_VERIFY'
+                    ? 'bg-white text-purple-700 shadow-xs font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Duyệt CCHN Bác Sĩ ({doctorsList.length})
+              </button>
             </div>
-          )}
+
+            {/* Search Box */}
+            {activeTab !== 'DOCTOR_VERIFY' && (
+              <div className="relative min-w-[280px]">
+                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px] pointer-events-none">
+                  search
+                </span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Tìm theo tên CSYT, người đại diện, SĐT..."
+                  className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 text-slate-800 placeholder-slate-400"
+                />
+              </div>
+            )}
+          </div>
         </div>
-      </div>
 
       {/* Main Content Area */}
       {activeTab === 'DOCTOR_VERIFY' ? (
@@ -589,7 +624,6 @@ export function AdminFacilitiesView() {
                   <thead>
                     <tr className="bg-slate-50/75 border-b border-slate-200/80 text-slate-600 font-semibold">
                       <th className="py-3.5 px-4">Cơ sở Y tế</th>
-                      <th className="py-3.5 px-4">Đại diện &amp; Liên hệ</th>
                       <th className="py-3.5 px-4">Ngày đăng ký</th>
                       <th className="py-3.5 px-4">Tiến trình Onboarding</th>
                       <th className="py-3.5 px-4 text-right">Thao tác</th>
@@ -598,21 +632,12 @@ export function AdminFacilitiesView() {
                   <tbody className="divide-y divide-slate-100 text-slate-700">
                     {paginatedFacilities.map((fac) => (
                       <tr key={fac.id} className="hover:bg-slate-50/60 transition-colors">
-                        <td className="py-3.5 px-4 max-w-[280px]">
-                          <div className="font-bold text-slate-900 text-xs sm:text-sm truncate">
+                        <td className="py-3.5 px-4">
+                          <div className="font-bold text-slate-900 text-xs sm:text-sm">
                             {fac.facilityName}
                           </div>
-                          <div className="text-[11px] text-slate-500 truncate mt-0.5">{fac.address}</div>
+                          <div className="text-[11px] text-slate-500 mt-0.5">{fac.address}</div>
                           <div className="text-[10px] text-slate-400 mt-0.5 font-mono">ID: {fac.id}</div>
-                        </td>
-
-                        <td className="py-3.5 px-4">
-                          <div className="font-semibold text-slate-800">{fac.representativeName}</div>
-                          <div className="text-[11px] text-slate-500 flex items-center gap-2 mt-0.5">
-                            <span>📞 {fac.phone}</span>
-                            <span>•</span>
-                            <span>✉️ {fac.email}</span>
-                          </div>
                         </td>
 
                         <td className="py-3.5 px-4 text-slate-600 text-[11px] whitespace-nowrap">
@@ -686,13 +711,8 @@ export function AdminFacilitiesView() {
                       </span>
                     </div>
 
-                    <div className="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl space-y-1">
-                      <div>
-                        <span className="font-semibold text-slate-700">Đại diện:</span> {fac.representativeName}
-                      </div>
-                      <div>
-                        <span className="font-semibold text-slate-700">Liên hệ:</span> {fac.phone} • {fac.email}
-                      </div>
+                    <div className="text-[11px] text-slate-500">
+                      Đăng ký: {new Date(fac.createdAt).toLocaleDateString('vi-VN')}
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
@@ -745,6 +765,7 @@ export function AdminFacilitiesView() {
           )}
         </div>
       )}
+      </main>
 
       {/* ========================================================================= */}
       {/* MODAL CHI TIẾT HỒ SƠ & THẨM ĐỊNH CƠ SỞ Y TẾ                               */}
@@ -757,9 +778,9 @@ export function AdminFacilitiesView() {
               <button
                 type="button"
                 onClick={() => setIsDetailModalOpen(false)}
-                className="absolute top-4 right-4 text-white/80 hover:text-white w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors"
+                className="absolute top-4 right-4 text-white/80 hover:text-white w-8 h-8 rounded-full flex items-center justify-center bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
               >
-                ✕
+                <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
               <div className="flex items-center gap-2 text-xs text-blue-200 font-medium mb-1">
                 <span>Hồ Sơ Chi Tiết Cơ Sở Y Tế</span>
@@ -987,8 +1008,8 @@ export function AdminFacilitiesView() {
       {showApproveAccountModal && selectedFacility && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl font-bold">
-              🔑
+            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+              <span className="material-symbols-outlined text-[24px]">key</span>
             </div>
 
             <div>
@@ -1048,8 +1069,8 @@ export function AdminFacilitiesView() {
       {showRejectModal && selectedFacility && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
           <div className="w-full max-w-md bg-white rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-xl font-bold">
-              ⚠️
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+              <span className="material-symbols-outlined text-[24px]">warning</span>
             </div>
 
             <div>
