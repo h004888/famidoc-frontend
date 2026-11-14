@@ -486,57 +486,8 @@ export function DoctorDirectoryView() {
         {/* 3. MEDSEV DOCTOR SEARCH AREA (Matching .doctor-search-area in doctor.html) */}
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-14 sm:-mt-16 relative z-20">
           <div className="bg-white rounded-2xl shadow-[0_10px_35px_0_rgba(0,0,0,0.08)] border border-slate-100 p-4 sm:p-8 space-y-5 sm:space-y-6 overflow-hidden">
-            {/* Tab selector for Doctor vs Partner Facilities */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-100 pb-4 gap-3.5">
-              {/* 2-Tab Segmented Control: full width on mobile, inline-flex on sm+ */}
-              <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex items-center p-1 bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold shrink-0">
-                <button
-                  type="button"
-                  className="w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg inline-flex items-center gap-2 whitespace-nowrap shrink-0 bg-[#0046c0] text-white shadow-xs font-bold"
-                >
-                  <span className="material-symbols-outlined text-base sm:text-lg shrink-0">stethoscope</span>
-                  <span className="whitespace-nowrap">Đội ngũ Bác sĩ</span>
-                  <span className="px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 leading-none bg-white/20 text-white">
-                    {isLoading ? '...' : filteredDoctors.length}
-                  </span>
-                </button>
-                <Link
-                  href="/facilities"
-                  className="w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 text-slate-600 hover:text-[#0046c0] hover:bg-white font-medium"
-                >
-                  <span className="material-symbols-outlined text-base sm:text-lg shrink-0">local_hospital</span>
-                  <span className="whitespace-nowrap">Mạng lưới Cơ sở Y tế</span>
-                  <span className="material-symbols-outlined text-xs">arrow_forward</span>
-                </Link>
-              </div>
-
-              {/* City Quick Filter & Smart Matching Wizard Button: stacked full width on mobile, inline flex on sm+ */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-xs w-full lg:w-auto">
-                <Link
-                  href="/doctors/matching"
-                  className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 rounded-lg bg-linear-to-r from-[#2563eb] to-[#0046c0] hover:from-[#1d4ed8] hover:to-[#003899] text-white font-bold inline-flex items-center gap-2 shadow-xs transition-all whitespace-nowrap shrink-0 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px] shrink-0">auto_awesome</span>
-                  <span className="whitespace-nowrap">Gợi ý Bác sĩ Phù hợp</span>
-                </Link>
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-slate-50 sm:bg-transparent p-2 sm:p-0 rounded-lg border border-slate-200 sm:border-transparent">
-                  <span className="text-slate-500 font-medium whitespace-nowrap">Khu vực:</span>
-                  <select
-                    value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
-                    className="w-full sm:w-auto py-1.5 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 bg-white sm:bg-slate-50 focus:outline-none focus:border-[#0046c0] cursor-pointer"
-                  >
-                    <option value="all">Tất cả tỉnh thành</option>
-                    <option value="Hà Nội">Hà Nội</option>
-                    <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
-                    <option value="Đà Nẵng">Đà Nẵng</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Medsev 2-Column Search Wrap */}
-            <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-center">
+            {/* Medsev 3-Column Search Wrap */}
+            <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 items-center">
               {/* Field 1: Doctor Name / Keyword */}
               <div className="relative pl-14 sm:pl-16">
                 <span className="material-symbols-outlined text-3xl sm:text-4xl text-[#0046c0] absolute left-0 top-1">
@@ -585,6 +536,26 @@ export function DoctorDirectoryView() {
                   <option value="ortho">Cơ Xương Khớp &amp; Phục Hồi Chức Năng</option>
                   <option value="ent">Tai Mũi Họng &amp; Hô Hấp</option>
                   <option value="traditional">Y Học Cổ Truyền &amp; Dưỡng Sinh</option>
+                </select>
+              </div>
+
+              {/* Field 3: City / Location */}
+              <div className="relative pl-14 sm:pl-16">
+                <span className="material-symbols-outlined text-3xl sm:text-4xl text-[#0046c0] absolute left-0 top-1">
+                  location_on
+                </span>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
+                  Khu Vực / Tỉnh Thành
+                </label>
+                <select
+                  value={selectedCity}
+                  onChange={(e) => setSelectedCity(e.target.value)}
+                  className="w-full pb-2 pt-0.5 text-sm sm:text-base font-semibold text-slate-800 border-b border-[#ccd9f2] focus:border-[#0046c0] focus:outline-none transition-colors bg-transparent cursor-pointer"
+                >
+                  <option value="all">Tất cả tỉnh thành</option>
+                  <option value="Hà Nội">Hà Nội</option>
+                  <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
+                  <option value="Đà Nẵng">Đà Nẵng</option>
                 </select>
               </div>
             </form>

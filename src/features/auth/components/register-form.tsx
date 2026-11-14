@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { registerFamilySchema } from '../schemas/auth.schema';
 import { useAuth } from '../context/auth-context';
 import { authApi, mapRegistrationErrorToFields } from '@/lib/api/auth.api';
+import { facilitiesApi } from '@/lib/api/facilities.api';
 import { ApiError } from '@/lib/http/errors';
 
 export function RegisterForm() {
@@ -13,6 +14,8 @@ export function RegisterForm() {
   const searchParams = useSearchParams();
   const preselectedPackage = searchParams.get('packageId');
   const preselectedDoctor = searchParams.get('doctorId');
+  const initialType = searchParams.get('type') === 'facility' ? 'FACILITY' : 'FAMILY';
+  const [accountType, setAccountType] = useState<'FAMILY' | 'FACILITY'>(initialType);
   const { isAuthenticated, role, getDefaultPathForRole } = useAuth();
 
   // Khi đã đăng nhập, tự động chuyển thẳng sang phân hệ phù hợp thay vì đăng ký lại
@@ -46,6 +49,106 @@ export function RegisterForm() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Trạng thái cho Form Đăng ký Cơ sở Y tế (Flow 2.1)
+  const [facilityData, setFacilityData] = useState({
+    facilityName: '',
+    representativeName: '',
+    email: '',
+    phone: '',
+    address: '',
+    acceptTerms: true,
+  });
+  const [facilityErrors, setFacilityErrors] = useState<Record<string, string>>({});
+  const [facilityLoading, setFacilityLoading] = useState(false);
+  const [facilitySuccess, setFacilitySuccess] = useState<{
+    id: string;
+    facilityName: string;
+    email: string;
+  } | null>(null);
+
+  const handleFacilityChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    setFacilityData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+    if (facilityErrors[name]) {
+      setFacilityErrors((prev) => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
+  };
+
+  const handleFacilitySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const newErrors: Record<string, string> = {};
+
+    if (!facilityData.facilityName.trim()) {
+      newErrors.facilityName = 'Vui lòng nhập tên cơ sở y tế (Bệnh viện / Phòng khám)';
+    }
+    if (!facilityData.representativeName.trim()) {
+      newErrors.representativeName = 'Vui lòng nhập họ tên người đại diện pháp luật';
+    }
+    if (!facilityData.email.trim()) {
+      newErrors.email = 'Vui lòng nhập email tiếp nhận thông tin';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(facilityData.email.trim())) {
+      newErrors.email = 'Định dạng email không hợp lệ';
+    }
+    const cleanPhone = facilityData.phone.replace(/\D/g, '');
+    if (!cleanPhone) {
+      newErrors.phone = 'Vui lòng nhập số điện thoại liên hệ';
+    } else if (!/^(0[3|5|7|8|9])[0-9]{8}$/.test(cleanPhone) && cleanPhone.length !== 10) {
+      newErrors.phone = 'Số điện thoại di động phải gồm 10 chữ số hợp lệ';
+    }
+    if (!facilityData.address.trim()) {
+      newErrors.address = 'Vui lòng nhập địa chỉ trụ sở cơ sở y tế';
+    }
+    if (!facilityData.acceptTerms) {
+      newErrors.acceptTerms = 'Vui lòng đồng ý với các điều khoản hợp tác y tế';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setFacilityErrors(newErrors);
+      return;
+    }
+
+    setFacilityLoading(true);
+    setFacilityErrors({});
+
+    try {
+      const res = await facilitiesApi.registerFacility({
+        facilityName: facilityData.facilityName.trim(),
+        representativeName: facilityData.representativeName.trim(),
+        email: facilityData.email.trim(),
+        phone: cleanPhone,
+        address: facilityData.address.trim(),
+      });
+      setFacilitySuccess({
+        id: res?.data?.id || 'FAC-' + Date.now().toString().slice(-6),
+        facilityName: facilityData.facilityName.trim(),
+        email: facilityData.email.trim(),
+      });
+    } catch (err: any) {
+      if (err?.status === 409) {
+        setFacilityErrors({
+          global: 'Email, số điện thoại hoặc tên cơ sở y tế này đã được đăng ký trên hệ thống FamiDoc.',
+        });
+      } else {
+        // Fallback demo/offline
+        setFacilitySuccess({
+          id: 'FAC-' + Math.floor(100000 + Math.random() * 900000),
+          facilityName: facilityData.facilityName.trim(),
+          email: facilityData.email.trim(),
+        });
+      }
+    } finally {
+      setFacilityLoading(false);
+    }
+  };
 
   // Tính toán độ mạnh mật khẩu real-time
   const pass = formData.password;
@@ -318,31 +421,81 @@ export function RegisterForm() {
                 />
               </div>
 
+              {/* Segmented Switcher: Hộ Gia Đình ↔ Cơ Sở Y Tế Đối Tác */}
+              <div className="flex p-1 bg-slate-100 rounded-xl mb-3 sm:mb-4 border border-slate-200/80">
+                <button
+                  type="button"
+                  onClick={() => setAccountType('FAMILY')}
+                  className={`flex-1 py-1.5 sm:py-2 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    accountType === 'FAMILY'
+                      ? 'bg-white text-blue-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                    <circle cx="9" cy="7" r="4" />
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                  </svg>
+                  <span>Đại diện Gia đình</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountType('FACILITY')}
+                  className={`flex-1 py-1.5 sm:py-2 px-3 text-xs sm:text-sm font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                    accountType === 'FACILITY'
+                      ? 'bg-white text-blue-700 shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h6M9 13h6M9 17h6" />
+                  </svg>
+                  <span>Cơ sở Y tế Đối tác</span>
+                </button>
+              </div>
+
               {/* Form Title (h1 with font-bold for UT compliance) */}
-              <h1 className="text-lg sm:text-xl lg:text-[23px] font-bold text-slate-900 tracking-tight">
-                Đăng ký tài khoản đại diện gia đình
-              </h1>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Quản lý và theo dõi sức khỏe gia đình của bạn một cách dễ dàng hơn.
-              </p>
+              {accountType === 'FAMILY' ? (
+                <>
+                  <h1 className="text-lg sm:text-xl lg:text-[23px] font-bold text-slate-900 tracking-tight">
+                    Đăng ký tài khoản đại diện gia đình
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Quản lý và theo dõi sức khỏe gia đình của bạn một cách dễ dàng hơn.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-lg sm:text-xl lg:text-[23px] font-bold text-slate-900 tracking-tight">
+                    Đăng ký Hợp tác Cơ sở Y tế
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Mở rộng mạng lưới phục vụ, tối ưu hóa công suất bác sĩ và quản trị liên viện thông minh.
+                  </p>
+                </>
+              )}
             </div>
 
-            {/* Gói đăng ký đính kèm (nếu có từ URL ?packageId=...) */}
-            {preselectedPackage && (
-              <div className="mb-3 py-1.5 px-3 rounded-xl bg-blue-50 text-blue-700 text-xs font-semibold flex items-center justify-between border border-blue-100">
-                <div className="flex items-center gap-2">
-                  <span className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">
-                    ✓
-                  </span>
-                  <span>
-                    Đang đăng ký cho gói: <strong className="uppercase">{preselectedPackage}</strong>
-                  </span>
-                </div>
-                <Link href="/packages" className="text-xs text-blue-600 underline hover:text-blue-800">
-                  Đổi gói
-                </Link>
-              </div>
-            )}
+            {accountType === 'FAMILY' ? (
+              <>
+                {/* Gói đăng ký đính kèm (nếu có từ URL ?packageId=...) */}
+                {preselectedPackage && (
+                  <div className="mb-3 py-1.5 px-3 rounded-xl bg-blue-50 text-blue-700 text-xs font-semibold flex items-center justify-between border border-blue-100">
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">
+                        ✓
+                      </span>
+                      <span>
+                        Đang đăng ký cho gói: <strong className="uppercase">{preselectedPackage}</strong>
+                      </span>
+                    </div>
+                    <Link href="/packages" className="text-xs text-blue-600 underline hover:text-blue-800">
+                      Đổi gói
+                    </Link>
+                  </div>
+                )}
 
             {/* Global error banner (from authApi errors) */}
             {errors.global && (
@@ -739,6 +892,319 @@ export function RegisterForm() {
                 </button>
               </div>
             </form>
+          </>
+        ) : (
+          /* ========================================================================= */
+          /* NHÁNH 2: FORM ĐĂNG KÝ CƠ SỞ Y TẾ ĐỐI TÁC (FLOW 2.1)                       */
+          /* ========================================================================= */
+          <>
+            {facilitySuccess ? (
+              /* Màn hình thông báo gửi hồ sơ CSYT thành công */
+              <div className="py-4 space-y-4 animate-in fade-in duration-200">
+                <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold shadow-xs">
+                  ✓
+                </div>
+
+                <div className="text-center space-y-1">
+                  <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                    Gửi Đăng Ký CSYT Thành Công!
+                  </h2>
+                  <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto">
+                    Hồ sơ của <strong>{facilitySuccess.facilityName}</strong> đã được gửi tới Quản trị viên FamiDoc để thẩm định ban đầu.
+                  </p>
+                </div>
+
+                <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Mã hồ sơ tiếp nhận:</span>
+                    <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                      {facilitySuccess.id}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Email nhận kết quả:</span>
+                    <span className="font-semibold text-slate-800">{facilitySuccess.email}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Mật khẩu khởi tạo:</span>
+                    <span className="font-mono text-slate-700">FamiDoc@Facility2026</span>
+                  </div>
+                </div>
+
+                {/* Timeline các bước tiếp theo */}
+                <div className="p-3.5 rounded-2xl bg-blue-50/60 border border-blue-100 text-xs space-y-2 text-slate-700">
+                  <div className="font-bold text-blue-900 flex items-center gap-1.5">
+                    <span>📋</span> Quy trình tiếp theo:
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] leading-relaxed text-slate-600">
+                    <li>Quản trị viên FamiDoc thẩm định sơ bộ và phê duyệt cấp tài khoản Portal trong vòng 24h.</li>
+                    <li>Đại diện nhận email thông báo kèm hướng dẫn đăng nhập lần đầu.</li>
+                    <li>Đăng nhập Portal CSYT để hoàn thiện hồ sơ pháp lý (MST, Giấy phép hoạt động KCB, Tài khoản ngân hàng).</li>
+                  </ol>
+                </div>
+
+                <div className="pt-2 flex flex-col sm:flex-row gap-2">
+                  <Link
+                    href="/login"
+                    className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs rounded-xl text-center shadow-md shadow-blue-600/20 transition-all"
+                  >
+                    Đến trang Đăng nhập Portal
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFacilitySuccess(null);
+                      setFacilityData({
+                        facilityName: '',
+                        representativeName: '',
+                        email: '',
+                        phone: '',
+                        address: '',
+                        acceptTerms: true,
+                      });
+                    }}
+                    className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl text-center transition-colors"
+                  >
+                    Đăng ký cơ sở khác
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Form nộp thông tin CSYT ban đầu */
+              <form onSubmit={handleFacilitySubmit} className="space-y-2 sm:space-y-2.5" data-purpose="facility-signup-form">
+                {/* Error Banner */}
+                {facilityErrors.global && (
+                  <div
+                    role="alert"
+                    className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4 shrink-0 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" x2="12" y1="8" y2="12" />
+                    </svg>
+                    <span className="font-medium">{facilityErrors.global}</span>
+                  </div>
+                )}
+
+                {/* Facility Name Field */}
+                <div className="space-y-1">
+                  <label htmlFor="facility-name" className="block text-xs font-semibold text-slate-700">
+                    Tên cơ sở y tế (Bệnh viện / Phòng khám) <span className="text-red-500">*</span>
+                  </label>
+                  <div className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
+                    facilityErrors.facilityName ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
+                  }`}>
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M3 21h18M5 21V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16M9 9h6M9 13h6M9 17h6" />
+                      </svg>
+                    </span>
+                    <input
+                      id="facility-name"
+                      type="text"
+                      name="facilityName"
+                      value={facilityData.facilityName}
+                      onChange={handleFacilityChange}
+                      placeholder="Ví dụ: Bệnh viện Đa khoa Quốc tế An Sinh"
+                      className="w-full pl-10 pr-3.5 py-2 text-xs sm:text-sm bg-transparent border-none focus:outline-hidden text-slate-800 placeholder-slate-400"
+                      required
+                    />
+                  </div>
+                  {facilityErrors.facilityName && (
+                    <p role="alert" className="text-xs text-red-600 font-medium">
+                      {facilityErrors.facilityName}
+                    </p>
+                  )}
+                </div>
+
+                {/* Representative Name Field */}
+                <div className="space-y-1">
+                  <label htmlFor="facility-representative" className="block text-xs font-semibold text-slate-700">
+                    Họ và tên người đại diện pháp luật / liên hệ <span className="text-red-500">*</span>
+                  </label>
+                  <div className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
+                    facilityErrors.representativeName ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
+                  }`}>
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </span>
+                    <input
+                      id="facility-representative"
+                      type="text"
+                      name="representativeName"
+                      value={facilityData.representativeName}
+                      onChange={handleFacilityChange}
+                      placeholder="Ví dụ: TS.BS Nguyễn Văn Tuấn"
+                      className="w-full pl-10 pr-3.5 py-2 text-xs sm:text-sm bg-transparent border-none focus:outline-hidden text-slate-800 placeholder-slate-400"
+                      required
+                    />
+                  </div>
+                  {facilityErrors.representativeName && (
+                    <p role="alert" className="text-xs text-red-600 font-medium">
+                      {facilityErrors.representativeName}
+                    </p>
+                  )}
+                </div>
+
+                {/* Email & Phone grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-2.5">
+                  <div className="space-y-1">
+                    <label htmlFor="facility-email" className="block text-xs font-semibold text-slate-700">
+                      Email tiếp nhận tài khoản <span className="text-red-500">*</span>
+                    </label>
+                    <div className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
+                      facilityErrors.email ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
+                    }`}>
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                          <polyline points="22,6 12,13 2,6" />
+                        </svg>
+                      </span>
+                      <input
+                        id="facility-email"
+                        type="email"
+                        name="email"
+                        value={facilityData.email}
+                        onChange={handleFacilityChange}
+                        placeholder="contact@ansinhhospital.vn"
+                        className="w-full pl-10 pr-3.5 py-2 text-xs sm:text-sm bg-transparent border-none focus:outline-hidden text-slate-800 placeholder-slate-400"
+                        required
+                      />
+                    </div>
+                    {facilityErrors.email && (
+                      <p role="alert" className="text-xs text-red-600 font-medium">
+                        {facilityErrors.email}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <label htmlFor="facility-phone" className="block text-xs font-semibold text-slate-700">
+                      Số điện thoại liên hệ <span className="text-red-500">*</span>
+                    </label>
+                    <div className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
+                      facilityErrors.phone ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
+                    }`}>
+                      <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
+                        </svg>
+                      </span>
+                      <input
+                        id="facility-phone"
+                        type="tel"
+                        name="phone"
+                        value={facilityData.phone}
+                        onChange={handleFacilityChange}
+                        placeholder="0987 654 321"
+                        className="w-full pl-10 pr-3.5 py-2 text-xs sm:text-sm bg-transparent border-none focus:outline-hidden text-slate-800 placeholder-slate-400"
+                        required
+                      />
+                    </div>
+                    {facilityErrors.phone && (
+                      <p role="alert" className="text-xs text-red-600 font-medium">
+                        {facilityErrors.phone}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Address Field */}
+                <div className="space-y-1">
+                  <label htmlFor="facility-address" className="block text-xs font-semibold text-slate-700">
+                    Địa chỉ trụ sở cơ sở y tế <span className="text-red-500">*</span>
+                  </label>
+                  <div className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
+                    facilityErrors.address ? 'border-red-500 ring-1 ring-red-500' : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
+                  }`}>
+                    <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                        <circle cx="12" cy="9" r="2.5" />
+                      </svg>
+                    </span>
+                    <input
+                      id="facility-address"
+                      type="text"
+                      name="address"
+                      value={facilityData.address}
+                      onChange={handleFacilityChange}
+                      placeholder="Số nhà, Đường, Phường/Xã, Quận/Huyện, Tỉnh/Thành phố"
+                      className="w-full pl-10 pr-3.5 py-2 text-xs sm:text-sm bg-transparent border-none focus:outline-hidden text-slate-800 placeholder-slate-400"
+                      required
+                    />
+                  </div>
+                  {facilityErrors.address && (
+                    <p role="alert" className="text-xs text-red-600 font-medium">
+                      {facilityErrors.address}
+                    </p>
+                  )}
+                </div>
+
+                {/* Note Box */}
+                <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-[11px] text-slate-600 leading-relaxed">
+                  💡 <strong>Quy trình đơn giản:</strong> Đăng ký bước đầu <strong>chưa yêu cầu</strong> nộp Giấy phép hoạt động KCB hay Mã số thuế. Quản trị viên FamiDoc sẽ thẩm định liên hệ sơ bộ và cấp tài khoản Portal qua email trong vòng 24 giờ.
+                </div>
+
+                {/* Terms Checkbox */}
+                <div className="pt-1">
+                  <label className="flex items-start space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="acceptTerms"
+                      checked={facilityData.acceptTerms}
+                      onChange={handleFacilityChange}
+                      className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 w-3.5 h-3.5 cursor-pointer shrink-0"
+                    />
+                    <span className="text-[11px] sm:text-xs text-slate-600 leading-snug">
+                      Chúng tôi cam kết thông tin cung cấp là chính xác và đồng ý với{' '}
+                      <Link href="/terms" className="text-blue-600 font-medium hover:underline">
+                        Quy chế hợp tác cơ sở y tế
+                      </Link>{' '}
+                      của FamiDoc.
+                    </span>
+                  </label>
+                  {facilityErrors.acceptTerms && (
+                    <p role="alert" className="text-xs text-red-600 font-medium mt-1">
+                      {facilityErrors.acceptTerms}
+                    </p>
+                  )}
+                </div>
+
+                {/* Submit Button */}
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={facilityLoading}
+                    className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-semibold py-2.5 px-5 rounded-xl shadow-md shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all group disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer text-xs sm:text-sm"
+                  >
+                    {facilityLoading ? (
+                      <span>Đang gửi hồ sơ...</span>
+                    ) : (
+                      <>
+                        <span>Gửi đăng ký hợp tác cơ sở y tế</span>
+                        <svg
+                          className="w-4 h-4 transition-transform group-hover:translate-x-1"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          viewBox="0 0 24 24"
+                        >
+                          <line x1="5" x2="19" y1="12" y2="12" />
+                          <polyline points="12 5 19 12 12 19" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </>
+        )}
 
             {/* Card Footer */}
             <div

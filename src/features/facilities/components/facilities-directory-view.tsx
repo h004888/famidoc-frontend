@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
+import { Pagination } from '@/components/ui/pagination';
 import { publicApi, type PublicFacilityDto } from '@/lib/api';
 
 export interface FacilityItem {
@@ -121,6 +122,21 @@ export function FacilitiesDirectoryView() {
       return matchSearch && matchCity && matchType;
     });
   }, [facilitiesList, searchQuery, selectedCity, selectedType]);
+
+  // Phân trang phía client chuẩn Medsev giống trang Bác sĩ (doctor-directory-view)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const FACILITY_PAGE_SIZE = 6;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCity, selectedType]);
+
+  const totalPages = Math.max(Math.ceil(filteredFacilities.length / FACILITY_PAGE_SIZE), 1);
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedFacilities = filteredFacilities.slice(
+    (safePage - 1) * FACILITY_PAGE_SIZE,
+    safePage * FACILITY_PAGE_SIZE
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased flex flex-col justify-between">
@@ -273,113 +289,131 @@ export function FacilitiesDirectoryView() {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
-              {filteredFacilities.map((fac) => (
-                <article
-                  key={fac.id}
-                  className="bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_25px_0_rgba(0,0,0,0.05)] hover:shadow-[0_15px_35px_0_rgba(0,70,192,0.12)] hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col justify-between group"
-                >
-                  <div>
-                    {/* Image banner */}
-                    <Link
-                      href={`/facilities/${fac.id}`}
-                      className="relative h-52 w-full overflow-hidden bg-slate-100 block"
-                    >
-                      <img
-                        src={fac.imageUrl}
-                        alt={fac.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute top-3 left-3 bg-white/95 text-slate-900 text-[11px] font-bold px-3 py-1 rounded-lg border border-slate-200 shadow-xs">
-                        {fac.type}
-                      </div>
-                      <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white text-[11px] font-medium px-2.5 py-1 rounded-md flex items-center gap-1 backdrop-blur-xs">
-                        <span className="material-symbols-outlined text-xs">bed</span>
-                        {fac.bedCount}
-                      </div>
-                    </Link>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+                {paginatedFacilities.map((fac) => (
+                  <article
+                    key={fac.id}
+                    className="bg-white rounded-2xl border border-slate-200/90 shadow-[0_4px_25px_0_rgba(0,0,0,0.05)] hover:shadow-[0_15px_35px_0_rgba(0,70,192,0.12)] hover:-translate-y-1 transition-all duration-300 overflow-hidden flex flex-col justify-between group"
+                  >
+                    <div>
+                      {/* Image banner */}
+                      <Link
+                        href={`/facilities/${fac.id}`}
+                        className="relative h-52 w-full overflow-hidden bg-slate-100 block"
+                      >
+                        <img
+                          src={fac.imageUrl}
+                          alt={fac.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-3 left-3 bg-white/95 text-slate-900 text-[11px] font-bold px-3 py-1 rounded-lg border border-slate-200 shadow-xs">
+                          {fac.type}
+                        </div>
+                        <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white text-[11px] font-medium px-2.5 py-1 rounded-md flex items-center gap-1 backdrop-blur-xs">
+                          <span className="material-symbols-outlined text-xs">bed</span>
+                          {fac.bedCount}
+                        </div>
+                      </Link>
 
-                    {/* Content */}
-                    <div className="p-6 space-y-4">
-                      <div>
-                        <Link
-                          href={`/facilities/${fac.id}`}
-                          className="text-lg font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors block leading-snug"
-                        >
-                          {fac.name}
-                        </Link>
-                        {fac.license_number && (
-                          <p className="text-[11px] text-slate-400 mt-0.5 font-medium">
-                            Giấy phép KCB: {fac.license_number}
+                      {/* Content */}
+                      <div className="p-6 space-y-4">
+                        <div>
+                          <Link
+                            href={`/facilities/${fac.id}`}
+                            className="text-lg font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors block leading-snug"
+                          >
+                            {fac.name}
+                          </Link>
+                          {fac.license_number && (
+                            <p className="text-[11px] text-slate-400 mt-0.5 font-medium">
+                              Giấy phép KCB: {fac.license_number}
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-2">
+                            <span className="material-symbols-outlined text-base text-slate-400 shrink-0">location_on</span>
+                            <span>{fac.address}</span>
                           </p>
-                        )}
-                        <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-2">
-                          <span className="material-symbols-outlined text-base text-slate-400 shrink-0">location_on</span>
-                          <span>{fac.address}</span>
-                        </p>
-                      </div>
-
-                      <div className="space-y-2 text-xs text-slate-600 bg-slate-50/70 p-3 rounded-xl border border-slate-100">
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-base text-[#0046c0]">schedule</span>
-                          <span><strong>Giờ làm việc:</strong> {fac.workingHours}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="material-symbols-outlined text-base text-emerald-600">call</span>
-                          <span><strong>Hotline viện:</strong> <strong className="text-slate-800">{fac.phone}</strong></span>
-                        </div>
-                      </div>
 
-                      {/* Privileges */}
-                      <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-1.5">
-                        <h4 className="text-xs font-bold text-[#0046c0] flex items-center gap-1">
-                          <span className="material-symbols-outlined text-sm">stars</span>
-                          Đặc quyền hội viên FamiDoc:
-                        </h4>
-                        <ul className="text-xs text-slate-700 space-y-1">
-                          {fac.privileges.map((priv, idx) => (
-                            <li key={idx} className="flex items-start gap-1.5">
-                              <span className="material-symbols-outlined text-sm text-[#0046c0] shrink-0 mt-0.5">check_circle</span>
-                              <span>{priv}</span>
-                            </li>
-                          ))}
-                        </ul>
+                        <div className="space-y-2 text-xs text-slate-600 bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-base text-[#0046c0]">schedule</span>
+                            <span><strong>Giờ làm việc:</strong> {fac.workingHours}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined text-base text-emerald-600">call</span>
+                            <span><strong>Hotline viện:</strong> <strong className="text-slate-800">{fac.phone}</strong></span>
+                          </div>
+                        </div>
+
+                        {/* Privileges */}
+                        <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100 space-y-1.5">
+                          <h4 className="text-xs font-bold text-[#0046c0] flex items-center gap-1">
+                            <span className="material-symbols-outlined text-sm">stars</span>
+                            Đặc quyền hội viên FamiDoc:
+                          </h4>
+                          <ul className="text-xs text-slate-700 space-y-1">
+                            {fac.privileges.map((priv, idx) => (
+                              <li key={idx} className="flex items-start gap-1.5">
+                                <span className="material-symbols-outlined text-sm text-[#0046c0] shrink-0 mt-0.5">check_circle</span>
+                                <span>{priv}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {/* Footer Actions */}
-                  <div className="p-4 bg-slate-50 border-t border-slate-100 space-y-2">
-                    <Link
-                      href={`/facilities/${fac.id}`}
-                      className="w-full py-2.5 px-3 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-semibold text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
-                    >
-                      <span>Xem chi tiết cơ sở</span>
-                      <span className="material-symbols-outlined text-base">arrow_forward</span>
-                    </Link>
+                    {/* Footer Actions */}
+                    <div className="p-4 bg-slate-50 border-t border-slate-100 space-y-2">
+                      <Link
+                        href={`/facilities/${fac.id}`}
+                        className="w-full py-2.5 px-3 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-semibold text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
+                      >
+                        <span>Xem chi tiết cơ sở</span>
+                        <span className="material-symbols-outlined text-base">arrow_forward</span>
+                      </Link>
 
-                    <div className="flex items-center gap-2">
-                      <a
-                        href={`tel:${fac.phone.replace(/[^0-9+]/g, '')}`}
-                        className="flex-1 py-2 px-2.5 rounded-lg border border-slate-300 hover:bg-slate-100 bg-white text-[11px] font-semibold text-slate-700 text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1 shadow-2xs truncate"
-                      >
-                        <span className="material-symbols-outlined text-sm text-emerald-600">call</span>
-                        <span className="truncate">{fac.phone}</span>
-                      </a>
-                      <a
-                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fac.name + ' ' + fac.address)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex-1 py-2 px-2.5 rounded-lg border border-slate-300 hover:bg-slate-100 bg-white text-[11px] font-semibold text-slate-700 text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
-                      >
-                        <span className="material-symbols-outlined text-sm text-[#0046c0]">near_me</span>
-                        <span>Chỉ đường</span>
-                      </a>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={`tel:${fac.phone.replace(/[^0-9+]/g, '')}`}
+                          className="flex-1 py-2 px-2.5 rounded-lg border border-slate-300 hover:bg-slate-100 bg-white text-[11px] font-semibold text-slate-700 text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1 shadow-2xs truncate"
+                        >
+                          <span className="material-symbols-outlined text-sm text-emerald-600">call</span>
+                          <span className="truncate">{fac.phone}</span>
+                        </a>
+                        <a
+                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fac.name + ' ' + fac.address)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 py-2 px-2.5 rounded-lg border border-slate-300 hover:bg-slate-100 bg-white text-[11px] font-semibold text-slate-700 text-center transition-all duration-200 cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
+                        >
+                          <span className="material-symbols-outlined text-sm text-[#0046c0]">near_me</span>
+                          <span>Chỉ đường</span>
+                        </a>
+                      </div>
                     </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+                  </article>
+                ))}
+              </div>
+
+              {/* Thông tin & Thanh phân trang chuẩn Medsev giống trang bác sĩ */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-10 text-xs text-slate-500">
+                <span>
+                  Hiển thị {paginatedFacilities.length} trong tổng {filteredFacilities.length} cơ sở y tế
+                </span>
+                <span className="font-semibold text-slate-700">Trang {safePage} / {totalPages}</span>
+              </div>
+
+              <div className="mt-6">
+                <Pagination
+                  currentPage={safePage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
+            </>
           )}
         </section>
       </main>

@@ -83,4 +83,42 @@ describe('FacilitiesDirectoryView Component', () => {
       expect(screen.queryByText('Phòng khám Đa khoa Đại học Y Hà Nội - HMU Clinic')).not.toBeInTheDocument();
     });
   });
+
+  it('renders pagination and shows correct page info when facilities exceed page size', async () => {
+    const manyFacilities = Array.from({ length: 8 }, (_, i) => ({
+      id: `fac-${i + 1}`,
+      facilityName: `Bệnh viện Cơ sở ${i + 1}`,
+      licenseNumber: `GPHĐ-00${i + 1}/BYT`,
+      address: `Địa chỉ số ${i + 1}, Hà Nội`,
+      phone: `090000000${i}`,
+    }));
+
+    vi.mocked(publicApi.getFacilities).mockResolvedValue(manyFacilities);
+
+    render(<FacilitiesDirectoryView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Bệnh viện Cơ sở 1')).toBeInTheDocument();
+      expect(screen.getByText('Bệnh viện Cơ sở 6')).toBeInTheDocument();
+      // Cơ sở 7 nằm ở trang 2 nên không hiển thị ở trang 1
+      expect(screen.queryByText('Bệnh viện Cơ sở 7')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Hiển thị 6 trong tổng 8 cơ sở y tế')).toBeInTheDocument();
+    expect(screen.getByText('Trang 1 / 2')).toBeInTheDocument();
+    expect(screen.getByRole('navigation', { name: 'Phân trang' })).toBeInTheDocument();
+
+    // Bấm sang trang 2
+    const page2Button = screen.getByRole('button', { name: 'Chuyển đến trang 2' });
+    fireEvent.click(page2Button);
+
+    await waitFor(() => {
+      expect(screen.getByText('Bệnh viện Cơ sở 7')).toBeInTheDocument();
+      expect(screen.getByText('Bệnh viện Cơ sở 8')).toBeInTheDocument();
+      expect(screen.queryByText('Bệnh viện Cơ sở 1')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Hiển thị 2 trong tổng 8 cơ sở y tế')).toBeInTheDocument();
+    expect(screen.getByText('Trang 2 / 2')).toBeInTheDocument();
+  });
 });

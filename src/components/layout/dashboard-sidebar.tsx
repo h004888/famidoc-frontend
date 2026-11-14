@@ -32,6 +32,7 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badgeColor: 'bg-indigo-50 text-indigo-800 border border-indigo-200/80',
     items: [
       { href: '/admin', label: 'Tổng quan Nền tảng', shortLabel: 'Tổng quan', icon: 'monitoring', exact: true, badge: 'Live', badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
+      { href: '/admin/facilities', label: 'Quản trị Cơ sở Y tế', shortLabel: 'CSYT', icon: 'local_hospital', badge: 'Duyệt 2 cấp', badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200' },
       { href: '/admin/packages', label: 'Quản trị Gói dịch vụ', shortLabel: 'Gói DV', icon: 'inventory_2' },
       { href: '/admin/contracts', label: 'Hợp đồng & Pháp lý', shortLabel: 'Hợp đồng', icon: 'handshake' },
       { href: '/admin/reconciliation', label: 'Đối soát SePay', shortLabel: 'Đối soát', icon: 'payments' },
@@ -144,8 +145,20 @@ export function DashboardSidebar() {
   const displayName = mounted ? (user?.name || '') : '';
   const userSubtitle = mounted ? (user?.facilityOrTitle || user?.phone || '') : '';
 
-  // Chỉ lấy menu của đúng Role hiện tại đang đăng nhập
-  const currentMenu = ROLE_MENUS[role] || ROLE_MENUS.FAMILY;
+  // Suy ra vai trò từ URL pathname để SSR và Client render đồng nhất, tránh hydration mismatch
+  const getRoleFromPathname = (path: string): LoginRole | null => {
+    if (path.startsWith('/admin')) return 'ADMIN';
+    if (path.startsWith('/facility')) return 'FACILITY';
+    if (path.startsWith('/doctor')) return 'DOCTOR';
+    if (path.startsWith('/family')) return 'FAMILY';
+    return null;
+  };
+
+  const pathRole = getRoleFromPathname(pathname);
+  const effectiveRole: LoginRole = pathRole || (mounted ? role : 'FAMILY');
+
+  // Chỉ lấy menu của đúng Role hiện tại đang đăng nhập hoặc suy ra từ route
+  const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
 
   const renderSidebar = (isCollapsedState: boolean) => (
     <div className="flex flex-col h-full bg-white text-slate-700 font-sans border-r border-slate-200/90">
@@ -156,7 +169,7 @@ export function DashboardSidebar() {
         }`}
       >
         <Link
-          href={getDefaultPathForRole(role)}
+          href={getDefaultPathForRole(effectiveRole)}
           className="flex items-center overflow-hidden outline-hidden"
           title="Bảng điều khiển FamiDoc"
           aria-label="Bảng điều khiển FamiDoc"
@@ -213,7 +226,7 @@ export function DashboardSidebar() {
       </div>
 
       {/* Sub-Header Context Widget: Gia đình hiển thị Hộ tịch, CSYT/Admin hiển thị Switcher */}
-      {role === 'FAMILY' || role === 'PATIENT' ? (
+      {effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT' ? (
         !isCollapsedState ? (
           <div className="p-3 border-b border-slate-100 bg-white">
             <div className="w-full bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-2.5 rounded-xl border border-blue-200/60 flex items-center justify-between">
@@ -365,7 +378,7 @@ export function DashboardSidebar() {
         </div>
 
         {/* Global Settings & Utilities (Chỉ hiện cho Doctor/Facility/Admin) */}
-        {role !== 'FAMILY' && role !== 'PATIENT' && (
+        {effectiveRole !== 'FAMILY' && effectiveRole !== 'PATIENT' && (
           <div className="pt-2 border-t border-slate-100 space-y-1">
             <Link
               href="/packages"
@@ -530,6 +543,7 @@ export function DashboardSidebar() {
       {/* Mobile Bottom Tab Bar */}
       <nav
         aria-label="Điều hướng chính trên điện thoại"
+        suppressHydrationWarning
         className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-[0_-4px_16px_rgba(15,23,42,0.05)] px-1.5 py-1"
       >
         <div
@@ -559,6 +573,7 @@ export function DashboardSidebar() {
                   <span className="absolute top-0 left-1/2 -translate-x-1/2 w-6 h-0.5 rounded-full bg-[#2E37A4]" />
                 )}
                 <span
+                  suppressHydrationWarning
                   className={`material-symbols-outlined text-[20px] leading-none ${
                     isActive ? 'text-[#2E37A4]' : 'text-slate-600'
                   }`}
