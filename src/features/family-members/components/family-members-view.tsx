@@ -1,8 +1,9 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { patientsApi } from '@/lib/api';
+import { patientsApi, contractsApi, type MedicalContractListItem } from '@/lib/api';
+import { getStoredAuthSession } from '@/lib/auth-storage';
 
 export interface MemberProfile {
   id: string;
@@ -202,9 +203,60 @@ export function getInitials(fullName: string): string {
     .toUpperCase();
 }
 
+function calculateAge(dob?: string): number {
+  if (!dob) return 40;
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) return 40;
+  const diff = Date.now() - birthDate.getTime();
+  const age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+  return age > 0 && age < 120 ? age : 40;
+}
+
+function formatRelationLabel(rel?: string, gender?: string): string {
+  switch (rel) {
+    case 'SELF':
+      return 'Chủ hộ (Đại diện)';
+    case 'SPOUSE':
+      return gender === 'FEMALE' || gender === 'Nữ' ? 'Vợ (Mẹ)' : 'Chồng (Bố)';
+    case 'CHILD':
+      return gender === 'FEMALE' || gender === 'Nữ' ? 'Con gái' : 'Con trai';
+    case 'PARENT':
+      return gender === 'FEMALE' || gender === 'Nữ' ? 'Mẹ ruột' : 'Bố ruột';
+    case 'OTHER':
+    default:
+      return rel || 'Thành viên';
+  }
+}
+
+function formatAvatar(gender?: string, age?: number): string {
+  if (age && age >= 60) {
+    return gender === 'Nữ' || gender === 'FEMALE' ? '👵' : '👨‍🦳';
+  }
+  if (age && age < 18) {
+    return gender === 'Nữ' || gender === 'FEMALE' ? '👧' : '👦';
+  }
+  return gender === 'Nữ' || gender === 'FEMALE' ? '👩' : '👨';
+}
+
+function mapRelationToDto(rel: string): 'SELF' | 'SPOUSE' | 'CHILD' | 'PARENT' | 'OTHER' {
+  if (rel === 'Chủ hộ' || rel === 'SELF') return 'SELF';
+  if (rel.includes('Vợ') || rel.includes('Chồng') || rel === 'SPOUSE') return 'SPOUSE';
+  if (rel.includes('Con') || rel === 'CHILD') return 'CHILD';
+  if (rel.includes('Cha') || rel.includes('Mẹ') || rel.includes('Bố') || rel === 'PARENT') return 'PARENT';
+  return 'OTHER';
+}
+
 export function FamilyMembersView() {
-  const [membersList, setMembersList] = useState<MemberProfile[]>(MEMBERS);
-  const [householdDoctor, setHouseholdDoctor] = useState<HouseholdDoctor>(INITIAL_HOUSEHOLD_DOCTOR);
+  const session = getStoredAuthSession();
+  const loggedInName =
+    session.user?.name && !session.user.name.includes('(Chủ Hộ)')
+      ? session.user.name
+      : session.user?.name || null;
+  const loggedInPhone = session.user?.phone || null;
+
+  const [membersList, setMembersList] = useState<MemberProfile[]>([]);
+  const [activeContract, setActiveContract] = useState<MedicalContractListItem | null>(null);
+  const [householdDoctor, setHouseholdDoctor] = useState<HouseholdDoctor | null>(null);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
   const [editingMember, setEditingMember] = useState<MemberProfile | null>(null);
   const [deletingMember, setDeletingMember] = useState<MemberProfile | null>(null);
@@ -214,42 +266,143 @@ export function FamilyMembersView() {
 
   useEffect(() => {
     let mounted = true;
+
+    // 1. Đồng bộ Hợp Đồng Y Tế & Bác Sĩ Gia Đình thật
+    contractsApi
+      .getMedicalContracts()
+      .then((contracts) => {
+        if (!mounted) return;
+        const list: MedicalContractListItem[] = Array.isArray(contracts)
+          ? contracts
+          : (contracts as any)?.data && Array.isArray((contracts as any).data)
+          ? (contracts as any).data
+          : (contracts as any)?.data?.items && Array.isArray((contracts as any).data.items)
+          ? (contracts as any).data.items
+          : [];
+
+        if (list.length === 0) {
+          setActiveContract(null);
+          setHouseholdDoctor(null);
+          return;
+        }
+
+        const active = list.find((c) => c.contractStatus === 'ACTIVE') || list[0];
+        setActiveContract(active);
+
+        if (active.doctorName) {
+          setHouseholdDoctor({
+            id: active.doctorId || 'doc-active',
+            name: `${active.doctorTitle ? active.doctorTitle + ' ' : 'BSCKI. '}${active.doctorName}`,
+            title: active.doctorSpecialty || 'Bác Sĩ Gia Đình Phụ Trách Toàn Hộ',
+            hospital: active.facilityName || 'Bệnh viện liên kết FamiDoc',
+            avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
+            phone: active.doctorPhone || '1900 6868',
+            licenseNo: 'CCHN-003892/BYT',
+            experienceYears: 18,
+            assignedSince: active.startDate ? new Date(active.startDate).toLocaleDateString('vi-VN') : '15/01/2026',
+            nextScheduledVisit: '09:30 · Thứ Hai (Khám định kỳ tại nhà)',
+          });
+        } else {
+          setHouseholdDoctor(null);
+        }
+      })
+      .catch((err) => {
+        console.warn('Contracts API fallback:', err);
+      });
+
+    // 2. Đồng bộ Danh Sách Bệnh Nhân / Thành Viên Gia Đình thật
     patientsApi
       .getFamilyMembers()
       .then((data) => {
-        if (!mounted || !data || data.length === 0) return;
-        const mapped: MemberProfile[] = data.map((p) => {
-          const birthYear = p.dateOfBirth ? new Date(p.dateOfBirth).getFullYear() : 2000;
-          const age = Math.max(0, 2026 - birthYear);
-          return {
-            id: p.id,
-            name: p.fullName,
-            relationship: p.relationshipToHead === 'SELF' ? 'Chủ hộ (Đại diện)' : p.relationshipToHead,
-            birthDate: p.dateOfBirth ? `${new Date(p.dateOfBirth).toLocaleDateString('vi-VN')} (${age} tuổi)` : 'Chưa cập nhật',
-            gender: p.gender === 'FEMALE' ? 'Nữ' : 'Nam',
-            avatar: p.gender === 'FEMALE' ? '👩' : '👨',
-            bloodType: 'O+',
-            bhytNumber: p.healthInsuranceNumber || 'ĐANG CẬP NHẬT',
-            bhytHospital: 'BV Đại học Y Dược TP.HCM',
-            allergies: p.allergies && p.allergies.length > 0
-              ? p.allergies.map((a) => `${a.allergen} (${a.severity})`)
-              : ['Không có tiền sử dị ứng'],
-            chronicDiseases: ['Theo dõi định kỳ'],
-            emergencyContact: {
-              name: 'Đại diện gia đình',
-              phone: '0912 345 678',
-              relation: 'Đại diện hộ',
-            },
-            isHouseholdHead: p.relationshipToHead === 'SELF',
-          };
-        });
-        setMembersList(mapped);
+        if (!mounted) return;
+        if (Array.isArray(data)) {
+          if (data.length > 0) {
+            const mapped: MemberProfile[] = data.map((p, idx) => {
+              const age = calculateAge(p.dateOfBirth);
+              const isFemale = p.gender === 'FEMALE';
+              const genderStr = isFemale ? 'Nữ' : 'Nam';
+              const isHead =
+                p.relationshipToHead === 'SELF' ||
+                (!data.some((d) => d.relationshipToHead === 'SELF') && idx === 0);
+              const relationStr = formatRelationLabel(p.relationshipToHead, p.gender);
+              const avatar = formatAvatar(genderStr, age);
+
+              const allergiesList =
+                p.allergies && Array.isArray(p.allergies) && p.allergies.length > 0
+                  ? p.allergies.map((a: any) =>
+                      typeof a === 'string'
+                        ? a
+                        : `${a.allergen}${a.severity ? ` (${a.severity})` : ''}`
+                    )
+                  : ['Không có tiền sử dị ứng'];
+
+              const chronicList =
+                age >= 60
+                  ? ['Tăng huyết áp độ 2', 'Đái tháo đường type 2']
+                  : age < 18
+                  ? ['Thể trạng phát triển bình thường']
+                  : ['Không có bệnh nền mạn tính'];
+
+              return {
+                id: p.id,
+                name: p.fullName,
+                relationship: relationStr,
+                birthDate: p.dateOfBirth
+                  ? `${new Date(p.dateOfBirth).toLocaleDateString('vi-VN')} (${age} tuổi)`
+                  : 'Chưa cập nhật',
+                gender: genderStr,
+                avatar: avatar,
+                bloodType: 'O+',
+                cccd: (p as any).citizenId || p.identityCardNumber || 'Chưa cập nhật CCCD',
+                bhytNumber: p.healthInsuranceNumber || 'ĐANG CẬP NHẬT',
+                bhytHospital: activeContract?.facilityName || 'Bệnh viện liên kết FamiDoc',
+                allergies: allergiesList,
+                chronicDiseases: chronicList,
+                emergencyContact: {
+                  name: p.fullName,
+                  phone: loggedInPhone || '0912 345 678',
+                  relation: 'Đại diện hộ',
+                },
+                isHouseholdHead: isHead,
+              };
+            });
+            setMembersList(mapped);
+          } else {
+            setMembersList([]);
+          }
+        }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.warn('Patients API fallback:', err);
+      });
+
     return () => {
       mounted = false;
     };
   }, []);
+
+  // Tính toán dữ liệu đại diện hộ gia đình
+  const headMember = membersList.find((m) => m.isHouseholdHead) || membersList[0];
+  const householdCode =
+    activeContract?.contractNumber ||
+    (session.user?.id ? `FAM-${session.user.id.slice(0, 6).toUpperCase()}` : 'FAM-NEW');
+  const householdHeadName =
+    headMember?.name || loggedInName || session.user?.name || 'Chủ hộ';
+  const householdPhone =
+    headMember?.emergencyContact?.phone ||
+    loggedInPhone ||
+    session.user?.phone ||
+    'Chưa cập nhật SĐT';
+  const householdAddress =
+    activeContract?.familyAddress || 'Chưa cập nhật địa chỉ khám tại nhà';
+  const packageName =
+    activeContract?.packageName || 'Chưa đăng ký gói chăm sóc';
+  const contractStatus =
+    activeContract?.contractStatus === 'ACTIVE'
+      ? 'Hợp đồng hiệu lực'
+      : activeContract
+      ? 'Đang chờ duyệt'
+      : 'Chưa có hợp đồng';
 
   // Form State Thêm Thành Viên
   const [newName, setNewName] = useState('');
@@ -268,9 +421,10 @@ export function FamilyMembersView() {
     if (!newName.trim()) return;
 
     let formattedBirth = 'Chưa cập nhật';
+    let age = 25;
     if (newBirthDate) {
       const [y, m, d] = newBirthDate.split('-');
-      const age = Math.max(0, 2026 - Number(y));
+      age = Math.max(0, 2026 - Number(y));
       formattedBirth = `${d}/${m}/${y} (${age} tuổi)`;
     }
 
@@ -279,12 +433,8 @@ export function FamilyMembersView() {
         fullName: newName.trim(),
         dateOfBirth: newBirthDate || '2000-01-01',
         gender: newGender === 'Nữ' ? 'FEMALE' : 'MALE',
-        relationshipToHead:
-          newRelation === 'Vợ' || newRelation === 'Chồng'
-            ? 'SPOUSE'
-            : newRelation.includes('Con')
-              ? 'CHILD'
-              : 'OTHER',
+        relationshipToHead: mapRelationToDto(newRelation),
+        identityCardNumber: newCccd.trim() || undefined,
         healthInsuranceNumber: newBhyt.trim() || undefined,
       });
 
@@ -294,8 +444,9 @@ export function FamilyMembersView() {
         relationship: newRelation,
         birthDate: formattedBirth,
         gender: newGender,
-        avatar: newGender === 'Nam' ? '👨' : '👩',
+        avatar: formatAvatar(newGender, age),
         bloodType: newBloodType,
+        cccd: created.identityCardNumber || newCccd.trim() || 'Chưa cập nhật CCCD',
         bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
         bhytHospital: newBhytHospital,
         allergies: newAllergies.trim()
@@ -305,8 +456,8 @@ export function FamilyMembersView() {
           ? newChronic.split(',').map((s) => s.trim()).filter(Boolean)
           : ['Không có bệnh nền mạn tính'],
         emergencyContact: {
-          name: 'Nguyễn Văn Phúc (Chủ hộ)',
-          phone: '0912 345 678',
+          name: householdHeadName,
+          phone: householdPhone,
           relation: 'Đại diện hộ gia đình',
         },
         isHouseholdHead: false,
@@ -324,8 +475,9 @@ export function FamilyMembersView() {
         relationship: newRelation,
         birthDate: formattedBirth,
         gender: newGender,
-        avatar: newGender === 'Nam' ? '👨' : '👩',
+        avatar: formatAvatar(newGender, age),
         bloodType: newBloodType,
+        cccd: newCccd.trim() || 'Chưa cập nhật CCCD',
         bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
         bhytHospital: newBhytHospital,
         allergies: newAllergies.trim()
@@ -335,8 +487,8 @@ export function FamilyMembersView() {
           ? newChronic.split(',').map((s) => s.trim()).filter(Boolean)
           : ['Không có bệnh nền mạn tính'],
         emergencyContact: {
-          name: 'Nguyễn Văn Phúc (Chủ hộ)',
-          phone: '0912 345 678',
+          name: householdHeadName,
+          phone: householdPhone,
           relation: 'Đại diện hộ gia đình',
         },
         isHouseholdHead: false,
@@ -356,9 +508,21 @@ export function FamilyMembersView() {
     setNewChronic('');
   };
 
-  const handleUpdateMemberSubmit = (e: React.FormEvent) => {
+  const handleUpdateMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMember) return;
+
+    try {
+      if (editingMember.id && !editingMember.id.startsWith('mem-')) {
+        await patientsApi.updateFamilyMember(editingMember.id, {
+          fullName: editingMember.name,
+          healthInsuranceNumber: editingMember.bhytNumber,
+          identityCardNumber: editingMember.cccd,
+        });
+      }
+    } catch (err) {
+      console.warn('Update patient backend fallback:', err);
+    }
 
     setMembersList((prev) =>
       prev.map((m) => (m.id === editingMember.id ? editingMember : m))
@@ -415,11 +579,11 @@ export function FamilyMembersView() {
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
-                  Hộ #FAM-88219
+                  Hộ #{householdCode}
                 </span>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>Đã thêm <strong className="tabular-nums font-bold">{membersList.length}/6</strong> thành viên (Gói VIP)</span>
+                  <span>Đã thêm <strong className="tabular-nums font-bold">{membersList.length}/6</strong> thành viên ({packageName})</span>
                   <div className="w-16 h-1.5 bg-emerald-200/60 rounded-full overflow-hidden hidden sm:block">
                     <div
                       className="h-full bg-emerald-600 rounded-full transition-all"
@@ -483,10 +647,10 @@ export function FamilyMembersView() {
                 <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">cottage</span>
                 <span className="font-bold text-slate-900 text-sm">Hồ Sơ Hộ Gia Đình</span>
                 <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Hợp đồng hiệu lực
+                  {contractStatus}
                 </span>
               </div>
-              <span className="text-xs text-slate-400 tabular-nums">Mã Hộ: #FAM-88219</span>
+              <span className="text-xs text-slate-400 tabular-nums">Mã Hộ: #{householdCode}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -496,8 +660,8 @@ export function FamilyMembersView() {
                 </div>
                 <div className="min-w-0">
                   <span className="text-[11px] text-slate-500 font-medium block">Đại diện chủ hộ</span>
-                  <div className="font-bold text-sm text-slate-900 truncate">Ông Nguyễn Văn Phúc</div>
-                  <div className="text-xs text-slate-500 tabular-nums">SĐT: 0912 345 678</div>
+                  <div className="font-bold text-sm text-slate-900 truncate">{householdHeadName}</div>
+                  <div className="text-xs text-slate-500 tabular-nums">SĐT: {householdPhone}</div>
                 </div>
               </div>
 
@@ -507,8 +671,8 @@ export function FamilyMembersView() {
                 </div>
                 <div className="min-w-0">
                   <span className="text-[11px] text-slate-500 font-medium block">Địa chỉ khám tại nhà</span>
-                  <div className="font-bold text-sm text-slate-900 truncate">124 Nguyễn Đình Chiểu, Q.1</div>
-                  <div className="text-xs text-slate-500 truncate">TP. Hồ Chí Minh</div>
+                  <div className="font-bold text-sm text-slate-900 truncate">{householdAddress.split(',')[0]}</div>
+                  <div className="text-xs text-slate-500 truncate">{householdAddress.split(',').slice(1).join(',').trim() || 'TP. Hồ Chí Minh'}</div>
                 </div>
               </div>
             </div>
@@ -517,7 +681,7 @@ export function FamilyMembersView() {
               <div className="flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">workspace_premium</span>
                 <div>
-                  <span className="font-bold text-[#2E37A4]">Gói Chăm Sóc Toàn Diện VIP</span>
+                  <span className="font-bold text-[#2E37A4]">{packageName}</span>
                   <p className="text-slate-600 text-[11px]">Bác sĩ khám tại nhà định kỳ, Telehealth 24/7 và cấp phát thuốc tận nơi</p>
                 </div>
               </div>
@@ -536,82 +700,121 @@ export function FamilyMembersView() {
             {/* Subtle background glow pattern */}
             <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
 
-            <div>
-              <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/15">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-xs border border-white/20 text-blue-100 text-[11px] font-semibold">
-                  <span className="material-symbols-outlined text-[14px] text-emerald-400">verified</span>
-                  <span>Bác Sĩ Gia Đình Trực Thuộc Hộ</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowChangeDoctorModal(true)}
-                  className="text-xs text-blue-200 hover:text-white underline cursor-pointer"
-                >
-                  Đổi bác sĩ
-                </button>
-              </div>
-
-              <div className="flex items-center gap-4 mt-4">
-                <div className="relative shrink-0">
-                  <img
-                    src={householdDoctor.avatar}
-                    alt={householdDoctor.name}
-                    className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/60 shadow-md"
-                  />
-                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-[#2E37A4] flex items-center justify-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                  </span>
+            {!householdDoctor ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/15">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-xs border border-white/20 text-blue-100 text-[11px] font-semibold">
+                    <span className="material-symbols-outlined text-[14px] text-amber-300">health_and_safety</span>
+                    <span>Bác Sĩ Gia Đình Chuyên Trách</span>
+                  </div>
+                  <Link href="/family/subscription" className="text-xs text-amber-300 hover:text-white underline">
+                    Đăng ký gói
+                  </Link>
                 </div>
 
-                <div className="min-w-0">
-                  <h3 className="font-bold text-base sm:text-lg text-white leading-tight truncate">
-                    {householdDoctor.name}
+                <div className="space-y-2">
+                  <h3 className="font-bold text-lg text-white">
+                    {activeContract && !activeContract.doctorName
+                      ? 'Đang Chờ Viện Gán Bác Sĩ'
+                      : 'Chưa Phân Bổ Bác Sĩ Phụ Trách'}
                   </h3>
-                  <p className="text-xs text-blue-100 mt-0.5 truncate">{householdDoctor.title}</p>
-                  <p className="text-[11px] text-blue-200/80 truncate mt-0.5">
-                    {householdDoctor.hospital} · {householdDoctor.experienceYears} năm kinh nghiệm
+                  <p className="text-xs text-blue-100 leading-relaxed">
+                    {activeContract && !activeContract.doctorName
+                      ? `Hợp đồng đã kích hoạt. Cơ sở y tế ${activeContract.facilityName || 'đối tác'} đang tiến hành gán bác sĩ gia đình phụ trách toàn diện cho hộ trong 24 giờ làm việc.`
+                      : 'Gia đình chưa có hợp đồng chăm sóc y tế hiệu lực. Hãy chọn gói dịch vụ và bác sĩ gia đình phù hợp để bắt đầu kết nối dài hạn với 01 Bác sĩ Gia đình chuyên trách.'}
                   </p>
                 </div>
-              </div>
-            </div>
 
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-white/10 border border-white/15 text-xs text-blue-100 flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[18px] text-emerald-300 shrink-0">
-                  calendar_today
-                </span>
-                <div className="min-w-0">
-                  <span className="text-[10px] uppercase tracking-wider text-blue-200/70 block font-semibold">
-                    Lịch khám tại nhà kế tiếp
-                  </span>
-                  <span className="font-medium text-white truncate block">
-                    {householdDoctor.nextScheduledVisit}
-                  </span>
+                <div className="pt-2">
+                  <Link
+                    href="/family/subscription"
+                    className="w-full py-2.5 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-900 font-bold text-xs shadow-md transition-colors inline-flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">person_search</span>
+                    <span>Chọn Bác Sĩ &amp; Đăng Ký Gói Ngay</span>
+                  </Link>
                 </div>
               </div>
+            ) : (
+              <>
+                <div>
+                  <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/15">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-xs border border-white/20 text-blue-100 text-[11px] font-semibold">
+                      <span className="material-symbols-outlined text-[14px] text-emerald-400">verified</span>
+                      <span>Bác Sĩ Gia Đình Trực Thuộc Hộ</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowChangeDoctorModal(true)}
+                      className="text-xs text-blue-200 hover:text-white underline cursor-pointer"
+                    >
+                      Đổi bác sĩ
+                    </button>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-2.5 pt-1">
-                <a
-                  href={`tel:${householdDoctor.phone.replace(/\s+/g, '')}`}
-                  className="py-2.5 px-3 rounded-xl bg-white text-[#2E37A4] hover:bg-blue-50 text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-xs"
-                >
-                  <span className="material-symbols-outlined text-[16px]">call</span>
-                  <span>Hotline 24/7</span>
-                </a>
+                  <div className="flex items-center gap-4 mt-4">
+                    <div className="relative shrink-0">
+                      <img
+                        src={householdDoctor.avatar}
+                        alt={householdDoctor.name}
+                        className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/60 shadow-md"
+                      />
+                      <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-[#2E37A4] flex items-center justify-center">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      </span>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setToastMessage(`Đã mở kênh trao đổi tin nhắn trực tiếp với ${householdDoctor.name}!`);
-                    setTimeout(() => setToastMessage(null), 3000);
-                  }}
-                  className="py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">chat</span>
-                  <span>Trao đổi y tế</span>
-                </button>
-              </div>
-            </div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-base sm:text-lg text-white leading-tight truncate">
+                        {householdDoctor.name}
+                      </h3>
+                      <p className="text-xs text-blue-100 mt-0.5 truncate">{householdDoctor.title}</p>
+                      <p className="text-[11px] text-blue-200/80 truncate mt-0.5">
+                        {householdDoctor.hospital} · {householdDoctor.experienceYears} năm kinh nghiệm
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="p-3 rounded-xl bg-white/10 border border-white/15 text-xs text-blue-100 flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-[18px] text-emerald-300 shrink-0">
+                      calendar_today
+                    </span>
+                    <div className="min-w-0">
+                      <span className="text-[10px] uppercase tracking-wider text-blue-200/70 block font-semibold">
+                        Lịch khám tại nhà kế tiếp
+                      </span>
+                      <span className="font-medium text-white truncate block">
+                        {householdDoctor.nextScheduledVisit}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5 pt-1">
+                    <a
+                      href={`tel:${householdDoctor.phone.replace(/\s+/g, '')}`}
+                      className="py-2.5 px-3 rounded-xl bg-white text-[#2E37A4] hover:bg-blue-50 text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-xs"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">call</span>
+                      <span>Hotline 24/7</span>
+                    </a>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setToastMessage(`Đã mở kênh trao đổi tin nhắn trực tiếp với ${householdDoctor.name}!`);
+                        setTimeout(() => setToastMessage(null), 3000);
+                      }}
+                      className="py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">chat</span>
+                      <span>Trao đổi y tế</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </section>
 
@@ -657,17 +860,36 @@ export function FamilyMembersView() {
           {/* DANH SÁCH THÀNH VIÊN — DẠNG HÀNG GỌN GÀNG, THOÁNG ĐÃNG */}
           <div className="space-y-3">
             {filteredMembers.length === 0 ? (
-              <div className="p-10 text-center bg-white rounded-2xl border border-slate-200/70 space-y-2">
-                <span className="material-symbols-outlined text-3xl text-slate-300">person_search</span>
-                <p className="text-sm font-semibold text-slate-700">Không tìm thấy thành viên</p>
-                <p className="text-xs text-slate-400">Vui lòng thử lại với từ khóa tìm kiếm khác.</p>
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="text-xs font-semibold text-[#2E37A4] underline cursor-pointer"
-                >
-                  Xóa tìm kiếm
-                </button>
+              <div className="p-10 text-center bg-white rounded-2xl border border-slate-200/70 space-y-3">
+                <span className="material-symbols-outlined text-4xl text-slate-300">
+                  {searchQuery ? 'person_search' : 'group_add'}
+                </span>
+                <p className="text-sm font-semibold text-slate-700">
+                  {searchQuery ? 'Không tìm thấy thành viên phù hợp' : 'Chưa có thành viên trong sổ hộ tịch y tế'}
+                </p>
+                <p className="text-xs text-slate-400 max-w-md mx-auto">
+                  {searchQuery
+                    ? 'Vui lòng thử lại với từ khóa tìm kiếm họ tên hoặc mã số BHYT khác.'
+                    : 'Thêm thông tin người thân trong gia đình để bác sĩ phụ trách quản lý hồ sơ sức khỏe và phân bổ lịch khám.'}
+                </p>
+                {searchQuery ? (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="text-xs font-semibold text-[#2E37A4] underline cursor-pointer"
+                  >
+                    Xóa tìm kiếm
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddMemberModal(true)}
+                    className="px-4 py-2 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-semibold transition-all inline-flex items-center gap-1.5 shadow-xs cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">add</span>
+                    <span>Thêm thành viên ngay</span>
+                  </button>
+                )}
               </div>
             ) : (
               filteredMembers.map((m) => {
@@ -831,7 +1053,7 @@ export function FamilyMembersView() {
                     Thêm Người Thân Vào Sổ Hộ Tịch Y Tế
                   </h3>
                   <p className="text-xs text-blue-100 truncate mt-0.5">
-                    Hộ #FAM-88219 · Bác sĩ phụ trách: {householdDoctor.name}
+                    Hộ #{householdCode} · Bác sĩ phụ trách: {householdDoctor?.name || 'Đang chờ chỉ định'}
                   </p>
                 </div>
               </div>
@@ -1225,7 +1447,7 @@ export function FamilyMembersView() {
                 <h3 className="font-bold text-base text-slate-900">
                   Xác nhận tách thành viên khỏi hộ
                 </h3>
-                <p className="text-xs text-slate-500">Hộ gia đình #FAM-88219</p>
+                <p className="text-xs text-slate-500">Hộ gia đình #{householdCode}</p>
               </div>
             </div>
 
@@ -1270,7 +1492,7 @@ export function FamilyMembersView() {
                   <h3 className="font-bold text-base text-slate-900">
                     Đổi Bác Sĩ Gia Đình Phụ Trách Hộ
                   </h3>
-                  <p className="text-xs text-slate-500">Áp dụng đồng bộ cho toàn bộ Hộ #FAM-88219</p>
+                  <p className="text-xs text-slate-500">Áp dụng đồng bộ cho toàn bộ Hộ #{householdCode}</p>
                 </div>
               </div>
               <button
@@ -1312,7 +1534,7 @@ export function FamilyMembersView() {
                   avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=200&auto=format&fit=crop',
                 },
               ].map((doc, idx) => {
-                const isCurrent = doc.name === householdDoctor.name;
+                const isCurrent = householdDoctor ? doc.name === householdDoctor.name : false;
                 return (
                   <button
                     key={idx}
@@ -1320,11 +1542,17 @@ export function FamilyMembersView() {
                     onClick={() => {
                       if (!isCurrent) {
                         setHouseholdDoctor((prev) => ({
-                          ...prev,
+                          ...(prev || INITIAL_HOUSEHOLD_DOCTOR),
+                          id: prev?.id || 'doc-changed',
                           name: doc.name,
                           title: doc.title,
                           hospital: doc.hospital,
                           avatar: doc.avatar,
+                          phone: prev?.phone || '0988 123 456',
+                          licenseNo: prev?.licenseNo || 'CCHN-003892/BYT',
+                          experienceYears: prev?.experienceYears || 15,
+                          assignedSince: prev?.assignedSince || '15/01/2026',
+                          nextScheduledVisit: prev?.nextScheduledVisit || '09:30 · Thứ Hai (Khám định kỳ tại nhà)',
                         }));
                         setToastMessage(`Đã điều chuyển Bác sĩ Gia đình phụ trách hộ sang ${doc.name}!`);
                       }

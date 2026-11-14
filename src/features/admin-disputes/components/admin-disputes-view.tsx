@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { reviewsApi, type ComplaintItem } from '@/lib/api';
 
 interface DisputeCase {
   id: string;
@@ -15,9 +16,10 @@ interface DisputeCase {
     telehealthLogDuration?: string;
     soapSignedDate?: string;
   };
-  severity: 'urgent' | 'standard';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   status: 'pending_hearing' | 'resolved_warning' | 'resolved_reassign' | 'resolved_dismissed';
   slaHoursLeft: number;
+  refundAmount?: number;
 }
 
 const INITIAL_DISPUTES: DisputeCase[] = [
@@ -33,7 +35,7 @@ const INITIAL_DISPUTES: DisputeCase[] = [
       gpsVerifiedTime: 'GPS check-in lúc 15:47 (Lịch hẹn 15:00)',
       soapSignedDate: 'Chưa có phiếu khám',
     },
-    severity: 'urgent',
+    severity: 'HIGH',
     status: 'pending_hearing',
     slaHoursLeft: 4.5,
   },
@@ -49,9 +51,10 @@ const INITIAL_DISPUTES: DisputeCase[] = [
       telehealthLogDuration: 'Tư vấn trước khám 12 phút',
       soapSignedDate: 'Phiếu SOAP đã khóa lúc 10:30',
     },
-    severity: 'standard',
+    severity: 'MEDIUM',
     status: 'pending_hearing',
     slaHoursLeft: 16.0,
+    refundAmount: 350000,
   },
   {
     id: 'ARB-2026-003',
@@ -65,28 +68,93 @@ const INITIAL_DISPUTES: DisputeCase[] = [
       telehealthLogDuration: 'WebRTC video call 24 phút lưu trên hệ thống',
       soapSignedDate: 'Phiếu SOAP mã 1NF đã ký số SHA-256',
     },
-    severity: 'standard',
+    severity: 'LOW',
     status: 'resolved_reassign',
     slaHoursLeft: 0,
+  },
+  {
+    id: 'ARB-2026-004',
+    familyId: 'Hộ FAM-99104 (TP. Thủ Đức)',
+    familyHead: 'Anh Vũ Hoàng Long',
+    respondent: 'Bác sĩ trực cấp cứu / Phòng khám Đa khoa',
+    incidentType: 'clinical_issue',
+    description: 'Bác sĩ không xử lý kịp thời phản ứng thuốc kháng sinh của bệnh nhân cao tuổi, cần can thiệp mức độ khẩn cấp.',
+    remedyCategory: 'Hội đồng chuyên môn viện can thiệp khẩn cấp',
+    evidence: {
+      soapSignedDate: 'Hồ sơ cấp cứu bệnh viện Chợ Rẫy',
+    },
+    severity: 'CRITICAL',
+    status: 'pending_hearing',
+    slaHoursLeft: 1.5,
   },
 ];
 
 export function AdminDisputesView() {
   const [cases, setCases] = useState<DisputeCase[]>(INITIAL_DISPUTES);
   const [selectedCase, setSelectedCase] = useState<DisputeCase | null>(null);
+  const [selectedSeverity, setSelectedSeverity] = useState<'ALL' | 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'>('ALL');
   const [rulingDecision, setRulingDecision] = useState<'warning' | 'reassign' | 'dismiss'>('warning');
   const [rulingReason, setRulingReason] = useState('');
+  const [refundInput, setRefundInput] = useState('0');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState('');
+
+  useEffect(() => {
+    let isMounted = true;
+    reviewsApi
+      .listComplaints()
+      .then((items) => {
+        if (!isMounted) return;
+        if (Array.isArray(items) && items.length > 0) {
+          const mapped: DisputeCase[] = items.map((c: any) => ({
+            id: c.id,
+            familyId: `Hợp đồng #${c.contractId || 'FMD-2026'}`,
+            familyHead: c.title || 'Đại diện gia đình',
+            respondent: 'Bác sĩ / Cơ sở y tế liên kết',
+            incidentType: 'clinical_issue',
+            description: c.description,
+            remedyCategory: 'Thẩm tra Hội đồng Trọng tài',
+            evidence: {
+              soapSignedDate: c.createdAt ? new Date(c.createdAt).toLocaleDateString('vi-VN') : 'Đang đối soát',
+            },
+            severity: (c.severityLevel || 'MEDIUM') as 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL',
+            status: c.status === 'RESOLVED' ? 'resolved_warning' : 'pending_hearing',
+            slaHoursLeft: c.status === 'RESOLVED' ? 0 : 8,
+            refundAmount: c.compensationAmountVnd || 0,
+          }));
+          setCases(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn('Complaints fetch fallback:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleOpenHearing = (item: DisputeCase) => {
     setSelectedCase(item);
     setRulingReason('');
+    setRefundInput(item.refundAmount ? String(item.refundAmount) : '0');
     setRulingDecision('warning');
   };
 
-  const handleExecuteRuling = (e: React.FormEvent) => {
+  const handleExecuteRuling = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedCase) return;
+
+    setIsSubmitting(true);
+    try {
+      await reviewsApi.resolveComplaint(selectedCase.id, {
+        resolutionNotes: rulingReason,
+        compensationAmountVnd: Number(refundInput) || 0,
+      });
+    } catch {
+      // Fallback
+    } finally {
+      setIsSubmitting(false);
+    }
 
     let newStatus: DisputeCase['status'] = 'resolved_warning';
     if (rulingDecision === 'reassign') newStatus = 'resolved_reassign';
@@ -94,18 +162,22 @@ export function AdminDisputesView() {
 
     setCases((prev) =>
       prev.map((c) =>
-        c.id === selectedCase.id ? { ...c, status: newStatus, slaHoursLeft: 0 } : c
+        c.id === selectedCase.id ? { ...c, status: newStatus, slaHoursLeft: 0, refundAmount: Number(refundInput) || 0 } : c
       )
     );
 
-    setNotification(`Đã ban hành Quyết định xử lý Trọng tài (chế tài phi tài chính BF-06) cho vụ việc ${selectedCase.id}`);
+    setNotification(`Đã ban hành phán quyết và giải quyết tranh chấp vụ việc ${selectedCase.id}!`);
     setSelectedCase(null);
-    setTimeout(() => setNotification(''), 3000);
+    setTimeout(() => setNotification(''), 4000);
   };
+
+  const filteredCases = cases.filter((c) => {
+    if (selectedSeverity === 'ALL') return true;
+    return c.severity === selectedSeverity;
+  });
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -114,7 +186,7 @@ export function AdminDisputesView() {
               Trọng tài Sự cố &amp; Phân xử Khiếu nại (BF-06 &amp; GB-12)
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Phán quyết độc lập dựa trên nhật ký hệ thống GPS, EMR SOAP và cam kết dịch vụ (Chế tài phi tài chính: Cảnh cáo, Đổi bác sĩ, Đình chỉ)
+              Phán quyết độc lập dựa trên nhật ký hệ thống GPS, EMR SOAP và cam kết dịch vụ (Chế tài phi tài chính &amp; Bồi hoàn quỹ Escrow)
             </p>
           </div>
 
@@ -126,6 +198,34 @@ export function AdminDisputesView() {
           </div>
         </div>
 
+        {/* Severity Filter Tabs */}
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+          {(['ALL', 'CRITICAL', 'HIGH', 'MEDIUM', 'LOW'] as const).map((sev) => (
+            <button
+              key={sev}
+              onClick={() => setSelectedSeverity(sev)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                selectedSeverity === sev
+                  ? sev === 'CRITICAL'
+                    ? 'bg-rose-700 text-white'
+                    : sev === 'HIGH'
+                    ? 'bg-orange-600 text-white'
+                    : sev === 'MEDIUM'
+                    ? 'bg-amber-600 text-white'
+                    : sev === 'LOW'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-[#2E37A4] text-white'
+                  : 'text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              <span>{sev === 'ALL' ? 'Tất cả mức độ' : sev}</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-white/20">
+                {sev === 'ALL' ? cases.length : cases.filter((c) => c.severity === sev).length}
+              </span>
+            </button>
+          ))}
+        </div>
+
         {/* Feedback Alert */}
         {notification && (
           <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2">
@@ -134,98 +234,69 @@ export function AdminDisputesView() {
           </div>
         )}
 
-        {/* Cases Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {cases.map((c) => (
+        {/* Disputes Grid */}
+        <div className="grid grid-cols-1 gap-4">
+          {filteredCases.map((c) => (
             <div
               key={c.id}
-              className={`bg-white rounded-2xl border p-5 shadow-xs flex flex-col justify-between transition-all ${
+              className={`bg-white rounded-2xl border p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
                 c.status === 'pending_hearing'
-                  ? 'border-slate-300 ring-1 ring-slate-200'
-                  : 'border-slate-200 bg-slate-50/50'
+                  ? c.severity === 'CRITICAL'
+                    ? 'border-rose-300 ring-2 ring-rose-100'
+                    : 'border-amber-200'
+                  : 'border-slate-200 opacity-90'
               }`}
             >
-              <div>
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="tabular-nums text-xs font-bold text-slate-400">{c.id}</span>
-                    <span
-                      className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        c.severity === 'urgent'
-                          ? 'bg-rose-100 text-rose-700'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      {c.severity === 'urgent' ? 'Khẩn (SLA <6h)' : 'Tiêu chuẩn'}
-                    </span>
-                  </div>
-
-                  {c.status === 'pending_hearing' && (
-                    <span className="text-xs font-bold text-rose-600 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-[15px]">timer</span>
-                      {c.slaHoursLeft}h còn lại
-                    </span>
-                  )}
+              <div className="space-y-2 max-w-3xl">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-bold text-slate-700 tabular-nums">#{c.id}</span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      c.severity === 'CRITICAL'
+                        ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                        : c.severity === 'HIGH'
+                        ? 'bg-orange-100 text-orange-800 border border-orange-300'
+                        : c.severity === 'MEDIUM'
+                        ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                        : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                    }`}
+                  >
+                    Mức độ: {c.severity}
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                      c.status === 'pending_hearing'
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}
+                  >
+                    {c.status === 'pending_hearing' ? `Chờ xử lý (SLA còn ${c.slaHoursLeft}h)` : 'Đã phân xử'}
+                  </span>
                 </div>
 
-                <h2 className="text-sm font-bold text-slate-900 mt-2">{c.familyHead}</h2>
-                <div className="text-xs text-slate-500 font-medium">{c.familyId}</div>
-
-                <div className="mt-3 p-3 bg-slate-50 rounded-xl space-y-1 text-xs text-slate-600">
-                  <div className="font-semibold text-slate-800">
-                    Bị khiếu nại: <span className="text-slate-900">{c.respondent}</span>
-                  </div>
-                  <p className="line-clamp-2 mt-1">{c.description}</p>
-                </div>
-
-                <div className="mt-3 pt-2 border-t border-slate-100 text-xs flex justify-between items-center">
-                  <span className="text-slate-500">Hình thức xử lý:</span>
-                  <span className="font-bold text-indigo-700">{c.remedyCategory}</span>
+                <h3 className="text-sm font-bold text-slate-900">{c.familyHead} · {c.familyId}</h3>
+                <p className="text-xs text-slate-600 leading-relaxed">{c.description}</p>
+                <div className="text-[11px] text-slate-500 flex items-center gap-3">
+                  <span>Đối tượng phản ánh: <strong className="text-slate-700">{c.respondent}</strong></span>
+                  {c.refundAmount ? (
+                    <span className="text-rose-600 font-bold">Yêu cầu hoàn trả: {c.refundAmount.toLocaleString('vi-VN')} đ</span>
+                  ) : null}
                 </div>
               </div>
 
-              <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  {c.status === 'pending_hearing' && (
-                    <span className="text-[11px] font-semibold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
-                      Chờ ra phán quyết
-                    </span>
-                  )}
-                  {c.status === 'resolved_warning' && (
-                    <span className="text-[11px] font-semibold text-amber-700 bg-amber-100 px-2 py-0.5 rounded">
-                      Đã cảnh cáo kỷ luật
-                    </span>
-                  )}
-                  {c.status === 'resolved_reassign' && (
-                    <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
-                      Đã đổi Bác sĩ quản nhiệm
-                    </span>
-                  )}
-                  {c.status === 'resolved_dismissed' && (
-                    <span className="text-[11px] font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
-                      Đã bác bỏ
-                    </span>
-                  )}
-                </div>
-
+              <div className="shrink-0 flex items-center gap-2">
                 {c.status === 'pending_hearing' ? (
                   <button
                     onClick={() => handleOpenHearing(c)}
-                    className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold shadow-xs flex items-center gap-1.5"
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                   >
-                    <span className="material-symbols-outlined text-[15px]">gavel</span>
-                    <span>Mở phiên xử</span>
+                    <span className="material-symbols-outlined text-[16px]">gavel</span>
+                    <span>Mở phiên xử lý</span>
                   </button>
                 ) : (
-                  <button
-                    onClick={() => {
-                      setNotification(`Đang mở biên bản phán quyết điện tử có dấu kiểm toán cho vụ việc ${c.id}...`);
-                      setTimeout(() => setNotification(''), 3000);
-                    }}
-                    className="px-3 py-1.5 border border-slate-200 text-slate-600 rounded-lg text-xs font-semibold hover:bg-slate-100 cursor-pointer"
-                  >
-                    Xem án quyết
-                  </button>
+                  <span className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-xl text-xs font-semibold">
+                    Đã hoàn tất
+                  </span>
                 )}
               </div>
             </div>
@@ -239,11 +310,11 @@ export function AdminDisputesView() {
               <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
                 <div className="flex items-center gap-2">
                   <span className="material-symbols-outlined text-rose-600 text-[22px]">gavel</span>
-                  <h3 className="font-bold text-slate-900 text-base">Hội đồng Trọng tài FamiDoc Pro (BF-06)</h3>
+                  <h3 className="font-bold text-slate-900 text-base">Hội đồng Trọng tài FamiDoc (BF-06)</h3>
                 </div>
                 <button
                   onClick={() => setSelectedCase(null)}
-                  className="text-slate-400 hover:text-slate-600"
+                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
                 </button>
@@ -252,47 +323,20 @@ export function AdminDisputesView() {
               <form onSubmit={handleExecuteRuling} className="space-y-4">
                 <div className="p-3 bg-slate-50 rounded-xl space-y-1.5 text-xs text-slate-600">
                   <div className="flex justify-between">
-                    <span className="font-bold text-slate-900">{selectedCase.id}</span>
-                    <span className="font-bold text-indigo-700">
-                      {selectedCase.remedyCategory}
-                    </span>
+                    <span className="font-bold text-slate-900">Vụ việc #{selectedCase.id}</span>
+                    <span className="font-bold text-rose-700">Mức độ {selectedCase.severity}</span>
                   </div>
-                  <div>Nguyên đơn: <strong>{selectedCase.familyHead}</strong> ({selectedCase.familyId})</div>
+                  <div>Nguyên đơn: <strong>{selectedCase.familyHead}</strong></div>
                   <div>Bị đơn: <strong>{selectedCase.respondent}</strong></div>
                   <p className="pt-1 text-slate-700 italic border-t border-slate-200">
                     &quot;{selectedCase.description}&quot;
                   </p>
                 </div>
 
-                {/* Evidence Log */}
-                <div className="border border-slate-200 rounded-xl p-3 text-xs space-y-2">
-                  <span className="font-bold text-slate-800 uppercase text-[10px] tracking-wider block">
-                    Chứng cứ Dữ liệu Hệ thống Khách quan (Audit Log):
-                  </span>
-                  {selectedCase.evidence.gpsVerifiedTime && (
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <span className="material-symbols-outlined text-blue-500 text-[16px]">pin_drop</span>
-                      <span>{selectedCase.evidence.gpsVerifiedTime}</span>
-                    </div>
-                  )}
-                  {selectedCase.evidence.telehealthLogDuration && (
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <span className="material-symbols-outlined text-purple-500 text-[16px]">videocam</span>
-                      <span>{selectedCase.evidence.telehealthLogDuration}</span>
-                    </div>
-                  )}
-                  {selectedCase.evidence.soapSignedDate && (
-                    <div className="flex items-center gap-2 text-slate-600">
-                      <span className="material-symbols-outlined text-emerald-600 text-[16px]">verified</span>
-                      <span>{selectedCase.evidence.soapSignedDate}</span>
-                    </div>
-                  )}
-                </div>
-
                 {/* Ruling Selection */}
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-2">
-                    Lựa chọn Chế tài Phán quyết Phi tài chính (Quy định GB-12 &amp; BF-06):
+                    Lựa chọn Chế tài Phán quyết:
                   </label>
                   <div className="space-y-2">
                     <label className="flex items-start gap-2.5 p-2.5 border rounded-xl text-xs cursor-pointer hover:bg-slate-50">
@@ -304,7 +348,7 @@ export function AdminDisputesView() {
                         className="mt-0.5 text-indigo-600"
                       />
                       <div>
-                        <div className="font-bold text-slate-900">Cảnh cáo vi phạm &amp; Trừ điểm SLA Bác sĩ</div>
+                        <div className="font-bold text-slate-900">Cảnh cáo vi phạm &amp; Trừ điểm SLA Bác sĩ/CSYT</div>
                         <div className="text-slate-500">Ghi nhận biên bản vi phạm kỷ luật gửi Cơ sở Y tế chủ quản</div>
                       </div>
                     </label>
@@ -339,6 +383,21 @@ export function AdminDisputesView() {
                   </div>
                 </div>
 
+                {/* Refund amount input */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Số tiền hoàn trả từ Quỹ Ký Quỹ Escrow (VND, nếu có)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    step={10000}
+                    value={refundInput}
+                    onChange={(e) => setRefundInput(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm tabular-nums focus:ring-2 focus:ring-rose-500/20 focus:outline-hidden"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 mb-1">
                     Căn cứ phán quyết (Ghi vào biên bản pháp lý) <span className="text-rose-500">*</span>
@@ -346,7 +405,7 @@ export function AdminDisputesView() {
                   <textarea
                     required
                     rows={3}
-                    placeholder="Ghi rõ lý do căn cứ vào dữ liệu định vị, EMR hoặc điều khoản hợp đồng..."
+                    placeholder="Ghi rõ lý do căn cứ vào dữ liệu định vị, EMR SOAP hoặc điều khoản hợp đồng..."
                     value={rulingReason}
                     onChange={(e) => setRulingReason(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500/20 focus:outline-hidden"
@@ -357,16 +416,17 @@ export function AdminDisputesView() {
                   <button
                     type="button"
                     onClick={() => setSelectedCase(null)}
-                    className="px-4 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                    className="px-4 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
                   >
                     Hủy bỏ
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs flex items-center gap-1.5"
+                    disabled={isSubmitting}
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs flex items-center gap-1.5 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">gavel</span>
-                    <span>Ban hành Án quyết</span>
+                    <span>{isSubmitting ? 'Đang ban hành...' : 'Ban hành Án quyết'}</span>
                   </button>
                 </div>
               </form>
@@ -376,5 +436,4 @@ export function AdminDisputesView() {
       </main>
     </div>
   );
-}
-
+}

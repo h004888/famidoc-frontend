@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { contractsApi, type MedicalContractListItem } from '@/lib/api';
 import { ContractSigningWizard } from './contract-signing-wizard';
 import {
   useContractWorkflow,
@@ -130,6 +131,36 @@ export function SubscriptionContractView() {
   const [terminationNote, setTerminationNote] = useState('');
   const [quotas, setQuotas] = useState<QuotaItem[]>(PACKAGE_QUOTAS);
   const [contractPlanName, setContractPlanName] = useState('Gói Bác Sĩ Gia Đình Toàn Diện VIP (12 Tháng)');
+  const [serverContracts, setServerContracts] = useState<MedicalContractListItem[]>([]);
+  const [activeServerContract, setActiveServerContract] = useState<MedicalContractListItem | null>(null);
+  const [isLoadingContracts, setIsLoadingContracts] = useState<boolean>(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    contractsApi
+      .getMedicalContracts()
+      .then((res) => {
+        if (!isMounted) return;
+        const list = Array.isArray(res) ? res : [];
+        setServerContracts(list);
+        if (list.length > 0) {
+          const matched = list.find((c) => c.contractStatus === 'ACTIVE') || list[0];
+          setActiveServerContract(matched);
+          if (matched.packageName) {
+            setContractPlanName(matched.packageName);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Contracts API fetch fallback:', err);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingContracts(false);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const [toastMessage, setToastMessage] = useState<string | null>(
     activePackageInfo
       ? `Đã chọn ${activePackageInfo.name}. Mời quý khách xem điều khoản và ký hợp đồng 4 bên.`
@@ -141,8 +172,36 @@ export function SubscriptionContractView() {
     setTimeout(() => setToastMessage(null), 4000);
   };
 
-  const handleApplyAddendum = (e: React.FormEvent) => {
+  const handleApplyAddendum = async (e: React.FormEvent) => {
     e.preventDefault();
+    const contractId = activeServerContract?.id;
+
+    if (contractId) {
+      try {
+        if (selectedAddendum === 'home-visit-1') {
+          await contractsApi.createAddendum(contractId, {
+            requestKey: `addon-visit-1-${Date.now()}`,
+            type: 'QUOTA_EXPANSION',
+            extraHomeVisits: 1,
+          });
+        } else if (selectedAddendum === 'home-visit-3') {
+          await contractsApi.createAddendum(contractId, {
+            requestKey: `addon-visit-3-${Date.now()}`,
+            type: 'QUOTA_EXPANSION',
+            extraHomeVisits: 3,
+          });
+        } else if (selectedAddendum === 'member-slot') {
+          await contractsApi.createAddendum(contractId, {
+            requestKey: `addon-member-slot-${Date.now()}`,
+            type: 'MEMBER_EXTENSION',
+            additionalMembers: 2,
+          });
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
     if (selectedAddendum === 'home-visit-1') {
       setQuotas((prev) =>
         prev.map((q) =>
@@ -186,6 +245,50 @@ export function SubscriptionContractView() {
     setIsAddendumModalOpen(false);
   };
 
+  const handleDownloadDocument = async () => {
+    const contractId = activeServerContract?.id;
+    if (contractId) {
+      try {
+        showToast('Đang kết xuất văn bản hợp đồng điện tử 4 bên...');
+        const doc = await contractsApi.getContractDocument(contractId);
+        if (doc && doc.htmlContent) {
+          const blob = new Blob([doc.htmlContent], { type: 'text/html;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `Hop_dong_${doc.contractNumber || 'FamiDoc'}.html`;
+          a.click();
+          showToast('Đã tải văn bản hợp đồng điện tử thành công!');
+          return;
+        }
+      } catch {
+        // Fallback
+      }
+    }
+    showToast('Đang tải file Hợp đồng PDF có chứng thư ký số 4 bên...');
+  };
+
+  const handleFamilySignContract = async () => {
+    const contractId = activeServerContract?.id;
+    if (contractId) {
+      try {
+        await contractsApi.signContract(contractId, { confirmationCode: 'OTP-VIETTEL' });
+        showToast('Ký số điện tử hợp đồng thành công với mã chứng thực Viettel-CA!');
+        setActiveServerContract((prev) =>
+          prev ? { ...prev, signaturesCount: (prev.signaturesCount || 0) + 1 } : null
+        );
+        return;
+      } catch {
+        // Fallback
+      }
+    }
+    updateContractStep('PENDING_FACILITY_SIGN', {
+      familySigned: true,
+      familySignedAt: new Date().toLocaleString('vi-VN'),
+    });
+    showToast('Đã ký số điện tử hợp đồng 4 bên thành công qua OTP!');
+  };
+
   const handleTerminationSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setIsTerminationModalOpen(false);
@@ -209,13 +312,13 @@ export function SubscriptionContractView() {
     {
       code: 'BÊN A · ĐẠI DIỆN HỘ GIA ĐÌNH',
       badgeClass: 'bg-blue-50 text-[#2E37A4] border-blue-200/80',
-      name: workflow?.familyHeadName || 'Nguyễn Văn An',
-      identifier: `Mã hộ #${workflow?.familyId || 'FAM-88219'} · SĐT: ${workflow?.familyPhone || '0912345678'}`,
+      name: activeServerContract?.familyHeadName || workflow?.familyHeadName || 'Nguyễn Văn An',
+      identifier: `Mã hộ #${activeServerContract?.familyId || workflow?.familyId || 'FAM-88219'} · SĐT: ${workflow?.familyPhone || '0912345678'}`,
       roleDesc: 'Đại diện Hộ Gia Đình ký kết gói chăm sóc',
-      signMethod: workflow?.familySigned ? 'Đã ký OTP Viettel' : 'Chưa ký số',
+      signMethod: (activeServerContract?.signaturesCount ?? 0) >= 1 || workflow?.familySigned ? 'Đã ký OTP Viettel' : 'Chưa ký số',
       signDetail: workflow?.familyOtpMethod || 'Mã OTP Viettel 0988',
-      signedAt: workflow?.familySignedAt || 'Chưa hoàn tất',
-      isSigned: !!workflow?.familySigned,
+      signedAt: workflow?.familySignedAt || (activeServerContract?.signaturesCount ? 'Đã xác nhận ký' : 'Chưa hoàn tất'),
+      isSigned: (activeServerContract?.signaturesCount ?? 0) >= 1 || !!workflow?.familySigned,
     },
     {
       code: 'BÊN B · NỀN TẢNG FAMIDOC',
@@ -223,34 +326,50 @@ export function SubscriptionContractView() {
       name: 'FamiDoc Platform Administration',
       identifier: 'MST: 0317892182 · SmartCA',
       roleDesc: 'Đơn vị vận hành hồ sơ EHR & điều phối mạng lưới 24/7',
-      signMethod: workflow?.adminSigned ? 'Chứng thư số FamiDoc SmartCA' : 'Chờ Admin duyệt (Bên B)',
+      signMethod: (activeServerContract?.signaturesCount ?? 0) >= 4 || workflow?.adminSigned ? 'Chứng thư số FamiDoc SmartCA' : 'Chờ Admin duyệt (Bên B)',
       signDetail: workflow?.adminCertSerial || 'Chuẩn SHA-256 RSA',
-      signedAt: workflow?.adminSignedAt || 'Chờ ký duyệt',
-      isSigned: !!workflow?.adminSigned,
+      signedAt: workflow?.adminSignedAt || ((activeServerContract?.signaturesCount ?? 0) >= 4 ? 'Đã duyệt' : 'Chờ ký duyệt'),
+      isSigned: (activeServerContract?.signaturesCount ?? 0) >= 4 || !!workflow?.adminSigned,
     },
     {
       code: 'BÊN C · CƠ SỞ Y TẾ ĐỐI TÁC',
       badgeClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
-      name: workflow?.facilityName || 'BV Đại học Y Dược TP.HCM',
+      name: activeServerContract?.facilityName || workflow?.facilityName || 'BV Đại học Y Dược TP.HCM',
       identifier: 'Mã CSYT: 79024 · Tuyến TW',
-      roleDesc: workflow?.assignedDoctorName ? `Đã phân công: ${workflow.assignedDoctorName}` : 'Bảo trợ chuyên môn & phân công bác sĩ',
-      signMethod: workflow?.facilitySigned ? 'Chữ ký số Bệnh viện VNPT-CA' : 'Chờ cơ sở y tế (Bên C)',
+      roleDesc: activeServerContract?.doctorName ? `Đã phân công: ${activeServerContract.doctorName}` : (workflow?.assignedDoctorName ? `Đã phân công: ${workflow.assignedDoctorName}` : 'Bảo trợ chuyên môn & phân công bác sĩ'),
+      signMethod: (activeServerContract?.signaturesCount ?? 0) >= 2 || workflow?.facilitySigned ? 'Chữ ký số Bệnh viện VNPT-CA' : 'Chờ cơ sở y tế (Bên C)',
       signDetail: workflow?.facilitySignerName || 'Định danh: UMC-HCMC-CA',
-      signedAt: workflow?.facilitySignedAt || 'Chờ phân công & ký',
-      isSigned: !!workflow?.facilitySigned,
+      signedAt: workflow?.facilitySignedAt || ((activeServerContract?.signaturesCount ?? 0) >= 2 ? 'Đã ký xác nhận' : 'Chờ phân công & ký'),
+      isSigned: (activeServerContract?.signaturesCount ?? 0) >= 2 || !!workflow?.facilitySigned,
     },
     {
       code: 'BÊN D · BÁC SĨ PHỤ TRÁCH',
       badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
-      name: workflow?.assignedDoctorName || 'BS.CKII Trần Thanh Mai',
+      name: activeServerContract?.doctorName || workflow?.assignedDoctorName || 'BS.CKII Trần Thanh Mai',
       identifier: `CCHN: ${workflow?.doctorCchn || '004128/HCM'}`,
       roleDesc: 'Bác sĩ gia đình phụ trách trực tiếp hộ',
-      signMethod: workflow?.doctorSigned ? 'Chữ ký số cá nhân Viettel-CA' : 'Chờ bác sĩ xác nhận (Bên D)',
+      signMethod: (activeServerContract?.signaturesCount ?? 0) >= 3 || workflow?.doctorSigned ? 'Chữ ký số cá nhân Viettel-CA' : 'Chờ bác sĩ xác nhận (Bên D)',
       signDetail: 'Cam kết trách nhiệm y đức & SLA',
-      signedAt: workflow?.doctorSignedAt || 'Chờ xác nhận chuyên môn',
-      isSigned: !!workflow?.doctorSigned,
+      signedAt: workflow?.doctorSignedAt || ((activeServerContract?.signaturesCount ?? 0) >= 3 ? 'Đã ký cam kết' : 'Chờ xác nhận chuyên môn'),
+      isSigned: (activeServerContract?.signaturesCount ?? 0) >= 3 || !!workflow?.doctorSigned,
     },
   ];
+
+  const displayContractNumber = activeServerContract?.contractNumber || workflow?.contractCode || 'CTR-4P-2026-88219';
+  const isContractActive = activeServerContract ? activeServerContract.contractStatus === 'ACTIVE' : workflow?.step === 'ACTIVE';
+  const displayStatusBadge = activeServerContract
+    ? activeServerContract.contractStatus === 'ACTIVE'
+      ? 'Đang hiệu lực (ACTIVE)'
+      : (activeServerContract.contractStatus as string) === 'PENDING_APPROVAL'
+      ? 'Chờ ký kết & Phân công BS'
+      : (activeServerContract.contractStatus as string) === 'SUSPENDED'
+      ? 'Tạm ngưng phục vụ'
+      : 'Chờ kích hoạt'
+    : workflow?.statusLabel || 'Đang hiệu lực (ACTIVE)';
+
+  const displayAnnualFee = activeServerContract
+    ? `${activeServerContract.totalAmountVnd.toLocaleString('vi-VN')} đ/năm`
+    : '9.600.000 đ/năm';
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
@@ -262,21 +381,21 @@ export function SubscriptionContractView() {
             <div className="space-y-2.5 flex-1 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
-                  #{workflow?.contractCode || 'CTR-4P-2026-88219'}
+                  #{displayContractNumber}
                 </span>
                 <span
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
-                    workflow?.step === 'ACTIVE'
+                    isContractActive
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
                       : 'bg-amber-50 text-amber-800 border-amber-200/60 animate-pulse'
                   }`}
                 >
                   <span
                     className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      workflow?.step === 'ACTIVE' ? 'bg-emerald-500' : 'bg-amber-500'
+                      isContractActive ? 'bg-emerald-500' : 'bg-amber-500'
                     }`}
                   />
-                  <span>{workflow?.statusLabel || 'Đang hiệu lực (ACTIVE)'}</span>
+                  <span>{displayStatusBadge}</span>
                 </span>
               </div>
 
@@ -286,12 +405,23 @@ export function SubscriptionContractView() {
 
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
                 Hiệu lực từ <strong className="text-slate-800 font-semibold">01/01/2026 – 31/12/2026</strong> · Phí thường niên trọn gói:{' '}
-                <strong className="text-[#2E37A4] tabular-nums font-bold">9.600.000 đ/năm</strong> (Bảo lãnh 100% quyền lợi Escrow)
+                <strong className="text-[#2E37A4] tabular-nums font-bold">{displayAnnualFee}</strong> (Bảo lãnh 100% quyền lợi Escrow)
               </p>
             </div>
 
             {/* Cột phải: Cụm nút hành động tinh gọn & phân cấp chuẩn UX */}
             <div className="flex flex-wrap items-center gap-2.5 shrink-0 self-start">
+              {/* Nút Thanh toán VietQR kích hoạt hợp đồng nếu chưa ACTIVE */}
+              {((activeServerContract && activeServerContract.contractStatus !== 'ACTIVE') || workflow?.step === 'PENDING_PAYMENT') && (
+                <Link
+                  href={`/family/billing?contractId=${activeServerContract?.id || ''}`}
+                  className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap animate-pulse"
+                >
+                  <span className="material-symbols-outlined text-[19px]">qr_code_2</span>
+                  <span>Thanh Toán VietQR Kích Hoạt</span>
+                </Link>
+              )}
+
               {/* Nút Chọn Bác Sĩ & Đăng Ký Gói Mới (Toàn Màn Hình) */}
               <Link
                 href="/family/subscription/new"
@@ -314,12 +444,12 @@ export function SubscriptionContractView() {
               {/* Nút hành động phụ (Secondary) */}
               <button
                 type="button"
-                onClick={() => showToast('Đang tải file Hợp đồng PDF có chứng thư ký số 4 bên...')}
+                onClick={handleDownloadDocument}
                 className="min-h-11 inline-flex items-center justify-center gap-2 px-3 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl text-sm font-semibold shadow-xs hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap"
-                title="Tải bản PDF hợp đồng có chữ ký số 4 bên"
+                title="Tải văn bản hợp đồng điện tử có chữ ký số 4 bên"
               >
                 <span className="material-symbols-outlined text-[19px] text-rose-500">picture_as_pdf</span>
-                <span>Tải bản PDF</span>
+                <span>Tải bản HĐ (HTML/PDF)</span>
               </button>
 
               {/* Menu tùy chọn bổ sung (Dropdown gom các thao tác ít dùng) */}
@@ -342,6 +472,18 @@ export function SubscriptionContractView() {
                       onClick={() => setIsActionsDropdownOpen(false)}
                     />
                     <div className="absolute right-0 top-full mt-2 w-60 bg-white rounded-2xl shadow-xl border border-slate-200 py-1.5 z-50 animate-in fade-in zoom-in-95">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsActionsDropdownOpen(false);
+                          handleFamilySignContract();
+                        }}
+                        className="w-full px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2.5 font-semibold transition-colors cursor-pointer text-left"
+                      >
+                        <span className="material-symbols-outlined text-[18px] text-emerald-600">draw</span>
+                        <span>Ký số điện tử (Bên A)</span>
+                      </button>
+
                       <Link
                         href="/family/billing"
                         onClick={() => setIsActionsDropdownOpen(false)}

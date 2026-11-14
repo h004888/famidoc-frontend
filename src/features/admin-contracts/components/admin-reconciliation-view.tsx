@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { formatCurrencyVND } from '@/lib/utils';
-import { contractsApi } from '@/lib/api';
+import { contractsApi, paymentsApi } from '@/lib/api';
 
 export type ReconciliationStatus = 'MATCHED' | 'PENDING' | 'FAILED';
 
@@ -129,6 +129,37 @@ export function AdminReconciliationView({
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    paymentsApi
+      .listTransactions()
+      .then((res) => {
+        if (!isMounted) return;
+        if (Array.isArray(res) && res.length > 0) {
+          const mapped: SePayTransaction[] = res.map((t: any) => ({
+            id: t.id,
+            transactionId: t.transactionId || t.sepayTransactionId || t.id,
+            contractId: t.contractId || 'ct-4p-001',
+            contractNumber: t.contractNumber || 'HD-4P-2026-0001',
+            amount: t.amount || t.totalAmountVnd || 0,
+            syntax: t.syntax || t.content || 'FAMIDOC THANHTOAN',
+            bankBrand: t.bankBrand || t.bankName || 'VietinBank',
+            accountNumber: t.accountNumber || '119000288819',
+            status: t.status === 'SUCCESS' || t.status === 'MATCHED' ? 'MATCHED' : t.status === 'PENDING' ? 'PENDING' : 'FAILED',
+            receivedAt: t.createdAt || t.receivedAt || new Date().toISOString(),
+            errorMessage: t.errorMessage,
+          }));
+          setTransactions(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn('Payments transactions fetch fallback:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const stats = useMemo(() => {
     const total = transactions.length;

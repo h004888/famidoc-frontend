@@ -45,27 +45,42 @@ export interface PatientDocumentDto {
 }
 
 export const patientsApi = {
-  getFamilyMembers: (): Promise<PatientDto[]> => {
-    return httpClient.get<PatientDto[]>('/api/v1/patients');
+  getFamilyMembers: async (): Promise<PatientDto[]> => {
+    const res = await httpClient.get<any>('/api/v1/patients');
+    if (res && typeof res === 'object') {
+      if ('data' in res && Array.isArray(res.data)) return res.data;
+    }
+    if (Array.isArray(res)) return res;
+    return [];
   },
 
-  getMemberById: (id: string): Promise<PatientDto> => {
-    return httpClient.get<PatientDto>(`/api/v1/patients/${id}`);
+  getMemberById: async (id: string): Promise<PatientDto> => {
+    const res = await httpClient.get<any>(`/api/v1/patients/${id}`);
+    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
+    return res as PatientDto;
   },
 
-  createFamilyMember: (dto: CreatePatientDto): Promise<PatientDto> => {
-    return httpClient.post<PatientDto>('/api/v1/patients', dto);
+  createFamilyMember: async (dto: CreatePatientDto): Promise<PatientDto> => {
+    const res = await httpClient.post<any>('/api/v1/patients', dto);
+    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
+    return res as PatientDto;
   },
 
-  updateFamilyMember: (id: string, dto: Partial<CreatePatientDto>): Promise<PatientDto> => {
-    return httpClient.put<PatientDto>(`/api/v1/patients/${id}`, dto);
+  updateFamilyMember: async (id: string, dto: Partial<CreatePatientDto>): Promise<PatientDto> => {
+    const res = await httpClient.put<any>(`/api/v1/patients/${id}`, dto);
+    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
+    return res as PatientDto;
   },
 
-  addMemberAllergy: (patientId: string, dto: PatientAllergyDto): Promise<PatientAllergyDto> => {
-    return httpClient.post<PatientAllergyDto>(`/api/v1/patients/${patientId}/allergies`, dto);
+  addMemberAllergy: async (patientId: string, dto: PatientAllergyDto): Promise<PatientAllergyDto> => {
+    const res = await httpClient.post<any>(`/api/v1/patients/${patientId}/allergies`, dto);
+    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
+    return res as PatientAllergyDto;
   },
 
-  addMemberDocument: (patientId: string, dto: PatientDocumentDto): Promise<PatientDocumentDto> => {
-    return httpClient.post<PatientDocumentDto>(`/api/v1/patients/${patientId}/documents`, dto);
+  addMemberDocument: async (patientId: string, dto: PatientDocumentDto): Promise<PatientDocumentDto> => {
+    const res = await httpClient.post<any>(`/api/v1/patients/${patientId}/documents`, dto);
+    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
+    return res as PatientDocumentDto;
   },
 };

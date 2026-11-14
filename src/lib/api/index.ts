@@ -3,3 +3,8 @@ export * from './patients.api';
 export * from './contracts.api';
 export * from './auth.api';
 export * from './public.api';
+export * from './payments.api';
+export * from './reviews.api';
+export * from './doctors.api';
+export * from './finance.api';
+export * from './admin-packages.api';

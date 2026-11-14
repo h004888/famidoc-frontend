@@ -1,5 +1,5 @@
 import { ApiError } from '../http/errors';
-import { COOKIE_KEYS } from '@/lib/auth-storage';
+import { COOKIE_KEYS, getCookie } from '@/lib/auth-storage';
 
 const LEGACY_TOKEN_KEY = 'famidoc_auth_token';
 
@@ -11,11 +11,12 @@ class HttpClient {
     this.baseUrl =
       process.env.INTERNAL_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:8080';
+      'https://api.famidoc.online';
     if (typeof window !== 'undefined') {
       this.token =
         sessionStorage.getItem(COOKIE_KEYS.TOKEN) ||
-        localStorage.getItem(COOKIE_KEYS.TOKEN);
+        localStorage.getItem(COOKIE_KEYS.TOKEN) ||
+        getCookie(COOKIE_KEYS.TOKEN);
     }
   }
 
@@ -47,7 +48,8 @@ class HttpClient {
     if (typeof window !== 'undefined') {
       this.token =
         sessionStorage.getItem(COOKIE_KEYS.TOKEN) ||
-        localStorage.getItem(COOKIE_KEYS.TOKEN);
+        localStorage.getItem(COOKIE_KEYS.TOKEN) ||
+        getCookie(COOKIE_KEYS.TOKEN);
     }
     return this.token;
   }

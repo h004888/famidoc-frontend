@@ -32,7 +32,7 @@ describe('Task 4: FamilyMembersView Integration with patientsApi', () => {
 
     await waitFor(() => {
       expect(getSpy).toHaveBeenCalled();
-      expect(screen.getByText('Nguyễn Văn Minh')).toBeInTheDocument();
+      expect(screen.getAllByText('Nguyễn Văn Minh')[0]).toBeInTheDocument();
     });
 
     getSpy.mockRestore();
@@ -67,7 +67,7 @@ describe('Task 4: FamilyMembersView Integration with patientsApi', () => {
     render(<FamilyMembersView />);
 
     await waitFor(() => {
-      expect(screen.getByText('Nguyễn Văn Minh')).toBeInTheDocument();
+      expect(screen.getAllByText('Nguyễn Văn Minh')[0]).toBeInTheDocument();
     });
 
     const addBtn = screen.getByRole('button', { name: /Thêm thành viên/i });

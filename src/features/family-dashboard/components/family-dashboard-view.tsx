@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useContractWorkflow } from '@/lib/contract-workflow-storage';
+import { contractsApi, patientsApi, type MedicalContractListItem, type PatientDto } from '@/lib/api';
+import { getStoredAuthSession } from '@/lib/auth-storage';
 import {
   INITIAL_FAMILY_MEMBERS_DATA,
   MemberHealthData,
@@ -20,17 +22,234 @@ interface FamilyMedicationItem {
   status: 'taken' | 'pending';
 }
 
+function calculateAge(dob?: string): number {
+  if (!dob) return 45;
+  const birthDate = new Date(dob);
+  if (isNaN(birthDate.getTime())) return 45;
+  const diff = Date.now() - birthDate.getTime();
+  const age = Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+  return age > 0 && age < 120 ? age : 45;
+}
+
+function formatRelation(rel?: string, gender?: string): string {
+  switch (rel) {
+    case 'SELF':
+      return 'Chủ hộ';
+    case 'SPOUSE':
+      return gender === 'FEMALE' ? 'Vợ' : 'Chồng';
+    case 'CHILD':
+      return 'Con';
+    case 'PARENT':
+      return gender === 'FEMALE' ? 'Mẹ' : 'Bố';
+    case 'OTHER':
+    default:
+      return 'Thành viên';
+  }
+}
+
+function getAvatar(rel?: string, gender?: string, age?: number): string {
+  if (age && age >= 60) {
+    return gender === 'FEMALE' ? '👵' : '👨‍🦳';
+  }
+  if (age && age < 18) {
+    return gender === 'FEMALE' ? '👧' : '👦';
+  }
+  return gender === 'FEMALE' ? '👩' : '👨';
+}
+
+function formatAllergies(allergies?: any[]): string {
+  if (!allergies || !Array.isArray(allergies) || allergies.length === 0) {
+    return 'Không có tiền sử dị ứng thuốc';
+  }
+  return allergies
+    .map((a) => (typeof a === 'string' ? a : a.allergen || 'Dị ứng thuốc'))
+    .join(', ');
+}
+
+function convertPatientsToMembersData(
+  patients: PatientDto[],
+  contract: MedicalContractListItem | null
+): Record<string, MemberHealthData> {
+  if (!patients || patients.length === 0) return INITIAL_FAMILY_MEMBERS_DATA;
+
+  const result: Record<string, MemberHealthData> = {};
+
+  patients.forEach((p, idx) => {
+    const age = calculateAge(p.dateOfBirth);
+    const relation = p.relationshipToHead
+      ? formatRelation(p.relationshipToHead, p.gender)
+      : idx === 0
+      ? 'Chủ hộ'
+      : 'Thành viên';
+    const avatar = getAvatar(p.relationshipToHead, p.gender, age);
+    const allergiesStr = formatAllergies(p.allergies);
+    const isElderly = age >= 60;
+    const isChild = age < 18;
+    const memberId = p.id || `mem-${idx + 1}`;
+
+    const medicines = isElderly
+      ? [
+          {
+            id: `med-${memberId}-1`,
+            name: 'Amlodipine 5mg (Hạ huyết áp)',
+            dosage: '1 viên nén • Uống sau ăn sáng',
+            time: '08:00 Sáng mỗi ngày',
+            status: 'taken' as const,
+          },
+          {
+            id: `med-${memberId}-2`,
+            name: 'Metformin 500mg (Đường huyết)',
+            dosage: '1 viên • Uống sau ăn tối',
+            time: '19:30 Tối mỗi ngày',
+            status: 'pending' as const,
+          },
+        ]
+      : isChild
+      ? [
+          {
+            id: `med-${memberId}-1`,
+            name: 'Vitamin D3 + K2 & Canxi sinh học',
+            dosage: '1 ống uống sau ăn sáng',
+            time: '08:00 Sáng mỗi ngày',
+            status: 'taken' as const,
+          },
+        ]
+      : [
+          {
+            id: `med-${memberId}-1`,
+            name: 'Omega-3 & Multivitamin',
+            dosage: '1 viên sau ăn trưa',
+            time: '12:30 Trưa mỗi ngày',
+            status: 'taken' as const,
+          },
+        ];
+
+    const upcomingVisit = contract?.doctorName
+      ? {
+          doctor: `${contract.doctorTitle ? contract.doctorTitle + ' ' : 'BSCKI. '}${contract.doctorName}`,
+          specialty: contract.doctorSpecialty || 'Y học Gia đình & Nội khoa',
+          hospital: contract.facilityName || 'Bệnh viện ĐHYD',
+          time: '09:30',
+          date: '27/10',
+          mode: 'home' as const,
+          note: 'Khám sức khỏe gia đình định kỳ tại nhà',
+        }
+      : undefined;
+
+    result[memberId] = {
+      id: memberId,
+      name: p.fullName || `Thành viên ${idx + 1}`,
+      relation: relation,
+      age: age,
+      avatar: avatar,
+      bhyt: p.healthInsuranceNumber || 'Chưa cập nhật BHYT',
+      bloodType: 'O+',
+      allergies: allergiesStr,
+      chronicCondition: isElderly
+        ? 'Tăng huyết áp • Đái tháo đường Typ 2'
+        : isChild
+        ? 'Thể trạng phát triển bình thường'
+        : 'Sức khỏe tổng quát tốt',
+      status: isElderly ? 'warning' : 'good',
+      statusText: isElderly ? 'Huyết áp cần chú ý nhẹ' : 'Chỉ số sức khỏe ổn định',
+      bp: isElderly ? '135/85' : isChild ? '105/70' : '118/78',
+      bpStatus: isElderly ? 'Hơi cao • Cần uống thuốc đều' : 'Bình thường',
+      spo2: isElderly ? '98%' : '99%',
+      heartRate: isElderly ? '76 lần/phút' : isChild ? '88 lần/phút' : '72 lần/phút',
+      glucose: isElderly ? '6.8 mmol/L' : '5.4 mmol/L',
+      glucoseStatus: isElderly ? 'Ổn định sau ăn' : 'Bình thường',
+      lastUpdated: '07:30 Sáng hôm nay',
+      medicines: medicines,
+      upcomingVisit: upcomingVisit,
+    };
+  });
+
+  return result;
+}
+
 export function FamilyDashboardView() {
   const workflow = useContractWorkflow();
-  const [membersData, setMembersData] = useState<Record<string, MemberHealthData>>(
-    INITIAL_FAMILY_MEMBERS_DATA
-  );
+  const session = getStoredAuthSession();
+  const loggedInName =
+    session.user?.name && !session.user.name.includes('(Chủ Hộ)')
+      ? session.user.name
+      : null;
+
+  const [contracts, setContracts] = useState<MedicalContractListItem[]>([]);
+  const [activeContract, setActiveContract] = useState<MedicalContractListItem | null>(null);
+  const [realPatients, setRealPatients] = useState<PatientDto[]>([]);
+  const [membersData, setMembersData] = useState<Record<string, MemberHealthData>>({});
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  useEffect(() => {
+    let isMounted = true;
+    contractsApi
+      .getMedicalContracts()
+      .then((res) => {
+        if (!isMounted) return;
+        const list: MedicalContractListItem[] = Array.isArray(res)
+          ? res
+          : (res as any)?.data && Array.isArray((res as any).data)
+          ? (res as any).data
+          : (res as any)?.data?.items && Array.isArray((res as any).data.items)
+          ? (res as any).data.items
+          : [];
+        setContracts(list);
+        if (list.length > 0) {
+          const found = list.find((c: MedicalContractListItem) => c.contractStatus === 'ACTIVE') || list[0];
+          setActiveContract(found);
+          // Đồng bộ nếu đã có realPatients
+          setRealPatients((currentPatients) => {
+            if (currentPatients.length > 0) {
+              setMembersData(convertPatientsToMembersData(currentPatients, found));
+            }
+            return currentPatients;
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Contracts API fetch fallback:', err);
+      });
+
+    patientsApi
+      .getFamilyMembers()
+      .then((res) => {
+        if (!isMounted) return;
+        const list = Array.isArray(res)
+          ? res
+          : (res as any)?.data && Array.isArray((res as any).data)
+          ? (res as any).data
+          : [];
+        if (list.length > 0) {
+          setRealPatients(list);
+          setActiveContract((currentContract) => {
+            setMembersData(convertPatientsToMembersData(list, currentContract));
+            return currentContract;
+          });
+        }
+      })
+      .catch((err) => {
+        console.warn('Patients API fetch fallback:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const membersList = Object.values(membersData);
-  const totalMembers = membersList.length;
-  const warningMembersCount = membersList.filter((m) => m.status === 'warning').length;
+  const totalMembers = realPatients.length > 0 ? realPatients.length : membersList.length;
+  const warningMembers = membersList.filter((m) => m.status === 'warning');
+  const warningMembersCount = warningMembers.length;
+  const warningMember = warningMembers.length > 0 ? warningMembers[0] : null;
   const upcomingVisitsCount = membersList.filter((m) => Boolean(m.upcomingVisit)).length;
+
+  const headMember = realPatients.find((p) => p.relationshipToHead === 'SELF') || realPatients[0];
+  const familyHeadName = headMember ? headMember.fullName : (loggedInName || session.user?.name || 'Gia Đình');
+
+  const daysUntilExpiry = activeContract?.endDate
+    ? Math.ceil((new Date(activeContract.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    : null;
 
   // Tổng hợp danh sách thuốc hôm nay của cả gia đình
   const familyMedicines: FamilyMedicationItem[] = membersList.flatMap((m) =>
@@ -84,21 +303,25 @@ export function FamilyDashboardView() {
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
-                  Hộ #FAM-88219
+                  Hộ #{activeContract?.contractNumber || (session.user?.id ? `FAM-${session.user.id.slice(0, 6).toUpperCase()}` : 'FAM-NEW')}
                 </span>
                 <Link
                   href="/family/subscription"
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/60 transition-colors cursor-pointer"
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border transition-colors cursor-pointer ${
+                    activeContract
+                      ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200/60'
+                      : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200/60'
+                  }`}
                   title="Xem hợp đồng hoặc đổi Bác sĩ / Gói dịch vụ"
                 >
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>Gói Bác Sĩ Gia Đình Toàn Diện VIP</span>
-                  <span className="material-symbols-outlined text-[14px] text-emerald-700">arrow_forward</span>
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activeContract ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                  <span>{activeContract?.packageName || 'Chưa Đăng Ký Gói Y Tế'}</span>
+                  <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                 </Link>
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
-                Bảng Sức Khỏe Gia Đình: Hộ Ông Nguyễn Văn Phúc
+                Bảng Sức Khỏe Gia Đình: Hộ {familyHeadName}
               </h1>
 
               <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
@@ -136,8 +359,36 @@ export function FamilyDashboardView() {
           </div>
         </header>
 
-        {/* 1.5. BANNER ONBOARDING CAO CẤP: CHƯA CÓ BÁC SĨ HOẶC MUỐN ĐĂNG KÝ BÁC SĨ MỚI */}
-        {workflow?.step !== 'ACTIVE' && (
+        {/* 1.5. BANNER NHẮC THANH TOÁN VIETQR HỢP ĐỒNG (NẾU ĐANG CHỜ KÍCH HOẠT) */}
+        {activeContract && activeContract.contractStatus !== 'ACTIVE' ? (
+          <aside
+            aria-label="Thanh toán kích hoạt hợp đồng"
+            className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-emerald-700 via-emerald-800 to-teal-900 text-white flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-lg shadow-emerald-950/15"
+          >
+            <div className="space-y-1.5 max-w-2xl">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-0.5 rounded-full text-xs font-bold bg-white/15 text-emerald-100 border border-white/20 inline-block">
+                  Hợp đồng #{activeContract.contractNumber}
+                </span>
+                <span className="text-xs text-emerald-200">· Chờ thanh toán kích hoạt</span>
+              </div>
+              <h2 className="text-lg sm:text-xl font-bold tracking-tight text-white">
+                Thanh Toán VietQR Để Kích Hoạt Quyền Lợi Chăm Sóc Sức Khỏe
+              </h2>
+              <p className="text-xs sm:text-sm text-emerald-100 leading-relaxed">
+                Hợp đồng y tế 4 bên đã được xác nhận. Vui lòng hoàn tất thanh toán {activeContract.totalAmountVnd.toLocaleString('vi-VN')} đ để bắt đầu lịch khám và kết nối với bác sĩ gia đình.
+              </p>
+            </div>
+
+            <Link
+              href={`/family/billing?contractId=${activeContract.id}`}
+              className="px-6 py-3 bg-white hover:bg-slate-100 text-emerald-800 rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all self-start md:self-center shrink-0 flex items-center gap-2 cursor-pointer animate-pulse"
+            >
+              <span className="material-symbols-outlined text-[18px]">qr_code_2</span>
+              <span>Thanh Toán VietQR Ngay</span>
+            </Link>
+          </aside>
+        ) : workflow?.step !== 'ACTIVE' && (
           <aside
             aria-label="Đăng ký Bác sĩ gia đình"
             className="p-5 sm:p-6 rounded-3xl bg-gradient-to-r from-[#2E37A4] via-[#242c88] to-[#1a206b] text-white flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-lg shadow-blue-950/15"
@@ -167,8 +418,179 @@ export function FamilyDashboardView() {
           </aside>
         )}
 
+        {/* 1.8 THẺ HỢP ĐỒNG Y TẾ HIỆN TẠI & BÁC SĨ GIA ĐÌNH PHỤ TRÁCH CHÍNH (BACKEND SYNC) */}
+        <section aria-label="Hợp đồng y tế & Bác sĩ gia đình" className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Card 1: Thông tin Hợp đồng Y tế Hiện tại */}
+          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between gap-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-blue-50 text-[#2E37A4] flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[20px]">assignment</span>
+                  </span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Hợp Đồng Y Tế Hiện Tại
+                  </span>
+                </div>
+                <span
+                  className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+                    activeContract?.contractStatus === 'ACTIVE'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-amber-50 text-amber-800 border border-amber-200'
+                  }`}
+                >
+                  {activeContract?.contractStatus === 'ACTIVE' ? 'Đang hiệu lực' : 'Chờ hoàn tất'}
+                </span>
+              </div>
+
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-slate-900 leading-snug">
+                  {activeContract?.packageName || 'Gói Chăm Sóc Sức Khỏe Gia Đình Toàn Diện'}
+                </h3>
+                <div className="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-2">
+                  <span>Mã HĐ: <strong className="text-slate-700">#{activeContract?.contractNumber || 'FMD-2026-HN-001'}</strong></span>
+                  <span>·</span>
+                  <span>Thời hạn: {activeContract?.startDate ? new Date(activeContract.startDate).toLocaleDateString('vi-VN') : '01/01/2026'} – {activeContract?.endDate ? new Date(activeContract.endDate).toLocaleDateString('vi-VN') : '31/12/2026'}</span>
+                </div>
+              </div>
+
+              {daysUntilExpiry !== null && daysUntilExpiry <= 15 && daysUntilExpiry >= 0 && (
+                <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px] text-rose-600">notification_important</span>
+                  <span>Hợp đồng sắp hết hạn trong {daysUntilExpiry} ngày! Vui lòng gia hạn để duy trì quyền lợi bác sĩ riêng.</span>
+                </div>
+              )}
+
+              {/* Hạn ngạch quyền lợi */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                  <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px] text-emerald-600">home</span>
+                    Khám tại nhà còn lại
+                  </div>
+                  <div className="text-lg font-bold text-slate-900 tabular-nums">
+                    {activeContract?.remainingHomeVisits ?? 3} / {activeContract?.totalHomeVisits ?? 4} <span className="text-xs font-normal text-slate-500">lượt</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+                  <div className="text-[11px] font-medium text-slate-500 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[14px] text-blue-600">videocam</span>
+                    Tư vấn Telehealth
+                  </div>
+                  <div className="text-lg font-bold text-slate-900 tabular-nums">
+                    {activeContract?.remainingTelehealth ?? 10} / {activeContract?.totalTelehealth ?? 12} <span className="text-xs font-normal text-slate-500">lượt</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between border-t border-slate-100 text-xs">
+              <Link
+                href="/family/subscription"
+                className="text-[#2E37A4] font-semibold hover:underline inline-flex items-center gap-1"
+              >
+                <span>Xem chi tiết hợp đồng &amp; phụ lục</span>
+                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              </Link>
+              <Link
+                href="/family/billing"
+                className="text-slate-600 hover:text-slate-900 font-medium inline-flex items-center gap-1"
+              >
+                <span>Hóa đơn VietQR</span>
+                <span className="material-symbols-outlined text-[14px]">receipt_long</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* Card 2: Bác Sĩ Gia Đình Phụ Trách Chính */}
+          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between gap-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-[20px]">stethoscope</span>
+                  </span>
+                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Bác Sĩ Gia Đình Phụ Trách
+                  </span>
+                </div>
+                {activeContract?.doctorId || activeContract?.doctorName ? (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#2E37A4] border border-blue-200">
+                    Bác sĩ quản nhiệm
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 animate-pulse">
+                    Đang chờ CSYT chỉ định
+                  </span>
+                )}
+              </div>
+
+              {activeContract?.doctorId || activeContract?.doctorName ? (
+                <div className="space-y-3 pt-1">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-xl bg-blue-100 text-[#2E37A4] flex items-center justify-center text-xl font-bold">
+                      {activeContract.doctorName ? activeContract.doctorName.charAt(0) : 'B'}
+                    </div>
+                    <div>
+                      <h4 className="text-base font-bold text-slate-900">
+                        {activeContract.doctorTitle ? `${activeContract.doctorTitle} ` : 'BSCKI. '}
+                        {activeContract.doctorName || 'Nguyễn Minh Tuấn'}
+                      </h4>
+                      <div className="text-xs text-slate-500 font-medium">
+                        {activeContract.doctorSpecialty || 'Chuyên khoa Y học Gia đình & Nội khoa'} · {activeContract.facilityName || 'Bệnh viện ĐHYD'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <span className="material-symbols-outlined text-[18px] text-rose-600">phone_in_talk</span>
+                      <span>Hotline khẩn cấp:</span>
+                      <strong className="text-slate-900 tabular-nums">{activeContract.doctorPhone || '0988 123 456'}</strong>
+                    </div>
+                    <a
+                      href={`tel:${activeContract.doctorPhone || '0988123456'}`}
+                      className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold transition-colors shadow-xs"
+                    >
+                      Gọi ngay
+                    </a>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-amber-50/70 border border-amber-200 text-amber-900 space-y-2">
+                  <div className="flex items-center gap-2 font-semibold text-sm">
+                    <span className="material-symbols-outlined text-[18px] text-amber-700">schedule</span>
+                    <span>Đang chờ cơ sở y tế chỉ định bác sĩ</span>
+                  </div>
+                  <p className="text-xs text-slate-600 leading-relaxed">
+                    Hợp đồng của gia đình đã được ghi nhận. Cơ sở y tế <strong>{activeContract?.facilityName || 'Bệnh viện Đa khoa Quốc tế'}</strong> đang tiến hành phân bổ bác sĩ gia đình phù hợp trong vòng 24 giờ làm việc.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 flex items-center justify-between border-t border-slate-100 text-xs">
+              <Link
+                href="/family/feedback"
+                className="text-slate-600 hover:text-slate-900 font-medium inline-flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[15px] text-amber-500">star</span>
+                <span>Đánh giá &amp; Góp ý bác sĩ</span>
+              </Link>
+              <Link
+                href="/family/telemedicine"
+                className="text-[#2E37A4] font-semibold hover:underline inline-flex items-center gap-1"
+              >
+                <span>Tư vấn qua video</span>
+                <span className="material-symbols-outlined text-[14px]">videocam</span>
+              </Link>
+            </div>
+          </div>
+        </section>
+
         {/* 2. CẢNH BÁO SỨC KHỎE NHẸ NHÀNG (KHI CÓ CHỈ SỐ CẦN CHÚ Ý) */}
-        {warningMembersCount > 0 && (
+        {warningMembersCount > 0 && warningMember && (
           <aside
             aria-label="Cảnh báo sức khỏe trong ngày"
             className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all"
@@ -179,19 +601,19 @@ export function FamilyDashboardView() {
               </div>
               <div className="min-w-0">
                 <div className="font-semibold text-sm text-amber-900">
-                  Lưu ý sức khỏe hôm nay: Bác Nguyễn Văn Phúc (Huyết áp 135/85 mmHg)
+                  Lưu ý sức khỏe hôm nay: {warningMember.name} ({warningMember.bpStatus} - Huyết áp {warningMember.bp} mmHg)
                 </div>
                 <p className="text-xs sm:text-sm text-slate-700 mt-0.5 leading-relaxed">
-                  Chỉ số tâm thu hơi cao sau bữa sáng. Cần kiểm tra lại lúc 17:00 chiều và nhắc bác uống đúng giờ liều Metformin 500mg sau ăn tối.
+                  Chỉ số cần theo dõi. Vui lòng kiểm tra lại vào buổi chiều và nhắc thành viên dùng thuốc đúng giờ theo chỉ định của bác sĩ phụ trách.
                 </p>
               </div>
             </div>
 
             <Link
-              href="/family/members/mem-01"
+              href={`/family/members/${warningMember.id}`}
               className="min-h-9 px-4 py-2 bg-white hover:bg-amber-100/50 text-slate-900 border border-amber-300 font-medium text-xs sm:text-sm rounded-xl transition-colors self-start sm:self-auto shrink-0 inline-flex items-center justify-center whitespace-nowrap outline-hidden shadow-xs"
             >
-              Xem chi tiết Bác Phúc
+              Xem chi tiết {warningMember.name.split(' ').slice(-1)[0]}
             </Link>
           </aside>
         )}
@@ -256,7 +678,11 @@ export function FamilyDashboardView() {
             </div>
             <div className="text-xs font-medium text-slate-600 flex items-center gap-1.5 pt-1">
               <span className="material-symbols-outlined text-[16px] text-[#2E37A4]">home</span>
-              <span>Gần nhất: 09:30 · 27/10 (Khám tại nhà)</span>
+              <span>
+                {activeContract?.doctorName
+                  ? `BS. ${activeContract.doctorName} (Khám tại nhà)`
+                  : 'Gần nhất: 09:30 · 27/10 (Khám tại nhà)'}
+              </span>
             </div>
           </div>
         </section>
@@ -451,54 +877,89 @@ export function FamilyDashboardView() {
               </span>
             </div>
 
-            <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-2xl bg-[#2E37A4] text-white font-bold text-base flex items-center justify-center shrink-0 shadow-xs">
-                TN
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-bold text-slate-900 truncate">
-                  PGS.TS Nguyễn Trọng Nghĩa
+            {activeContract?.doctorName ? (
+              <div className="flex items-center gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-[#2E37A4] text-white font-bold text-base flex items-center justify-center shrink-0 shadow-xs">
+                  {activeContract.doctorName.charAt(0)}
                 </div>
-                <div className="text-xs text-slate-500 truncate mt-0.5">
-                  Trưởng khoa Nội Tổng quát · BV ĐH Y Dược
+                <div className="min-w-0">
+                  <div className="text-sm font-bold text-slate-900 truncate">
+                    {activeContract.doctorTitle ? `${activeContract.doctorTitle} ` : 'BSCKI. '}
+                    {activeContract.doctorName}
+                  </div>
+                  <div className="text-xs text-slate-500 truncate mt-0.5">
+                    {activeContract.doctorSpecialty || 'Chuyên khoa Y học Gia đình & Nội khoa'} · {activeContract.facilityName || 'Bệnh viện liên kết'}
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-900 space-y-1">
+                <div className="font-semibold text-xs flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[16px] text-amber-700">schedule</span>
+                  <span>Đang chờ chỉ định bác sĩ</span>
+                </div>
+                <p className="text-[11px] text-slate-600">
+                  {activeContract ? 'Cơ sở y tế đang phân bổ bác sĩ gia đình chuyên trách cho hộ.' : 'Chưa có hợp đồng. Đăng ký gói để kết nối bác sĩ.'}
+                </p>
+              </div>
+            )}
 
             <div className="pt-4 border-t border-slate-100 space-y-3 text-xs">
               <div className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-slate-600">Khám bác sĩ tại nhà</span>
-                  <span className="font-semibold tabular-nums text-slate-900">Còn 3/5 lượt</span>
+                  <span className="font-semibold tabular-nums text-slate-900">
+                    Còn {activeContract?.remainingHomeVisits ?? 3}/{activeContract?.totalHomeVisits ?? 4} lượt
+                  </span>
                 </div>
                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-[#2E37A4] rounded-full" style={{ width: '60%' }} />
+                  <div
+                    className="h-full bg-[#2E37A4] rounded-full transition-all"
+                    style={{
+                      width: `${Math.round(
+                        ((activeContract?.remainingHomeVisits ?? 3) / (activeContract?.totalHomeVisits || 4)) * 100
+                      )}%`,
+                    }}
+                  />
                 </div>
               </div>
 
               <div className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-slate-600">Tư vấn Video 24/7</span>
-                  <span className="font-semibold tabular-nums text-slate-900">Còn 18/20 lượt</span>
+                  <span className="font-semibold tabular-nums text-slate-900">
+                    Còn {activeContract?.remainingTelehealth ?? 10}/{activeContract?.totalTelehealth ?? 12} lượt
+                  </span>
                 </div>
                 <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: '90%' }} />
+                  <div
+                    className="h-full bg-emerald-500 rounded-full transition-all"
+                    style={{
+                      width: `${Math.round(
+                        ((activeContract?.remainingTelehealth ?? 10) / (activeContract?.totalTelehealth || 12)) * 100
+                      )}%`,
+                    }}
+                  />
                 </div>
               </div>
 
               <div className="flex items-center justify-between gap-2 pt-1">
                 <span className="text-slate-600">Lịch khám kế tiếp</span>
-                <span className="font-semibold tabular-nums text-[#2E37A4]">09:30 · 27/10</span>
+                <span className="font-semibold tabular-nums text-[#2E37A4]">
+                  {upcomingVisitsCount > 0 ? '09:30 · 27/10' : 'Chưa có lịch hẹn'}
+                </span>
               </div>
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-2 text-xs">
-              <span className="text-slate-500">Hợp đồng #HD-88219</span>
+              <span className="text-slate-500">
+                Hợp đồng #{activeContract?.contractNumber || 'FMD-2026-HN-001'}
+              </span>
               <Link
                 href="/family/subscription"
                 className="font-semibold text-[#2E37A4] hover:text-[#222982] hover:underline outline-hidden"
               >
-                Xem quyền lợi gói VIP
+                Xem quyền lợi {activeContract?.packageName || 'gói VIP'}
               </Link>
             </div>
           </aside>

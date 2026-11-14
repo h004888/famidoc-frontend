@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Pagination } from '@/components/ui/pagination';
+import { doctorsApi, contractsApi, type DoctorProfileDto, type MedicalContractListItem } from '@/lib/api';
 
 export function DoctorDashboardView() {
   const router = useRouter();
@@ -13,6 +14,57 @@ export function DoctorDashboardView() {
   const [isSigning, setIsSigning] = useState<boolean>(false);
   const [signSuccessToast, setSignSuccessToast] = useState<string | null>(null);
   const [queuePage, setQueuePage] = useState<number>(1);
+
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>({
+    id: 'doc-me',
+    doctorName: 'Nguyễn Trọng Nghĩa',
+    academicTitle: 'PGS.TS',
+    specialty: 'Bác sĩ gia đình cao cấp • Nội Tổng quát',
+    experienceYears: 15,
+    activePanelCount: 18,
+    maxPanelCapacity: 30,
+    ratingAvg: 4.9,
+    totalReviews: 42,
+    onboardingStatus: 'ACTIVE',
+    facilityId: 'fac-01',
+    facilityName: 'BV Đại học Y Dược TP.HCM',
+  });
+  const [contracts, setContracts] = useState<MedicalContractListItem[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    doctorsApi
+      .getDoctorMe()
+      .then((data) => {
+        if (!isMounted) return;
+        if (data && data.id) {
+          setDoctorProfile(data);
+        }
+      })
+      .catch((err) => {
+        console.warn('Doctor me API fallback:', err);
+      });
+
+    contractsApi
+      .getMedicalContracts({ role: 'DOCTOR' })
+      .then((items) => {
+        if (!isMounted) return;
+        if (Array.isArray(items)) {
+          setContracts(items);
+        }
+      })
+      .catch((err) => {
+        console.warn('Doctor contracts fetch fallback:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const pendingSignatureContracts = contracts.filter(
+    (c) => c.contractStatus === 'FACILITY_ASSIGNED' || c.contractStatus === 'PLATFORM_SIGNED' || (c.contractStatus as string) === 'PENDING_APPROVAL' || c.signaturesCount < 4
+  );
 
   const patients = [
     {
@@ -88,42 +140,44 @@ export function DoctorDashboardView() {
     }, 700);
   };
 
+  const isCchnActive = doctorProfile?.onboardingStatus === 'ACTIVE';
+
   const clinicalKpis = [
     {
-      title: 'Ca khám trong ngày',
-      value: '12 ca',
-      sub: '6 tại nhà • 6 Telehealth',
-      icon: 'calendar_month',
+      title: 'Hộ gia đình phụ trách',
+      value: `${doctorProfile?.activePanelCount ?? 18} / ${doctorProfile?.maxPanelCapacity ?? 30} hộ`,
+      sub: 'Định biên tối đa 30 hộ theo chuẩn BYT',
+      icon: 'groups',
       iconBg: 'bg-[#2E37A4]/10 text-[#2E37A4]',
-      badge: '+15%',
-      badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      badge: `${Math.round(((doctorProfile?.activePanelCount ?? 18) / (doctorProfile?.maxPanelCapacity ?? 30)) * 100)}% công suất`,
+      badgeBg: 'bg-blue-50 text-[#2E37A4] border-blue-200',
     },
     {
-      title: 'Hàng chờ lâm sàng',
-      value: '3 ca',
-      sub: 'Thời gian chờ TB 14 phút',
-      icon: 'hourglass_top',
+      title: 'Đánh giá chuyên môn',
+      value: `${doctorProfile?.ratingAvg?.toFixed(1) ?? '4.9'} / 5.0`,
+      sub: `${doctorProfile?.totalReviews ?? 42} lượt phản hồi gia đình`,
+      icon: 'star',
       iconBg: 'bg-amber-50 text-amber-600',
-      badge: 'Đang trực',
+      badge: 'Xuất sắc',
       badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
     },
     {
-      title: 'Chờ ký số Viettel-CA',
-      value: '5 đơn',
-      sub: 'Đơn điện tử cần ký trước 18h',
-      icon: 'draw',
-      iconBg: 'bg-rose-50 text-rose-600',
-      badge: 'Khẩn cấp',
-      badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
+      title: 'Lượt khám trong tháng',
+      value: '24 lượt',
+      sub: '14 tại nhà • 10 Telehealth',
+      icon: 'medical_services',
+      iconBg: 'bg-emerald-50 text-emerald-600',
+      badge: 'Đạt SLA',
+      badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
     },
     {
-      title: 'Đánh giá chất lượng SLA',
-      value: '4.95 / 5.0',
-      sub: '420+ lượt phản hồi tích cực',
-      icon: 'star',
-      iconBg: 'bg-emerald-50 text-emerald-600',
-      badge: 'Xuất sắc',
-      badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      title: 'Hợp đồng chờ ký duyệt',
+      value: `${pendingSignatureContracts.length} HĐ`,
+      sub: 'Hộ gia đình được CSYT phân bổ',
+      icon: 'contract_edit',
+      iconBg: 'bg-rose-50 text-rose-600',
+      badge: pendingSignatureContracts.length > 0 ? 'Cần xử lý' : 'Đã duyệt hết',
+      badgeBg: pendingSignatureContracts.length > 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-600 border-slate-200',
     },
   ];
 
@@ -131,19 +185,49 @@ export function DoctorDashboardView() {
     <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Banner trạng thái CCHN nếu chưa ACTIVE */}
+        {!isCchnActive && (
+          <aside
+            aria-label="Cảnh báo chứng chỉ hành nghề"
+            className="p-5 sm:p-6 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm"
+          >
+            <div className="flex items-start sm:items-center gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-200 text-amber-800 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">verified_user</span>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm sm:text-base text-amber-950">
+                  Hồ sơ CCHN của bạn đang chờ Cơ sở y tế hoặc Nền tảng phê duyệt
+                </h3>
+                <p className="text-xs text-amber-800 mt-0.5">
+                  Bạn chưa thể tiếp nhận hộ gia đình mới cho đến khi hoàn tất thẩm định 2 cấp theo quy chuẩn Bộ Y Tế.
+                </p>
+              </div>
+            </div>
+
+            <Link
+              href="/doctor/verification"
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors shrink-0 self-start sm:self-auto flex items-center gap-1.5"
+            >
+              <span>Xem tiến trình xác thực</span>
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </Link>
+          </aside>
+        )}
+
         {/* Doctor Preclinic Profile Banner */}
         <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center font-bold text-xl shadow-md ring-4 ring-[#2E37A4]/10">
-                TN
+                {doctorProfile?.doctorName ? doctorProfile.doctorName.charAt(0) : 'TN'}
               </div>
               <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white" title="Trạng thái: Đang trực tuyến"></span>
             </div>
             <div>
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                  PGS.TS Nguyễn Trọng Nghĩa
+                  {doctorProfile?.academicTitle ? `${doctorProfile.academicTitle} ` : ''}{doctorProfile?.doctorName || 'Nguyễn Trọng Nghĩa'}
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 border border-emerald-200 text-emerald-700 flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">verified</span>
@@ -151,7 +235,7 @@ export function DoctorDashboardView() {
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-1">
-                Bác sĩ gia đình cao cấp • Trưởng khoa Nội Tổng quát • <span className="font-semibold text-slate-700">BV Đại học Y Dược TP.HCM</span>
+                {doctorProfile?.specialty || 'Bác sĩ gia đình cao cấp • Nội Tổng quát'} • <span className="font-semibold text-slate-700">{doctorProfile?.facilityName || 'BV Đại học Y Dược TP.HCM'}</span>
               </p>
             </div>
           </div>
