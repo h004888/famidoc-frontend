@@ -247,7 +247,11 @@ function mapRelationToDto(rel: string): 'SELF' | 'SPOUSE' | 'CHILD' | 'PARENT' |
 }
 
 export function FamilyMembersView() {
-  const session = getStoredAuthSession();
+  const [session, setSession] = useState<{ user: any; role: string | null; token: string | null }>({
+    user: null,
+    role: 'FAMILY',
+    token: null,
+  });
   const loggedInName =
     session.user?.name && !session.user.name.includes('(Chủ Hộ)')
       ? session.user.name
@@ -266,6 +270,7 @@ export function FamilyMembersView() {
 
   useEffect(() => {
     let mounted = true;
+    setSession(getStoredAuthSession());
 
     // 1. Đồng bộ Hợp Đồng Y Tế & Bác Sĩ Gia Đình thật
     contractsApi
@@ -578,7 +583,10 @@ export function FamilyMembersView() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                <span
+                  suppressHydrationWarning
+                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60"
+                >
                   Hộ #{householdCode}
                 </span>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">

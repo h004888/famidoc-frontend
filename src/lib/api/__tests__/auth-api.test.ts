@@ -87,6 +87,7 @@ describe('Task 1: authApi and http-client RFC 9457 & Envelope unpacking', () => 
     expect(mapBackendRoleToFrontendRole('DOCTOR')).toBe('DOCTOR');
     expect(mapBackendRoleToFrontendRole('ADMIN')).toBe('ADMIN');
     expect(mapBackendRoleToFrontendRole('FACILITY')).toBe('FACILITY');
+    expect(mapBackendRoleToFrontendRole('HEALTHCARE_FACILITY')).toBe('FACILITY');
     expect(mapBackendRoleToFrontendRole('UNKNOWN')).toBe('FAMILY');
   });
 

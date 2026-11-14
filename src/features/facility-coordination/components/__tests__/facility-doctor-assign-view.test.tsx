@@ -214,4 +214,21 @@ describe('FacilityDoctorAssignView (Màn 2: Phân công Bác sĩ & Ký số CSYT
     const { container } = render(<FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });
+
+  it('renders standard header, breadcrumbs, back link, and responsive container layout', () => {
+    const { container } = render(<FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />);
+
+    // Breadcrumbs & back link
+    expect(screen.getByText('Trang chủ')).toBeInTheDocument();
+    expect(screen.getByText('Cơ sở Y tế')).toBeInTheDocument();
+    expect(screen.getByText('Điều phối HĐ 4 bên')).toBeInTheDocument();
+    expect(screen.getByText(/Quay lại danh sách tiếp nhận/i)).toBeInTheDocument();
+
+    // Responsive container
+    const mainEl = container.querySelector('main');
+    expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
+
+    // System badge
+    expect(screen.getByText(/Phân Công Bác Sĩ & Ký Số/i)).toBeInTheDocument();
+  });
 });

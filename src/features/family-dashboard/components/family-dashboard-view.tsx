@@ -169,7 +169,12 @@ function convertPatientsToMembersData(
 
 export function FamilyDashboardView() {
   const workflow = useContractWorkflow();
-  const session = getStoredAuthSession();
+  const [session, setSession] = useState<{ user: any; role: string | null; token: string | null }>({
+    user: null,
+    role: 'FAMILY',
+    token: null,
+  });
+
   const loggedInName =
     session.user?.name && !session.user.name.includes('(Chủ Hộ)')
       ? session.user.name
@@ -178,11 +183,12 @@ export function FamilyDashboardView() {
   const [contracts, setContracts] = useState<MedicalContractListItem[]>([]);
   const [activeContract, setActiveContract] = useState<MedicalContractListItem | null>(null);
   const [realPatients, setRealPatients] = useState<PatientDto[]>([]);
-  const [membersData, setMembersData] = useState<Record<string, MemberHealthData>>({});
+  const [membersData, setMembersData] = useState<Record<string, MemberHealthData>>(INITIAL_FAMILY_MEMBERS_DATA);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
+    setSession(getStoredAuthSession());
     contractsApi
       .getMedicalContracts()
       .then((res) => {
@@ -302,7 +308,10 @@ export function FamilyDashboardView() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                <span
+                  suppressHydrationWarning
+                  className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60"
+                >
                   Hộ #{activeContract?.contractNumber || (session.user?.id ? `FAM-${session.user.id.slice(0, 6).toUpperCase()}` : 'FAM-NEW')}
                 </span>
                 <Link
@@ -320,7 +329,10 @@ export function FamilyDashboardView() {
                 </Link>
               </div>
 
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
+              <h1
+                suppressHydrationWarning
+                className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance"
+              >
                 Bảng Sức Khỏe Gia Đình: Hộ {familyHeadName}
               </h1>
 

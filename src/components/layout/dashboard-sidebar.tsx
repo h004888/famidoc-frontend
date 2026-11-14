@@ -49,7 +49,6 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       { href: '/facility/contracts', label: 'Hợp đồng 4 Bên & Gán BS', shortLabel: 'Hợp đồng', icon: 'history_edu', badge: 'SCR-22', badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200' },
       { href: '/facility/staff', label: 'Quản lý Nhân sự Y tế', shortLabel: 'Nhân sự', icon: 'badge' },
       { href: '/facility/coordination', label: 'Điều phối & Chuyển viện', shortLabel: 'Điều phối', icon: 'support_agent', badge: 'Hot', badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200' },
-      { href: '/facility/contracts', label: 'Hợp đồng tiếp nhận', shortLabel: 'HĐ tiếp nhận', icon: 'handshake' },
       { href: '/facility/revenue', label: 'Đối soát Doanh thu B2B', shortLabel: 'Doanh thu', icon: 'payments' },
     ],
   },
@@ -62,7 +61,6 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       { href: '/doctor/contracts', label: 'Hợp đồng & Phụ trách Hộ', shortLabel: 'HĐ Phụ trách', icon: 'assignment_turned_in', badge: 'SCR-16', badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200' },
       { href: '/doctor/timetable', label: 'Lịch trực & Panel Cap', shortLabel: 'Lịch trực', icon: 'calendar_clock' },
       { href: '/doctor/encounters', label: 'Khám SOAP & Kê đơn', shortLabel: 'Khám SOAP', icon: 'clinical_notes' },
-      { href: '/doctor/contracts', label: 'Hợp đồng phụ trách', shortLabel: 'HĐ phụ trách', icon: 'assignment' },
       { href: '/doctor/telemedicine', label: 'Tư vấn WebRTC 24/7', shortLabel: 'Telemed', icon: 'videocam', badge: 'HD', badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
       { href: '/doctor/verification', label: 'Xác thực CCHN Y tế', shortLabel: 'CCHN', icon: 'verified_user' },
     ],
@@ -331,7 +329,7 @@ export function DashboardSidebar() {
               ? pathname === item.href
               : pathname.startsWith(item.href);
             return (
-              <React.Fragment key={item.href}>
+              <React.Fragment key={`${item.href}-${idx}`}>
                 {item.section && !isCollapsedState && (
                   <div className={`${idx > 0 ? 'pt-3' : 'pt-0.5'} pb-1 px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider`}>
                     {item.section}

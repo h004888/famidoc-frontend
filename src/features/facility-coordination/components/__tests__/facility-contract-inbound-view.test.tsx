@@ -136,4 +136,21 @@ describe('FacilityContractInboundView (Màn 1: Tiếp nhận Hợp đồng 4 bê
     const { container } = render(<FacilityContractInboundView initialContracts={mockContracts} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });
+
+  it('renders standard header, breadcrumbs, and responsive container layout', () => {
+    const { container } = render(<FacilityContractInboundView initialContracts={mockContracts} />);
+
+    // Verify breadcrumbs
+    expect(screen.getByText('Trang chủ')).toBeInTheDocument();
+    expect(screen.getByText('Cơ sở Y tế')).toBeInTheDocument();
+    expect(screen.getByText('Điều phối HĐ 4 bên')).toBeInTheDocument();
+
+    // Verify main responsive container
+    const mainEl = container.querySelector('main');
+    expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
+
+    // Verify action buttons and badges
+    expect(screen.getByRole('button', { name: /Làm mới/i })).toBeInTheDocument();
+    expect(screen.getByText('Hệ thống Điều phối CSYT')).toBeInTheDocument();
+  });
 });

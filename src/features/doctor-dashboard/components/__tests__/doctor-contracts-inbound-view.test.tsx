@@ -122,4 +122,21 @@ describe('Màn hình Bác sĩ: DoctorContractsInboundView (/doctor/contracts)', 
     render(<DoctorContractsInboundView initialContracts={[]} />);
     expect(screen.getByText(/Chưa có hợp đồng nào được phân công/i)).toBeInTheDocument();
   });
+
+  it('renders standard header, breadcrumbs, and responsive container layout', () => {
+    const { container } = render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
+
+    // Breadcrumbs
+    expect(screen.getByText('Trang chủ')).toBeInTheDocument();
+    expect(screen.getByText('Bác sĩ')).toBeInTheDocument();
+    expect(screen.getByText('Hợp đồng phụ trách')).toBeInTheDocument();
+
+    // Main container
+    const mainEl = container.querySelector('main');
+    expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
+
+    // Action button & badge
+    expect(screen.getByRole('button', { name: /Làm mới/i })).toBeInTheDocument();
+    expect(screen.getByText(/BS Gia Đình: Lê Hoàng Nam/i)).toBeInTheDocument();
+  });
 });

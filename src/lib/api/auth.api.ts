@@ -57,7 +57,7 @@ export function mapBackendRoleToFrontendRole(
   const normalized = (backendRole || '').toUpperCase();
   if (normalized === 'FAMILY_REP' || normalized === 'FAMILY') return 'FAMILY';
   if (normalized === 'DOCTOR') return 'DOCTOR';
-  if (normalized === 'FACILITY') return 'FACILITY';
+  if (normalized === 'HEALTHCARE_FACILITY' || normalized === 'FACILITY') return 'FACILITY';
   if (normalized === 'ADMIN') return 'ADMIN';
   if (normalized === 'PATIENT') return 'PATIENT';
   return 'FAMILY';
