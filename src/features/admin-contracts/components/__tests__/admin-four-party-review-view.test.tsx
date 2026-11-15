@@ -1,22 +1,49 @@
-import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+﻿import React from 'react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdminFourPartyReviewView } from '../admin-four-party-review-view';
 import type { FourPartyContract } from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
 
-vi.mock('@/lib/api', () => ({
-  contractsApi: {
-    signContract: vi.fn().mockResolvedValue({ signatureHash: 'simulated-platform-hash' }),
-  },
+vi.mock('next/link', () => ({
+  default: ({ children, href, ...props }: any) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
 }));
 
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
-  usePathname: () => '/admin/contracts/ct-4p-001/review',
-  useParams: () => ({ id: 'ct-4p-001' }),
-  useSearchParams: () => new URLSearchParams(),
+vi.mock('@documenso/embed-react', () => ({
+  EmbedSignDocument: ({
+    token,
+    onDocumentCompleted,
+  }: {
+    token: string;
+    onDocumentCompleted?: (detail: any) => void;
+  }) => (
+    <div data-testid="mock-documenso-form" data-token={token}>
+      <button
+        type="button"
+        onClick={() => onDocumentCompleted?.({ completed: true })}
+      >
+        Hoàn tất ký trên Documenso
+      </button>
+    </div>
+  ),
 }));
+
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>();
+  return {
+    ...actual,
+    contractsApi: {
+      ...actual.contractsApi,
+      getMedicalContractById: vi.fn(),
+      getSigningSession: vi.fn(),
+      syncDocumenso: vi.fn(),
+    },
+  };
+});
 
 const mockContract: FourPartyContract = {
   id: 'ct-4p-001',
@@ -73,109 +100,95 @@ const mockContract: FourPartyContract = {
   },
 };
 
-describe('Màn 4: AdminFourPartyReviewView (Platform Contract Review & Sign)', () => {
-  it('renders package benefits snapshot and family registration details', () => {
+describe('AdminFourPartyReviewView (Documenso Platform Review & Sign)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(contractsApi.getSigningSession).mockResolvedValue({
+      contractId: 'ct-4p-001',
+      contractNumber: 'HD-4P-2026-0001',
+      contractStatus: 'PENDING_APPROVAL',
+      signerRole: 'ADMIN',
+      alreadySigned: false,
+      canSign: true,
+      signingToken: 'tok-admin',
+      signingUrl: 'https://sign.famidoc.online/sign/tok-admin',
+      signedRoles: ['FAMILY_REP'],
+      signedPdfUrl: null,
+    });
+    vi.mocked(contractsApi.syncDocumenso).mockResolvedValue({
+      synced: true,
+      contractId: 'ct-4p-001',
+      contractStatus: 'PENDING_APPROVAL',
+      signedRoles: ['FAMILY_REP', 'ADMIN'],
+      signedPdfUrl: null,
+    });
+  });
+
+  it('loads real contract by contractId when contract prop is omitted', async () => {
+    vi.mocked(contractsApi.getMedicalContractById).mockResolvedValueOnce(mockContract);
+
+    render(<AdminFourPartyReviewView contractId="ct-4p-001" />);
+
+    await waitFor(() => {
+      expect(contractsApi.getMedicalContractById).toHaveBeenCalledWith('ct-4p-001');
+      expect(screen.getAllByText(/HD-4P-2026-0001/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByTestId('mock-documenso-form')).toHaveAttribute(
+        'data-token',
+        'tok-admin'
+      );
+    });
+  });
+
+  it('renders package benefits snapshot and family digital signature details', async () => {
     render(<AdminFourPartyReviewView contract={mockContract} />);
 
-    // Contract Number and Package Info
     expect(screen.getByText(/HD-4P-2026-0001/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Gói Chăm Sóc Toàn Diện Gia Đình/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/12 tháng/i)).toBeInTheDocument();
-
-    // Family Info
-    expect(screen.getAllByText(/Nguyễn Văn An/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/0912345678/i)).toBeInTheDocument();
-    expect(screen.getByText(/123 Đường Nguyễn Trãi/i)).toBeInTheDocument();
-
-    // Members snapshot
     expect(screen.getByText(/Trần Thị Cúc/i)).toBeInTheDocument();
-    expect(screen.getByText(/Nguyễn Minh Quân/i)).toBeInTheDocument();
-    expect(screen.getByText(/Đái tháo đường Type 2/i)).toBeInTheDocument();
-  });
-
-  it('renders family digital signature details with timestamp and SHA-256 checksum', () => {
-    render(<AdminFourPartyReviewView contract={mockContract} />);
-
-    expect(screen.getByText(/Chữ ký số Đại diện Gia đình/i)).toBeInTheDocument();
-    expect(screen.getByText(/a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890/i)
+    ).toBeInTheDocument();
     expect(screen.getByText(/14\.232\.208\.55/i)).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(contractsApi.getSigningSession).toHaveBeenCalledWith('ct-4p-001');
+    });
   });
 
-  it('opens digital sign modal, completes platform approval, and transitions status to PLATFORM_SIGNED', async () => {
+  it('triggers Documenso sync when Admin completes signing on Documenso embed', async () => {
     const handleSignSuccess = vi.fn();
     render(
       <AdminFourPartyReviewView
         contract={mockContract}
         onSignSuccess={handleSignSuccess}
-      />,
+      />
     );
 
-    // Initial status: Gia đình đã ký
-    expect(screen.getAllByText(/Gia đình đã ký/i).length).toBeGreaterThan(0);
-
-    // Open Sign Modal
-    const openSignBtn = screen.getByRole('button', {
-      name: /Ký số Duyệt Nền tảng|Phê duyệt & Ký số/i,
+    const completeBtn = await screen.findByRole('button', {
+      name: /Hoàn tất ký trên Documenso/i,
     });
-    fireEvent.click(openSignBtn);
+    fireEvent.click(completeBtn);
 
-    // Modal should be visible
-    expect(screen.getByText(/Xác nhận Ký số Đại diện Nền tảng/i)).toBeInTheDocument();
-
-    // Confirm checkbox
-    const confirmCheckbox = screen.getByRole('checkbox', {
-      name: /Tôi xác nhận hồ sơ hợp đồng đã được thẩm định tính hợp lệ/i,
-    });
-    fireEvent.click(confirmCheckbox);
-
-    // Click confirm sign button
-    const confirmBtn = screen.getByRole('button', { name: /Xác nhận Ký số/i });
-    fireEvent.click(confirmBtn);
-
-    // Wait for transition to PLATFORM_SIGNED
     await waitFor(() => {
-      expect(screen.getAllByText(/Nền tảng đã duyệt/i).length).toBeGreaterThan(0);
+      expect(contractsApi.syncDocumenso).toHaveBeenCalledWith('ct-4p-001');
+      expect(handleSignSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'PLATFORM_SIGNED',
+          signatures: expect.objectContaining({
+            platform: expect.objectContaining({
+              signerRole: 'PLATFORM',
+            }),
+          }),
+        })
+      );
     });
 
     expect(
-      screen.getByText(/Đã ký số phê duyệt thành công! Hợp đồng đã chuyển sang PLATFORM_SIGNED/i),
+      screen.getByText(/Đã đồng bộ chữ ký Nền tảng trên Documenso \(2\/4 bên\)/i)
     ).toBeInTheDocument();
-
-    expect(handleSignSuccess).toHaveBeenCalledWith(
-      expect.objectContaining({
-        status: 'PLATFORM_SIGNED',
-        signatures: expect.objectContaining({
-          platform: expect.objectContaining({
-            signerRole: 'PLATFORM',
-            signedBy: expect.any(String),
-          }),
-        }),
-      }),
-    );
   });
 
-  it('calls contractsApi.signContract when platform signs the contract', async () => {
-    render(<AdminFourPartyReviewView contract={mockContract} />);
-
-    const openSignBtn = screen.getByRole('button', {
-      name: /Ký số Duyệt Nền tảng|Phê duyệt & Ký số/i,
-    });
-    fireEvent.click(openSignBtn);
-
-    const confirmCheckbox = screen.getByRole('checkbox', {
-      name: /Tôi xác nhận hồ sơ hợp đồng đã được thẩm định tính hợp lệ/i,
-    });
-    fireEvent.click(confirmCheckbox);
-
-    const confirmBtn = screen.getByRole('button', { name: /Xác nhận Ký số/i });
-    fireEvent.click(confirmBtn);
-
-    await waitFor(() => {
-      expect(contractsApi.signContract).toHaveBeenCalledWith('ct-4p-001', expect.any(Object));
-    });
-  });
-
-  it('renders full contract sheet when switched to full view tab', () => {
+  it('renders full contract sheet when switched to full view tab', async () => {
     render(<AdminFourPartyReviewView contract={mockContract} />);
 
     const fullSheetTab = screen.getByRole('tab', { name: /Toàn văn Hợp đồng/i });
@@ -183,10 +196,17 @@ describe('Màn 4: AdminFourPartyReviewView (Platform Contract Review & Sign)', (
 
     expect(screen.getByText(/CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/i)).toBeInTheDocument();
     expect(screen.getByTestId('signature-box-platform')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(contractsApi.getSigningSession).toHaveBeenCalled();
+    });
   });
 
-  it('complies with typography design system (no font-mono, font-black, or font-extrabold)', () => {
+  it('complies with typography design system (no font-mono, font-black, or font-extrabold)', async () => {
     const { container } = render(<AdminFourPartyReviewView contract={mockContract} />);
+    await waitFor(() => {
+      expect(contractsApi.getSigningSession).toHaveBeenCalled();
+    });
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });
 });

@@ -9,6 +9,7 @@ import { saveAuthSession, AuthUser } from '@/lib/auth-storage';
 import { httpClient } from '@/lib/api/http-client';
 import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
 import { useRouter } from 'next/navigation';
+import { resolveReturnUrl } from '../return-url';
 
 export function LoginForm() {
   const router = useRouter();
@@ -17,7 +18,7 @@ export function LoginForm() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -65,7 +66,11 @@ export function LoginForm() {
       saveAuthSession(role, authUser, data.accessToken, validData.rememberMe);
       setLoading(false);
 
-      const redirectPath = getDefaultPathForRole(role);
+      const isFamilyRole = role === 'FAMILY' || role === 'PATIENT';
+      // Quay lại đúng trang người dùng định vào; chỉ nhận đường dẫn nội bộ hợp lệ.
+      const returnUrl = resolveReturnUrl(searchParams.get('redirect'));
+      const redirectPath =
+        returnUrl ?? (isFamilyRole ? '/' : getDefaultPathForRole(role));
       if (typeof window !== 'undefined') {
         window.location.replace(redirectPath);
       } else {
@@ -73,8 +78,15 @@ export function LoginForm() {
       }
     } catch (err: unknown) {
       setLoading(false);
+      const rawMessage = err instanceof Error ? err.message.trim() : '';
+      const isUnhelpfulMessage =
+        !rawMessage ||
+        rawMessage.toLowerCase() === 'unauthorized' ||
+        /^API error \(\d+\)$/.test(rawMessage);
       setErrors({
-        global: err instanceof Error ? err.message : 'Tài khoản hoặc mật khẩu không chính xác',
+        global: isUnhelpfulMessage
+          ? 'Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.'
+          : rawMessage,
       });
     }
   };
@@ -232,7 +244,7 @@ export function LoginForm() {
                 <img
                   src="/images/logo.png"
                   alt="FamiDoc Logo"
-                  className="h-8 sm:h-9 w-auto object-contain"
+                  className="h-8 sm:h-9 w-auto object-contain lg:hidden"
                 />
               </div>
 
@@ -398,16 +410,6 @@ export function LoginForm() {
                   ) : (
                     <>
                       <span>Đăng nhập hệ thống</span>
-                      <svg
-                        className="w-4 h-4 transition-transform group-hover:translate-x-1"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        viewBox="0 0 24 24"
-                      >
-                        <line x1="5" x2="19" y1="12" y2="12" />
-                        <polyline points="12 5 19 12 12 19" />
-                      </svg>
                     </>
                   )}
                 </button>
@@ -450,23 +452,9 @@ export function LoginForm() {
 
             {/* Card Footer */}
             <div
-              className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs gap-3"
+              className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-center text-xs gap-3"
               data-purpose="card-footer"
             >
-              {/* Compliance Badge */}
-              <div className="flex items-center space-x-1.5 text-slate-600 font-medium">
-                <svg
-                  className="w-4 h-4 text-emerald-600 shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  <polyline points="9 12 11 14 15 10" />
-                </svg>
-                <span>Bảo mật theo Nghị định 13/2023/NĐ-CP</span>
-              </div>
               {/* Register Link */}
               <div className="text-slate-500">
                 Chưa có tài khoản?{' '}

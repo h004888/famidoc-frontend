@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
@@ -16,6 +16,30 @@ export function LandingHeader() {
   const pathname = usePathname() || '/';
   const { isAuthenticated, user, role, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isUserMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setIsUserMenuOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsUserMenuOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isUserMenuOpen]);
 
   const bottomNavItems = [
     {
@@ -87,31 +111,65 @@ export function LandingHeader() {
             })}
           </nav>
 
-          {/* Action Buttons: Khi đã đăng nhập thì hiển thị Avatar + Vào Dashboard + Đăng xuất, ngược lại hiển thị Đăng nhập & Đăng ký */}
+          {/* Action Buttons: Khi đã đăng nhập hiển thị cụm Avatar + Tên mở dropdown (Bảng điều khiển, Hồ sơ, Đăng xuất), ngược lại hiển thị Đăng nhập & Đăng ký */}
           <div className="flex items-center gap-2 sm:gap-3">
             {isAuthenticated && user ? (
-              <div className="flex items-center gap-2 sm:gap-3">
-                <Link
-                  href={getDefaultPathForRole(role)}
-                  className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-50 text-[#0046c0] hover:bg-blue-100/80 text-xs sm:text-sm font-semibold transition-colors border border-blue-200/70"
-                  title="Vào Bảng Điều Khiển"
+              <div className="relative" ref={userMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsUserMenuOpen((prev) => !prev)}
+                  title="Mở menu tài khoản"
+                  aria-haspopup="menu"
+                  aria-expanded={isUserMenuOpen}
+                  aria-controls="landing-user-menu"
+                  className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-50 text-[#0046c0] hover:bg-blue-100/80 text-xs sm:text-sm font-semibold transition-colors border border-blue-200/70 cursor-pointer"
                 >
                   <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold border border-blue-300">
                     {user.avatarText || user.name.charAt(0)}
                   </div>
                   <span className="hidden sm:inline max-w-[120px] truncate">{user.name}</span>
-                  <span className="material-symbols-outlined text-[18px]">dashboard</span>
-                </Link>
-
-                <button
-                  type="button"
-                  onClick={logout}
-                  title="Đăng xuất"
-                  aria-label="Đăng xuất tài khoản"
-                  className="p-1.5 sm:p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-slate-200 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px] sm:text-[20px]">logout</span>
                 </button>
+
+                {isUserMenuOpen && (
+                  <div
+                    id="landing-user-menu"
+                    role="menu"
+                    className="absolute right-0 mt-2 w-56 rounded-xl bg-white border border-slate-200 shadow-lg shadow-slate-900/5 py-1.5 z-50"
+                  >
+                    <Link
+                      href={getDefaultPathForRole(role)}
+                      role="menuitem"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#0046c0]">dashboard</span>
+                      <span>Vào bảng điều khiển</span>
+                    </Link>
+
+                    <Link
+                      href="/settings"
+                      role="menuitem"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[18px] text-[#0046c0]">person</span>
+                      <span>Hồ sơ cá nhân</span>
+                    </Link>
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        logout();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">logout</span>
+                      <span>Đăng xuất</span>
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -127,7 +185,6 @@ export function LandingHeader() {
                   className="hidden md:inline-flex px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-md bg-[#0046c0] hover:bg-[#003899] text-white text-xs sm:text-sm font-medium transition-colors items-center gap-1.5 shadow-xs"
                 >
                   <span>Đăng ký</span>
-                  <span className="material-symbols-outlined text-[16px] sm:text-[18px]">arrow_forward</span>
                 </Link>
               </>
             )}

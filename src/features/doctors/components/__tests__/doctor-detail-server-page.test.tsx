@@ -1,11 +1,13 @@
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { notFound } from 'next/navigation';
 import { publicApi } from '@/lib/api/public.api';
 import type { PublicDoctorDetailDto } from '@/lib/api/public.api';
-import { DoctorDetailPageContent, generateMetadata } from '@/app/doctors/[id]/page';
-import * as DoctorDetailPageModule from '@/app/doctors/[id]/page';
+import {
+  DoctorDetailPageContent,
+  generateMetadata,
+  getDoctorDetail,
+} from '@/app/doctors/[id]/page';
 
 vi.mock('next/navigation', () => ({
   notFound: vi.fn(() => {
@@ -22,83 +24,123 @@ vi.mock('@/lib/api/public.api', () => ({
 }));
 
 type MockDoctorDetailViewProps = {
-  id?: string;
   initialDoctor?: { doctorName?: string; specialty?: string } | null;
 };
 
 vi.mock('@/features/doctors', () => ({
-  DoctorDetailView: vi.fn(({ id, initialDoctor }: MockDoctorDetailViewProps) => (
-    <div data-testid="doctor-detail-view" data-doctor-id={id}>
-      <h1 data-testid="doctor-name">{initialDoctor?.doctorName || 'No Initial Doctor'}</h1>
+  DoctorDetailView: vi.fn(({ initialDoctor }: MockDoctorDetailViewProps) => (
+    <div data-testid="doctor-detail-view">
+      <h1 data-testid="doctor-name">{initialDoctor?.doctorName || 'No Doctor'}</h1>
       <p data-testid="doctor-specialty">{initialDoctor?.specialty || ''}</p>
     </div>
   )),
 }));
 
-describe('Task 5: Doctor Detail Server Page (generateMetadata & DoctorDetailPageContent)', () => {
+function buildDoctor(overrides: Partial<PublicDoctorDetailDto> = {}): PublicDoctorDetailDto {
+  return {
+    id: 'doc-01',
+    doctorName: 'Nguyễn Văn Hoài',
+    academicTitle: 'PGS. TS.',
+    specialty: 'Bác sĩ Gia đình & Nội Tổng Quát',
+    specialtyKey: 'general',
+    avatarUrl: null,
+    bio: 'Hơn 24 năm kinh nghiệm thực hành lâm sàng.',
+    isVerified: true,
+    isAvailable: true,
+    panel: { activeCount: 10, maxCapacity: 30 },
+    stats: {
+      experienceYears: 24,
+      ratingAvg: 4.9,
+      totalReviews: 40,
+      completedEncounters: 300,
+    },
+    facility: null,
+    credentials: [],
+    treatedCases: [],
+    careModel: { serviceModes: [], commitments: [] },
+    carePackages: [],
+    reviews: { ratingAvg: 4.9, totalReviews: 40, items: [] },
+    ...overrides,
+  };
+}
+
+describe('Doctor Detail Server Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('generateMetadata', () => {
-    it('returns dynamic metadata with doctor name when API fetch succeeds', async () => {
-      const mockDoctor: PublicDoctorDetailDto = {
-        id: 'doc-01',
-        doctorName: 'PGS. TS. Nguyễn Văn Hoài',
-        academicTitle: 'PGS. TS.',
-        specialty: 'Bác sĩ Gia đình & Nội Tổng Quát',
-        bio: 'Hơn 24 năm kinh nghiệm thực hành lâm sàng.',
-      };
-
-      vi.mocked(publicApi.getDoctorDetail).mockResolvedValueOnce(mockDoctor);
+    it('returns dynamic metadata with the doctor name and bio', async () => {
+      vi.mocked(publicApi.getDoctorDetail).mockResolvedValueOnce(
+        buildDoctor({ id: 'meta-1' })
+      );
 
       const metadata = await generateMetadata({
-        params: Promise.resolve({ id: 'doc-01' }),
+        params: Promise.resolve({ id: 'meta-1' }),
       });
 
-      expect(publicApi.getDoctorDetail).toHaveBeenCalledWith('doc-01');
+      expect(publicApi.getDoctorDetail).toHaveBeenCalledWith('meta-1');
       expect(metadata.title).toContain('Nguyễn Văn Hoài');
+      expect(metadata.description).toBe(
+        'Hơn 24 năm kinh nghiệm thực hành lâm sàng.'
+      );
     });
 
-    it('returns fallback metadata when API throws error or doctor not found', async () => {
-      vi.mocked(publicApi.getDoctorDetail).mockRejectedValueOnce(new Error('Not found'));
+    it('uses a fallback description when the doctor has no bio', async () => {
+      vi.mocked(publicApi.getDoctorDetail).mockResolvedValueOnce(
+        buildDoctor({ id: 'meta-2', bio: null, academicTitle: null })
+      );
 
       const metadata = await generateMetadata({
-        params: Promise.resolve({ id: 'doc-unknown' }),
+        params: Promise.resolve({ id: 'meta-2' }),
       });
 
-      expect(publicApi.getDoctorDetail).toHaveBeenCalledWith('doc-unknown');
+      expect(metadata.title).toContain('Nguyễn Văn Hoài');
+      expect(metadata.description).toContain('Nguyễn Văn Hoài');
+    });
+
+    it('returns fallback metadata when the API fails', async () => {
+      vi.mocked(publicApi.getDoctorDetail).mockRejectedValueOnce(
+        new Error('Not found')
+      );
+
+      const metadata = await generateMetadata({
+        params: Promise.resolve({ id: 'meta-unknown' }),
+      });
+
       expect(metadata.title).toBeDefined();
     });
   });
 
   describe('DoctorDetailPageContent', () => {
-    it('fetches doctor details and passes initialDoctor to DoctorDetailView', async () => {
-      const mockDoctor: PublicDoctorDetailDto = {
-        id: 'doc-01',
-        doctorName: 'PGS. TS. Nguyễn Văn Hoài',
-        specialty: 'Bác sĩ Gia đình & Nội Tổng Quát',
-      };
-
-      vi.mocked(publicApi.getDoctorDetail).mockResolvedValueOnce(mockDoctor);
+    it('fetches the doctor and passes the full payload to DoctorDetailView', async () => {
+      vi.mocked(publicApi.getDoctorDetail).mockResolvedValueOnce(
+        buildDoctor({ id: 'page-1' })
+      );
 
       const pageJsx = await DoctorDetailPageContent({
-        params: Promise.resolve({ id: 'doc-01' }),
+        params: Promise.resolve({ id: 'page-1' }),
       });
 
       render(pageJsx);
 
-      expect(publicApi.getDoctorDetail).toHaveBeenCalledWith('doc-01');
-      expect(screen.getByTestId('doctor-name')).toHaveTextContent('PGS. TS. Nguyễn Văn Hoài');
-      expect(screen.getByTestId('doctor-specialty')).toHaveTextContent('Bác sĩ Gia đình & Nội Tổng Quát');
+      expect(publicApi.getDoctorDetail).toHaveBeenCalledWith('page-1');
+      expect(screen.getByTestId('doctor-name')).toHaveTextContent(
+        'Nguyễn Văn Hoài'
+      );
+      expect(screen.getByTestId('doctor-specialty')).toHaveTextContent(
+        'Bác sĩ Gia đình & Nội Tổng Quát'
+      );
     });
 
-    it('triggers notFound() when API throws 404 or fails', async () => {
-      vi.mocked(publicApi.getDoctorDetail).mockRejectedValueOnce(new Error('Doctor not found (404)'));
+    it('triggers notFound() when the API fails', async () => {
+      vi.mocked(publicApi.getDoctorDetail).mockRejectedValueOnce(
+        new Error('Doctor not found (404)')
+      );
 
       await expect(
         DoctorDetailPageContent({
-          params: Promise.resolve({ id: 'doc-invalid' }),
+          params: Promise.resolve({ id: 'page-invalid' }),
         })
       ).rejects.toThrow('NEXT_NOT_FOUND');
 
@@ -106,10 +148,18 @@ describe('Task 5: Doctor Detail Server Page (generateMetadata & DoctorDetailPage
     });
   });
 
-  describe('ISR Cache Revalidation', () => {
-    it('exports revalidate or complies with nextConfig.cacheComponents', () => {
-      const pageModule = DoctorDetailPageModule as unknown as Record<string, unknown>;
-      expect(pageModule.revalidate === undefined || pageModule.revalidate === 3600).toBe(true);
+  describe('request deduplication', () => {
+    it('shares one fetch between metadata and page while they run concurrently', async () => {
+      vi.mocked(publicApi.getDoctorDetail).mockResolvedValue(
+        buildDoctor({ id: 'dedupe-1' })
+      );
+
+      await Promise.all([
+        getDoctorDetail('dedupe-1'),
+        getDoctorDetail('dedupe-1'),
+      ]);
+
+      expect(publicApi.getDoctorDetail).toHaveBeenCalledTimes(1);
     });
   });
 });

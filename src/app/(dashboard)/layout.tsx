@@ -1,10 +1,16 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { DashboardSidebar, DashboardTopbarUser } from '@/components/layout';
+import {
+  DashboardSidebar,
+  DashboardTopbarUser,
+  FamilySubscriptionGateGuard,
+  FamilySubscriptionGateProvider,
+} from '@/components/layout';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row bg-[#f5f6f8] text-slate-900 antialiased font-sans">
+    <FamilySubscriptionGateProvider>
+      <div className="min-h-screen flex flex-col lg:flex-row bg-[#f5f6f8] text-slate-900 antialiased font-sans">
       {/* Sidenav - Thanh điều hướng dọc chuẩn Preclinic */}
       <Suspense fallback={<div className="hidden lg:block w-16 bg-white border-r border-slate-200/90 shrink-0" />}>
         <DashboardSidebar />
@@ -43,7 +49,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Nội dung trang */}
         <main className="flex-1">
           <Suspense fallback={null}>
-            {children}
+            <FamilySubscriptionGateGuard>{children}</FamilySubscriptionGateGuard>
           </Suspense>
         </main>
 
@@ -77,5 +83,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </footer>
       </div>
     </div>
+    </FamilySubscriptionGateProvider>
   );
 }

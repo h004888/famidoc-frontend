@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ContractSigningWizard } from './contract-signing-wizard';
+import { DoctorContractInitiationPanel } from './doctor-contract-initiation-panel';
 import {
   useContractWorkflow,
   updateContractStep,
@@ -117,15 +118,46 @@ export function SubscriptionContractView() {
   const workflow = useContractWorkflow();
   const searchParams = useSearchParams();
   const packageParam = searchParams?.get('packageId');
-  const activePackageInfo = packageParam ? PACKAGE_DETAILS_MAP[packageParam] : null;
+  const doctorParam = searchParams?.get('doctorId');
+  const facilityParam = searchParams?.get('facilityId');
+  const rawMembersParam = searchParams?.get('members');
+  const parsedMembersParam =
+    rawMembersParam !== null ? Number(rawMembersParam) : 1;
+  const requestedMembersValue = Number.isFinite(parsedMembersParam)
+    ? Math.trunc(parsedMembersParam)
+    : 0;
+  const hasDoctorBookingContext = Boolean(
+    packageParam && doctorParam && facilityParam
+  );
+  const activePackageInfo =
+    !hasDoctorBookingContext && packageParam
+      ? PACKAGE_DETAILS_MAP[packageParam]
+      : null;
 
   const [activeTab, setActiveTab] = useState<'contract' | 'benefits'>('contract');
-  const [isSigningWizardOpen, setIsSigningWizardOpen] = useState(Boolean(activePackageInfo));
+  const [isSigningWizardOpen, setIsSigningWizardOpen] = useState(
+    Boolean(activePackageInfo)
+  );
   const [toastMessage, setToastMessage] = useState<string | null>(
     activePackageInfo
       ? `Đã chọn ${activePackageInfo.name}. Mời quý khách xem điều khoản và ký hợp đồng 4 bên.`
       : null
   );
+
+  if (hasDoctorBookingContext && packageParam && doctorParam && facilityParam) {
+    return (
+      <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+        <main className="w-full max-w-4xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
+          <DoctorContractInitiationPanel
+            packageId={packageParam}
+            doctorId={doctorParam}
+            facilityId={facilityParam}
+            requestedMembers={requestedMembersValue}
+          />
+        </main>
+      </div>
+    );
+  }
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -158,37 +190,37 @@ export function SubscriptionContractView() {
       isSigned: !!workflow?.familySigned,
     },
     {
-      code: 'BÊN B · NỀN TẢNG FAMIDOC',
-      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
-      name: 'FamiDoc Platform Administration',
-      identifier: 'MST: 0317892182 · SmartCA',
-      roleDesc: 'Đơn vị vận hành hồ sơ EHR & điều phối mạng lưới 24/7',
-      signMethod: workflow?.adminSigned ? 'Chứng thư số FamiDoc SmartCA' : 'Chờ Admin duyệt (Bên B)',
-      signDetail: workflow?.adminCertSerial || 'Chuẩn SHA-256 RSA',
-      signedAt: workflow?.adminSignedAt || 'Chờ ký duyệt',
-      isSigned: !!workflow?.adminSigned,
-    },
-    {
-      code: 'BÊN C · CƠ SỞ Y TẾ ĐỐI TÁC',
+      code: 'BÊN B · CƠ SỞ Y TẾ ĐỐI TÁC',
       badgeClass: 'bg-amber-50 text-amber-800 border-amber-200/80',
       name: workflow?.facilityName || 'BV Đại học Y Dược TP.HCM',
       identifier: 'Mã CSYT: 79024 · Tuyến TW',
       roleDesc: workflow?.assignedDoctorName ? `Đã phân công: ${workflow.assignedDoctorName}` : 'Bảo trợ chuyên môn & phân công bác sĩ',
-      signMethod: workflow?.facilitySigned ? 'Chữ ký số Bệnh viện VNPT-CA' : 'Chờ cơ sở y tế (Bên C)',
+      signMethod: workflow?.facilitySigned ? 'Chữ ký số Bệnh viện VNPT-CA' : 'Chờ cơ sở y tế (Bên B)',
       signDetail: workflow?.facilitySignerName || 'Định danh: UMC-HCMC-CA',
       signedAt: workflow?.facilitySignedAt || 'Chờ phân công & ký',
       isSigned: !!workflow?.facilitySigned,
     },
     {
-      code: 'BÊN D · BÁC SĨ PHỤ TRÁCH',
+      code: 'BÊN C · BÁC SĨ PHỤ TRÁCH',
       badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200/80',
       name: workflow?.assignedDoctorName || 'BS.CKII Trần Thanh Mai',
       identifier: `CCHN: ${workflow?.doctorCchn || '004128/HCM'}`,
       roleDesc: 'Bác sĩ gia đình quản nhiệm trực tiếp hộ',
-      signMethod: workflow?.doctorSigned ? 'Chữ ký số cá nhân Viettel-CA' : 'Chờ bác sĩ xác nhận (Bên D)',
+      signMethod: workflow?.doctorSigned ? 'Chữ ký số cá nhân Viettel-CA' : 'Chờ bác sĩ xác nhận (Bên C)',
       signDetail: 'Cam kết trách nhiệm y đức & SLA',
       signedAt: workflow?.doctorSignedAt || 'Chờ xác nhận chuyên môn',
       isSigned: !!workflow?.doctorSigned,
+    },
+    {
+      code: 'BÊN D · NỀN TẢNG FAMIDOC',
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200/80',
+      name: 'FamiDoc Platform Administration',
+      identifier: 'MST: 0317892182 · SmartCA',
+      roleDesc: 'Đơn vị vận hành hồ sơ EHR & điều phối mạng lưới 24/7',
+      signMethod: workflow?.adminSigned ? 'Chứng thư số FamiDoc SmartCA' : 'Chờ Admin duyệt (Bên D)',
+      signDetail: workflow?.adminCertSerial || 'Chuẩn SHA-256 RSA',
+      signedAt: workflow?.adminSignedAt || 'Chờ ký duyệt',
+      isSigned: !!workflow?.adminSigned,
     },
   ];
 
@@ -639,7 +671,7 @@ export function SubscriptionContractView() {
                       <span>Điều 1: Phạm vi chăm sóc</span>
                     </div>
                     <p className="text-xs leading-relaxed text-slate-600">
-                      Bác sĩ quản nhiệm (Bên B) và FamiDoc (Bên D) cung cấp gói chăm sóc sức khỏe
+                      Bác sĩ quản nhiệm (Bên C) và FamiDoc (Bên D) cung cấp gói chăm sóc sức khỏe
                       trọn năm cho hộ gia đình Bên A gồm: <strong>05 lượt khám tại nhà</strong>,{' '}
                       <strong>20 lượt tư vấn Telehealth</strong>, quản lý hồ sơ bệnh án điện tử EHR
                       và <strong>02 đợt lấy mẫu xét nghiệm</strong> định kỳ tại nhà.
@@ -652,9 +684,9 @@ export function SubscriptionContractView() {
                       <span>Điều 2: Chuyển tuyến ưu tiên</span>
                     </div>
                     <p className="text-xs leading-relaxed text-slate-600">
-                      Bệnh viện Đại học Y Dược TP.HCM (Bên C) tiếp nhận thành viên hộ Bên A theo
+                      Bệnh viện Đại học Y Dược TP.HCM (Bên B) tiếp nhận thành viên hộ Bên A theo
                       luồng ưu tiên <strong>Fast-Track</strong> khi có chỉ định chuyển viện điện tử
-                      từ Bác sĩ quản nhiệm; đồng bộ sẵn kết quả xét nghiệm và hỗ trợ hưởng BHYT đúng
+                      từ Bác sĩ quản nhiệm (Bên C); đồng bộ sẵn kết quả xét nghiệm và hỗ trợ hưởng BHYT đúng
                       tuyến.
                     </p>
                   </div>

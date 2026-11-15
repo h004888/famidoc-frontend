@@ -104,7 +104,7 @@ describe('UT-CMP-02..03, UT-CMP-08..10: LoginForm Component Interactions & A11y'
         body: JSON.stringify({
           email: 'rep@famidoc.vn',
           password: 'Password@123',
-          rememberMe: true,
+          rememberMe: false,
         }),
       }),
     );
@@ -164,7 +164,7 @@ describe('UT-CMP-02..03, UT-CMP-08..10: LoginForm Component Interactions & A11y'
       }),
     } as Response);
 
-  it('UT-CMP-11: bỏ tick Ghi nhớ đăng nhập -> payload rememberMe=false và lưu phiên tạm', async () => {
+  it('UT-CMP-11: mặc định không tích Ghi nhớ đăng nhập -> payload rememberMe=false và lưu phiên tạm', async () => {
     mockSearchParams = new URLSearchParams();
     const fetchSpy = mockLoginSuccess();
     const setTokenSpy = vi.spyOn(httpClient, 'setToken');
@@ -172,9 +172,10 @@ describe('UT-CMP-02..03, UT-CMP-08..10: LoginForm Component Interactions & A11y'
 
     render(<LoginForm />);
 
+    expect(screen.getByRole('checkbox')).not.toBeChecked();
+
     await userEvent.type(screen.getByLabelText(/Email/i), 'rep@famidoc.vn');
     await userEvent.type(screen.getByLabelText(/^Mật khẩu$/i), 'Password@123');
-    await userEvent.click(screen.getByRole('checkbox'));
     await userEvent.click(
       screen.getByRole('button', { name: /Đăng nhập hệ thống/i }),
     );
@@ -200,7 +201,7 @@ describe('UT-CMP-02..03, UT-CMP-08..10: LoginForm Component Interactions & A11y'
     fetchSpy.mockRestore();
   });
 
-  it('UT-CMP-12: giữ tick Ghi nhớ đăng nhập (mặc định) -> payload rememberMe=true và lưu phiên 7 ngày', async () => {
+  it('UT-CMP-12: tích Ghi nhớ đăng nhập -> payload rememberMe=true và lưu phiên 7 ngày', async () => {
     mockSearchParams = new URLSearchParams();
     const fetchSpy = mockLoginSuccess();
     const setTokenSpy = vi.spyOn(httpClient, 'setToken');
@@ -210,6 +211,7 @@ describe('UT-CMP-02..03, UT-CMP-08..10: LoginForm Component Interactions & A11y'
 
     await userEvent.type(screen.getByLabelText(/Email/i), 'rep@famidoc.vn');
     await userEvent.type(screen.getByLabelText(/^Mật khẩu$/i), 'Password@123');
+    await userEvent.click(screen.getByRole('checkbox'));
     await userEvent.click(
       screen.getByRole('button', { name: /Đăng nhập hệ thống/i }),
     );

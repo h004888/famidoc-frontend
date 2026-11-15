@@ -4,96 +4,137 @@ import {
   publicApi,
   PublicDoctorDetailDto,
   PublicDoctorReviewsResponse,
-  SubmitConsultationPayload,
-  ConsultationResponseDto,
 } from '../public.api';
 
-describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request', () => {
+describe('publicApi - Doctor Detail and Reviews', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   describe('getDoctorDetail', () => {
-    it('calls GET /api/v1/public/doctors/:id and returns PublicDoctorDetailDto from envelope', async () => {
+    it('calls GET /api/v1/public/doctors/:id and returns the canonical profile from the envelope', async () => {
       const mockDoctorDetail: PublicDoctorDetailDto = {
         id: 'doc-01',
-        doctorName: 'PGS. TS. Nguyễn Văn Hoài',
+        doctorName: 'Nguyễn Văn Hoài',
         academicTitle: 'PGS. TS.',
         specialty: 'Bác sĩ Gia đình & Nội Tổng Quát',
         specialtyKey: 'general',
-        cchnNumber: 'CCHN-001892/BYT-CCHN',
-        experienceYears: 24,
-        ratingAvg: 4.96,
-        totalReviews: 384,
-        consultationCount: 2400,
-        hospital: 'Bệnh viện Đại học Y Dược TP.HCM',
-        location: 'TP. Hồ Chí Minh',
-        avatarUrl: '/images/medsev/home-one/doctor/1.jpg',
-        services: ['home', 'telehealth', 'clinic'],
+        avatarUrl: '/images/doctor-1.jpg',
         bio: 'Bác sĩ đầu ngành với hơn 24 năm kinh nghiệm.',
-        education: ['Tiến sĩ Y khoa - Paris Descartes (2008)'],
-        schedule: 'Thứ 2 - Thứ 7: 08:00 - 18:00',
+        isVerified: true,
+        isAvailable: true,
+        panel: { activeCount: 18, maxCapacity: 30 },
+        stats: {
+          experienceYears: 24,
+          ratingAvg: 4.96,
+          totalReviews: 384,
+          completedEncounters: 2400,
+        },
+        facility: {
+          id: 'fac-1',
+          facilityName: 'Bệnh viện Đại học Y Dược TP.HCM',
+          address: '215 Hồng Bàng, Quận 5',
+          verificationStatus: 'ACTIVE',
+        },
+        credentials: [
+          {
+            id: 'cred-1',
+            type: 'DEGREE',
+            typeLabel: 'Bằng cấp chuyên môn',
+            issuingAuthority: 'Đại học Paris Descartes',
+            issueYear: 2008,
+            verified: true,
+          },
+        ],
+        treatedCases: [{ id: 'case-1', summary: 'Quản lý tăng huyết áp.' }],
+        careModel: {
+          serviceModes: [
+            {
+              id: 'care-1',
+              category: 'SERVICE_MODE',
+              title: 'Khám tận nhà',
+              description: 'Khám tại nhà.',
+              icon: 'home',
+              sortOrder: 1,
+            },
+          ],
+          commitments: [],
+        },
         carePackages: [
           {
             id: 'pkg-1',
-            name: 'Gói Đồng Hành',
-            price: 2850000,
+            packageCode: 'PKG-FAMILY-01',
+            packageName: 'Gói Đồng Hành',
             durationMonths: 3,
-            features: ['3 lượt khám tại nhà'],
+            basePrice: 2850000,
+            formattedPrice: '2.850.000đ',
+            periodicVisitsQuota: 3,
+            telehealthQuota: 4,
+            includedMembers: 3,
+            maxMembers: 6,
+            additionalMemberMonthlyPrice: 75000,
           },
         ],
-        facility: {
-          id: 'fac-01',
-          facilityName: 'Bệnh viện Đại học Y Dược TP.HCM',
+        reviews: {
+          ratingAvg: 4.96,
+          totalReviews: 384,
+          items: [
+            {
+              id: 'rev-1',
+              patientDisplayName: 'Nguyễn V. A.',
+              ratingStars: 5,
+              comment: 'Bác sĩ rất tận tâm.',
+              packageName: 'Gói Đồng Hành',
+              district: 'Quận 7',
+              reviewedAt: '2026-11-01T08:30:00.000Z',
+            },
+          ],
         },
       };
 
-      const envelopeResponse = {
+      const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValueOnce({
         success: true,
         code: 200,
-        message: 'Lấy thông tin chi tiết bác sĩ thành công',
         data: mockDoctorDetail,
-      };
-
-      const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValueOnce(envelopeResponse);
+      });
 
       const result = await publicApi.getDoctorDetail('doc-01');
 
       expect(getSpy).toHaveBeenCalledWith('/api/v1/public/doctors/doc-01');
       expect(result).toEqual(mockDoctorDetail);
-      expect(result.doctorName).toBe('PGS. TS. Nguyễn Văn Hoài');
-      expect(result.carePackages).toHaveLength(1);
+      expect(result.panel).toEqual({ activeCount: 18, maxCapacity: 30 });
+      expect(result.reviews.items[0].patientDisplayName).toBe('Nguyễn V. A.');
     });
 
-    it('returns direct response if not wrapped in standard data envelope', async () => {
+    it('returns the direct response when the backend does not wrap an envelope', async () => {
       const rawDoctor = {
         id: 'doc-02',
-        doctorName: 'ThS. BS. CKII Trần Thị Thu Trang',
-        specialty: 'Nhi Khoa & Dinh Dưỡng Trẻ Em',
-      };
+        doctorName: 'Trần Thị Thu Trang',
+        specialty: 'Nhi Khoa',
+      } as PublicDoctorDetailDto;
 
       vi.spyOn(httpClient, 'get').mockResolvedValueOnce(rawDoctor);
 
       const result = await publicApi.getDoctorDetail('doc-02');
       expect(result.id).toBe('doc-02');
-      expect(result.doctorName).toBe('ThS. BS. CKII Trần Thị Thu Trang');
+      expect(result.doctorName).toBe('Trần Thị Thu Trang');
     });
   });
 
   describe('getDoctorReviews', () => {
-    it('calls GET /api/v1/public/doctors/:id/reviews and returns paginated reviews from envelope', async () => {
+    it('calls GET /api/v1/public/doctors/:id/reviews and maps the paginated envelope', async () => {
       const mockReviewsEnvelope = {
         success: true,
         code: 200,
         data: [
           {
             id: 'rev-1',
-            authorName: 'Trần Minh Anh',
-            rating: 5,
+            patientDisplayName: 'Nguyễn V. A.',
+            ratingStars: 5,
             comment: 'Bác sĩ khám rất tận tâm và kỹ lưỡng!',
-            createdAt: '2026-10-15T08:30:00.000Z',
-            serviceName: 'Khám tại nhà',
-            verified: true,
+            packageName: 'Gói Đồng Hành',
+            district: 'Quận 7',
+            reviewedAt: '2026-10-15T08:30:00.000Z',
           },
         ],
         meta: {
@@ -107,24 +148,26 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
         },
       };
 
-      const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValueOnce(mockReviewsEnvelope);
+      const getSpy = vi
+        .spyOn(httpClient, 'get')
+        .mockResolvedValueOnce(mockReviewsEnvelope);
 
-      const result: PublicDoctorReviewsResponse = await publicApi.getDoctorReviews('doc-01', {
-        page: 1,
-        limit: 5,
-      });
+      const result: PublicDoctorReviewsResponse = await publicApi.getDoctorReviews(
+        'doc-01',
+        { page: 1, limit: 5 }
+      );
 
       expect(getSpy).toHaveBeenCalledWith(
         '/api/v1/public/doctors/doc-01/reviews',
         { page: 1, limit: 5 }
       );
       expect(result.items).toHaveLength(1);
-      expect(result.items[0].authorName).toBe('Trần Minh Anh');
+      expect(result.items[0].patientDisplayName).toBe('Nguyễn V. A.');
       expect(result.pagination?.totalRecords).toBe(28);
       expect(result.pagination?.hasNextPage).toBe(true);
     });
 
-    it('returns empty items array when response data is empty or null', async () => {
+    it('returns empty items when the response data is empty', async () => {
       vi.spyOn(httpClient, 'get').mockResolvedValueOnce({
         success: true,
         data: null,
@@ -135,13 +178,13 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
       expect(result.pagination).toBeUndefined();
     });
 
-    it('handles direct array response without envelope', async () => {
+    it('handles a direct array response without an envelope', async () => {
       const rawReviews = [
         {
           id: 'rev-2',
-          authorName: 'Lê Hoàng',
-          rating: 5,
-          createdAt: '2026-10-20T10:00:00.000Z',
+          patientDisplayName: 'Lê H.',
+          ratingStars: 5,
+          reviewedAt: '2026-10-20T10:00:00.000Z',
         },
       ];
       vi.spyOn(httpClient, 'get').mockResolvedValueOnce(rawReviews);
@@ -152,53 +195,7 @@ describe('Task 3: publicApi - Doctor Detail, Reviews, and Consultation Request',
     });
   });
 
-  describe('submitConsultationRequest', () => {
-    it('calls POST /api/v1/public/consultation-requests with payload and returns ticket response from envelope', async () => {
-      const payload: SubmitConsultationPayload = {
-        fullName: 'Nguyễn Văn Minh',
-        phone: '0912345678',
-        email: 'minh.nguyen@famidoc.vn',
-        preferredPackageId: 'pkg-1',
-        healthNeeds: 'Gia đình có người cao tuổi cần theo dõi huyết áp định kỳ tại nhà.',
-        familyMemberCount: 4,
-      };
-
-      const mockResponse: ConsultationResponseDto = {
-        ticketId: 'CRQ-L9X4K2-A1B2',
-        status: 'RECEIVED',
-        message: 'Tiếp nhận yêu cầu tư vấn thành công.',
-        submittedAt: '2026-11-02T09:45:00.000Z',
-      };
-
-      const postSpy = vi.spyOn(httpClient, 'post').mockResolvedValueOnce({
-        success: true,
-        data: mockResponse,
-      });
-
-      const result = await publicApi.submitConsultationRequest(payload);
-
-      expect(postSpy).toHaveBeenCalledWith('/api/v1/public/consultation-requests', payload);
-      expect(result.ticketId).toBe('CRQ-L9X4K2-A1B2');
-      expect(result.status).toBe('RECEIVED');
-    });
-
-    it('returns direct response if not wrapped in envelope', async () => {
-      const payload: SubmitConsultationPayload = {
-        fullName: 'Trần Văn B',
-        phone: '0987654321',
-        healthNeeds: 'Cần tư vấn gói dinh dưỡng trẻ nhỏ.',
-      };
-
-      const mockResponse: ConsultationResponseDto = {
-        ticketId: 'CRQ-DIRECT-1234',
-        status: 'RECEIVED',
-        message: 'Đã nhận hồ sơ',
-      };
-
-      vi.spyOn(httpClient, 'post').mockResolvedValueOnce(mockResponse);
-
-      const result = await publicApi.submitConsultationRequest(payload);
-      expect(result.ticketId).toBe('CRQ-DIRECT-1234');
-    });
+  it('no longer exposes the consultation request client', () => {
+    expect('submitConsultationRequest' in publicApi).toBe(false);
   });
 });

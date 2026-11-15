@@ -1,152 +1,69 @@
-'use client';
+﻿'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { FourPartyContract } from '@/features/four-party-contract';
-import { contractsApi } from '@/lib/api/contracts.api';
+import {
+  DocumensoSigningEmbed,
+  type FourPartyContract,
+} from '@/features/four-party-contract';
+import { contractsApi } from '@/lib/api';
 
 export interface FacilityContractInboundViewProps {
   initialContracts?: FourPartyContract[];
 }
 
-const DEFAULT_MOCK_CONTRACTS: FourPartyContract[] = [
-  {
-    id: 'ct-4p-001',
-    contractNumber: 'HD-4P-2026-0001',
-    status: 'PLATFORM_SIGNED',
-    packageId: 'pkg-gold',
-    packageName: 'Gói Chăm Sóc Toàn Diện Gia Đình',
-    packagePrice: 9600000,
-    durationMonths: 12,
-    familyId: 'fam-88219',
-    familyRepresentativeName: 'Nguyễn Văn An',
-    familyRepresentativePhone: '0912345678',
-    familyRepresentativeEmail: 'nguyenvanan@example.com',
-    familyAddress: '123 Đường Nguyễn Trãi, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh',
-    membersCount: 4,
-    facilityId: 'fac-01',
-    facilityName: 'Phòng khám Đa khoa Quốc tế Medsev',
-    createdAt: '2026-11-09T08:00:00.000Z',
-    signatures: {
-      family: {
-        signedBy: 'Nguyễn Văn An',
-        signerRole: 'FAMILY',
-        signedAt: '2026-11-09T08:30:00.000Z',
-        sha256Hash: 'a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890',
-      },
-      platform: {
-        signedBy: 'Ban Điều Hành Famidoc',
-        signerRole: 'PLATFORM',
-        signedAt: '2026-11-09T09:15:00.000Z',
-        sha256Hash: 'b2c3d4e5f6a17890abcdef1234567890abcdef1234567890abcdef1234567891',
-      },
-    },
-  },
-  {
-    id: 'ct-4p-002',
-    contractNumber: 'HD-4P-2026-0002',
-    status: 'FACILITY_ASSIGNED',
-    packageId: 'pkg-silver',
-    packageName: 'Gói Tiêu Chuẩn Người Cao Tuổi',
-    packagePrice: 6000000,
-    durationMonths: 12,
-    familyId: 'fam-44012',
-    familyRepresentativeName: 'Trần Thị Mai',
-    familyRepresentativePhone: '0987654321',
-    familyRepresentativeEmail: 'tranmai@example.com',
-    familyAddress: '45 Lê Văn Sỹ, Phường 2, Tân Bình, TP. Hồ Chí Minh',
-    membersCount: 2,
-    facilityId: 'fac-01',
-    facilityName: 'Phòng khám Đa khoa Quốc tế Medsev',
-    doctorId: 'doc-02',
-    doctorName: 'BS. CKI Lê Thị Kim Oanh',
-    doctorTitle: 'Bác sĩ Gia đình',
-    createdAt: '2026-11-08T10:00:00.000Z',
-    signatures: {
-      family: {
-        signedBy: 'Trần Thị Mai',
-        signerRole: 'FAMILY',
-        signedAt: '2026-11-08T10:30:00.000Z',
-        sha256Hash: 'e1f2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890',
-      },
-      platform: {
-        signedBy: 'Ban Điều Hành Famidoc',
-        signerRole: 'PLATFORM',
-        signedAt: '2026-11-08T11:00:00.000Z',
-        sha256Hash: 'f2c3d4e5f6a17890abcdef1234567890abcdef1234567890abcdef1234567891',
-      },
-      facility: {
-        signedBy: 'Đại diện CSYT - TS.BS Vũ Thành',
-        signerRole: 'FACILITY',
-        signedAt: '2026-11-08T14:00:00.000Z',
-        sha256Hash: 'c3d4e5f6a1b27890abcdef1234567890abcdef1234567890abcdef1234567892',
-      },
-    },
-  },
-  {
-    id: 'ct-4p-003',
-    contractNumber: 'HD-4P-2026-0003',
-    status: 'PLATFORM_SIGNED',
-    packageId: 'pkg-pediatric',
-    packageName: 'Gói Chăm Sóc Mẹ & Bé Sơ Sinh',
-    packagePrice: 7500000,
-    durationMonths: 6,
-    familyId: 'fam-55102',
-    familyRepresentativeName: 'Hoàng Minh Tuấn',
-    familyRepresentativePhone: '0903112233',
-    familyRepresentativeEmail: 'tuan.hm@example.com',
-    familyAddress: '78 Hai Bà Trưng, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh',
-    membersCount: 3,
-    facilityId: 'fac-01',
-    facilityName: 'Phòng khám Đa khoa Quốc tế Medsev',
-    createdAt: '2026-11-09T09:00:00.000Z',
-    signatures: {
-      family: {
-        signedBy: 'Hoàng Minh Tuấn',
-        signerRole: 'FAMILY',
-        signedAt: '2026-11-09T09:10:00.000Z',
-        sha256Hash: '3344c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890',
-      },
-      platform: {
-        signedBy: 'Ban Điều Hành Famidoc',
-        signerRole: 'PLATFORM',
-        signedAt: '2026-11-09T09:30:00.000Z',
-        sha256Hash: '5566d4e5f6a17890abcdef1234567890abcdef1234567890abcdef1234567891',
-      },
-    },
-  },
-];
-
 export function FacilityContractInboundView({
-  initialContracts = DEFAULT_MOCK_CONTRACTS,
+  initialContracts,
 }: FacilityContractInboundViewProps) {
-  const [contracts, setContracts] = useState<FourPartyContract[]>(initialContracts);
+  const isControlledByProps = initialContracts !== undefined;
+  const [contracts, setContracts] = useState<FourPartyContract[]>(
+    initialContracts ?? []
+  );
+  const [isLoading, setIsLoading] = useState<boolean>(!isControlledByProps);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [packageFilter, setPackageFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [signingContract, setSigningContract] = useState<FourPartyContract | null>(null);
+
+  const loadContracts = useCallback(async () => {
+    if (isControlledByProps) return;
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const items = await contractsApi.getMedicalContracts({ limit: 50 });
+      setContracts(items);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : 'Không thể tải danh sách hợp đồng từ máy chủ.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isControlledByProps]);
 
   useEffect(() => {
-    // Nếu không truyền initialContracts từ test/props, gọi API thật từ Backend
-    if (initialContracts === DEFAULT_MOCK_CONTRACTS) {
-      contractsApi
-        .getMedicalContracts({ role: 'FACILITY' })
-        .then((items) => {
-          if (items && items.length > 0) {
-            setContracts(items as unknown as FourPartyContract[]);
-          }
-        })
-        .catch(() => {
-          // Giữ mock nếu backend offline
-        });
-    }
-  }, [initialContracts]);
+    void loadContracts();
+  }, [loadContracts]);
 
-  // KPI Calculations
   const totalContracts = contracts.length;
-  const pendingAssignment = contracts.filter((c) => c.status === 'PLATFORM_SIGNED').length;
-  const assignedCount = contracts.filter((c) => c.status === 'FACILITY_ASSIGNED' || c.status === 'DOCTOR_ACCEPTED' || c.status === 'ACTIVE').length;
+  const pendingSignature = contracts.filter(
+    (c) =>
+      !c.signatures?.facility &&
+      c.status !== 'ACTIVE' &&
+      c.status !== 'CANCELLED'
+  ).length;
+  const signedCount = contracts.filter(
+    (c) =>
+      Boolean(c.signatures?.facility) ||
+      c.status === 'FACILITY_ASSIGNED' ||
+      c.status === 'DOCTOR_ACCEPTED' ||
+      c.status === 'PENDING_PAYMENT' ||
+      c.status === 'ACTIVE'
+  ).length;
 
-  // Distinct packages for filter dropdown
   const packageOptions = useMemo(() => {
     const map = new Map<string, string>();
     contracts.forEach((c) => {
@@ -155,10 +72,8 @@ export function FacilityContractInboundView({
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [contracts]);
 
-  // Filtered list
   const filteredContracts = useMemo(() => {
     return contracts.filter((c) => {
-      // Search
       const q = searchQuery.toLowerCase().trim();
       const matchesSearch =
         !q ||
@@ -167,19 +82,15 @@ export function FacilityContractInboundView({
         (c.familyRepresentativePhone && c.familyRepresentativePhone.includes(q)) ||
         (c.familyAddress && c.familyAddress.toLowerCase().includes(q));
 
-      // Package filter
       const matchesPackage = packageFilter === 'ALL' || c.packageId === packageFilter;
-
-      // Status filter
       const matchesStatus = statusFilter === 'ALL' || c.status === statusFilter;
 
       return matchesSearch && matchesPackage && matchesStatus;
     });
   }, [contracts, searchQuery, packageFilter, statusFilter]);
 
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
-  };
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
   const formatDate = (isoString?: string) => {
     if (!isoString) return '—';
@@ -201,13 +112,23 @@ export function FacilityContractInboundView({
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Hợp đồng 4 bên tiếp nhận
+            Hợp đồng 4 bên tiếp nhận (Bên B — Cơ sở Y tế)
           </h1>
           <p className="text-sm text-slate-500 mt-1">
-            Danh sách hợp đồng dịch vụ bác sĩ gia đình cần phân công và ký số phê duyệt từ cơ sở y tế.
+            Danh sách hợp đồng dịch vụ bác sĩ gia đình cần phân công và ký số trên Documenso khi Bên A đã ký xác nhận.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {!isControlledByProps && (
+            <button
+              type="button"
+              onClick={() => void loadContracts()}
+              disabled={isLoading}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50"
+            >
+              Làm mới
+            </button>
+          )}
           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
             Hệ thống Điều phối CSYT
           </span>
@@ -220,32 +141,48 @@ export function FacilityContractInboundView({
           <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
             Tổng hợp đồng tiếp nhận
           </div>
-          <div className="text-2xl font-bold text-slate-900 mt-1">
+          <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
             {totalContracts}
           </div>
-          <div className="text-xs text-slate-500 mt-1">Hồ sơ từ Nền tảng Famidoc</div>
+          <div className="text-xs text-slate-500 mt-1">Hồ sơ hợp đồng 4 bên</div>
         </div>
 
-        <div className="p-4 rounded-lg bg-white border border-amber-200 bg-amber-50/20 shadow-xs">
+        <div className="p-4 rounded-lg border border-amber-200 bg-amber-50/20 shadow-xs">
           <div className="text-xs font-medium text-amber-700 uppercase tracking-wider">
-            Chờ CSYT phân công & ký
+            Chờ CSYT ký / phân công
           </div>
-          <div className="text-2xl font-bold text-amber-900 mt-1">
-            {pendingAssignment}
+          <div className="text-2xl font-bold text-amber-900 mt-1 tabular-nums">
+            {pendingSignature}
           </div>
-          <div className="text-xs text-amber-600 mt-1">Cần chỉ định bác sĩ gia đình</div>
+          <div className="text-xs text-amber-600 mt-1">Cần ký xác nhận trên Documenso</div>
         </div>
 
-        <div className="p-4 rounded-lg bg-white border border-emerald-200 bg-emerald-50/20 shadow-xs">
+        <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/20 shadow-xs">
           <div className="text-xs font-medium text-emerald-700 uppercase tracking-wider">
-            Đã hoàn tất phân công
+            Đã ký số CSYT
           </div>
-          <div className="text-2xl font-bold text-emerald-900 mt-1">
-            {assignedCount}
+          <div className="text-2xl font-bold text-emerald-900 mt-1 tabular-nums">
+            {signedCount}
           </div>
-          <div className="text-xs text-emerald-600 mt-1">Đã ký số CSYT hợp lệ</div>
+          <div className="text-xs text-emerald-600 mt-1">Đã hoàn tất chữ ký Bên B</div>
         </div>
       </div>
+
+      {loadError && (
+        <div
+          role="alert"
+          className="p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2"
+        >
+          <span>{loadError}</span>
+          <button
+            type="button"
+            onClick={() => void loadContracts()}
+            className="px-3 py-1.5 rounded-md bg-rose-600 text-white font-semibold cursor-pointer"
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
 
       {/* Filters and Controls */}
       <div className="p-4 rounded-lg bg-white border border-slate-200 shadow-xs space-y-4">
@@ -296,8 +233,12 @@ export function FacilityContractInboundView({
               className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
             >
               <option value="ALL">Tất cả trạng thái</option>
+              <option value="DRAFT">Chờ Bên A ký Documenso</option>
+              <option value="FAMILY_SIGNED">Bên A đã ký — Chờ ký song song</option>
               <option value="PLATFORM_SIGNED">Chờ CSYT phân công (Nền tảng đã duyệt)</option>
               <option value="FACILITY_ASSIGNED">Đã phân công bác sĩ</option>
+              <option value="PENDING_PAYMENT">Đủ 4/4 chữ ký — Chờ thanh toán</option>
+              <option value="ACTIVE">Đang hiệu lực</option>
             </select>
           </div>
         </div>
@@ -319,7 +260,13 @@ export function FacilityContractInboundView({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredContracts.length === 0 ? (
+              {isLoading ? (
+                <tr>
+                  <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
+                    Đang tải danh sách hợp đồng...
+                  </td>
+                </tr>
+              ) : filteredContracts.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-500">
                     Không tìm thấy hợp đồng nào phù hợp với bộ lọc hiện tại.
@@ -327,7 +274,13 @@ export function FacilityContractInboundView({
                 </tr>
               ) : (
                 filteredContracts.map((contract) => {
-                  const isPending = contract.status === 'PLATFORM_SIGNED';
+                  const familySigned = Boolean(contract.signatures?.family) || contract.status !== 'DRAFT';
+                  const facilitySigned =
+                    Boolean(contract.signatures?.facility) ||
+                    contract.status === 'FACILITY_ASSIGNED' ||
+                    contract.status === 'PENDING_PAYMENT' ||
+                    contract.status === 'ACTIVE';
+                  const isPending = !facilitySigned;
 
                   return (
                     <tr
@@ -335,10 +288,10 @@ export function FacilityContractInboundView({
                       className="hover:bg-slate-50/70 transition-colors"
                     >
                       <td className="py-3.5 px-4 text-left">
-                        <div className="font-semibold text-slate-900">
+                        <div className="font-semibold text-slate-900 tabular-nums">
                           {contract.contractNumber}
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
+                        <div className="text-xs text-slate-500 mt-0.5 tabular-nums">
                           Tạo ngày {formatDate(contract.createdAt)}
                         </div>
                       </td>
@@ -347,24 +300,26 @@ export function FacilityContractInboundView({
                         <div className="font-medium text-slate-900">
                           {contract.familyRepresentativeName}
                         </div>
-                        <div className="text-xs text-slate-500">
-                          {contract.familyRepresentativePhone} • {contract.membersCount || 1} nhân khẩu
+                        <div className="text-xs text-slate-500 tabular-nums">
+                          {contract.familyRepresentativePhone} • {contract.membersCount || 1} suất thành viên
                         </div>
-                        <div className="text-xs text-slate-400 truncate max-w-[200px]" title={contract.familyAddress}>
-                          {contract.familyAddress}
-                        </div>
+                        {contract.familyAddress && (
+                          <div className="text-xs text-slate-400 truncate max-w-[200px]" title={contract.familyAddress}>
+                            {contract.familyAddress}
+                          </div>
+                        )}
                       </td>
 
                       <td className="py-3.5 px-4 text-left">
                         <div className="font-medium text-slate-800">
                           {contract.packageName}
                         </div>
-                        <div className="text-xs text-slate-500">
+                        <div className="text-xs text-slate-500 tabular-nums">
                           Thời hạn: {contract.durationMonths || 12} tháng
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-4 text-right font-medium text-slate-800">
+                      <td className="py-3.5 px-4 text-right font-medium text-slate-800 tabular-nums">
                         {formatPrice(contract.packagePrice)}
                       </td>
 
@@ -388,33 +343,41 @@ export function FacilityContractInboundView({
                       </td>
 
                       <td className="py-3.5 px-4 text-center">
-                        {isPending ? (
+                        {!familySigned ? (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                            Chờ Bên A ký trước
+                          </span>
+                        ) : isPending ? (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                            Chờ phân công & ký
+                            Chờ phân công &amp; ký
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            Đã phân công BS
+                            Đã ký số CSYT
                           </span>
                         )}
                       </td>
 
                       <td className="py-3.5 px-4 text-right">
-                        {isPending ? (
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSigningContract(contract)}
+                            className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors cursor-pointer"
+                          >
+                            Ký Documenso
+                          </button>
                           <Link
                             href={`/facility/contracts/${contract.id}/assign`}
-                            className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors"
+                            className={
+                              isPending
+                                ? 'inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors'
+                                : 'inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-colors'
+                            }
                           >
-                            Phân công & Ký số
+                            {isPending ? 'Phân công & Ký số' : 'Xem phân công'}
                           </Link>
-                        ) : (
-                          <Link
-                            href={`/facility/contracts/${contract.id}/assign`}
-                            className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-colors"
-                          >
-                            Xem phân công
-                          </Link>
-                        )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -424,6 +387,38 @@ export function FacilityContractInboundView({
           </table>
         </div>
       </div>
+
+      {/* Modal ký Documenso trực tiếp cho CSYT (Bên B) */}
+      {signingContract && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="text-base font-bold text-slate-900">
+                  Ký Hợp Đồng Documenso — Bên B (Cơ sở Y tế)
+                </h2>
+                <p className="text-xs text-slate-500 tabular-nums">
+                  {signingContract.contractNumber} • Gia đình: {signingContract.familyRepresentativeName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSigningContract(null)}
+                className="text-slate-400 hover:text-slate-600 cursor-pointer text-xs font-semibold px-2 py-1"
+              >
+                Đóng
+              </button>
+            </div>
+
+            <DocumensoSigningEmbed
+              contractId={signingContract.id}
+              onSyncCompleted={() => {
+                void loadContracts();
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

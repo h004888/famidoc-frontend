@@ -5,6 +5,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
+import {
+  isRestrictedFamilyPath,
+  useFamilySubscriptionGateState,
+} from './family-subscription-gate';
 
 interface NavItem {
   href: string;
@@ -106,6 +110,7 @@ const CLINIC_LIST = [
 export function DashboardSidebar() {
   const pathname = usePathname() || '/family';
   const { role, user, logout } = useAuth();
+  const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
   const [isHovered, setIsHovered] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [clinicDropdownOpen, setClinicDropdownOpen] = useState(false);
@@ -221,9 +226,39 @@ export function DashboardSidebar() {
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
         <div className="space-y-1">
           {currentMenu.items.map((item) => {
-            const isActive = item.exact
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
+            const isItemLocked = isFamilyLocked && isRestrictedFamilyPath(item.href);
+            const isActive =
+              !isItemLocked &&
+              (item.exact ? pathname === item.href : pathname.startsWith(item.href));
+
+            if (isItemLocked) {
+              return (
+                <button
+                  key={item.href}
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  title="Cần kích hoạt gói chăm sóc để mở khóa"
+                  aria-label={`${item.label} (Đã khóa - cần kích hoạt gói)`}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs sm:text-sm font-medium text-slate-400 bg-slate-50/70 cursor-not-allowed opacity-75 ${
+                    isCollapsedState ? 'justify-center px-2' : ''
+                  }`}
+                >
+                  <div className="flex items-center gap-3 truncate">
+                    <span className="material-symbols-outlined text-[20px] shrink-0 text-slate-400">
+                      lock
+                    </span>
+                    {!isCollapsedState && <span className="truncate">{item.label}</span>}
+                  </div>
+                  {!isCollapsedState && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-semibold shrink-0 bg-amber-50 text-amber-800 border border-amber-200/80">
+                      Cần gói
+                    </span>
+                  )}
+                </button>
+              );
+            }
+
             return (
               <Link
                 key={item.href}
@@ -264,6 +299,30 @@ export function DashboardSidebar() {
             );
           })}
         </div>
+
+        {!isCollapsedState && isFamilyLocked && (
+          <div
+            className="rounded-xl border border-amber-200 bg-amber-50/80 p-3 space-y-2 text-xs"
+            data-testid="sidebar-family-gate-notice"
+          >
+            <div className="flex items-start gap-2 text-amber-900 font-semibold">
+              <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">
+                lock
+              </span>
+              <span>Chưa kích hoạt gói chăm sóc</span>
+            </div>
+            <p className="text-amber-800 leading-relaxed">
+              Cần kích hoạt gói chăm sóc &amp; hợp đồng ACTIVE để mở khóa các mục quản lý gia đình.
+            </p>
+            <Link
+              href={unlockTargetHref}
+              onClick={() => setMobileMenuOpen(false)}
+              className="inline-flex items-center justify-center w-full px-3 py-1.5 rounded-lg bg-[#2E37A4] text-white font-semibold hover:bg-[#232b85] transition-colors"
+            >
+              {gateStatus?.pendingContract ? 'Theo dõi tiến trình hợp đồng' : 'Chọn bác sĩ & gói ngay'}
+            </Link>
+          </div>
+        )}
 
         {/* Global Settings & Utilities */}
         <div className="pt-2 border-t border-slate-100 space-y-1">
@@ -421,9 +480,30 @@ export function DashboardSidebar() {
           }`}
         >
           {primaryMobileTabs.map((item) => {
-            const isActive = item.exact
-              ? pathname === item.href
-              : pathname.startsWith(item.href);
+            const isItemLocked = isFamilyLocked && isRestrictedFamilyPath(item.href);
+            const isActive =
+              !isItemLocked &&
+              (item.exact ? pathname === item.href : pathname.startsWith(item.href));
+
+            if (isItemLocked) {
+              return (
+                <button
+                  key={item.href}
+                  type="button"
+                  disabled
+                  aria-disabled="true"
+                  title="Cần kích hoạt gói chăm sóc để mở khóa"
+                  className="relative flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-slate-400 opacity-70 cursor-not-allowed font-medium"
+                >
+                  <span className="material-symbols-outlined text-[20px] leading-none text-slate-400">
+                    lock
+                  </span>
+                  <span className="text-xs mt-1 leading-tight truncate max-w-full">
+                    {item.shortLabel || item.label}
+                  </span>
+                </button>
+              );
+            }
 
             return (
               <Link
