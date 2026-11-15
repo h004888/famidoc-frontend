@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
@@ -238,6 +238,7 @@ function DashboardSidebarInner() {
   const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
   const sidebar = useOptionalSidebar();
 
+  const [mounted, setMounted] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [localMobileOpen, setLocalMobileOpen] = useState(false);
   const [localPinned, setLocalPinned] = useState(() => {
@@ -249,6 +250,14 @@ function DashboardSidebarInner() {
     }
   });
   const [selectedClinic, setSelectedClinic] = useState(CLINIC_LIST[0]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
+  const displayName = mounted ? (user?.name || '') : '';
+  const userSubtitle = mounted ? (user?.facilityOrTitle || user?.phone || '') : '';
 
   const mobileMenuOpen = sidebar ? sidebar.openMobile : localMobileOpen;
   const setMobileMenuOpen = sidebar ? sidebar.setOpenMobile : setLocalMobileOpen;
@@ -597,20 +606,24 @@ function DashboardSidebarInner() {
         <div className="flex items-center justify-between gap-2">
           <Link
             href="/settings"
-            title={user?.name || 'Hồ sơ tài khoản'}
-            aria-label={user?.name || 'Hồ sơ tài khoản'}
+            title={displayName || 'Hồ sơ tài khoản'}
+            aria-label={displayName || 'Hồ sơ tài khoản'}
             className={cn(
               'flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-slate-200/70 outline-hidden',
               isCollapsedState && 'justify-center'
             )}
+            suppressHydrationWarning
           >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-              {user?.avatarText || 'FD'}
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+              suppressHydrationWarning
+            >
+              {avatarText}
             </div>
             {!isCollapsedState && (
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-semibold text-slate-900">{user?.name}</div>
-                <div className="truncate text-xs text-slate-600">{user?.facilityOrTitle || user?.phone}</div>
+              <div className="min-w-0 flex-1" suppressHydrationWarning>
+                <div className="truncate text-xs font-semibold text-slate-900" suppressHydrationWarning>{displayName}</div>
+                <div className="truncate text-xs text-slate-600" suppressHydrationWarning>{userSubtitle}</div>
               </div>
             )}
           </Link>
@@ -684,8 +697,9 @@ function DashboardSidebarInner() {
             href="/settings"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground outline-hidden"
             aria-label="Hồ sơ tài khoản & Cài đặt"
+            suppressHydrationWarning
           >
-            {user?.avatarText || 'FD'}
+            <span suppressHydrationWarning>{avatarText}</span>
           </Link>
         </div>
       </div>
