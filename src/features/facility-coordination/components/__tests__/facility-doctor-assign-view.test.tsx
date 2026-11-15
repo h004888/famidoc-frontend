@@ -11,7 +11,7 @@ vi.mock('@documenso/embed-react', () => ({
     onDocumentCompleted,
   }: {
     token: string;
-    onDocumentCompleted?: (detail: any) => void;
+    onDocumentCompleted?: (detail: unknown) => void;
   }) => (
     <div data-testid="mock-facility-documenso-form" data-token={token}>
       <button

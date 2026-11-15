@@ -5,7 +5,11 @@ import { AdminContractsView } from '../admin-contracts-view';
 import { contractsApi } from '@/lib/api';
 
 vi.mock('next/link', () => ({
-  default: ({ children, href, ...props }: any) => (
+  default: ({
+    children,
+    href,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
     <a href={href} {...props}>
       {children}
     </a>

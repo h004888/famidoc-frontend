@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   DocumensoSigningEmbed,
@@ -25,28 +25,42 @@ export function FacilityContractInboundView({
   const [packageFilter, setPackageFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [signingContract, setSigningContract] = useState<FourPartyContract | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
-  const loadContracts = useCallback(async () => {
+  const triggerReload = () => {
     if (isControlledByProps) return;
     setIsLoading(true);
     setLoadError(null);
-    try {
-      const items = await contractsApi.getMedicalContracts({ limit: 50 });
-      setContracts(items);
-    } catch (err) {
-      setLoadError(
-        err instanceof Error
-          ? err.message
-          : 'Không thể tải danh sách hợp đồng từ máy chủ.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isControlledByProps]);
+    setReloadTick((t) => t + 1);
+  };
 
   useEffect(() => {
+    if (isControlledByProps) return;
+    let active = true;
+    async function loadContracts() {
+      try {
+        const items = await contractsApi.getMedicalContracts({ limit: 50 });
+        if (!active) return;
+        setContracts(items);
+        setLoadError(null);
+      } catch (err) {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải danh sách hợp đồng từ máy chủ.'
+        );
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
     void loadContracts();
-  }, [loadContracts]);
+    return () => {
+      active = false;
+    };
+  }, [isControlledByProps, reloadTick]);
 
   const totalContracts = contracts.length;
   const pendingSignature = contracts.filter(
@@ -122,7 +136,7 @@ export function FacilityContractInboundView({
           {!isControlledByProps && (
             <button
               type="button"
-              onClick={() => void loadContracts()}
+              onClick={triggerReload}
               disabled={isLoading}
               className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50"
             >
@@ -176,7 +190,7 @@ export function FacilityContractInboundView({
           <span>{loadError}</span>
           <button
             type="button"
-            onClick={() => void loadContracts()}
+            onClick={triggerReload}
             className="px-3 py-1.5 rounded-md bg-rose-600 text-white font-semibold cursor-pointer"
           >
             Thử lại
@@ -412,9 +426,7 @@ export function FacilityContractInboundView({
 
             <DocumensoSigningEmbed
               contractId={signingContract.id}
-              onSyncCompleted={() => {
-                void loadContracts();
-              }}
+              onSyncCompleted={triggerReload}
             />
           </div>
         </div>

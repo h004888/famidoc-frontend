@@ -213,8 +213,6 @@ export function FamilyMembersView() {
 
   useEffect(() => {
     let mounted = true;
-    setIsLoading(true);
-    setLoadError(null);
 
     Promise.allSettled([patientsApi.getFamilyMembers(), contractsApi.getFamilyGateStatus()]).then(
       ([membersResult, gateResult]) => {

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useContractWorkflow, updateContractStep } from '@/lib/contract-workflow-storage';
@@ -92,35 +92,40 @@ export function FamilyBillingView() {
   const [gateStatus, setGateStatus] = useState<FamilyGateStatusDto | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
 
-  const loadLiveBilling = useCallback(async () => {
-    try {
-      const gate = await contractsApi.getFamilyGateStatus();
-      setGateStatus(gate);
-      const urlContractId =
-        typeof window !== 'undefined'
-          ? new URLSearchParams(window.location.search).get('contractId')
-          : null;
-      const targetContractId =
-        urlContractId ||
-        (gate.pendingContract?.contractStatus === 'PENDING_PAYMENT'
-          ? gate.pendingContract.id
-          : null);
-      if (targetContractId && !gate.hasActiveContract) {
-        const payment = await contractsApi.createVietQRPayment(targetContractId);
-        setLivePayment(payment);
-        setSelectedOptionId('contract-4p-live');
-        setLiveError(null);
-      }
-    } catch (err) {
-      if (err instanceof Error) {
-        setLiveError(err.message);
+  useEffect(() => {
+    let active = true;
+    async function loadLiveBilling() {
+      try {
+        const gate = await contractsApi.getFamilyGateStatus();
+        if (!active) return;
+        setGateStatus(gate);
+        const urlContractId =
+          typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('contractId')
+            : null;
+        const targetContractId =
+          urlContractId ||
+          (gate.pendingContract?.contractStatus === 'PENDING_PAYMENT'
+            ? gate.pendingContract.id
+            : null);
+        if (targetContractId && !gate.hasActiveContract) {
+          const payment = await contractsApi.createVietQRPayment(targetContractId);
+          if (!active) return;
+          setLivePayment(payment);
+          setSelectedOptionId('contract-4p-live');
+          setLiveError(null);
+        }
+      } catch (err) {
+        if (active && err instanceof Error) {
+          setLiveError(err.message);
+        }
       }
     }
-  }, []);
-
-  useEffect(() => {
     void loadLiveBilling();
-  }, [loadLiveBilling]);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const activeOptions: PaymentOption[] = livePayment
     ? [

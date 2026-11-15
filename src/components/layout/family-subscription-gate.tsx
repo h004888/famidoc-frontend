@@ -99,15 +99,30 @@ function useFamilySubscriptionGateInternal(enabled: boolean): FamilySubscription
   }, [enabled, isFamily]);
 
   useEffect(() => {
-    if (!enabled || authLoading) return;
-    if (!isFamily) {
-      setGateStatus(null);
-      setGateError(null);
-      setIsLoadingGate(false);
-      return;
+    if (!enabled || authLoading || !isFamily) return;
+    let active = true;
+    async function loadInitialGateStatus() {
+      try {
+        const status = await contractsApi.getFamilyGateStatus();
+        if (!active) return;
+        setGateStatus(status);
+        setGateError(null);
+      } catch (error) {
+        if (!active) return;
+        const message =
+          error instanceof Error ? error.message : 'Không thể kiểm tra trạng thái hợp đồng gia đình.';
+        setGateError(message);
+      } finally {
+        if (active) {
+          setIsLoadingGate(false);
+        }
+      }
     }
-    void refreshGateStatus();
-  }, [enabled, authLoading, isFamily, refreshGateStatus]);
+    void loadInitialGateStatus();
+    return () => {
+      active = false;
+    };
+  }, [enabled, authLoading, isFamily]);
 
   useEffect(() => {
     if (!enabled || !isFamily || typeof window === 'undefined') return;
@@ -120,16 +135,18 @@ function useFamilySubscriptionGateInternal(enabled: boolean): FamilySubscription
     };
   }, [enabled, isFamily, refreshGateStatus]);
 
+  const effectiveGateStatus = enabled && isFamily ? gateStatus : null;
+  const effectiveGateError = enabled && isFamily ? gateError : null;
   const isFamilyLocked =
-    enabled && isFamily && !authLoading && !isLoadingGate && gateStatus !== null && !gateStatus.hasActiveContract;
+    enabled && isFamily && !authLoading && !isLoadingGate && effectiveGateStatus !== null && !effectiveGateStatus.hasActiveContract;
 
   return {
     hasProvider: enabled,
-    gateStatus,
+    gateStatus: effectiveGateStatus,
     isLoadingGate: enabled && isFamily ? authLoading || isLoadingGate : false,
-    gateError,
+    gateError: effectiveGateError,
     isFamilyLocked,
-    unlockTargetHref: resolveBlockedFamilyRedirect(gateStatus),
+    unlockTargetHref: resolveBlockedFamilyRedirect(effectiveGateStatus),
     refreshGateStatus,
   };
 }

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   type FourPartyContract,
@@ -45,53 +45,67 @@ export function FacilityDoctorAssignView({
   const [isAssigning, setIsAssigning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
-  const loadContractAndDoctors = useCallback(async () => {
+  const triggerReload = () => {
     if (!contractId) return;
     setIsLoading(true);
     setLoadError(null);
-    try {
-      const data = await contractsApi.getMedicalContractById(contractId);
-      setCurrentContract(data);
-      setSelectedDoctorId((prev) => prev ?? data.doctorId ?? null);
-
-      if (!initialDoctors) {
-        try {
-          const doctorResp = await publicApi.getDoctors({
-            facilityId: data.facilityId,
-            limit: 50,
-          });
-          const mapped: AvailableDoctor[] = (doctorResp.items ?? []).map((doc) => ({
-            id: doc.id,
-            name: doc.doctorName || doc.fullName || 'Bác sĩ Gia đình',
-            title: doc.academicTitle || doc.title || 'Bác sĩ Gia đình',
-            specialty: doc.specialty || 'Y học Gia đình',
-            currentAssignedHouseholds:
-              doc.isAvailable === false ? MAX_HOUSEHOLDS_PER_DOCTOR : 0,
-            phone: doc.phone || '—',
-            rating: doc.ratingAvg ?? doc.rating,
-          }));
-          setDoctors(mapped);
-        } catch {
-          setDoctors([]);
-        }
-      }
-    } catch (err) {
-      setLoadError(
-        err instanceof Error
-          ? err.message
-          : 'Không thể tải thông tin hợp đồng để phân công bác sĩ.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [contractId, initialDoctors]);
+    setReloadTick((t) => t + 1);
+  };
 
   useEffect(() => {
-    if (contractId && !contract) {
-      void loadContractAndDoctors();
+    if (!contractId || contract) return;
+    const targetContractId = contractId;
+    let active = true;
+    async function loadContractAndDoctors() {
+      try {
+        const data = await contractsApi.getMedicalContractById(targetContractId);
+        if (!active) return;
+        setCurrentContract(data);
+        setSelectedDoctorId((prev) => prev ?? data.doctorId ?? null);
+        setLoadError(null);
+
+        if (!initialDoctors) {
+          try {
+            const doctorResp = await publicApi.getDoctors({
+              facilityId: data.facilityId,
+              limit: 50,
+            });
+            if (!active) return;
+            const mapped: AvailableDoctor[] = (doctorResp.items ?? []).map((doc) => ({
+              id: doc.id,
+              name: doc.doctorName || doc.fullName || 'Bác sĩ Gia đình',
+              title: doc.academicTitle || doc.title || 'Bác sĩ Gia đình',
+              specialty: doc.specialty || 'Y học Gia đình',
+              currentAssignedHouseholds:
+                doc.isAvailable === false ? MAX_HOUSEHOLDS_PER_DOCTOR : 0,
+              phone: doc.phone || '—',
+              rating: doc.ratingAvg ?? doc.rating,
+            }));
+            setDoctors(mapped);
+          } catch {
+            if (active) setDoctors([]);
+          }
+        }
+      } catch (err) {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải thông tin hợp đồng để phân công bác sĩ.'
+        );
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
     }
-  }, [contractId, contract, loadContractAndDoctors]);
+    void loadContractAndDoctors();
+    return () => {
+      active = false;
+    };
+  }, [contractId, contract, initialDoctors, reloadTick]);
 
   if (isLoading) {
     return (
@@ -118,7 +132,7 @@ export function FacilityDoctorAssignView({
             {contractId && (
               <button
                 type="button"
-                onClick={() => void loadContractAndDoctors()}
+                onClick={triggerReload}
                 className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold cursor-pointer"
               >
                 Thử lại

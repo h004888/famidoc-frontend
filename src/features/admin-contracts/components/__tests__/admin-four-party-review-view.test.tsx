@@ -6,7 +6,11 @@ import type { FourPartyContract } from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
 
 vi.mock('next/link', () => ({
-  default: ({ children, href, ...props }: any) => (
+  default: ({
+    children,
+    href,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) => (
     <a href={href} {...props}>
       {children}
     </a>
@@ -19,7 +23,7 @@ vi.mock('@documenso/embed-react', () => ({
     onDocumentCompleted,
   }: {
     token: string;
-    onDocumentCompleted?: (detail: any) => void;
+    onDocumentCompleted?: (detail: unknown) => void;
   }) => (
     <div data-testid="mock-documenso-form" data-token={token}>
       <button

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { FourPartyContract } from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
@@ -19,28 +19,42 @@ export function DoctorContractsInboundView({
   const [isLoading, setIsLoading] = useState<boolean>(!isControlledByProps);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'active'>('all');
+  const [reloadTick, setReloadTick] = useState(0);
 
-  const loadContracts = useCallback(async () => {
+  const triggerReload = () => {
     if (isControlledByProps) return;
     setIsLoading(true);
     setLoadError(null);
-    try {
-      const items = await contractsApi.getMedicalContracts({ limit: 50 });
-      setContracts(items);
-    } catch (err) {
-      setLoadError(
-        err instanceof Error
-          ? err.message
-          : 'Không thể tải danh sách hợp đồng phân công.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isControlledByProps]);
+    setReloadTick((t) => t + 1);
+  };
 
   useEffect(() => {
+    if (isControlledByProps) return;
+    let active = true;
+    async function loadContracts() {
+      try {
+        const items = await contractsApi.getMedicalContracts({ limit: 50 });
+        if (!active) return;
+        setContracts(items);
+        setLoadError(null);
+      } catch (err) {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải danh sách hợp đồng phân công.'
+        );
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
     void loadContracts();
-  }, [loadContracts]);
+    return () => {
+      active = false;
+    };
+  }, [isControlledByProps, reloadTick]);
 
   const isContractPendingForDoctor = (c: FourPartyContract) =>
     !c.signatures?.doctor &&
@@ -79,7 +93,7 @@ export function DoctorContractsInboundView({
           {!isControlledByProps && (
             <button
               type="button"
-              onClick={() => void loadContracts()}
+              onClick={triggerReload}
               disabled={isLoading}
               className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50"
             >
@@ -103,7 +117,7 @@ export function DoctorContractsInboundView({
           <span>{loadError}</span>
           <button
             type="button"
-            onClick={() => void loadContracts()}
+            onClick={triggerReload}
             className="px-3 py-1.5 rounded-md bg-rose-600 text-white font-semibold cursor-pointer"
           >
             Thử lại

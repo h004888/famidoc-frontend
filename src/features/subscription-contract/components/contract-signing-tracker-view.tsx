@@ -162,28 +162,37 @@ export function ContractSigningTrackerView({
     Boolean(contractId) && !contract
   );
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   if (contract !== prevContract) {
     setPrevContract(contract);
     setCurrentContract(contract ?? null);
   }
 
-  const loadContract = useCallback(async () => {
-    if (!contractId) return;
-    setLoadError(null);
-    try {
-      const fetched = await contractsApi.getMedicalContractDetail(contractId);
-      setCurrentContract(mapContractDetail(fetched));
-    } catch (error) {
-      setLoadError(describeLoadError(error));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [contractId]);
-
   useEffect(() => {
+    if (!contractId) return;
+    const targetContractId = contractId;
+    let active = true;
+    async function loadContract() {
+      try {
+        const fetched = await contractsApi.getMedicalContractDetail(targetContractId);
+        if (!active) return;
+        setCurrentContract(mapContractDetail(fetched));
+        setLoadError(null);
+      } catch (error) {
+        if (!active) return;
+        setLoadError(describeLoadError(error));
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
     void loadContract();
-  }, [loadContract]);
+    return () => {
+      active = false;
+    };
+  }, [contractId, reloadTick]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
@@ -267,7 +276,12 @@ export function ContractSigningTrackerView({
               type="button"
               onClick={() => {
                 setIsLoading(true);
-                void (contractId ? loadContract() : handleRefresh());
+                setLoadError(null);
+                if (contractId) {
+                  setReloadTick((t) => t + 1);
+                } else {
+                  void handleRefresh();
+                }
               }}
               className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer"
             >

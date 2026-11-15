@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   CONTRACT_STATUS_LABELS,
@@ -24,27 +24,40 @@ export function AdminContractsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContract, setSelectedContract] = useState<FourPartyContract | null>(null);
   const [notification, setNotification] = useState('');
+  const [reloadTick, setReloadTick] = useState(0);
 
-  const loadContracts = useCallback(async () => {
+  const triggerReload = () => {
     setIsLoading(true);
     setLoadError(null);
-    try {
-      const items = await contractsApi.getMedicalContracts({ limit: 50 });
-      setContracts(items);
-    } catch (err) {
-      setLoadError(
-        err instanceof Error
-          ? err.message
-          : 'Không thể tải danh sách hợp đồng từ máy chủ.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+    setReloadTick((t) => t + 1);
+  };
 
   useEffect(() => {
+    let active = true;
+    async function loadContracts() {
+      try {
+        const items = await contractsApi.getMedicalContracts({ limit: 50 });
+        if (!active) return;
+        setContracts(items);
+        setLoadError(null);
+      } catch (err) {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải danh sách hợp đồng từ máy chủ.'
+        );
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
     void loadContracts();
-  }, [loadContracts]);
+    return () => {
+      active = false;
+    };
+  }, [reloadTick]);
 
   const filteredContracts = contracts.filter((c) => {
     const q = searchQuery.toLowerCase().trim();
@@ -100,7 +113,7 @@ export function AdminContractsView() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={() => void loadContracts()}
+              onClick={triggerReload}
               disabled={isLoading}
               className="px-3.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
@@ -132,7 +145,7 @@ export function AdminContractsView() {
             <span>{loadError}</span>
             <button
               type="button"
-              onClick={() => void loadContracts()}
+              onClick={triggerReload}
               className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold cursor-pointer"
             >
               Thử lại
@@ -347,7 +360,7 @@ export function AdminContractsView() {
                   setNotification(
                     `Đã đồng bộ chữ ký Documenso cho ${selectedContract.contractNumber} (${res.signedRoles.length}/4 bên).`
                   );
-                  void loadContracts();
+                  triggerReload();
                 }}
               />
 

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   type FourPartyContract,
@@ -45,30 +45,43 @@ export function AdminFourPartyReviewView({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'audit' | 'full'>('audit');
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
-  const loadContract = useCallback(async () => {
+  const triggerReload = () => {
     if (!contractId) return;
     setIsLoading(true);
     setLoadError(null);
-    try {
-      const data = await contractsApi.getMedicalContractById(contractId);
-      setCurrentContract(data);
-    } catch (err) {
-      setLoadError(
-        err instanceof Error
-          ? err.message
-          : 'Không thể tải thông tin hợp đồng y tế 4 bên.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [contractId]);
+    setReloadTick((t) => t + 1);
+  };
 
   useEffect(() => {
-    if (contractId && !contract) {
-      void loadContract();
+    if (!contractId || contract) return;
+    const targetContractId = contractId;
+    let active = true;
+    async function loadContract() {
+      try {
+        const data = await contractsApi.getMedicalContractById(targetContractId);
+        if (!active) return;
+        setCurrentContract(data);
+        setLoadError(null);
+      } catch (err) {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải thông tin hợp đồng y tế 4 bên.'
+        );
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
     }
-  }, [contractId, contract, loadContract]);
+    void loadContract();
+    return () => {
+      active = false;
+    };
+  }, [contractId, contract, reloadTick]);
 
   if (isLoading) {
     return (
@@ -95,7 +108,7 @@ export function AdminFourPartyReviewView({
             {contractId && (
               <button
                 type="button"
-                onClick={() => void loadContract()}
+                onClick={triggerReload}
                 className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold cursor-pointer"
               >
                 Thử lại

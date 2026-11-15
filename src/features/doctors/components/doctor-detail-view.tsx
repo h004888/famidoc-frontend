@@ -66,7 +66,6 @@ export function DoctorDetailView({ initialDoctor }: DoctorDetailViewProps) {
                 <div className="flex flex-col sm:flex-row items-start gap-4">
                   <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-md overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
                     {doctor.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={doctor.avatarUrl}
                         alt={doctor.doctorName}

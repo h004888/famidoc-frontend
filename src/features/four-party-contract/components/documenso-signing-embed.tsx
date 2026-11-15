@@ -38,6 +38,34 @@ function resolveDocumensoHost(signingUrl: string | null): string {
   ).replace(/\/+$/, '');
 }
 
+type SessionFetchResult =
+  | { ok: true; data: ContractSigningSessionDto }
+  | { ok: false; waitingForFamily: string }
+  | { ok: false; error: string };
+
+async function fetchSigningSessionResult(
+  contractId: string
+): Promise<SessionFetchResult> {
+  try {
+    const data = await contractsApi.getSigningSession(contractId);
+    return { ok: true, data };
+  } catch (err) {
+    const status =
+      err instanceof ApiError
+        ? err.status
+        : (err as { status?: number })?.status;
+    const message =
+      err instanceof Error
+        ? err.message
+        : 'Không thể tải phiên ký điện tử Documenso.';
+
+    if (status === 409) {
+      return { ok: false, waitingForFamily: message };
+    }
+    return { ok: false, error: message };
+  }
+}
+
 export function DocumensoSigningEmbed({
   contractId,
   onSyncCompleted,
@@ -55,33 +83,42 @@ export function DocumensoSigningEmbed({
     setLoading(true);
     setError(null);
     setWaitingForFamily(null);
-    try {
-      const data = await contractsApi.getSigningSession(contractId);
-      setSession(data);
-      onSessionLoaded?.(data);
-    } catch (err) {
-      const status =
-        err instanceof ApiError
-          ? err.status
-          : (err as { status?: number })?.status;
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Không thể tải phiên ký điện tử Documenso.';
-
-      if (status === 409) {
-        setWaitingForFamily(message);
-      } else {
-        setError(message);
-      }
-    } finally {
-      setLoading(false);
+    const result = await fetchSigningSessionResult(contractId);
+    if (result.ok) {
+      setSession(result.data);
+      onSessionLoaded?.(result.data);
+    } else if ('waitingForFamily' in result) {
+      setWaitingForFamily(result.waitingForFamily);
+    } else {
+      setError(result.error);
     }
+    setLoading(false);
   }, [contractId, onSessionLoaded]);
 
   useEffect(() => {
-    void loadSession();
-  }, [loadSession]);
+    let active = true;
+    async function loadInitialSession() {
+      const result = await fetchSigningSessionResult(contractId);
+      if (!active) return;
+      if (result.ok) {
+        setSession(result.data);
+        setWaitingForFamily(null);
+        setError(null);
+        onSessionLoaded?.(result.data);
+      } else if ('waitingForFamily' in result) {
+        setWaitingForFamily(result.waitingForFamily);
+        setError(null);
+      } else {
+        setWaitingForFamily(null);
+        setError(result.error);
+      }
+      setLoading(false);
+    }
+    void loadInitialSession();
+    return () => {
+      active = false;
+    };
+  }, [contractId, onSessionLoaded]);
 
   const handleSync = useCallback(async () => {
     setSyncing(true);
