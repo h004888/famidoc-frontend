@@ -243,7 +243,7 @@ export const getRoleFromPathname = (path: string): LoginRole | null => {
   return null;
 };
 
-function DashboardSidebarInner() {
+function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const pathname = usePathname() || '/family';
   const { role, user, logout } = useAuth();
   const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
@@ -267,7 +267,7 @@ function DashboardSidebarInner() {
   }, []);
 
   const pathRole = getRoleFromPathname(pathname);
-  const effectiveRole: LoginRole = pathRole || (mounted ? role : 'FAMILY');
+  const effectiveRole: LoginRole = pathRole || initialRole || (mounted ? role : 'FAMILY');
   const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
 
   const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
@@ -846,13 +846,17 @@ function DashboardSidebarInner() {
   );
 }
 
+export interface DashboardSidebarProps {
+  initialRole?: LoginRole;
+}
+
 /**
  * Shared role-aware dashboard sidebar. Automatically provides SidebarProvider fallback when rendered standalone.
  */
-export function DashboardSidebar() {
+export function DashboardSidebar({ initialRole }: DashboardSidebarProps = {}) {
   const sidebar = useOptionalSidebar();
   if (sidebar) {
-    return <DashboardSidebarInner />;
+    return <DashboardSidebarInner initialRole={initialRole} />;
   }
 
   const initialPinned = (() => {
@@ -867,7 +871,7 @@ export function DashboardSidebar() {
   return (
     <TooltipProvider delayDuration={0}>
       <SidebarProvider defaultOpen={initialPinned} className="min-h-0 w-auto">
-        <DashboardSidebarInner />
+        <DashboardSidebarInner initialRole={initialRole} />
       </SidebarProvider>
     </TooltipProvider>
   );
