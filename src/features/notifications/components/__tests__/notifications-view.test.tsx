@@ -38,7 +38,7 @@ describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
     expect(screen.queryByText(/Đã phát hành biên lai điện tử/i)).not.toBeInTheDocument();
   });
 
-  it('standardizes typography on NotificationsView (tabular-nums without font-mono, font-bold without font-extrabold)', () => {
+  it('standardizes typography on NotificationsView (tabular-nums without tracking-wide, font-bold without font-extrabold)', () => {
     const { container } = render(<NotificationsView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');

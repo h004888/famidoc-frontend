@@ -155,7 +155,7 @@ describe('Màn 7: ContractSigningTrackerView (Stepper theo dõi tiến độ ký
     );
   });
 
-  it('standardizes typography without font-mono, font-black, or font-extrabold and has tabular-nums', () => {
+  it('standardizes typography without tracking-wide, font-black, or font-extrabold and has tabular-nums', () => {
     const { container } = render(<ContractSigningTrackerView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');

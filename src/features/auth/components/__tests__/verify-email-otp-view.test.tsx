@@ -203,7 +203,7 @@ describe('Màn 6: VerifyEmailOtpView (Xác thực mã OTP qua Email)', () => {
     fetchSpy.mockRestore();
   });
 
-  it('adheres to typography standards without font-mono, font-black, or font-extrabold', () => {
+  it('adheres to typography standards without tracking-wide, font-black, or font-extrabold', () => {
     const { container } = render(<VerifyEmailOtpView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');

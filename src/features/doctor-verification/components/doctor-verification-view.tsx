@@ -5,37 +5,74 @@ import { doctorsApi, type DoctorProfileDto } from '@/lib/api';
 
 export function DoctorVerificationView() {
   const [profile, setProfile] = useState<DoctorProfileDto | null>(null);
-  const [cchnNumber, setCchnNumber] = useState('004128/BYT-CCHN');
-  const [issueDate, setIssueDate] = useState('2022-06-15');
-  const [issuingAuthority, setIssuingAuthority] = useState('Cục Quản lý Khám chữa bệnh - Bộ Y Tế');
+  const [cchnNumber, setCchnNumber] = useState('');
+  const [issueDate, setIssueDate] = useState('');
+  const [issuingAuthority, setIssuingAuthority] = useState('');
   const [scopeOfPractice, setScopeOfPractice] = useState('Khám bệnh, chữa bệnh Nội khoa & Y học gia đình');
-  const [selectedHospital, setSelectedHospital] = useState('BV Đại học Y Dược TP.HCM');
+  const [selectedHospital, setSelectedHospital] = useState('');
 
-  const [onboardingStatus, setOnboardingStatus] = useState<string>('ACTIVE');
+  const [onboardingStatus, setOnboardingStatus] = useState<string>('PENDING_SUBMISSION');
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states in modal
-  const [formCchn, setFormCchn] = useState(cchnNumber);
-  const [formScope, setFormScope] = useState(scopeOfPractice);
-  const [formIssuer, setFormIssuer] = useState(issuingAuthority);
-  const [formDate, setFormDate] = useState(issueDate);
-  const [formFiles, setFormFiles] = useState<string[]>(['cchn_mat_truoc.jpg', 'cchn_mat_sau.jpg', 'bang_chuyen_khoa.pdf']);
+  const [formCchn, setFormCchn] = useState('');
+  const [formScope, setFormScope] = useState('Khám bệnh, chữa bệnh Nội khoa & Y học gia đình');
+  const [formIssuer, setFormIssuer] = useState('');
+  const [formDate, setFormDate] = useState('');
+  const [formFiles, setFormFiles] = useState<string[]>([]);
 
   useEffect(() => {
     let isMounted = true;
     doctorsApi
       .getDoctorMe()
-      .then((data) => {
+      .then((res: any) => {
         if (!isMounted) return;
+        const data: DoctorProfileDto | null =
+          res && typeof res === 'object' && 'data' in res && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
+            ? (res.data as DoctorProfileDto)
+            : (res as DoctorProfileDto);
+
         if (data) {
           setProfile(data);
           if (data.onboardingStatus) {
             setOnboardingStatus(data.onboardingStatus);
           }
-          if (data.facilityName) {
-            setSelectedHospital(data.facilityName);
+          const hospitalName = data.facility?.facilityName || data.facilityName;
+          if (hospitalName) {
+            setSelectedHospital(hospitalName);
+          }
+          if (data.specialty) {
+            const scopeText = `Khám bệnh, chữa bệnh chuyên khoa ${data.specialty}`;
+            setScopeOfPractice(scopeText);
+            setFormScope(scopeText);
+          }
+          if (data.credentials && data.credentials.length > 0) {
+            const primary =
+              data.credentials.find((c) => c.credentialType === 'PRACTICE_LICENSE_CCHN') ||
+              data.credentials[0];
+
+            if (primary.certificateNumber) {
+              setCchnNumber(primary.certificateNumber);
+              setFormCchn(primary.certificateNumber);
+            }
+            if (primary.issuingAuthority) {
+              setIssuingAuthority(primary.issuingAuthority);
+              setFormIssuer(primary.issuingAuthority);
+            }
+            if (primary.issueDate) {
+              const dStr = new Date(primary.issueDate).toISOString().split('T')[0];
+              setIssueDate(dStr);
+              setFormDate(dStr);
+            }
+
+            const uploadedFiles = data.credentials
+              .map((c) => c.fileUrl)
+              .filter(Boolean);
+            if (uploadedFiles.length > 0) {
+              setFormFiles(uploadedFiles);
+            }
           }
         }
       })
@@ -51,37 +88,62 @@ export function DoctorVerificationView() {
     e.preventDefault();
     setIsSubmitting(true);
     try {
-      await doctorsApi.submitMyCredentials({
+      const res = await doctorsApi.submitMyCredentials({
         cchnNumber: formCchn,
         scopeOfPractice: formScope,
         issuedBy: formIssuer,
         issuedDate: formDate,
         certificateFiles: formFiles,
       });
-      setCchnNumber(formCchn);
-      setScopeOfPractice(formScope);
-      setIssuingAuthority(formIssuer);
-      setIssueDate(formDate);
-      setOnboardingStatus('FACILITY_APPROVED'); // Tiến tới bước tiếp theo
-      setToastMessage('Đã nộp hồ sơ CCHN thành công! Hồ sơ đang được Cơ sở y tế thẩm định Cấp 1.');
+
+      if (res) {
+        setProfile(res);
+        if (res.onboardingStatus) {
+          setOnboardingStatus(res.onboardingStatus);
+        }
+        if (res.credentials && res.credentials.length > 0) {
+          const primary =
+            res.credentials.find((c: any) => c.credentialType === 'PRACTICE_LICENSE_CCHN') ||
+            res.credentials[0];
+          setCchnNumber(primary.certificateNumber || formCchn);
+          setIssuingAuthority(primary.issuingAuthority || formIssuer);
+          if (primary.issueDate) {
+            setIssueDate(new Date(primary.issueDate).toISOString().split('T')[0]);
+          }
+          const files = res.credentials.map((c: any) => c.fileUrl).filter(Boolean);
+          if (files.length > 0) {
+            setFormFiles(files);
+          }
+        } else {
+          setCchnNumber(formCchn);
+          setIssuingAuthority(formIssuer);
+          setIssueDate(formDate);
+        }
+      } else {
+        setCchnNumber(formCchn);
+        setScopeOfPractice(formScope);
+        setIssuingAuthority(formIssuer);
+        setIssueDate(formDate);
+        setOnboardingStatus('PENDING_SUBMISSION');
+      }
+
+      setToastMessage('Đã nộp hồ sơ CCHN lên hệ thống! Hồ sơ đang chờ Cơ sở y tế thẩm định Cấp 1.');
       setShowUpdateModal(false);
-    } catch {
-      // Fallback
-      setCchnNumber(formCchn);
-      setScopeOfPractice(formScope);
-      setIssuingAuthority(formIssuer);
-      setIssueDate(formDate);
-      setOnboardingStatus('FACILITY_APPROVED');
-      setToastMessage('Đã nộp hồ sơ CCHN thành công! Hồ sơ đang được Cơ sở y tế thẩm định Cấp 1.');
-      setShowUpdateModal(false);
+    } catch (err: any) {
+      console.warn('Lỗi khi nộp CCHN:', err?.message || err);
+      const errMsg = err?.message || 'Có lỗi khi nộp hồ sơ CCHN lên máy chủ';
+      setToastMessage(`[Lỗi] ${errMsg}`);
     } finally {
       setIsSubmitting(false);
       setTimeout(() => setToastMessage(null), 5000);
     }
   };
 
-  const isLevel1Approved = onboardingStatus === 'FACILITY_APPROVED' || onboardingStatus === 'ACTIVE' || onboardingStatus === 'PLATFORM_APPROVED';
-  const isLevel2Approved = onboardingStatus === 'ACTIVE' || onboardingStatus === 'PLATFORM_APPROVED';
+  const isLevel1Approved =
+    onboardingStatus === 'FACILITY_VERIFIED' ||
+    onboardingStatus === 'FACILITY_APPROVED' ||
+    onboardingStatus === 'ACTIVE';
+  const isLevel2Approved = onboardingStatus === 'ACTIVE';
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
@@ -157,14 +219,20 @@ export function DoctorVerificationView() {
             <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-1.5">
               <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
                 <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
-                  ✓
+                  {cchnNumber ? '✓' : '1'}
                 </span>
                 <span>Bước 1: Nộp CCHN &amp; Bằng cấp</span>
               </div>
               <p className="text-[11px] text-emerald-900 leading-snug">
-                Đã tiếp nhận số CCHN <strong>{cchnNumber}</strong> và ảnh scan bằng cấp chuyên khoa.
+                {cchnNumber ? (
+                  <>Đã tiếp nhận số CCHN <strong>{cchnNumber}</strong> và hồ sơ chuyên khoa.</>
+                ) : (
+                  'Chưa nộp CCHN. Bấm nút phía trên để nộp hồ sơ thẩm định.'
+                )}
               </p>
-              <div className="text-[10px] text-slate-500 pt-1">Ngày cấp: {issueDate}</div>
+              <div className="text-[10px] text-slate-500 pt-1">
+                {issueDate ? `Ngày cấp: ${issueDate}` : 'Chưa có thông tin ngày cấp'}
+              </div>
             </div>
 
             {/* Bước 2: Cấp 1 */}
@@ -236,29 +304,61 @@ export function DoctorVerificationView() {
         {/* Thông tin CCHN chi tiết */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2">
-              Thông Tin Giấy Phép Hành Nghề Khám Bệnh, Chữa Bệnh
-            </h3>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <h3 className="font-bold text-sm text-slate-900">
+                Thông Tin Giấy Phép Hành Nghề Khám Bệnh, Chữa Bệnh
+              </h3>
+              {profile?.doctorName && (
+                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                  {profile.academicTitle ? `${profile.academicTitle}. ` : ''}{profile.doctorName}
+                </span>
+              )}
+            </div>
+
+            {!cchnNumber && (
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
+                <span className="material-symbols-outlined text-amber-600 text-[18px] shrink-0 mt-0.5">info</span>
+                <div className="space-y-1">
+                  <p className="font-semibold">Hồ sơ CCHN chưa được khởi tạo trên hệ thống.</p>
+                  <p className="text-[11px] text-amber-800">
+                    Bác sĩ vui lòng bấm nút ở góc trên để gửi chứng chỉ hành nghề và bằng cấp cho Hội đồng Y khoa CSYT thẩm định Cấp 1.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3 text-xs">
               <div className="flex justify-between py-1 border-b border-slate-50">
+                <span className="text-slate-500">Bác sĩ phụ trách:</span>
+                <strong className="text-slate-900">
+                  {profile?.doctorName ? `${profile?.academicTitle ? profile.academicTitle + ' ' : ''}${profile.doctorName}` : 'Đang tải...'}
+                </strong>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Số CCHN / Số giấy phép:</span>
-                <strong className="text-slate-900">{cchnNumber}</strong>
+                <strong className={cchnNumber ? 'text-slate-900 font-bold' : 'text-amber-700 italic'}>
+                  {cchnNumber || 'Chưa nộp CCHN'}
+                </strong>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Cơ quan cấp phép:</span>
-                <strong className="text-slate-900">{issuingAuthority}</strong>
+                <strong className={issuingAuthority ? 'text-slate-900' : 'text-slate-400 italic'}>
+                  {issuingAuthority || 'Chưa cập nhật'}
+                </strong>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Ngày cấp chứng chỉ:</span>
-                <strong className="text-slate-900">{issueDate}</strong>
+                <strong className={issueDate ? 'text-slate-900' : 'text-slate-400 italic'}>
+                  {issueDate || 'Chưa cập nhật'}
+                </strong>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Phạm vi hoạt động chuyên môn:</span>
-                <strong className="text-slate-900 text-right max-w-xs">{scopeOfPractice}</strong>
+                <strong className="text-slate-900 text-right max-w-xs">{scopeOfPractice || 'Y học Gia đình'}</strong>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-50">
                 <span className="text-slate-500">Cơ sở y tế liên kết:</span>
-                <strong className="text-blue-700">{selectedHospital}</strong>
+                <strong className="text-blue-700">{selectedHospital || 'Chưa liên kết'}</strong>
               </div>
             </div>
           </div>
@@ -268,20 +368,31 @@ export function DoctorVerificationView() {
               Tài Liệu &amp; Văn Bằng Đã Tải Lên ({formFiles.length})
             </h3>
             <div className="space-y-2 text-xs">
-              {formFiles.map((file, idx) => (
-                <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="material-symbols-outlined text-blue-600 text-[20px]">description</span>
-                    <div>
-                      <span className="font-bold text-[#0f172a] block">{file}</span>
-                      <span className="text-[10px] text-slate-400">Bản sao công chứng y khoa</span>
-                    </div>
-                  </div>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#f6ffed] text-[#03864b] border border-[#b7eb8f]">
-                    Đã kiểm tra
-                  </span>
+              {formFiles.length === 0 ? (
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center text-slate-400">
+                  Chưa có tài liệu đính kèm nào được tải lên.
                 </div>
-              ))}
+              ) : (
+                formFiles.map((file, idx) => {
+                  const displayName = file.includes('/') ? file.split('/').pop() : file;
+                  return (
+                    <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <span className="material-symbols-outlined text-blue-600 text-[20px] shrink-0">description</span>
+                        <div className="truncate">
+                          <span className="font-bold text-[#0f172a] block truncate" title={file}>
+                            {displayName}
+                          </span>
+                          <span className="text-[10px] text-slate-400">Bản sao công chứng y khoa</span>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#f6ffed] text-[#03864b] border border-[#b7eb8f] shrink-0">
+                        Đã ghi nhận
+                      </span>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

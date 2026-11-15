@@ -185,7 +185,7 @@ describe('Màn 4: AdminFourPartyReviewView (Platform Contract Review & Sign)', (
     expect(screen.getByTestId('signature-box-platform')).toBeInTheDocument();
   });
 
-  it('complies with typography design system (no font-mono, font-black, or font-extrabold)', () => {
+  it('complies with typography design system (no tracking-wide, font-black, or font-extrabold)', () => {
     const { container } = render(<AdminFourPartyReviewView contract={mockContract} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });

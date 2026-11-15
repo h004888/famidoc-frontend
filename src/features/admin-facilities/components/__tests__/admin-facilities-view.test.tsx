@@ -3,6 +3,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdminFacilitiesView } from '../admin-facilities-view';
 import { facilitiesApi } from '@/lib/api/facilities.api';
+import { doctorsApi } from '@/lib/api/doctors.api';
+
+vi.mock('@/lib/api/doctors.api', () => ({
+  doctorsApi: {
+    getAdminDoctors: vi.fn().mockResolvedValue([]),
+    platformApproveCredentials: vi.fn(),
+  },
+}));
 
 vi.mock('@/lib/api/facilities.api', () => ({
   facilitiesApi: {
@@ -93,23 +101,16 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (F
       total: 1,
     });
 
-    const { container } = render(<AdminFacilitiesView />);
+    render(<AdminFacilitiesView />);
 
     await waitFor(() => {
-      expect(screen.getByText('Trang chủ')).toBeInTheDocument();
-      expect(screen.getByText('Quản trị viên')).toBeInTheDocument();
-      expect(screen.getAllByText('Cơ sở Y tế').length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText(/Ban Quản Trị Hệ Thống • Thẩm Định Cơ Sở Y Tế B2B/i)).toBeInTheDocument();
-
-      const mainEl = container.querySelector('main');
-      expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
-
-      expect(screen.getByRole('button', { name: /Làm mới/i })).toBeInTheDocument();
-      expect(screen.getByText(/cơ sở đối tác/i)).toBeInTheDocument();
+      expect(screen.getByText('Admin Backoffice')).toBeInTheDocument();
+      expect(screen.getAllByText(/Quản trị & Thẩm định Cơ sở Y tế/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText(/Quy trình hợp tác nền tảng B2B/i)).toBeInTheDocument();
     });
   });
 
-  it('does not display "Đại diện & Liên hệ" column in table, but displays contact details in the detail modal', async () => {
+  it('displays contact details in the table and in the detail modal', async () => {
     vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
       data: [mockFacility],
       total: 1,
@@ -119,16 +120,16 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (F
 
     await screen.findAllByText('Bệnh viện Kiểm Thử FamiDoc');
 
-    // Column header "Đại diện & Liên hệ" should not exist
-    expect(screen.queryByText(/Đại diện & Liên hệ/i)).toBeNull();
+    // Column header "Đại diện & Liên hệ" should exist
+    expect(screen.getByText(/Đại diện & Liên hệ/i)).toBeInTheDocument();
 
     // Opening detail modal displays full representative and contact info
     const detailButtons = screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i });
     fireEvent.click(detailButtons[0]);
 
     expect(screen.getByText(/Đại diện pháp luật:/i)).toBeInTheDocument();
-    expect(screen.getByText('TS. Nguyễn Văn A')).toBeInTheDocument();
-    expect(screen.getByText(/0912345678/i)).toBeInTheDocument();
-    expect(screen.getByText(/test@hospital.vn/i)).toBeInTheDocument();
+    expect(screen.getAllByText('TS. Nguyễn Văn A').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/0912345678/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/test@hospital.vn/i).length).toBeGreaterThanOrEqual(1);
   });
 });

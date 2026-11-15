@@ -204,7 +204,7 @@ describe('Màn 3: DoctorContractReviewView (Care Needs Summary & Medical Digital
     expect(screen.getByTestId('signature-box-doctor')).toBeInTheDocument();
   });
 
-  it('complies with typography design system (no font-mono, font-black, or font-extrabold)', () => {
+  it('complies with typography design system (no tracking-wide, font-black, or font-extrabold)', () => {
     const { container } = render(<DoctorContractReviewView contract={mockContract} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });

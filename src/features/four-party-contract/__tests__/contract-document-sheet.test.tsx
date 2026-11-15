@@ -121,7 +121,7 @@ describe('ContractDocumentSheet Component', () => {
     expect(screen.getByTestId('signature-box-doctor')).toHaveTextContent('d4e5f6a1b2c37890');
   });
 
-  it('conforms to typography foundation spec without font-mono or font-black/extrabold', () => {
+  it('conforms to typography foundation spec without tracking-wide or font-black/extrabold', () => {
     const { container } = render(<ContractDocumentSheet contract={mockFullySignedContract} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });

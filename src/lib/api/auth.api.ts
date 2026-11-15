@@ -173,4 +173,12 @@ export const authApi = {
     }
     return res as LoginResponseData;
   },
+
+  // Đổi mật khẩu khởi tạo / đổi mật khẩu định kỳ (Flow 2.1 - API 15)
+  changePassword: async (dto: {
+    oldPassword?: string;
+    newPassword?: string;
+  }): Promise<{ message: string }> => {
+    return httpClient.patch<{ message: string }>('/api/v1/auth/change-password', dto);
+  },
 };

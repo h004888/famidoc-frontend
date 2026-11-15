@@ -134,7 +134,7 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
     expect(screen.getByRole('link', { name: /Đường dây nóng: 1900 8821/i })).toBeInTheDocument();
   });
 
-  it('standardizes typography across LandingStats, LandingPackages, LandingProcess, LandingDoctors (tabular-nums without font-mono)', () => {
+  it('standardizes typography across LandingStats, LandingPackages, LandingProcess, LandingDoctors (tabular-nums without tracking-wide)', () => {
     const { container } = render(
       <>
         <LandingStats />

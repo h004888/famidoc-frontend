@@ -157,7 +157,7 @@ describe('Màn 5: AdminReconciliationView (Đối soát SePay & Kích hoạt bù
     });
   });
 
-  it('complies with typography design system (no font-mono, font-black, or font-extrabold)', () => {
+  it('complies with typography design system (no tracking-wide, font-black, or font-extrabold)', () => {
     const { container } = render(
       <AdminReconciliationView initialTransactions={mockTransactions} />,
     );

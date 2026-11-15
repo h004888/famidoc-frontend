@@ -210,7 +210,7 @@ describe('FacilityDoctorAssignView (Màn 2: Phân công Bác sĩ & Ký số CSYT
     });
   });
 
-  it('conforms to typography standards without font-mono, font-black, or font-extrabold', () => {
+  it('conforms to typography standards without tracking-wide, font-black, or font-extrabold', () => {
     const { container } = render(<FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });

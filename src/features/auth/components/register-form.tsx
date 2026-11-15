@@ -138,11 +138,11 @@ export function RegisterForm() {
           global: 'Email, số điện thoại hoặc tên cơ sở y tế này đã được đăng ký trên hệ thống FamiDoc.',
         });
       } else {
-        // Fallback demo/offline
-        setFacilitySuccess({
-          id: 'FAC-' + Math.floor(100000 + Math.random() * 900000),
-          facilityName: facilityData.facilityName.trim(),
-          email: facilityData.email.trim(),
+        const errorMsg =
+          err?.message ||
+          'Không thể kết nối đến máy chủ FamiDoc hoặc thông tin đăng ký không hợp lệ. Vui lòng thử lại.';
+        setFacilityErrors({
+          global: errorMsg,
         });
       }
     } finally {
@@ -917,7 +917,7 @@ export function RegisterForm() {
                 <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500">Mã hồ sơ tiếp nhận:</span>
-                    <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                    <span className="tracking-wide font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
                       {facilitySuccess.id}
                     </span>
                   </div>
@@ -927,7 +927,7 @@ export function RegisterForm() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500">Mật khẩu khởi tạo:</span>
-                    <span className="font-mono text-slate-700">FamiDoc@Facility2026</span>
+                    <span className="tracking-wide text-slate-700">FamiDoc@Facility2026</span>
                   </div>
                 </div>
 

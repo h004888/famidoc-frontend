@@ -155,6 +155,13 @@ export function FacilityDashboardView() {
 
           <div className="flex items-center gap-2.5 w-full md:w-auto">
             <Link
+              href="/facility/legal-profile"
+              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs sm:text-sm rounded-xl border border-amber-200 transition-all shadow-xs"
+            >
+              <span className="material-symbols-outlined text-[18px]">verified_user</span>
+              <span>Hồ sơ Pháp lý</span>
+            </Link>
+            <Link
               href="/facility/staff"
               className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-xs"
             >
@@ -168,6 +175,98 @@ export function FacilityDashboardView() {
               <span className="material-symbols-outlined text-[18px] text-[#2E37A4]">rule_settings</span>
               <span>Điều phối viện</span>
             </Link>
+          </div>
+        </div>
+
+        {/* ONBOARDING PROGRESS STEPPER (Flow 2.1 - Don't Make Me Think) */}
+        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-blue-600 text-lg">flag</span>
+                <span>Tiến Trình Onboarding Hợp Tác Y Tế (Main Business Flow 2.1)</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Các bước bắt buộc để hoàn tất thẩm định pháp lý và đưa đội ngũ bác sĩ vào mạng lưới phục vụ hộ gia đình
+              </p>
+            </div>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 self-start sm:self-auto">
+              Tiến độ: 3/5 Bước hoàn tất
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            {/* Bước 1 */}
+            <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">
+                  ✓
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700 uppercase">Hoàn thành</span>
+              </div>
+              <h3 className="text-xs font-bold text-slate-900">1. Đăng ký Cơ sở</h3>
+              <p className="text-[11px] text-slate-500 leading-tight">Admin đã phê duyệt thông tin cơ bản &amp; cấp tài khoản Portal.</p>
+            </div>
+
+            {/* Bước 2 */}
+            <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200 space-y-1.5 ring-2 ring-blue-600/10">
+              <div className="flex items-center justify-between">
+                <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center">
+                  2
+                </span>
+                <span className="text-[10px] font-bold text-blue-700 uppercase">Đã nộp GPHĐ</span>
+              </div>
+              <h3 className="text-xs font-bold text-slate-900">2. Hồ sơ Pháp lý</h3>
+              <p className="text-[11px] text-slate-500 leading-tight">GPHĐ &amp; MST đang đối soát CSDL Quốc gia (Duyệt Lần 2).</p>
+              <Link href="/facility/legal-profile" className="inline-block text-[11px] font-bold text-blue-700 hover:underline pt-0.5">
+                Cập nhật hồ sơ →
+              </Link>
+            </div>
+
+            {/* Bước 3 */}
+            <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">
+                  ✓
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700 uppercase">Đã ký kết</span>
+              </div>
+              <h3 className="text-xs font-bold text-slate-900">3. Hợp đồng B2B</h3>
+              <p className="text-[11px] text-slate-500 leading-tight">Hợp đồng nhân lực B2B hiệu lực (85% CSYT / 15% Nền tảng).</p>
+              <Link href="/facility/contracts" className="inline-block text-[11px] font-bold text-emerald-700 hover:underline pt-0.5">
+                Xem điều khoản →
+              </Link>
+            </div>
+
+            {/* Bước 4 */}
+            <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-200 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="w-6 h-6 rounded-full bg-emerald-600 text-white text-xs font-bold flex items-center justify-center">
+                  ✓
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700 uppercase">48 Bác sĩ</span>
+              </div>
+              <h3 className="text-xs font-bold text-slate-900">4. Đội ngũ Bác sĩ</h3>
+              <p className="text-[11px] text-slate-500 leading-tight">Khởi tạo nhân sự y tế &amp; cấp mật khẩu khởi tạo an toàn.</p>
+              <Link href="/facility/staff" className="inline-block text-[11px] font-bold text-emerald-700 hover:underline pt-0.5">
+                Thêm bác sĩ mới →
+              </Link>
+            </div>
+
+            {/* Bước 5 */}
+            <div className="p-3.5 rounded-xl bg-amber-50/60 border border-amber-200 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="w-6 h-6 rounded-full bg-amber-500 text-white text-xs font-bold flex items-center justify-center">
+                  5
+                </span>
+                <span className="text-[10px] font-bold text-amber-700 uppercase">Đang thẩm định</span>
+              </div>
+              <h3 className="text-xs font-bold text-slate-900">5. Duyệt CCHN 2 Cấp</h3>
+              <p className="text-[11px] text-slate-500 leading-tight">CSYT duyệt Cấp 1, Admin hậu kiểm CSDL Quốc gia Cấp 2.</p>
+              <Link href="/facility/staff" className="inline-block text-[11px] font-bold text-amber-700 hover:underline pt-0.5">
+                Duyệt CCHN Cấp 1 →
+              </Link>
+            </div>
           </div>
         </div>
 

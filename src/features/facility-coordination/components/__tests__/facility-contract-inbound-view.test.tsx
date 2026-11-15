@@ -132,7 +132,7 @@ describe('FacilityContractInboundView (Màn 1: Tiếp nhận Hợp đồng 4 bê
     expect(assignLink).toHaveAttribute('href', '/facility/contracts/ct-4p-001/assign');
   });
 
-  it('conforms to typography standards without font-mono, font-black, or font-extrabold', () => {
+  it('conforms to typography standards without tracking-wide, font-black, or font-extrabold', () => {
     const { container } = render(<FacilityContractInboundView initialContracts={mockContracts} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });

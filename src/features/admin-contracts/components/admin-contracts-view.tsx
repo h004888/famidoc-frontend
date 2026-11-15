@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   useContractWorkflow,
   updateContractStep,
   resetContractWorkflow,
 } from '@/lib/contract-workflow-storage';
+import { contractsApi, type StaffingContractItem } from '@/lib/api/contracts.api';
 
 interface LegalContract {
   id: string;
@@ -18,54 +19,10 @@ interface LegalContract {
   revenueShareRate: string;
   status: 'active' | 'pending_signature' | 'expiring_soon' | 'terminated';
   signedBy: string;
+  rawB2b?: StaffingContractItem;
 }
 
-const STATIC_CONTRACTS: LegalContract[] = [
-  {
-    id: 'CTR-B2B-2026-001',
-    title: 'Hợp đồng Hợp tác Chiến lược & Cung ứng Nhân lực Y tế Bác sĩ Gia đình',
-    type: 'b2b_hospital',
-    partnerName: 'Bệnh viện Đại học Y Dược TP.HCM',
-    effectiveDate: '01/01/2026',
-    expiryDate: '31/12/2027',
-    revenueShareRate: '70% Cơ sở / 30% Nền tảng',
-    status: 'active',
-    signedBy: 'GS.TS Nguyễn Văn H. (Giám đốc BV) & FamiDoc CEO',
-  },
-  {
-    id: 'CTR-B2B-2026-002',
-    title: 'Hợp đồng Liên kết Chuyển viện Cấp cứu & Khám Chuyên khoa Fast-Track',
-    type: 'b2b_hospital',
-    partnerName: 'Bệnh viện Chợ Rẫy TP.HCM',
-    effectiveDate: '15/03/2026',
-    expiryDate: '15/03/2027',
-    revenueShareRate: '68% Cơ sở / 32% Nền tảng',
-    status: 'active',
-    signedBy: 'Ban Giám đốc Bệnh viện Chợ Rẫy',
-  },
-  {
-    id: 'CTR-APPX-2026-009',
-    title: 'Phụ lục số 03: Điều chỉnh Danh mục Bác sĩ CCHN & Cam kết SLA Phản ứng Khẩn cấp',
-    type: 'appendix',
-    partnerName: 'Bệnh viện Đại học Y Dược TP.HCM',
-    effectiveDate: '01/10/2026',
-    expiryDate: '31/12/2027',
-    revenueShareRate: 'Theo HĐ gốc',
-    status: 'pending_signature',
-    signedBy: 'Chờ đại diện Bệnh viện ký số USB Token',
-  },
-  {
-    id: 'CTR-B2B-2025-014',
-    title: 'Hợp đồng Hợp tác Dịch vụ Lấy mẫu Xét nghiệm Tận nhà',
-    type: 'b2b_hospital',
-    partnerName: 'Hệ thống Phòng khám Quốc tế CarePlus',
-    effectiveDate: '01/11/2025',
-    expiryDate: '01/11/2026',
-    revenueShareRate: '65% Đối tác / 35% Nền tảng',
-    status: 'expiring_soon',
-    signedBy: 'Tổng Giám đốc CarePlus Vietnam',
-  },
-];
+const STATIC_CONTRACTS: LegalContract[] = [];
 
 export function AdminContractsView() {
   const workflow = useContractWorkflow();
@@ -74,6 +31,76 @@ export function AdminContractsView() {
   const [selectedContract, setSelectedContract] = useState<LegalContract | null>(null);
   const [notification, setNotification] = useState('');
   const [isSigningAdmin, setIsSigningAdmin] = useState(false);
+
+  // B2B Staffing Contracts state (Flow 2.1)
+  const [b2bContracts, setB2bContracts] = useState<LegalContract[]>([]);
+  const [showCreateB2BModal, setShowCreateB2BModal] = useState(false);
+  const [newFacilityName, setNewFacilityName] = useState('');
+  const [newContractCode, setNewContractCode] = useState('');
+  const [newFacilityShare, setNewFacilityShare] = useState(85);
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+
+  // Load staffing contracts directly from Backend API
+  const loadB2b = async () => {
+    try {
+      const res = await contractsApi.getStaffingContracts();
+      if (res && Array.isArray(res.data)) {
+        const mapped: LegalContract[] = res.data.map((item) => ({
+          id: item.contractNumber,
+          title: `Hợp đồng Cung ứng Nhân lực B2B (${item.contractNumber})`,
+          type: 'b2b_hospital' as const,
+          partnerName: item.facilityName,
+          effectiveDate: new Date(item.validFrom).toLocaleDateString('vi-VN'),
+          expiryDate: new Date(item.validTo).toLocaleDateString('vi-VN'),
+          revenueShareRate: `${item.facilitySharePercent}% CSYT / ${item.platformSharePercent}% Platform`,
+          status:
+            item.status === 'ACTIVE'
+              ? 'active'
+              : item.status === 'TERMINATED'
+              ? 'terminated'
+              : 'pending_signature',
+          signedBy:
+            item.status === 'ACTIVE'
+              ? 'Đã ký số: Admin FamiDoc SmartCA & CSYT'
+              : item.facilitySigned
+              ? 'CSYT đã ký (Chờ Admin duyệt)'
+              : 'Chờ CSYT & Admin ký số',
+          rawB2b: item,
+        }));
+        setB2bContracts(mapped);
+      } else {
+        setB2bContracts([]);
+      }
+    } catch (err) {
+      console.warn('Lỗi tải danh sách hợp đồng B2B tại Admin:', err);
+      setB2bContracts([]);
+    }
+  };
+
+  useEffect(() => {
+    loadB2b();
+  }, []);
+
+  const handleCreateB2BDraft = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingDraft(true);
+
+    try {
+      await contractsApi.createStaffingContract({
+        platformCommissionRate: 100 - newFacilityShare,
+        facilityRevenueRate: newFacilityShare,
+      });
+      await loadB2b();
+      setNotification(`Đã khởi tạo dự thảo hợp đồng B2B thành công trên Database!`);
+      setShowCreateB2BModal(false);
+    } catch (err: any) {
+      console.warn('Lỗi tạo dự thảo hợp đồng B2B:', err);
+      setNotification(`[Lỗi] ${err?.message || 'Không thể tạo hợp đồng trên máy chủ.'}`);
+    } finally {
+      setIsCreatingDraft(false);
+      setTimeout(() => setNotification(''), 4500);
+    }
+  };
 
   const fourPartyItem: LegalContract = {
     id: workflow?.contractCode || 'CTR-4P-2026-88219',
@@ -93,7 +120,7 @@ export function AdminContractsView() {
       : 'Chờ Quản trị viên FamiDoc ký số (Bên B)',
   };
 
-  const allContracts: LegalContract[] = [fourPartyItem, ...STATIC_CONTRACTS];
+  const allContracts: LegalContract[] = [fourPartyItem, ...b2bContracts, ...STATIC_CONTRACTS];
 
   const filteredContracts = allContracts.filter((c) => {
     const matchesType = filterType === 'all' || c.type === filterType;
@@ -104,7 +131,7 @@ export function AdminContractsView() {
     return matchesType && matchesSearch;
   });
 
-  const handleApproveSignature = (contractId: string) => {
+  const handleApproveSignature = async (contractId: string) => {
     if (contractId === fourPartyItem.id) {
       setIsSigningAdmin(true);
       setTimeout(() => {
@@ -121,6 +148,26 @@ export function AdminContractsView() {
         );
         setTimeout(() => setNotification(''), 4000);
       }, 1200);
+      return;
+    }
+
+    if (selectedContract?.rawB2b) {
+      setIsSigningAdmin(true);
+      try {
+        await contractsApi.signStaffingContract(selectedContract.rawB2b.id, {
+          signatureHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          signedPdfUrl: `https://cdn.famidoc.vn/contracts/staffing/${selectedContract.rawB2b.contractNumber}-signed.pdf`,
+        });
+        setNotification(`Đã ký số phê duyệt hợp đồng B2B ${contractId} thành công! Hợp đồng chính thức ACTIVE.`);
+        await loadB2b();
+      } catch (err: any) {
+        console.warn('Lỗi admin ký hợp đồng B2B:', err);
+        setNotification(err?.message || 'Không thể ký duyệt hợp đồng B2B trên máy chủ.');
+      } finally {
+        setIsSigningAdmin(false);
+        setSelectedContract(null);
+        setTimeout(() => setNotification(''), 4000);
+      }
       return;
     }
 
@@ -153,7 +200,15 @@ export function AdminContractsView() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setShowCreateB2BModal(true)}
+              className="px-4 py-1.5 bg-[#0052cc] hover:bg-[#003da6] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">add_circle</span>
+              <span>Thiết Lập Dự Thảo HĐ B2B</span>
+            </button>
             <button
               type="button"
               onClick={handleResetDemo}
@@ -438,6 +493,120 @@ export function AdminContractsView() {
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+        {/* MODAL: THIẾT LẬP DỰ THẢO HỢP ĐỒNG B2B (POST /api/v1/contracts/staffing) */}
+        {showCreateB2BModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0052cc] flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined text-[20px]">handshake</span>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Thiết Lập Dự Thảo HĐ B2B</h3>
+                    <p className="text-xs text-slate-500">Flow 2.1 - Hợp tác cung ứng nhân lực y tế</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateB2BModal(false)}
+                  className="text-slate-400 hover:text-slate-600 font-bold p-1"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleCreateB2BDraft} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Cơ Sở Y Tế Đối Tác <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={newFacilityName}
+                    onChange={(e) => {
+                      setNewFacilityName(e.target.value);
+                      if (e.target.value.includes('An Sinh')) {
+                        setNewContractCode('STAFF-2026-ANSINH-002');
+                      } else if (e.target.value.includes('FamiCare')) {
+                        setNewContractCode('STAFF-2026-FAMICARE-002');
+                      } else {
+                        setNewContractCode(`STAFF-2026-B2B-${Math.floor(100 + Math.random() * 900)}`);
+                      }
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#0052cc]/20"
+                  >
+                    <option value="Bệnh viện Đa khoa An Sinh">Bệnh viện Đa khoa An Sinh (contact@ansinhhospital.vn)</option>
+                    <option value="Trung tâm Y tế Kỹ thuật cao An Sinh Hub">Trung tâm Y tế Kỹ thuật cao An Sinh Hub</option>
+                    <option value="Bệnh viện Đa khoa Quốc tế FamiCare">Bệnh viện Đa khoa Quốc tế FamiCare</option>
+                    <option value="Phòng khám Đa khoa Quốc tế Trustcare Hub">Phòng khám Đa khoa Quốc tế Trustcare Hub</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    Mã Định Danh Hợp Đồng <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newContractCode}
+                    onChange={(e) => setNewContractCode(e.target.value)}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 tracking-wide focus:outline-hidden focus:ring-2 focus:ring-[#0052cc]/20"
+                    placeholder="Ví dụ: STAFF-2026-ANSINH-002"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50/60 rounded-xl border border-blue-100">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-blue-900">Tỷ lệ CSYT hưởng (%)</label>
+                    <input
+                      type="number"
+                      min="50"
+                      max="95"
+                      value={newFacilityShare}
+                      onChange={(e) => setNewFacilityShare(Number(e.target.value))}
+                      className="w-full px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-xs sm:text-sm font-bold text-blue-900"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-600">Phí Nền tảng FamiDoc</label>
+                    <div className="px-3 py-2 text-xs sm:text-sm font-bold text-slate-700 bg-white/70 rounded-lg border border-blue-200">
+                      {100 - newFacilityShare}% Platform
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200 text-[11px] text-amber-900 leading-relaxed">
+                  💡 <strong>Quy trình ký 2 bên:</strong> Khi Admin bấm <em>"Tạo Dự Thảo &amp; Ký Số Platform"</em>, hợp đồng sẽ được đóng dấu số Admin SmartCA và gửi thẳng sang cổng Portal của Cơ sở y tế ở trạng thái <code>DRAFT</code> để đại diện CSYT thẩm định và ký số hoàn tất.
+                </div>
+
+                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateB2BModal(false)}
+                    className="px-4 py-2 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isCreatingDraft}
+                    className="px-5 py-2 bg-[#0052cc] hover:bg-[#003da6] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
+                  >
+                    {isCreatingDraft ? (
+                      <span>Đang tạo dự thảo...</span>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-sm">draw</span>
+                        <span>Tạo Dự Thảo &amp; Ký Số Platform</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}

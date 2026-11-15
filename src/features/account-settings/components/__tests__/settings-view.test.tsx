@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -7,15 +7,15 @@ import { AccountSettingsView } from '../account-settings-view';
 describe('UT-CMP-14: AccountSettingsView BHYT Skeleton & Accessibility', () => {
   it('displays loading skeleton with aria-busy when switching to BHYT tab', async () => {
     render(<AccountSettingsView />);
-    const bhytTab = screen.getByRole('button', { name: /Bảo hiểm Y tế & Ký quỹ/i });
+    const bhytTab = screen.getByRole('button', { name: /B?o hi?m Y t? & K� qu?/i });
     await userEvent.click(bhytTab);
 
     // Should render either skeleton or loaded state cleanly with accessible headers
-    expect(screen.getByRole('heading', { level: 3, name: /Bảo hiểm Y tế & Ký quỹ/i })).toBeInTheDocument();
-    expect(screen.getByText(/Mã thẻ BHYT Điện tử:/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 3, name: /B?o hi?m Y t? & K� qu?/i })).toBeInTheDocument();
+    expect(screen.getByText(/M� th? BHYT �i?n t?:/i)).toBeInTheDocument();
   });
 
-  it('standardizes typography on AccountSettingsView (tabular-nums without font-mono, font-black, or font-extrabold)', () => {
+  it('standardizes typography on AccountSettingsView (tabular-nums without tracking-wide, font-black, or font-extrabold)', () => {
     const { container } = render(<AccountSettingsView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');

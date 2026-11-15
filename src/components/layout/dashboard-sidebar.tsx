@@ -46,7 +46,8 @@ const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200/80',
     items: [
       { href: '/facility', label: 'Tổng quan Cơ sở', shortLabel: 'Tổng quan', icon: 'local_hospital', exact: true, badge: 'Live Queue', badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200' },
-      { href: '/facility/contracts', label: 'Hợp đồng 4 Bên & Gán BS', shortLabel: 'Hợp đồng', icon: 'history_edu', badge: 'SCR-22', badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200' },
+      { href: '/facility/legal-profile', label: 'Hồ sơ Pháp lý & GPHĐ', shortLabel: 'Pháp lý', icon: 'verified_user', badge: 'Duyệt Lần 2', badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200' },
+      { href: '/facility/contracts', label: 'Hợp đồng & Nhân lực B2B', shortLabel: 'Hợp đồng', icon: 'history_edu' },
       { href: '/facility/staff', label: 'Quản lý Nhân sự Y tế', shortLabel: 'Nhân sự', icon: 'badge' },
       { href: '/facility/coordination', label: 'Điều phối & Chuyển viện', shortLabel: 'Điều phối', icon: 'support_agent', badge: 'Hot', badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200' },
       { href: '/facility/revenue', label: 'Đối soát Doanh thu B2B', shortLabel: 'Doanh thu', icon: 'payments' },
@@ -337,6 +338,7 @@ export function DashboardSidebar() {
                 )}
                 <Link
                   href={item.href}
+                  suppressHydrationWarning
                   onClick={() => setMobileMenuOpen(false)}
                   title={isCollapsedState ? item.label : undefined}
                   aria-label={item.label}
@@ -346,8 +348,9 @@ export function DashboardSidebar() {
                       : 'text-slate-700 hover:text-[#2E37A4] hover:bg-slate-100'
                   } ${isCollapsedState ? 'justify-center px-2' : ''}`}
                 >
-                  <div className="flex items-center gap-3 truncate">
+                  <div className="flex items-center gap-3 truncate" suppressHydrationWarning>
                     <span
+                      suppressHydrationWarning
                       className={`material-symbols-outlined text-[20px] shrink-0 transition-colors ${
                         isActive
                           ? 'text-white'
@@ -356,7 +359,7 @@ export function DashboardSidebar() {
                     >
                       {item.icon}
                     </span>
-                    {!isCollapsedState && <span className="truncate">{item.label}</span>}
+                    {!isCollapsedState && <span className="truncate" suppressHydrationWarning>{item.label}</span>}
                   </div>
                   {!isCollapsedState && item.badge && (
                     <span
@@ -560,6 +563,7 @@ export function DashboardSidebar() {
               <Link
                 key={item.href}
                 href={item.href}
+                suppressHydrationWarning
                 onClick={() => setMobileMenuOpen(false)}
                 className={`relative flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-colors outline-hidden ${
                   isActive
@@ -578,7 +582,7 @@ export function DashboardSidebar() {
                 >
                   {item.icon}
                 </span>
-                <span className="text-xs mt-1 leading-tight truncate max-w-full">
+                <span suppressHydrationWarning className="text-xs mt-1 leading-tight truncate max-w-full">
                   {item.shortLabel || item.label}
                 </span>
               </Link>

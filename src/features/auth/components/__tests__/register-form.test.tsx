@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -23,38 +23,38 @@ describe('UT-CMP-11..13: RegisterForm Accessibility & Real-time Validation', () 
 
   it('UT-CMP-11 (M-02): links all form labels with inputs via htmlFor and id', () => {
     render(<RegisterForm />);
-    expect(screen.getByLabelText(/Họ và tên người đại diện/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Số điện thoại liên hệ/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/H? v� t�n ngu?i d?i di?n/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/S? di?n tho?i li�n h?/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/Email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Mật khẩu/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/Xác nhận mật khẩu/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^M?t kh?u/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/X�c nh?n m?t kh?u/i)).toBeInTheDocument();
   });
 
   it('UT-CMP-12 (M-03): triggers real-time onBlur validation when leaving invalid field', async () => {
     render(<RegisterForm />);
-    const phoneInput = screen.getByLabelText(/Số điện thoại liên hệ/i);
+    const phoneInput = screen.getByLabelText(/S? di?n tho?i li�n h?/i);
     await userEvent.type(phoneInput, '12345');
     await userEvent.tab();
 
     const errorAlert = screen.getByRole('alert');
     expect(errorAlert).toBeInTheDocument();
-    expect(errorAlert).toHaveTextContent(/Số điện thoại không đúng định dạng/i);
+    expect(errorAlert).toHaveTextContent(/S? di?n tho?i kh�ng d�ng d?nh d?ng/i);
   });
 
   it('UT-CMP-13 (m-01): configures type="tel" on phone field', () => {
     render(<RegisterForm />);
-    const phoneInput = screen.getByLabelText(/Số điện thoại liên hệ/i);
+    const phoneInput = screen.getByLabelText(/S? di?n tho?i li�n h?/i);
     expect(phoneInput).toHaveAttribute('type', 'tel');
   });
 
-  it('standardizes typography on RegisterForm to Medsev Group 1 standard (tabular-nums without font-mono, font-bold without font-black/font-extrabold)', () => {
+  it('standardizes typography on RegisterForm to Medsev Group 1 standard (tabular-nums without tracking-wide, font-bold without font-black/font-extrabold)', () => {
     const { container } = render(<RegisterForm />);
     const heading = screen.getByRole('heading', { level: 1 });
     expect(heading).toHaveClass('font-bold');
 
-    const phoneInput = screen.getByLabelText(/Số điện thoại liên hệ/i);
+    const phoneInput = screen.getByLabelText(/S? di?n tho?i li�n h?/i);
     expect(phoneInput).toHaveClass('tabular-nums');
-    expect(phoneInput).not.toHaveClass('font-mono');
+    expect(phoneInput).not.toHaveClass('tracking-wide');
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });
 
@@ -71,13 +71,13 @@ describe('UT-CMP-11..13: RegisterForm Accessibility & Real-time Validation', () 
 
     render(<RegisterForm />);
 
-    await userEvent.type(screen.getByLabelText(/Họ và tên người đại diện/i), 'Nguyễn Văn Đại Diện');
-    await userEvent.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0912345678');
+    await userEvent.type(screen.getByLabelText(/H? v� t�n ngu?i d?i di?n/i), 'Nguy?n Van �?i Di?n');
+    await userEvent.type(screen.getByLabelText(/S? di?n tho?i li�n h?/i), '0912345678');
     await userEvent.type(screen.getByLabelText(/Email/i), 'rep@famidoc.vn');
-    await userEvent.type(screen.getByLabelText(/^Mật khẩu/i), 'Password@123');
-    await userEvent.type(screen.getByLabelText(/Xác nhận mật khẩu/i), 'Password@123');
+    await userEvent.type(screen.getByLabelText(/^M?t kh?u/i), 'Password@123');
+    await userEvent.type(screen.getByLabelText(/X�c nh?n m?t kh?u/i), 'Password@123');
 
-    const submitBtn = screen.getByRole('button', { name: /Đăng ký tài khoản/i });
+    const submitBtn = screen.getByRole('button', { name: /�ang k� t�i kho?n/i });
     await act(async () => {
       submitBtn.click();
     });
@@ -121,24 +121,24 @@ describe('UT-CMP-11..13: RegisterForm Accessibility & Real-time Validation', () 
 
       render(<RegisterForm />);
 
-      await userEvent.type(screen.getByLabelText(/Họ và tên người đại diện/i), 'Nguyễn Văn An');
-      await userEvent.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0912345678');
+      await userEvent.type(screen.getByLabelText(/H? v� t�n ngu?i d?i di?n/i), 'Nguy?n Van An');
+      await userEvent.type(screen.getByLabelText(/S? di?n tho?i li�n h?/i), '0912345678');
       await userEvent.type(screen.getByLabelText(/Email/i), 'rep@famidoc.vn');
-      await userEvent.type(screen.getByLabelText(/^Mật khẩu/i), 'Password@123');
-      await userEvent.type(screen.getByLabelText(/Xác nhận mật khẩu/i), 'Password@123');
+      await userEvent.type(screen.getByLabelText(/^M?t kh?u/i), 'Password@123');
+      await userEvent.type(screen.getByLabelText(/X�c nh?n m?t kh?u/i), 'Password@123');
 
-      const submitBtn = screen.getByRole('button', { name: /Đăng ký tài khoản/i });
+      const submitBtn = screen.getByRole('button', { name: /�ang k� t�i kho?n/i });
       await act(async () => {
         submitBtn.click();
       });
 
-      // Kiểm tra sessionStorage đã lưu metadata
+      // Ki?m tra sessionStorage d� luu metadata
       expect(global.sessionStorage.setItem).toHaveBeenCalledWith(
         'famidoc_pending_otp_meta',
         JSON.stringify({ email: 'rep@famidoc.vn', expiresInSeconds: 300, devOtp: '654321' })
       );
 
-      // Kiểm tra điều hướng đúng
+      // Ki?m tra di?u hu?ng d�ng
       expect(pushMock).toHaveBeenCalledWith('/verify-otp?email=rep%40famidoc.vn');
     });
 
@@ -155,28 +155,28 @@ describe('UT-CMP-11..13: RegisterForm Accessibility & Real-time Validation', () 
 
       render(<RegisterForm />);
 
-      await userEvent.type(screen.getByLabelText(/Họ và tên người đại diện/i), 'Nguyễn Văn A');
-      await userEvent.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0912345678');
+      await userEvent.type(screen.getByLabelText(/H? v� t�n ngu?i d?i di?n/i), 'Nguy?n Van A');
+      await userEvent.type(screen.getByLabelText(/S? di?n tho?i li�n h?/i), '0912345678');
       await userEvent.type(screen.getByLabelText(/Email/i), 'existing@email.com');
-      await userEvent.type(screen.getByLabelText(/^Mật khẩu/i), 'Password@123');
-      await userEvent.type(screen.getByLabelText(/Xác nhận mật khẩu/i), 'Password@123');
+      await userEvent.type(screen.getByLabelText(/^M?t kh?u/i), 'Password@123');
+      await userEvent.type(screen.getByLabelText(/X�c nh?n m?t kh?u/i), 'Password@123');
 
-      const submitBtn = screen.getByRole('button', { name: /Đăng ký tài khoản/i });
+      const submitBtn = screen.getByRole('button', { name: /�ang k� t�i kho?n/i });
       await act(async () => {
         submitBtn.click();
       });
 
       await waitFor(() => {
-        expect(screen.getByRole('alert')).toHaveTextContent(/Email này đã được đăng ký/i);
+        expect(screen.getByRole('alert')).toHaveTextContent(/Email n�y d� du?c dang k�/i);
       });
 
-      // Không chuyển trang khi có lỗi 409
+      // Kh�ng chuy?n trang khi c� l?i 409
       expect(pushMock).not.toHaveBeenCalled();
     });
 
     it('does NOT redirect when API returns network error', async () => {
-      // Test rằng RegisterForm không tự ý chuyển trang khi gặp lỗi mạng
-      // bằng cách kiểm tra handleSubmit catch block không gọi router.push
+      // Test r?ng RegisterForm kh�ng t? � chuy?n trang khi g?p l?i m?ng
+      // b?ng c�ch ki?m tra handleSubmit catch block kh�ng g?i router.push
       vi.clearAllMocks();
       Reflect.deleteProperty(globalThis, 'sessionStorage');
 
@@ -184,15 +184,15 @@ describe('UT-CMP-11..13: RegisterForm Accessibility & Real-time Validation', () 
 
       render(<RegisterForm />);
 
-      await userEvent.type(screen.getByLabelText(/Họ và tên người đại diện/i), 'Nguyễn Văn A');
-      await userEvent.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0912345678');
+      await userEvent.type(screen.getByLabelText(/H? v� t�n ngu?i d?i di?n/i), 'Nguy?n Van A');
+      await userEvent.type(screen.getByLabelText(/S? di?n tho?i li�n h?/i), '0912345678');
       await userEvent.type(screen.getByLabelText(/Email/i), 'rep@famidoc.vn');
-      await userEvent.type(screen.getByLabelText(/^Mật khẩu/i), 'Password@123');
-      await userEvent.type(screen.getByLabelText(/Xác nhận mật khẩu/i), 'Password@123');
+      await userEvent.type(screen.getByLabelText(/^M?t kh?u/i), 'Password@123');
+      await userEvent.type(screen.getByLabelText(/X�c nh?n m?t kh?u/i), 'Password@123');
 
-      const submitBtn = screen.getByRole('button', { name: /Đăng ký tài khoản/i });
+      const submitBtn = screen.getByRole('button', { name: /�ang k� t�i kho?n/i });
 
-      // Submit và đợi async effects hoàn tất qua Next.js router events
+      // Submit v� d?i async effects ho�n t?t qua Next.js router events
       await act(async () => {
         submitBtn.click();
       });
@@ -200,7 +200,7 @@ describe('UT-CMP-11..13: RegisterForm Accessibility & Real-time Validation', () 
       await act(async () => {});
       await act(async () => {});
 
-      // Quan trọng nhất: KHÔNG redirect khi lỗi
+      // Quan tr?ng nh?t: KH�NG redirect khi l?i
       expect(pushMock).not.toHaveBeenCalled();
     });
   });

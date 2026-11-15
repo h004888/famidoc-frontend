@@ -54,7 +54,7 @@ describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
     expect(screen.getByRole('heading', { level: 3, name: /Gói Trải Nghiệm/i })).toBeInTheDocument();
   });
 
-  it('standardizes typography across Group 1 Public/Marketing views (no font-mono, font-black, or font-extrabold)', () => {
+  it('standardizes typography across Group 1 Public/Marketing views (no tracking-wide, font-black, or font-extrabold)', () => {
     const { container } = render(<PackagesCatalogView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
 

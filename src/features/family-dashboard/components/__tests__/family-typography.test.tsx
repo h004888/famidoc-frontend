@@ -12,7 +12,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard', () => {
-  it('renders FamilyDashboardView vitals with font-bold tabular-nums and without font-mono, font-black, or font-extrabold', () => {
+  it('renders FamilyDashboardView vitals with font-bold tabular-nums and without tracking-wide, font-black, or font-extrabold', () => {
     const { container } = render(<FamilyDashboardView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(screen.getByText('135/85')).toHaveClass('font-bold', 'tabular-nums');
@@ -21,7 +21,7 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
     expect(screen.getByText('6.8')).toHaveClass('font-bold', 'tabular-nums');
   });
 
-  it('ensures all Family Portal & ContractSigningWizard source files contain no font-mono, font-black, or font-extrabold', () => {
+  it('ensures all Family Portal & ContractSigningWizard source files contain no tracking-wide, font-black, or font-extrabold', () => {
     const familyFiles = [
       '../family-dashboard-view.tsx',
       '../../../family-members/components/family-members-view.tsx',
