@@ -10,6 +10,12 @@ import { httpClient } from '@/lib/api/http-client';
 import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
 import { useRouter } from 'next/navigation';
 import { resolveReturnUrl } from '../return-url';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function LoginForm() {
   const router = useRouter();
@@ -229,7 +235,8 @@ export function LoginForm() {
         {/* RIGHT COLUMN: LOGIN FORM CARD                                             */}
         {/* ========================================================================= */}
         <section className="lg:col-span-6 xl:col-span-6 flex justify-center items-center" data-purpose="form-section">
-          <div className="w-full max-w-[560px] bg-white rounded-[32px] p-6 sm:p-9 lg:p-10 shadow-[0_20px_50px_rgba(26,86,219,0.08)] border border-blue-100/60 relative">
+          <Card className="w-full max-w-[560px] rounded-[32px] border-blue-100/60 bg-white py-0 shadow-[0_20px_50px_rgba(0,55,193,0.08)] relative">
+            <CardContent className="p-6 sm:p-9 lg:p-10">
             {/* Subtle cross decorative icon top right of card */}
             <div className="absolute top-8 right-8 text-blue-200 pointer-events-none select-none opacity-80">
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -239,7 +246,6 @@ export function LoginForm() {
 
             {/* Form Header */}
             <div className="mb-6 sm:mb-7" data-purpose="card-header">
-              {/* Brand Logo Header */}
               <div className="flex items-center gap-2 mb-4">
                 <img
                   src="/images/logo.png"
@@ -248,7 +254,6 @@ export function LoginForm() {
                 />
               </div>
 
-              {/* Form Title */}
               <h1 className="text-2xl sm:text-[26px] font-bold text-slate-900 tracking-tight">
                 Đăng nhập vào tài khoản của bạn
               </h1>
@@ -272,45 +277,38 @@ export function LoginForm() {
 
             {/* Form Đăng Nhập */}
             <form onSubmit={handleSubmit} className="space-y-4" data-purpose="login-form">
-              {/* Thông báo lỗi chung (Global error alert) */}
               {errors.global && (
-                <div
-                  role="alert"
-                  className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2.5 shadow-2xs"
-                >
-                  <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-xs shrink-0 font-bold">
-                    !
-                  </span>
-                  <span>{errors.global}</span>
-                </div>
+                <Alert variant="destructive" className="rounded-2xl border-red-200 bg-red-50 text-red-700">
+                  <AlertDescription className="flex items-center gap-2.5 text-xs font-semibold text-red-700">
+                    <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-xs shrink-0 font-bold">
+                      !
+                    </span>
+                    <span>{errors.global}</span>
+                  </AlertDescription>
+                </Alert>
               )}
 
               {/* Trường Email / Tên đăng nhập */}
               <div className="space-y-1.5" data-purpose="field-email">
-                <label htmlFor="login-email" className="block text-xs font-semibold text-slate-700">
+                <Label htmlFor="login-email" className="text-xs font-semibold text-slate-700">
                   Email đăng nhập <span className="text-red-500">*</span>
-                </label>
-                <div
-                  className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
-                    errors.email
-                      ? 'border-red-500 ring-1 ring-red-500'
-                      : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 hover:border-slate-300'
-                  }`}
-                >
+                </Label>
+                <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <rect height="16" rx="2" width="20" x="2" y="4" />
                       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                     </svg>
                   </span>
-                  <input
+                  <Input
                     id="login-email"
                     name="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="example@famidoc.vn"
-                    className="w-full pl-10 pr-4 py-2.5 bg-transparent border-none text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                    aria-invalid={Boolean(errors.email)}
+                    className="h-10.5 rounded-xl bg-slate-50/30 pl-10 pr-4 text-sm"
                   />
                 </div>
                 {errors.email && (
@@ -322,23 +320,17 @@ export function LoginForm() {
 
               {/* Trường Mật khẩu */}
               <div className="space-y-1.5" data-purpose="field-password">
-                <label htmlFor="login-password" className="block text-xs font-semibold text-slate-700">
+                <Label htmlFor="login-password" className="text-xs font-semibold text-slate-700">
                   Mật khẩu <span className="text-red-500">*</span>
-                </label>
-                <div
-                  className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
-                    errors.password
-                      ? 'border-red-500 ring-1 ring-red-500'
-                      : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 hover:border-slate-300'
-                  }`}
-                >
+                </Label>
+                <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <rect height="11" rx="2" ry="2" width="18" x="3" y="11" />
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
                   </span>
-                  <input
+                  <Input
                     id="login-password"
                     name="password"
                     aria-label="Mật khẩu"
@@ -346,7 +338,8 @@ export function LoginForm() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full pl-10 pr-10 py-2.5 bg-transparent border-none text-sm text-slate-800 placeholder:text-slate-400 tracking-wider focus:outline-none focus:ring-0"
+                    aria-invalid={Boolean(errors.password)}
+                    className="h-10.5 rounded-xl bg-slate-50/30 pl-10 pr-10 text-sm tracking-wider"
                   />
                   <button
                     type="button"
@@ -376,19 +369,17 @@ export function LoginForm() {
 
               {/* Ghi nhớ & Quên mật khẩu */}
               <div className="flex items-center justify-between pt-1">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
+                <Label htmlFor="login-remember" className="flex items-center gap-2 cursor-pointer select-none font-normal">
+                  <Checkbox
                     id="login-remember"
-                    type="checkbox"
                     checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
+                    onCheckedChange={(checked) => setRememberMe(Boolean(checked))}
                   />
                   <span className="text-xs text-slate-600 font-medium">Ghi nhớ đăng nhập</span>
-                </label>
+                </Label>
                 <Link
                   href="/forgot-password"
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                  className="text-xs font-semibold text-primary hover:underline transition-colors"
                 >
                   Quên mật khẩu?
                 </Link>
@@ -396,11 +387,11 @@ export function LoginForm() {
 
               {/* Nút Đăng Nhập Chính */}
               <div className="pt-2" data-purpose="submit-button">
-                <button
+                <Button
                   type="submit"
                   disabled={loading}
                   aria-label="Đăng nhập hệ thống"
-                  className="w-full h-12 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-semibold rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all group disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-full h-12 rounded-xl text-sm font-semibold shadow-lg shadow-primary/25 cursor-pointer"
                 >
                   {loading ? (
                     <>
@@ -408,11 +399,9 @@ export function LoginForm() {
                       <span>Đang đăng nhập...</span>
                     </>
                   ) : (
-                    <>
-                      <span>Đăng nhập hệ thống</span>
-                    </>
+                    <span>Đăng nhập hệ thống</span>
                   )}
-                </button>
+                </Button>
               </div>
 
               {/* Nút Đăng nhập với Google */}
@@ -424,9 +413,10 @@ export function LoginForm() {
                 <div className="flex-grow border-t border-slate-200" />
               </div>
 
-              <button
+              <Button
                 type="button"
-                className="w-full h-11 flex items-center justify-center gap-2.5 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 text-slate-700 transition-colors text-xs font-semibold shadow-xs cursor-pointer"
+                variant="outline"
+                className="w-full h-11 rounded-xl border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-xs cursor-pointer"
               >
                 <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
@@ -447,7 +437,7 @@ export function LoginForm() {
                   />
                 </svg>
                 <span>Đăng nhập với Google</span>
-              </button>
+              </Button>
             </form>
 
             {/* Card Footer */}
@@ -455,15 +445,15 @@ export function LoginForm() {
               className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-center text-xs gap-3"
               data-purpose="card-footer"
             >
-              {/* Register Link */}
               <div className="text-slate-500">
                 Chưa có tài khoản?{' '}
-                <Link href="/register" className="font-semibold text-blue-600 hover:underline">
+                <Link href="/register" className="font-semibold text-primary hover:underline">
                   Đăng ký ngay
                 </Link>
               </div>
             </div>
-          </div>
+            </CardContent>
+          </Card>
         </section>
       </main>
     </div>

@@ -2,6 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { useAuth } from '@/features/auth/context/auth-context';
 
 interface PackageItem {
@@ -115,9 +118,9 @@ export function LandingPackages() {
         {/* Pricing Cards: Horizontal Snap Carousel on Mobile, Grid on Tablet/Desktop */}
         <div className="flex md:grid overflow-x-auto md:overflow-visible pb-4 md:pb-0 snap-x snap-mandatory md:snap-none -mx-4 px-4 sm:mx-0 sm:px-0 grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           {PACKAGES.map((pkg) => (
-            <div
+            <Card
               key={pkg.id}
-              className={`w-[85vw] sm:w-[320px] md:w-auto shrink-0 md:shrink snap-center rounded-xl p-6 flex flex-col justify-between relative bg-white hover:-translate-y-2 hover:shadow-xl transition-all duration-300 ease-out group cursor-default ${
+              className={`w-[85vw] sm:w-[320px] md:w-auto shrink-0 md:shrink snap-center rounded-xl p-6 flex flex-col justify-between relative bg-white hover:-translate-y-2 hover:shadow-xl transition-all duration-300 ease-out group cursor-default gap-0 ${
                 pkg.popular
                   ? 'border-2 border-[#0046c0] shadow-md ring-4 ring-[#0046c0]/10'
                   : 'border border-slate-200 hover:border-blue-300'
@@ -125,10 +128,10 @@ export function LandingPackages() {
             >
               {/* Popular Badge */}
               {pkg.popular && (
-                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#0046c0] text-white text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                <Badge className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#0046c0] text-white text-[11px] font-bold px-3.5 py-1 rounded-full uppercase tracking-wider shadow-sm gap-1 border-none">
                   <span className="material-symbols-outlined text-xs">verified</span>
                   <span>Phổ biến nhất</span>
-                </div>
+                </Badge>
               )}
 
               <div className="space-y-4">
@@ -167,25 +170,30 @@ export function LandingPackages() {
 
               {/* Action Button */}
               <div className="pt-6 mt-6 border-t border-slate-100">
-                <Link
-                  href={
-                    isAuthenticated
-                      ? `/family/subscription?packageId=${pkg.id}`
-                      : `/register?packageId=${pkg.id}`
-                  }
-                  className={`w-full py-2.5 rounded-lg font-medium text-xs sm:text-sm flex items-center justify-center gap-1.5 transition-all duration-200 shadow-xs cursor-pointer ${
+                <Button
+                  asChild
+                  variant={pkg.popular ? 'default' : 'outline'}
+                  className={`w-full py-2.5 h-auto rounded-lg font-medium text-xs sm:text-sm gap-1.5 shadow-xs ${
                     pkg.popular
                       ? 'bg-[#0046c0] hover:bg-[#003899] text-white hover:shadow-md'
-                      : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border border-slate-300 hover:border-slate-400'
+                      : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-300 hover:border-slate-400'
                   }`}
                 >
-                  <span>{isAuthenticated ? 'Chọn gói này' : pkg.ctaText}</span>
-                  <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
-                    arrow_forward
-                  </span>
-                </Link>
+                  <Link
+                    href={
+                      isAuthenticated
+                        ? `/family/subscription?packageId=${pkg.id}`
+                        : `/register?packageId=${pkg.id}`
+                    }
+                  >
+                    <span>{isAuthenticated ? 'Chọn gói này' : pkg.ctaText}</span>
+                    <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
+                      arrow_forward
+                    </span>
+                  </Link>
+                </Button>
               </div>
-            </div>
+            </Card>
           ))}
         </div>
 

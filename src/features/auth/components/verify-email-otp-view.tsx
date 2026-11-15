@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authApi } from '@/lib/api/auth.api';
 import { ApiError } from '@/lib/http/errors';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export interface VerifyEmailOtpViewProps {
   email?: string;
@@ -214,9 +219,9 @@ export function VerifyEmailOtpView({
   return (
     <div className="w-full max-w-lg mx-auto p-4 sm:p-6 lg:p-8">
       {/* Framed Medical Security Sheet Card */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden">
+      <Card className="overflow-hidden rounded-2xl border-slate-200/90 bg-white py-0 shadow-sm">
         {/* Top Header Banner */}
-        <div className="bg-gradient-to-r from-[#1e2775] to-[#2E37A4] p-6 text-white text-center">
+        <div className="bg-gradient-to-r from-[#00258b] to-[#0037c1] p-6 text-white text-center">
           <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center mx-auto mb-3 border border-white/20">
             <span className="material-symbols-outlined text-2xl text-blue-100">
               verified_user
@@ -231,7 +236,7 @@ export function VerifyEmailOtpView({
         </div>
 
         {/* Form Body */}
-        <div className="p-6 sm:p-8 space-y-6">
+        <CardContent className="p-6 sm:p-8 space-y-6">
           {/* Target Email Info Box */}
           <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between text-xs text-slate-600">
             <div className="flex items-center gap-2">
@@ -256,7 +261,7 @@ export function VerifyEmailOtpView({
             </div>
           )}
 
-          {/* Dev OTP hint badge (Task 4) */}
+          {/* Dev OTP hint badge */}
           {devOtpDisplay && (
             <div
               role="status"
@@ -266,36 +271,35 @@ export function VerifyEmailOtpView({
                 terminal
               </span>
               <span className="font-medium">Mã OTP môi trường dev:</span>
-              <code className="ml-auto font-bold text-amber-900">{devOtpDisplay}</code>
+              <code className="ml-auto font-bold text-amber-900 tabular-nums">{devOtpDisplay}</code>
             </div>
           )}
 
           {/* Error Alert Box */}
           {errorMessage && (
-            <div
-              role="alert"
-              className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-2"
-            >
-              <span className="material-symbols-outlined text-[18px] text-rose-500 shrink-0 mt-0.5">
-                error
-              </span>
-              <span className="font-medium leading-relaxed">{errorMessage}</span>
-            </div>
+            <Alert variant="destructive" className="rounded-xl border-rose-200 bg-rose-50 text-rose-700">
+              <AlertDescription className="flex items-start gap-2 text-xs text-rose-700">
+                <span className="material-symbols-outlined text-[18px] text-rose-500 shrink-0 mt-0.5">
+                  error
+                </span>
+                <span className="font-medium leading-relaxed">{errorMessage}</span>
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* 6 Digit Inputs */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
-              <label
+              <Label
                 htmlFor="otp-slot-0"
                 className="block text-xs font-bold text-slate-700 text-center uppercase tracking-wider"
               >
                 Nhập 6 số mã xác thực điện tử
-              </label>
+              </Label>
 
               <div className="flex items-center justify-center gap-2 sm:gap-3">
                 {digits.map((digit, idx) => (
-                  <input
+                  <Input
                     key={idx}
                     id={`otp-slot-${idx}`}
                     ref={(el) => {
@@ -310,17 +314,17 @@ export function VerifyEmailOtpView({
                     onChange={(e) => handleInputChange(idx, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(idx, e)}
                     onPaste={handlePaste}
-                    className="w-11 h-13 sm:w-13 sm:h-14 text-center text-xl sm:text-2xl font-bold text-slate-900 tabular-nums bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/20 outline-hidden transition-all shadow-xs"
+                    className="w-11 h-13 sm:w-13 sm:h-14 text-center text-xl sm:text-2xl font-bold text-slate-900 tabular-nums bg-slate-50 border-slate-300 rounded-xl focus-visible:bg-white shadow-xs p-0"
                   />
                 ))}
               </div>
             </div>
 
             {/* Submit Action Button */}
-            <button
+            <Button
               type="submit"
               disabled={isSubmitting || isVerified}
-              className="w-full py-3 px-4 bg-[#2E37A4] hover:bg-[#232b85] active:bg-[#1a2068] text-white rounded-xl text-sm font-bold shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+              className="w-full h-11 rounded-xl text-sm font-bold shadow-xs hover:shadow cursor-pointer"
             >
               {isSubmitting ? (
                 <>
@@ -333,7 +337,7 @@ export function VerifyEmailOtpView({
                   <span>Xác nhận mã OTP</span>
                 </>
               )}
-            </button>
+            </Button>
           </form>
 
           {/* Cooldown & Resend Action */}
@@ -357,7 +361,7 @@ export function VerifyEmailOtpView({
               type="button"
               onClick={handleResend}
               disabled={timeLeft > 0}
-              className="text-xs font-bold text-[#2E37A4] hover:text-[#1e2775] disabled:text-slate-400 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              className="text-xs font-bold text-primary hover:text-primary/80 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors cursor-pointer"
             >
               Gửi lại mã OTP
             </button>
@@ -384,8 +388,8 @@ export function VerifyEmailOtpView({
               <span>Quay lại trang Đăng nhập</span>
             </Link>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

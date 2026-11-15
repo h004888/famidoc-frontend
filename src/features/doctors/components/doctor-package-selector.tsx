@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import type { PublicDoctorCarePackageDto } from '@/lib/api';
 
 export interface DoctorPackageSelectorProps {
@@ -78,7 +80,7 @@ export function DoctorPackageSelector({
 
   if (carePackages.length === 0 || !initialPackage) {
     return (
-      <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs">
+      <Card className="bg-white rounded-lg border-slate-200 p-5 shadow-xs gap-0">
         <h2 className="text-sm font-bold text-slate-900">
           Gói Chăm Sóc{' '}
           <span className="text-[11px] font-medium text-slate-500">
@@ -88,7 +90,7 @@ export function DoctorPackageSelector({
         <p className="text-xs text-slate-500 mt-3">
           Chưa có gói chăm sóc đang hoạt động.
         </p>
-      </div>
+      </Card>
     );
   }
 
@@ -269,22 +271,21 @@ export function DoctorPackageSelector({
       </div>
 
       {canBook ? (
-        <Link
-          href={bookingHref}
-          className="w-full py-2.5 px-4 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-xs"
-        >
-          <span>Đăng ký dịch vụ với bác sĩ</span>
-          <span className="material-symbols-outlined text-sm">arrow_forward</span>
-        </Link>
+        <Button asChild className="w-full py-2.5 h-auto rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs sm:text-sm font-semibold gap-1.5 shadow-xs">
+          <Link href={bookingHref}>
+            <span>Đăng ký dịch vụ với bác sĩ</span>
+            <span className="material-symbols-outlined text-sm">arrow_forward</span>
+          </Link>
+        </Button>
       ) : (
         <div className="space-y-2">
-          <button
+          <Button
             type="button"
             disabled
-            className="w-full py-2.5 px-4 rounded-lg bg-slate-200 text-slate-500 text-xs sm:text-sm font-semibold cursor-not-allowed"
+            className="w-full py-2.5 h-auto rounded-lg bg-slate-200 text-slate-500 text-xs sm:text-sm font-semibold"
           >
             Đăng ký dịch vụ với bác sĩ
-          </button>
+          </Button>
           <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
             {!isAvailable
               ? 'Bác sĩ hiện đã đủ hộ gia đình phụ trách.'

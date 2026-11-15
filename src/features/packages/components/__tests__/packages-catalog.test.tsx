@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PackagesCatalogView } from '../packages-catalog-view';
+import { PackageDetailView } from '../package-detail-view';
 
 // Mock useRouter
 vi.mock('next/navigation', () => ({
@@ -52,6 +52,49 @@ describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
     }
     expect(screen.getByRole('heading', { level: 3, name: /Gói Đồng Hành/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 3, name: /Gói Trải Nghiệm/i })).toBeInTheDocument();
+  });
+
+  it('UT-FAQ-01: expands package FAQ items by click using the accessible Accordion primitive', async () => {
+    const user = userEvent.setup();
+    render(<PackageDetailView packageId="pkg-toan-dien" />);
+
+    const firstAnswer =
+      /Bác sĩ CKI có thể thực hiện kiểm tra định kỳ lần lượt cho cả 4 thành viên/i;
+    expect(screen.getByText(firstAnswer)).toBeInTheDocument();
+
+    const secondTrigger = screen.getByRole('button', {
+      name: /Khi dùng hết 5 lượt khám tại nhà thì gia đình xử lý như thế nào/i,
+    });
+    expect(secondTrigger).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(secondTrigger);
+    expect(secondTrigger).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText(/350\.000 đ\/lượt thay vì giá gốc 550\.000 đ/i)).toBeInTheDocument();
+    expect(secondTrigger.closest('[data-state]')).toHaveAttribute('data-state', 'open');
+  });
+
+  it('UT-FAQ-02: navigates and toggles package FAQ items using keyboard only', async () => {
+    const user = userEvent.setup();
+    render(<PackageDetailView packageId="pkg-toan-dien" />);
+
+    const firstTrigger = screen.getByRole('button', {
+      name: /Gói có áp dụng cho tất cả 4 thành viên cùng lúc/i,
+    });
+    firstTrigger.focus();
+
+    await user.keyboard('{ArrowDown}');
+    const secondTrigger = screen.getByRole('button', {
+      name: /Khi dùng hết 5 lượt khám tại nhà thì gia đình xử lý như thế nào/i,
+    });
+    expect(secondTrigger).toHaveFocus();
+    expect(secondTrigger).toHaveAttribute('aria-expanded', 'false');
+
+    await user.keyboard('{Enter}');
+    expect(secondTrigger).toHaveAttribute('aria-expanded', 'true');
+    expect(secondTrigger).toHaveAttribute('aria-controls');
+
+    await user.keyboard(' ');
+    expect(secondTrigger).toHaveAttribute('aria-expanded', 'false');
   });
 
   it('standardizes typography across Group 1 Public/Marketing views (no font-mono, font-black, or font-extrabold)', () => {

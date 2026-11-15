@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import type { PublicDoctorDetailDto } from '@/lib/api';
 import { DoctorPackageSelector } from './doctor-package-selector';
@@ -81,16 +83,16 @@ export function DoctorDetailView({ initialDoctor }: DoctorDetailViewProps) {
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
                       {doctor.isVerified ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-semibold border border-emerald-200/70">
+                        <Badge variant="outline" className="gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[11px] font-semibold border-emerald-200/70">
                           <span className="material-symbols-outlined text-xs">
                             verified
                           </span>
                           <span>Hồ sơ đã xác thực</span>
-                        </span>
+                        </Badge>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-semibold border border-slate-200">
+                        <Badge variant="secondary" className="gap-1 px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-[11px] font-semibold border border-slate-200">
                           <span>Đang cập nhật xác thực</span>
-                        </span>
+                        </Badge>
                       )}
                       <span
                         className={`inline-flex items-center gap-1 text-[11px] font-medium ${
@@ -248,7 +250,7 @@ export function DoctorDetailView({ initialDoctor }: DoctorDetailViewProps) {
                 )}
               </div>
 
-              <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-2">
+              <Card className="bg-white rounded-lg border-slate-200 p-5 space-y-2 shadow-none gap-0">
                 <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                   <span className="material-symbols-outlined text-[#0046c0] text-lg">
                     clinical_notes
@@ -276,9 +278,9 @@ export function DoctorDetailView({ initialDoctor }: DoctorDetailViewProps) {
                     Chưa có ca bệnh tiêu biểu được công bố.
                   </p>
                 )}
-              </div>
+              </Card>
 
-              <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
+              <Card className="bg-white rounded-lg border-slate-200 p-5 space-y-3 shadow-none gap-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                     <span className="material-symbols-outlined text-[#0046c0] text-lg">
@@ -286,9 +288,9 @@ export function DoctorDetailView({ initialDoctor }: DoctorDetailViewProps) {
                     </span>
                     <span>Phạm Vi Chăm Sóc</span>
                   </h2>
-                  <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-100">
+                  <Badge variant="outline" className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border-emerald-100">
                     Chính sách nền tảng
-                  </span>
+                  </Badge>
                 </div>
 
                 {hasCareModel ? (
@@ -344,7 +346,7 @@ export function DoctorDetailView({ initialDoctor }: DoctorDetailViewProps) {
                     Chưa có thông tin phạm vi chăm sóc.
                   </p>
                 )}
-              </div>
+              </Card>
 
               <div className="bg-white rounded-lg border border-slate-200 p-5 space-y-3">
                 <div className="flex items-center justify-between">

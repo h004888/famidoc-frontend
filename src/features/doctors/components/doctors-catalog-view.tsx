@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo, useCallback } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Pagination } from '@/components/ui/pagination';
 import { DoctorCard } from '@/features/doctors/components/doctor-card';
 import { DoctorItem } from '@/features/doctors/schemas/doctor-catalog.schema';
@@ -87,16 +89,15 @@ export function DoctorsCatalogView() {
 
       {/* Search bar */}
       <div className="relative">
-        <input
+        <Input
           type="search"
           placeholder="Tìm kiếm theo tên hoặc số CCHN..."
           value={searchTerm}
           onChange={(e) => handleSearchChange(e.target.value)}
           aria-label="Tìm kiếm bác sĩ"
           className={cn(
-            'w-full rounded-lg border border-outline-variant bg-surface-container-lowest',
-            'py-2.5 px-4 pr-10 text-sm text-on-surface placeholder:text-muted-foreground',
-            'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-shadow'
+            'w-full h-10 rounded-lg border-outline-variant bg-surface-container-lowest',
+            'px-4 pr-10 text-sm text-on-surface placeholder:text-muted-foreground'
           )}
         />
         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground material-symbols-outlined text-lg">
@@ -139,18 +140,14 @@ export function DoctorsCatalogView() {
           <p className="text-sm font-medium text-on-surface-variant">
             Không tìm thấy bác sĩ phù hợp
           </p>
-          <button
+          <Button
             type="button"
             onClick={clearFilters}
             aria-label="Xóa bộ lọc"
-            className={cn(
-              'min-h-[40px] rounded-lg px-4 py-2 text-xs font-semibold',
-              'bg-primary text-white hover:bg-primary-container hover:text-primary',
-              'transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2'
-            )}
+            className="min-h-[40px] rounded-lg px-4 py-2 text-xs font-semibold bg-[#0046c0] hover:bg-[#003899] text-white"
           >
             Xóa bộ lọc
-          </button>
+          </Button>
         </div>
       ) : (
         <>

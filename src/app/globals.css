@@ -8,7 +8,10 @@
   --font-body: 'Poppins', sans-serif;
   --font-heading: 'Poppins', sans-serif;
 
-  --color-primary: #00258b;
+  /* Primary Medical Cobalt (#0037c1) + Clinical Prestige Palette */
+  --color-primary: #0037c1;
+  --color-primary-hover: #002c9a;
+  --color-primary-deep: #00258b;
   --color-primary-container: #0037c1;
   --color-on-primary: #ffffff;
   --color-on-primary-container: #a4b4ff;
@@ -18,7 +21,6 @@
   --color-on-primary-fixed: #001355;
   --color-on-primary-fixed-variant: #0035bc;
 
-  --color-secondary: #904d00;
   --color-secondary-container: #fe8f1a;
   --color-secondary-contrast: #b56004;
   --color-secondary-text: #ae5c04;
@@ -67,6 +69,7 @@
 
   --color-background: #ffffff;
   --color-on-background: #0a1e30;
+  --color-dashboard-canvas: #f5f6f8;
 
   /* Clinical Sapphire / Deep Medical Blue Palette */
   --color-clinical-blue: #0f3a5d;
@@ -76,6 +79,45 @@
   --color-clinical-hairline: #d0e0ec;
   --color-clinical-ink: #0a1e30;
   --color-clinical-slate: #3e5569;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
 .material-symbols-outlined {
@@ -140,9 +182,41 @@
   animation: radar-sweep 5s linear infinite;
 }
 
-/* Medsev Typography Standard: Poppins everywhere */
+/* Medsev Typography & shadcn Semantic Theme Tokens */
 :root {
+  --radius: 0.75rem;
+  --background: #ffffff;
   --foreground: #0a1e30;
+  --card: #ffffff;
+  --card-foreground: #0a1e30;
+  --popover: #ffffff;
+  --popover-foreground: #0a1e30;
+  --primary: #0037c1;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0a1e30;
+  --muted: #f1f5f9;
+  --muted-foreground: #444654;
+  --accent: #eef2ff;
+  --accent-foreground: #0037c1;
+  --destructive: #ba1a1a;
+  --destructive-foreground: #ffffff;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #0037c1;
+  --chart-1: #0037c1;
+  --chart-2: #00d3c7;
+  --chart-3: #fe8f1a;
+  --chart-4: #03864b;
+  --chart-5: #ba1a1a;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #334155;
+  --sidebar-primary: #0037c1;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #eef2ff;
+  --sidebar-accent-foreground: #0037c1;
+  --sidebar-border: #e2e8f0;
+  --sidebar-ring: #0037c1;
 }
 
 html, body, button, input, select, textarea {

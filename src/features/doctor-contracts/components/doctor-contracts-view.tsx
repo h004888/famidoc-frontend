@@ -2,6 +2,17 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   useContractWorkflow,
   updateContractStep,
@@ -12,7 +23,6 @@ export function DoctorContractsView() {
   const contract = useContractWorkflow();
   const [showSignModal, setShowSignModal] = useState(false);
   const [signing, setSigning] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [agreedEthics, setAgreedEthics] = useState(false);
 
   const handleExecuteDoctorSign = () => {
@@ -27,7 +37,7 @@ export function DoctorContractsView() {
       });
       setSigning(false);
       setShowSignModal(false);
-      setToastMessage(
+      toast.success(
         `Đã ký số cam kết phụ trách Hộ ${contract.familyId}! Hợp đồng chuyển sang trạng thái chờ Gia đình thanh toán VietQR (SCR-36).`
       );
     }, 1200);
@@ -35,35 +45,15 @@ export function DoctorContractsView() {
 
   const handleResetDemo = () => {
     resetContractWorkflow();
-    setToastMessage('Đã reset dữ liệu luồng hợp đồng về trạng thái mẫu!');
+    toast.success('Đã reset dữ liệu luồng hợp đồng về trạng thái mẫu!');
   };
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 text-slate-900 font-sans">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div
-          role="status"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl text-xs sm:text-sm animate-fade-in border border-slate-700"
-        >
-          <span className="material-symbols-outlined text-[20px] text-emerald-400">
-            check_circle
-          </span>
-          <span className="font-semibold">{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-3 text-slate-400 hover:text-white cursor-pointer"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       {/* Header Màn hình SCR-16 Bác sĩ */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#0052cc]">
+          <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-primary">
             <span className="material-symbols-outlined text-[17px]">stethoscope</span>
             <span>BS.CKII Trần Thanh Mai • CCHN: 004128/HCM • Màn hình SCR-16</span>
           </div>
@@ -76,22 +66,23 @@ export function DoctorContractsView() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={handleResetDemo}
-            className="px-3.5 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+            className="rounded-xl text-xs font-semibold gap-1.5"
             title="Đặt lại trạng thái mẫu để test lại từ đầu"
           >
             <span className="material-symbols-outlined text-[16px] text-slate-500">restart_alt</span>
             <span>Reset Demo</span>
-          </button>
-          <Link
-            href="/doctor/encounters"
-            className="px-3.5 py-2 bg-[#0052cc] hover:bg-[#003da6] text-white text-xs font-semibold rounded-xl transition-colors shadow-xs cursor-pointer flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[16px]">clinical_notes</span>
-            <span>Bàn khám SOAP</span>
-          </Link>
+          </Button>
+          <Button asChild size="sm" className="rounded-xl text-xs font-semibold gap-1.5">
+            <Link href="/doctor/encounters">
+              <span className="material-symbols-outlined text-[16px]">clinical_notes</span>
+              <span>Bàn khám SOAP</span>
+            </Link>
+          </Button>
         </div>
       </div>
 
@@ -148,11 +139,11 @@ export function DoctorContractsView() {
             className={`p-3.5 rounded-xl border ${
               contract.doctorSigned
                 ? 'border-emerald-200 bg-emerald-50/40'
-                : 'border-[#0052cc] bg-blue-50/50 ring-2 ring-[#0052cc]/20'
+                : 'border-primary bg-primary/5 ring-2 ring-primary/20'
             }`}
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-[#0052cc]">4. Bác sĩ Phụ trách (Bạn)</span>
+              <span className="text-xs font-bold text-primary">4. Bác sĩ Phụ trách (Bạn)</span>
               <span
                 className={`material-symbols-outlined text-[18px] ${
                   contract.doctorSigned ? 'text-emerald-600' : 'text-blue-600 animate-spin'
@@ -196,7 +187,7 @@ export function DoctorContractsView() {
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className="w-7 h-7 rounded-full bg-[#0052cc]/10 text-[#0052cc] text-xs font-bold flex items-center justify-center">
+                      <span className="w-7 h-7 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">
                         {member.name.charAt(0)}
                       </span>
                       <div>
@@ -240,8 +231,8 @@ export function DoctorContractsView() {
             </h3>
 
             <div className="mt-4 space-y-3 text-xs text-slate-700">
-              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-blue-50/70 border border-blue-200/80">
-                <span className="material-symbols-outlined text-[#0052cc] text-[18px] shrink-0 mt-0.5">
+              <div className="flex items-start gap-2.5 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                <span className="material-symbols-outlined text-primary text-[18px] shrink-0 mt-0.5">
                   home_health
                 </span>
                 <div>
@@ -288,14 +279,14 @@ export function DoctorContractsView() {
                   <span className="text-[11px] text-emerald-700">{contract.doctorSignedAt}</span>
                 </div>
               ) : (
-                <button
+                <Button
                   type="button"
                   onClick={() => setShowSignModal(true)}
-                  className="w-full py-3 bg-[#0052cc] hover:bg-[#003da6] text-white rounded-xl text-xs sm:text-sm font-bold shadow-md shadow-[#0052cc]/20 transition-all cursor-pointer flex items-center justify-center gap-2"
+                  className="w-full py-3 h-auto rounded-xl text-xs sm:text-sm font-bold shadow-md gap-2"
                 >
                   <span className="material-symbols-outlined text-[18px]">draw</span>
                   <span>Ký Số Chấp Thuận Phụ Trách (Bên D - Bác Sĩ)</span>
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -303,87 +294,80 @@ export function DoctorContractsView() {
       </div>
 
       {/* Modal Ký Số Bác Sĩ Phụ Trách */}
-      {showSignModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 p-6 animate-scale-up">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2 text-[#0052cc]">
-                <span className="material-symbols-outlined text-[20px]">verified_user</span>
-                <h3 className="font-bold text-slate-900 text-base">Ký Cam Kết Chuyên Môn Bác Sĩ Gia Đình</h3>
+      <Dialog open={showSignModal} onOpenChange={setShowSignModal}>
+        <DialogContent className="sm:max-w-lg rounded-2xl p-6">
+          <DialogHeader className="pb-3 border-b border-slate-100">
+            <DialogTitle className="flex items-center gap-2 text-slate-900 text-base font-bold">
+              <span className="material-symbols-outlined text-[20px] text-primary">verified_user</span>
+              <span>Ký Cam Kết Chuyên Môn Bác Sĩ Gia Đình</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="py-2 text-xs text-slate-700 space-y-3">
+            <Card className="p-3 bg-slate-50 border-slate-200/70 rounded-xl space-y-1 shadow-none">
+              <div className="text-slate-500">Bác sĩ ký cam kết:</div>
+              <div className="font-bold text-slate-900 text-sm">BS.CKII Trần Thanh Mai</div>
+              <div className="text-slate-600 text-[11px]">Chứng chỉ hành nghề số: <strong>004128/HCM</strong></div>
+              <div className="text-slate-600 text-[11px]">Hộ tiếp nhận: <strong>{contract.familyHeadName} (#{contract.familyId})</strong></div>
+            </Card>
+
+            <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-900 space-y-2">
+              <div className="font-bold flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px] text-amber-700">gavel</span>
+                <span>Cam kết trách nhiệm y đức &amp; pháp lý:</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowSignModal(false)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer"
-              >
-                ✕
-              </button>
+              <ul className="list-disc pl-4 space-y-1 text-[11px] text-amber-800 leading-relaxed">
+                <li>Tuân thủ tuyệt đối quy chế chuyên môn theo Thông tư 04/2022/TT-BYT.</li>
+                <li>Cập nhật đầy đủ hồ sơ bệnh án EMR sau mỗi lần thăm khám hoặc tư vấn video.</li>
+                <li>Không từ chối cấp cứu, duy trì đường dây nóng thường trực đối với các thành viên trong hộ.</li>
+              </ul>
             </div>
 
-            <div className="py-4 text-xs text-slate-700 space-y-3">
-              <div className="p-3 bg-slate-50 rounded-xl space-y-1">
-                <div className="text-slate-500">Bác sĩ ký cam kết:</div>
-                <div className="font-bold text-slate-900 text-sm">BS.CKII Trần Thanh Mai</div>
-                <div className="text-slate-600 text-[11px]">Chứng chỉ hành nghề số: <strong>004128/HCM</strong></div>
-                <div className="text-slate-600 text-[11px]">Hộ tiếp nhận: <strong>{contract.familyHeadName} (#{contract.familyId})</strong></div>
-              </div>
-
-              <div className="p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-900 space-y-2">
-                <div className="font-bold flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-[16px] text-amber-700">gavel</span>
-                  <span>Cam kết trách nhiệm y đức &amp; pháp lý:</span>
-                </div>
-                <ul className="list-disc pl-4 space-y-1 text-[11px] text-amber-800 leading-relaxed">
-                  <li>Tuân thủ tuyệt đối quy chế chuyên môn theo Thông tư 04/2022/TT-BYT.</li>
-                  <li>Cập nhật đầy đủ hồ sơ bệnh án EMR sau mỗi lần thăm khám hoặc tư vấn video.</li>
-                  <li>Không từ chối cấp cứu, duy trì đường dây nóng thường trực đối với các thành viên trong hộ.</li>
-                </ul>
-              </div>
-
-              <label className="flex items-start gap-2.5 pt-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={agreedEthics}
-                  onChange={(e) => setAgreedEthics(e.target.checked)}
-                  className="w-4 h-4 rounded text-[#0052cc] focus:ring-[#0052cc] mt-0.5 cursor-pointer"
-                />
-                <span className="text-[11px] text-slate-700 font-medium">
-                  Tôi đã đọc kỹ hồ sơ lâm sàng của hộ, tự nguyện tiếp nhận và chấp thuận thực hiện nghĩa vụ Bác sĩ Gia đình phụ trách.
-                </span>
-              </label>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowSignModal(false)}
-                className="px-4 py-2 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 cursor-pointer"
-              >
-                Hủy bỏ
-              </button>
-
-              <button
-                type="button"
-                onClick={handleExecuteDoctorSign}
-                disabled={!agreedEthics || signing}
-                className="px-5 py-2.5 bg-[#0052cc] hover:bg-[#003da6] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {signing ? (
-                  <>
-                    <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-                    <span>Đang ký số CCHN...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[16px]">draw</span>
-                    <span>Xác Nhận Ký Số (Bên D)</span>
-                  </>
-                )}
-              </button>
-            </div>
+            <label className="flex items-start gap-2.5 pt-2 cursor-pointer select-none">
+              <Checkbox
+                checked={agreedEthics}
+                onCheckedChange={(checked) => setAgreedEthics(checked === true)}
+                className="mt-0.5"
+              />
+              <span className="text-[11px] text-slate-700 font-medium">
+                Tôi đã đọc kỹ hồ sơ lâm sàng của hộ, tự nguyện tiếp nhận và chấp thuận thực hiện nghĩa vụ Bác sĩ Gia đình phụ trách.
+              </span>
+            </label>
           </div>
-        </div>
-      )}
+
+          <DialogFooter className="pt-3 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSignModal(false)}
+              className="rounded-xl text-xs font-semibold"
+            >
+              Hủy bỏ
+            </Button>
+
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleExecuteDoctorSign}
+              disabled={!agreedEthics || signing}
+              className="rounded-xl text-xs font-bold gap-2"
+            >
+              {signing ? (
+                <>
+                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                  <span>Đang ký số CCHN...</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[16px]">draw</span>
+                  <span>Xác Nhận Ký Số (Bên D)</span>
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

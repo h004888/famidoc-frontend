@@ -202,7 +202,7 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
     return (
       <div className="min-h-[60vh] flex items-center justify-center p-6">
         <div className="max-w-md w-full rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-xs space-y-3">
-          <div className="w-10 h-10 rounded-full border-2 border-[#2E37A4] border-t-transparent animate-spin mx-auto" />
+          <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin mx-auto" />
           <h2 className="text-base font-bold text-slate-900">
             Đang kiểm tra trạng thái kích hoạt gói
           </h2>
@@ -231,7 +231,7 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
             <button
               type="button"
               onClick={() => void refreshGateStatus()}
-              className="px-4 py-2 rounded-xl bg-[#2E37A4] text-white text-sm font-semibold hover:bg-[#232b85] transition-colors cursor-pointer"
+              className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors cursor-pointer"
             >
               Thử kiểm tra lại
             </button>
@@ -264,7 +264,7 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
           </div>
           <Link
             href={redirectTarget}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#2E37A4] text-white text-sm font-semibold hover:bg-[#232b85] transition-colors"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
           >
             {gateStatus?.pendingContract ? 'Theo dõi & kích hoạt hợp đồng' : 'Tìm bác sĩ & đăng ký gói'}
           </Link>

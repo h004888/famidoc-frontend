@@ -2,9 +2,124 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
+import { KpiStatCard, DashboardChartCard } from '@/components/dashboard';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+type StatPeriod = 'monthly' | 'weekly' | 'yearly';
+type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
+
+interface ArbitrationItem {
+  id: string;
+  family: string;
+  doctorOrFacility: string;
+  issue: string;
+  escrowAmount: string;
+  time: string;
+  severity: 'high' | 'medium' | 'low';
+  avatarText: string;
+}
+
+const PERIOD_STATS: Record<
+  StatPeriod,
+  {
+    summary: { total: string; completed: string; scheduled: string; cancelled: string; slaText: string };
+    series: { label: string; homeVisits: number; telehealth: number }[];
+    peakNote: string;
+  }
+> = {
+  monthly: {
+    summary: {
+      total: '6.314',
+      completed: '4.578',
+      scheduled: '1.280',
+      cancelled: '456',
+      slaText: '4.578 / 6.314 ca (SLA 94.8%)',
+    },
+    series: [
+      { label: 'T5', homeVisits: 720, telehealth: 340 },
+      { label: 'T6', homeVisits: 810, telehealth: 390 },
+      { label: 'T7', homeVisits: 890, telehealth: 420 },
+      { label: 'T8', homeVisits: 940, telehealth: 460 },
+      { label: 'T9', homeVisits: 1020, telehealth: 510 },
+      { label: 'T10', homeVisits: 1180, telehealth: 580 },
+    ],
+    peakNote: 'Tháng 10/2026: Đạt đỉnh 280 ca/ngày · Khám tại nhà 68% • Telehealth 32%',
+  },
+  weekly: {
+    summary: {
+      total: '1.482',
+      completed: '1.190',
+      scheduled: '214',
+      cancelled: '78',
+      slaText: '1.190 / 1.482 ca (SLA 96.2%)',
+    },
+    series: [
+      { label: 'T2', homeVisits: 142, telehealth: 68 },
+      { label: 'T3', homeVisits: 158, telehealth: 74 },
+      { label: 'T4', homeVisits: 171, telehealth: 82 },
+      { label: 'T5', homeVisits: 164, telehealth: 79 },
+      { label: 'T6', homeVisits: 186, telehealth: 91 },
+      { label: 'T7', homeVisits: 148, telehealth: 72 },
+      { label: 'CN', homeVisits: 112, telehealth: 56 },
+    ],
+    peakNote: 'Tuần hiện tại: Cao điểm Thứ 6 (277 ca/ngày) · Phản hồi TB 11 phút',
+  },
+  yearly: {
+    summary: {
+      total: '68.420',
+      completed: '54.910',
+      scheduled: '9.840',
+      cancelled: '3.670',
+      slaText: '54.910 / 68.420 ca (SLA 95.4%)',
+    },
+    series: [
+      { label: '2022', homeVisits: 11200, telehealth: 4800 },
+      { label: '2023', homeVisits: 18400, telehealth: 8600 },
+      { label: '2024', homeVisits: 26900, telehealth: 13200 },
+      { label: '2025', homeVisits: 35600, telehealth: 18900 },
+      { label: '2026', homeVisits: 45200, telehealth: 23220 },
+    ],
+    peakNote: 'Tăng trưởng lũy kế 2026: +38.5% lượt khám tại nhà so với cùng kỳ 2025',
+  },
+};
+
+const appointmentChartConfig = {
+  homeVisits: {
+    label: 'Khám tại nhà',
+    color: 'var(--chart-1)',
+  },
+  telehealth: {
+    label: 'Telehealth HD',
+    color: 'var(--chart-2)',
+  },
+} satisfies ChartConfig;
 
 export function AdminDashboardView() {
-  const [statPeriod, setStatPeriod] = useState<'monthly' | 'weekly' | 'yearly'>('monthly');
+  const [statPeriod, setStatPeriod] = useState<StatPeriod>('monthly');
+  const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
+  const [selectedArbitration, setSelectedArbitration] = useState<ArbitrationItem | null>(null);
 
   const kpis = [
     {
@@ -12,7 +127,6 @@ export function AdminDashboardView() {
       value: '4.820.500.000 đ',
       change: '+18.4%',
       period: 'so với tháng trước',
-      isPositive: true,
       icon: 'payments',
       iconBg: 'bg-emerald-50 text-emerald-600',
       badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -22,17 +136,15 @@ export function AdminDashboardView() {
       value: '3.250 Hộ',
       change: '+142 hộ',
       period: 'trong 7 ngày qua',
-      isPositive: true,
       icon: 'family_restroom',
-      iconBg: 'bg-[#2E37A4]/10 text-[#2E37A4]',
-      badgeBg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      iconBg: 'bg-primary/10 text-primary',
+      badgeBg: 'bg-blue-50 text-primary border-blue-200',
     },
     {
       title: 'Mạng lưới Bác sĩ & CSYT',
       value: '184 BS / 12 BV',
       change: '100%',
       period: 'CCHN BYT thẩm định',
-      isPositive: true,
       icon: 'medical_services',
       iconBg: 'bg-sky-50 text-sky-600',
       badgeBg: 'bg-sky-50 text-sky-700 border-sky-200',
@@ -42,14 +154,13 @@ export function AdminDashboardView() {
       value: '3 Ca khẩn',
       change: 'SLA < 24h',
       period: 'cần xử lý ngay',
-      isPositive: false,
       icon: 'gavel',
       iconBg: 'bg-rose-50 text-rose-600',
       badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
     },
   ];
 
-  const pendingArbitrations = [
+  const pendingArbitrations: ArbitrationItem[] = [
     {
       id: 'DISP-2026-004',
       family: 'Hộ FAM-88219 (Trần Thị Lan)',
@@ -81,6 +192,11 @@ export function AdminDashboardView() {
       avatarText: 'TH',
     },
   ];
+
+  const filteredArbitrations =
+    severityFilter === 'all'
+      ? pendingArbitrations
+      : pendingArbitrations.filter((item) => item.severity === severityFilter);
 
   const popularDoctors = [
     {
@@ -116,340 +232,395 @@ export function AdminDashboardView() {
     { name: 'Cổng kết nối CCHN Khám chữa bệnh (Bộ Y Tế API)', status: 'Operational', latency: '85ms' },
   ];
 
-  return (
-    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
+  const activePeriodStats = PERIOD_STATS[statPeriod];
 
-      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Page Header phong cách Preclinic */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+  return (
+    <div className="min-h-screen bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        {/* Page Header */}
+        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
           <div>
-            <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <div className="mb-1 flex items-center gap-2 text-xs text-slate-500">
               <span>Trang chủ</span>
               <span className="text-slate-300">/</span>
               <span>Quản trị viên</span>
               <span className="text-slate-300">/</span>
-              <span className="text-[#2E37A4] font-semibold">Tổng quan Nền tảng</span>
+              <span className="font-semibold text-primary">Tổng quan Nền tảng</span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+            <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
               Admin Dashboard
             </h1>
           </div>
 
-          <div className="flex items-center flex-wrap gap-2.5">
-            <Link
-              href="/admin/packages"
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2E37A4] hover:bg-[#222982] text-white text-xs sm:text-sm font-bold rounded-xl shadow-xs transition-colors"
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Button asChild className="rounded-xl px-4 text-xs font-bold sm:text-sm">
+              <Link href="/admin/packages">
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                <span>Cấu hình Gói Mới</span>
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="rounded-xl border-slate-200/90 bg-white px-3.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm"
             >
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
-              <span>Cấu hình Gói Mới</span>
-            </Link>
-            <Link
-              href="/admin/disputes"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl border border-slate-200/90 shadow-2xs transition-colors"
-            >
-              <span className="material-symbols-outlined text-[18px] text-rose-500">gavel</span>
-              <span>Phân xử Trọng tài ({pendingArbitrations.length})</span>
-            </Link>
+              <Link href="/admin/disputes">
+                <span className="material-symbols-outlined text-[18px] text-rose-500">gavel</span>
+                <span>Phân xử Trọng tài ({pendingArbitrations.length})</span>
+              </Link>
+            </Button>
           </div>
         </div>
 
-        {/* 4 KPI Cards phong cách Preclinic */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+        {/* 4 KPI Cards chuẩn shadcn */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
           {kpis.map((kpi, idx) => (
-            <div
+            <KpiStatCard
               key={idx}
-              className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-shadow relative overflow-hidden"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className={`w-11 h-11 rounded-full flex items-center justify-center ${kpi.iconBg}`}>
-                  <span className="material-symbols-outlined text-[24px]">{kpi.icon}</span>
-                </span>
-                <div className="text-right">
-                  <span className={`inline-block px-2 py-0.5 text-xs font-bold rounded-full border ${kpi.badgeBg}`}>
-                    {kpi.change}
-                  </span>
-                  <p className="text-[11px] text-slate-400 mt-0.5">{kpi.period}</p>
-                </div>
-              </div>
-
-              <div>
-                <p className="text-xs font-medium text-slate-500">{kpi.title}</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mt-0.5">
-                  {kpi.value}
-                </h3>
-              </div>
-            </div>
+              title={kpi.title}
+              value={kpi.value}
+              badgeText={kpi.change}
+              badgeClassName={kpi.badgeBg}
+              period={kpi.period}
+              icon={kpi.icon}
+              iconClassName={kpi.iconBg}
+            />
           ))}
         </div>
 
-        {/* Main Grid: Appointment Stats & Disputes vs Popular Doctors & Health */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column (8 cols): Appointment Statistics & Arbitration Table */}
-          <div className="lg:col-span-8 space-y-6">
-            {/* Appointment Statistics Card (giống index.html Preclinic) */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-5">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 tracking-tight">
-                    Thống kê Lịch hẹn &amp; Dịch vụ Y tế
-                  </h3>
-                  <p className="text-xs text-slate-400">Tần suất thăm khám tại nhà và Telehealth toàn hệ thống</p>
-                </div>
-
-                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
-                  <button
-                    onClick={() => setStatPeriod('monthly')}
-                    className={`px-3 py-1 rounded-lg transition-colors ${
-                      statPeriod === 'monthly' ? 'bg-white text-[#2E37A4] shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    Tháng
-                  </button>
-                  <button
-                    onClick={() => setStatPeriod('weekly')}
-                    className={`px-3 py-1 rounded-lg transition-colors ${
-                      statPeriod === 'weekly' ? 'bg-white text-[#2E37A4] shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    Tuần
-                  </button>
-                  <button
-                    onClick={() => setStatPeriod('yearly')}
-                    className={`px-3 py-1 rounded-lg transition-colors ${
-                      statPeriod === 'yearly' ? 'bg-white text-[#2E37A4] shadow-2xs font-bold' : 'text-slate-500 hover:text-slate-800'
-                    }`}
-                  >
-                    Năm
-                  </button>
-                </div>
-              </div>
-
-              {/* 4 Mini Stat Boxes Preclinic Style */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-                <div className="bg-slate-50 border border-slate-100 p-3 text-center rounded-xl">
-                  <p className="text-[11px] text-slate-500 font-medium flex items-center justify-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-[#2E37A4]"></span>
-                    Tổng cuộc hẹn
-                  </p>
-                  <h4 className="text-lg font-bold text-slate-900 mt-1">6.314</h4>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 p-3 text-center rounded-xl">
-                  <p className="text-[11px] text-slate-500 font-medium flex items-center justify-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-                    Đã hoàn thành
-                  </p>
-                  <h4 className="text-lg font-bold text-slate-900 mt-1">4.578</h4>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 p-3 text-center rounded-xl">
-                  <p className="text-[11px] text-slate-500 font-medium flex items-center justify-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-                    Đang xếp lịch
-                  </p>
-                  <h4 className="text-lg font-bold text-slate-900 mt-1">1.280</h4>
-                </div>
-                <div className="bg-slate-50 border border-slate-100 p-3 text-center rounded-xl">
-                  <p className="text-[11px] text-slate-500 font-medium flex items-center justify-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-rose-500"></span>
-                    Đã hủy / Đổi hẹn
-                  </p>
-                  <h4 className="text-lg font-bold text-slate-900 mt-1">456</h4>
-                </div>
-              </div>
-
-              {/* Progress chart distribution bar */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
-                <div className="flex justify-between text-xs font-semibold text-slate-600">
-                  <span>Tỷ lệ hoàn thành mục tiêu lâm sàng (SLA Đạt 94.8%)</span>
-                  <span className="text-emerald-600">4.578 / 6.314 ca</span>
-                </div>
-                <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex">
-                  <div className="bg-[#2E37A4] h-full" style={{ width: '72%' }} title="Hoàn thành (72%)"></div>
-                  <div className="bg-amber-400 h-full" style={{ width: '20%' }} title="Đang chờ (20%)"></div>
-                  <div className="bg-rose-400 h-full" style={{ width: '8%' }} title="Hủy (8%)"></div>
-                </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
-                  <span>Tháng 10/2026: Đạt đỉnh 280 ca/ngày</span>
-                  <span>Khám tại nhà: 68% • Telehealth: 32%</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Arbitration Queue Table Preclinic Style */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] overflow-hidden">
-              <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <span className="material-symbols-outlined text-rose-500 text-[20px]">gavel</span>
-                    <span>Hàng Đợi Trọng Tài &amp; Tranh Chấp Escrow</span>
-                  </h3>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Các ca tranh chấp cần trọng tài độc lập giải phóng dòng tiền ký quỹ
-                  </p>
-                </div>
-                <Link
-                  href="/admin/disputes"
-                  className="text-xs font-bold text-[#2E37A4] hover:underline flex items-center gap-1"
+        {/* Main Grid: Appointment Chart & Arbitration Table vs Popular Doctors & Health */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+          <div className="space-y-6 lg:col-span-8">
+            <DashboardChartCard
+              title="Thống kê Lịch hẹn & Dịch vụ Y tế"
+              description="Tần suất thăm khám tại nhà và Telehealth toàn hệ thống"
+              config={appointmentChartConfig}
+              action={
+                <Tabs
+                  value={statPeriod}
+                  onValueChange={(value) => setStatPeriod(value as StatPeriod)}
                 >
-                  <span>Xem tất cả</span>
-                  <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-                </Link>
-              </div>
+                  <TabsList className="rounded-xl bg-slate-100 p-1">
+                    <TabsTrigger
+                      value="monthly"
+                      className="rounded-lg px-3 text-xs font-semibold data-[state=active]:text-primary"
+                    >
+                      Tháng
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="weekly"
+                      className="rounded-lg px-3 text-xs font-semibold data-[state=active]:text-primary"
+                    >
+                      Tuần
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="yearly"
+                      className="rounded-lg px-3 text-xs font-semibold data-[state=active]:text-primary"
+                    >
+                      Năm
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              }
+              headerExtra={
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                    <p className="flex items-center justify-center gap-1 text-[11px] font-medium text-slate-500">
+                      <span className="h-2 w-2 rounded-full bg-primary" />
+                      Tổng cuộc hẹn
+                    </p>
+                    <h4 className="mt-1 text-lg font-bold text-slate-900 tabular-nums">
+                      {activePeriodStats.summary.total}
+                    </h4>
+                  </div>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                    <p className="flex items-center justify-center gap-1 text-[11px] font-medium text-slate-500">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Đã hoàn thành
+                    </p>
+                    <h4 className="mt-1 text-lg font-bold text-slate-900 tabular-nums">
+                      {activePeriodStats.summary.completed}
+                    </h4>
+                  </div>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                    <p className="flex items-center justify-center gap-1 text-[11px] font-medium text-slate-500">
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      Đang xếp lịch
+                    </p>
+                    <h4 className="mt-1 text-lg font-bold text-slate-900 tabular-nums">
+                      {activePeriodStats.summary.scheduled}
+                    </h4>
+                  </div>
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-center">
+                    <p className="flex items-center justify-center gap-1 text-[11px] font-medium text-slate-500">
+                      <span className="h-2 w-2 rounded-full bg-rose-500" />
+                      Đã hủy / Đổi hẹn
+                    </p>
+                    <h4 className="mt-1 text-lg font-bold text-slate-900 tabular-nums">
+                      {activePeriodStats.summary.cancelled}
+                    </h4>
+                  </div>
+                </div>
+              }
+              footer={
+                <div className="flex flex-col justify-between gap-1 border-t border-slate-100 pt-2 text-[11px] text-slate-500 sm:flex-row sm:items-center">
+                  <span>{activePeriodStats.peakNote}</span>
+                  <span className="font-semibold text-emerald-700 tabular-nums">
+                    {activePeriodStats.summary.slaText}
+                  </span>
+                </div>
+              }
+            >
+              <AreaChart data={activePeriodStats.series} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="fillHomeVisits" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-homeVisits)" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="var(--color-homeVisits)" stopOpacity={0.04} />
+                  </linearGradient>
+                  <linearGradient id="fillTelehealth" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="var(--color-telehealth)" stopOpacity={0.35} />
+                    <stop offset="95%" stopColor="var(--color-telehealth)" stopOpacity={0.04} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                <YAxis tickLine={false} axisLine={false} width={44} />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="dot" />} />
+                <Area
+                  type="monotone"
+                  dataKey="telehealth"
+                  stroke="var(--color-telehealth)"
+                  strokeWidth={2}
+                  fill="url(#fillTelehealth)"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="homeVisits"
+                  stroke="var(--color-homeVisits)"
+                  strokeWidth={2}
+                  fill="url(#fillHomeVisits)"
+                />
+              </AreaChart>
+            </DashboardChartCard>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                      <th className="py-3 px-4">Mã / Mức độ</th>
-                      <th className="py-3 px-4">Đại diện Hộ Gia đình</th>
-                      <th className="py-3 px-4">Bác sĩ / Cơ sở</th>
-                      <th className="py-3 px-4">Số tiền Escrow</th>
-                      <th className="py-3 px-4 text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs">
-                    {pendingArbitrations.map((item) => (
-                      <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="tabular-nums font-bold text-slate-700">{item.id}</div>
-                          <span
-                            className={`inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              item.severity === 'high'
-                                ? 'bg-rose-100 text-rose-700'
-                                : item.severity === 'medium'
-                                ? 'bg-amber-100 text-amber-700'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
-                          >
-                            {item.severity === 'high' ? 'Khẩn (SLA 24h)' : item.severity === 'medium' ? 'Vừa' : 'Thường'}
-                          </span>
-                        </td>
+            {/* Arbitration Queue Table */}
+            <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200/80 bg-white py-0 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+              <CardHeader className="flex flex-col gap-3 border-b border-slate-100 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                    <span className="material-symbols-outlined text-[20px] text-rose-500">gavel</span>
+                    <span>Hàng Đợi Trọng Tài &amp; Tranh Chấp Escrow</span>
+                  </CardTitle>
+                  <CardDescription className="mt-0.5 text-xs text-slate-500">
+                    Các ca tranh chấp cần trọng tài độc lập giải phóng dòng tiền ký quỹ
+                  </CardDescription>
+                </div>
 
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-slate-100 text-[#2E37A4] font-bold text-xs flex items-center justify-center shrink-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Tabs
+                    value={severityFilter}
+                    onValueChange={(value) => setSeverityFilter(value as SeverityFilter)}
+                  >
+                    <TabsList className="h-8 rounded-lg bg-slate-100 p-0.5">
+                      <TabsTrigger value="all" className="rounded-md px-2.5 text-[11px] font-semibold">
+                        Tất cả
+                      </TabsTrigger>
+                      <TabsTrigger value="high" className="rounded-md px-2.5 text-[11px] font-semibold">
+                        Khẩn
+                      </TabsTrigger>
+                      <TabsTrigger value="medium" className="rounded-md px-2.5 text-[11px] font-semibold">
+                        Vừa
+                      </TabsTrigger>
+                      <TabsTrigger value="low" className="rounded-md px-2.5 text-[11px] font-semibold">
+                        Thường
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+
+                  <Link
+                    href="/admin/disputes"
+                    className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                  >
+                    <span>Xem tất cả</span>
+                    <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </Link>
+                </div>
+              </CardHeader>
+
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-b border-slate-100 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-50/80">
+                    <TableHead className="px-4 py-3 text-slate-500">Mã / Mức độ</TableHead>
+                    <TableHead className="px-4 py-3 text-slate-500">Đại diện Hộ Gia đình</TableHead>
+                    <TableHead className="px-4 py-3 text-slate-500">Bác sĩ / Cơ sở</TableHead>
+                    <TableHead className="px-4 py-3 text-slate-500">Số tiền Escrow</TableHead>
+                    <TableHead className="px-4 py-3 text-right text-slate-500">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-100 text-xs">
+                  {filteredArbitrations.map((item) => (
+                    <TableRow key={item.id} className="hover:bg-slate-50/70">
+                      <TableCell className="px-4 py-3.5 whitespace-nowrap">
+                        <div className="font-bold text-slate-700 tabular-nums">{item.id}</div>
+                        <Badge
+                          variant="outline"
+                          className={`mt-1 rounded-full text-[10px] font-bold ${
+                            item.severity === 'high'
+                              ? 'border-rose-200 bg-rose-100 text-rose-700'
+                              : item.severity === 'medium'
+                              ? 'border-amber-200 bg-amber-100 text-amber-700'
+                              : 'border-slate-200 bg-slate-100 text-slate-700'
+                          }`}
+                        >
+                          {item.severity === 'high' ? 'Khẩn (SLA 24h)' : item.severity === 'medium' ? 'Vừa' : 'Thường'}
+                        </Badge>
+                      </TableCell>
+
+                      <TableCell className="px-4 py-3.5">
+                        <div className="flex items-center gap-2.5">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
                               {item.avatarText}
-                            </div>
-                            <div>
-                              <div className="font-bold text-slate-900">{item.family}</div>
-                              <div className="text-[11px] text-slate-500 line-clamp-1 max-w-xs">{item.issue}</div>
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <div className="font-bold text-slate-900">{item.family}</div>
+                            <div className="line-clamp-1 max-w-xs text-[11px] text-slate-500">
+                              {item.issue}
                             </div>
                           </div>
-                        </td>
+                        </div>
+                      </TableCell>
 
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="text-slate-800 font-medium">{item.doctorOrFacility}</div>
-                          <div className="text-[11px] text-slate-400">{item.time}</div>
-                        </td>
+                      <TableCell className="px-4 py-3.5 whitespace-nowrap">
+                        <div className="font-medium text-slate-800">{item.doctorOrFacility}</div>
+                        <div className="text-[11px] text-slate-500">{item.time}</div>
+                      </TableCell>
 
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="font-bold text-rose-600 tabular-nums">{item.escrowAmount}</div>
-                          <span className="text-[10px] text-slate-400">Đang đóng băng</span>
-                        </td>
+                      <TableCell className="px-4 py-3.5 whitespace-nowrap">
+                        <div className="font-bold text-rose-600 tabular-nums">{item.escrowAmount}</div>
+                        <span className="text-[10px] text-slate-500">Đang đóng băng</span>
+                      </TableCell>
 
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <Link
-                            href="/admin/disputes"
-                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#2E37A4] hover:bg-[#222982] text-white font-bold rounded-lg text-xs transition-colors shadow-2xs"
+                      <TableCell className="px-4 py-3.5 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5">
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant="outline"
+                            onClick={() => setSelectedArbitration(item)}
+                            className="rounded-lg text-xs font-semibold"
                           >
-                            <span>Xử lý</span>
-                            <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                          </Link>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                            Xem nhanh
+                          </Button>
+                          <Button asChild size="xs" className="rounded-lg px-3 text-xs font-bold">
+                            <Link href="/admin/disputes">
+                              <span>Xử lý</span>
+                              <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                            </Link>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
           </div>
 
-          {/* Right Column (4 cols): Popular Doctors & System Health */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* Popular Doctors Preclinic Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-slate-900 tracking-tight">
+          {/* Right Column: Popular Doctors & System Health */}
+          <div className="space-y-6 lg:col-span-4">
+            <Card className="gap-4 rounded-2xl border-slate-200/80 bg-white py-5 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+              <CardHeader className="flex flex-row items-center justify-between px-5 pb-0">
+                <CardTitle className="text-base font-bold tracking-tight text-slate-900">
                   Bác Sĩ Nổi Bật
-                </h3>
-                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                </CardTitle>
+                <Badge
+                  variant="outline"
+                  className="rounded-full border-emerald-200 bg-emerald-50 text-xs font-semibold text-emerald-700"
+                >
                   Top Đánh Giá
-                </span>
-              </div>
+                </Badge>
+              </CardHeader>
 
-              <div className="space-y-3.5">
+              <CardContent className="space-y-3.5 px-5">
                 {popularDoctors.map((doc, idx) => (
                   <div
                     key={idx}
-                    className="p-3 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/70 transition-all flex items-center justify-between gap-3"
+                    className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3 transition-all hover:border-slate-200 hover:bg-slate-50/70"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center font-bold text-xs shadow-xs shrink-0">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="relative shrink-0">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-xs font-bold text-white shadow-xs">
                           {doc.avatarText}
                         </div>
-                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+                        <span className="absolute right-0 bottom-0 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="text-xs font-bold text-slate-900 truncate">{doc.name}</h4>
-                        <p className="text-[11px] text-slate-500 truncate">{doc.specialty}</p>
-                        <p className="text-[10px] text-slate-400">{doc.hospital}</p>
+                        <h4 className="truncate text-xs font-bold text-slate-900">{doc.name}</h4>
+                        <p className="truncate text-[11px] text-slate-500">{doc.specialty}</p>
+                        <p className="text-[10px] text-slate-500">{doc.hospital}</p>
                       </div>
                     </div>
 
-                    <div className="text-right shrink-0">
-                      <div className="flex items-center justify-end gap-1 text-amber-500 font-bold text-xs">
+                    <div className="shrink-0 text-right">
+                      <div className="flex items-center justify-end gap-1 text-xs font-bold text-amber-500 tabular-nums">
                         <span className="material-symbols-outlined text-[14px]">star</span>
                         <span>{doc.rating}</span>
                       </div>
-                      <span className="text-[10px] text-slate-400">{doc.bookings} lượt</span>
+                      <span className="text-[10px] text-slate-500 tabular-nums">{doc.bookings} lượt</span>
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* System Health Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                  <span className="material-symbols-outlined text-emerald-500 text-[19px]">cloud_done</span>
+            <Card className="gap-4 rounded-2xl border-slate-200/80 bg-white py-5 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+              <CardHeader className="flex flex-row items-center justify-between px-5 pb-0">
+                <CardTitle className="flex items-center gap-2 text-base font-bold tracking-tight text-slate-900">
+                  <span className="material-symbols-outlined text-[19px] text-emerald-500">cloud_done</span>
                   <span>Hạ Tầng Kỹ Thuật Y Tế</span>
-                </h3>
-                <span className="text-[11px] font-bold text-emerald-600">99.98% SLA</span>
-              </div>
+                </CardTitle>
+                <span className="text-[11px] font-bold text-emerald-600 tabular-nums">99.98% SLA</span>
+              </CardHeader>
 
-              <div className="space-y-3">
+              <CardContent className="space-y-3 px-5">
                 {systemHealth.map((srv, idx) => (
-                  <div key={idx} className="flex items-start justify-between text-xs pb-3 border-b border-slate-100 last:border-b-0 last:pb-0">
+                  <div
+                    key={idx}
+                    className="flex items-start justify-between border-b border-slate-100 pb-3 text-xs last:border-b-0 last:pb-0"
+                  >
                     <div className="pr-2">
                       <div className="font-semibold text-slate-800">{srv.name}</div>
-                      <div className="text-[10px] text-slate-400 mt-0.5 tabular-nums">Độ trễ: {srv.latency}</div>
+                      <div className="mt-0.5 text-[10px] text-slate-500 tabular-nums">
+                        Độ trễ: {srv.latency}
+                      </div>
                     </div>
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 font-bold rounded-md text-[10px] shrink-0 border border-emerald-200">
+                    <Badge
+                      variant="outline"
+                      className="shrink-0 rounded-md border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"
+                    >
                       {srv.status}
-                    </span>
+                    </Badge>
                   </div>
                 ))}
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
             {/* HIPAA Audit Banner */}
-            <div className="bg-gradient-to-br from-[#111827] to-[#1e1b4b] text-white p-5 rounded-2xl shadow-sm border border-slate-800">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="material-symbols-outlined text-[#00D3C7] text-[20px]">shield_person</span>
+            <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-[#111827] to-[#1e1b4b] p-5 text-white shadow-sm">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[20px] text-[#00D3C7]">shield_person</span>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
                   Audit Logs Chuẩn HIPAA
                 </span>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs leading-relaxed text-slate-300">
                 Mọi truy xuất hồ sơ bệnh án EMR và lệnh giải ngân đều được lưu vết bảo vệ tính bất biến theo chuẩn Bộ Y Tế.
               </p>
-              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="text-slate-400">12.490 sự kiện</span>
-                <Link
-                  href="/admin/users"
-                  className="font-bold text-[#00D3C7] hover:underline"
-                >
+              <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
+                <span className="text-slate-400 tabular-nums">12.490 sự kiện</span>
+                <Link href="/admin/users" className="font-bold text-[#00D3C7] hover:underline">
                   Xem nhật ký
                 </Link>
               </div>
@@ -457,6 +628,59 @@ export function AdminDashboardView() {
           </div>
         </div>
       </div>
+
+      {/* Sheet xem nhanh hồ sơ tranh chấp Escrow */}
+      <Sheet open={Boolean(selectedArbitration)} onOpenChange={(open) => !open && setSelectedArbitration(null)}>
+        <SheetContent className="sm:max-w-md">
+          {selectedArbitration && (
+            <>
+              <SheetHeader>
+                <SheetTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                  <span className="material-symbols-outlined text-[20px] text-rose-500">gavel</span>
+                  <span>Chi tiết Tranh chấp {selectedArbitration.id}</span>
+                </SheetTitle>
+                <SheetDescription className="text-xs text-slate-500">
+                  Kiểm tra nhanh chứng từ trước khi điều phối phân xử Escrow
+                </SheetDescription>
+              </SheetHeader>
+
+              <div className="space-y-4 px-4 text-xs">
+                <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">Đại diện Hộ gia đình:</span>
+                    <strong className="text-right text-slate-900">{selectedArbitration.family}</strong>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">Bác sĩ / Cơ sở:</span>
+                    <strong className="text-right text-slate-900">{selectedArbitration.doctorOrFacility}</strong>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">Số tiền Escrow đóng băng:</span>
+                    <strong className="text-rose-600 tabular-nums">{selectedArbitration.escrowAmount}</strong>
+                  </div>
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-500">Thời gian tiếp nhận:</span>
+                    <span className="text-slate-700">{selectedArbitration.time}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="font-bold text-slate-800">Nội dung khiếu nại</div>
+                  <p className="rounded-xl border border-slate-200 bg-white p-3 leading-relaxed text-slate-600">
+                    {selectedArbitration.issue}
+                  </p>
+                </div>
+              </div>
+
+              <SheetFooter>
+                <Button asChild className="w-full rounded-xl font-bold">
+                  <Link href="/admin/disputes">Chuyển tới Trang Phân xử Trọng tài</Link>
+                </Button>
+              </SheetFooter>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

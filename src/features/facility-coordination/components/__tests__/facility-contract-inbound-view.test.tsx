@@ -1,6 +1,7 @@
 ﻿import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { contractsApi } from '@/lib/api';
 
 vi.mock('@documenso/embed-react', () => ({
@@ -179,6 +180,11 @@ describe('FacilityContractInboundView (Màn 1: Tiếp nhận Hợp đồng 4 bê
         'data-token',
         'tok-facility'
       );
+    });
+
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByTestId('mock-facility-documenso-form')).not.toBeInTheDocument();
     });
 
     getListSpy.mockRestore();

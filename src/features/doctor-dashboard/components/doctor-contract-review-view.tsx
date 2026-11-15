@@ -2,6 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   type FourPartyContract,
   CONTRACT_STATUS_LABELS,
@@ -76,35 +80,35 @@ export function DoctorContractReviewView({
 
   if (loadError || !currentContract) {
     return (
-      <div className="min-h-screen bg-slate-50/50 p-6">
-        <div
+      <div className="min-h-screen bg-[#f5f6f8] p-6">
+        <Alert
           role="alert"
-          className="max-w-3xl mx-auto rounded-xl border border-rose-200 bg-rose-50 p-6 space-y-3"
+          variant="destructive"
+          className="max-w-3xl mx-auto rounded-xl border-rose-200 bg-rose-50 p-6 space-y-3"
         >
-          <h2 className="text-sm font-bold text-rose-900">
+          <AlertTitle className="text-sm font-bold text-rose-900">
             Không thể tải hợp đồng y tế
-          </h2>
-          <p className="text-xs text-rose-800">
+          </AlertTitle>
+          <AlertDescription className="text-xs text-rose-800">
             {loadError || 'Không tìm thấy hợp đồng được yêu cầu.'}
-          </p>
-          <div className="flex items-center gap-2">
+          </AlertDescription>
+          <div className="flex items-center gap-2 pt-1">
             {contractId && (
-              <button
+              <Button
                 type="button"
+                variant="destructive"
+                size="sm"
                 onClick={triggerReload}
-                className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold cursor-pointer"
+                className="rounded-lg text-xs font-semibold"
               >
                 Thử lại
-              </button>
+              </Button>
             )}
-            <Link
-              href="/doctor/contracts"
-              className="px-3 py-1.5 rounded-lg border border-rose-200 bg-white text-rose-800 text-xs font-semibold"
-            >
-              Quay lại danh sách hợp đồng
-            </Link>
+            <Button asChild variant="outline" size="sm" className="rounded-lg text-xs font-semibold">
+              <Link href="/doctor/contracts">Quay lại danh sách hợp đồng</Link>
+            </Button>
           </div>
-        </div>
+        </Alert>
       </div>
     );
   }
@@ -153,25 +157,26 @@ export function DoctorContractReviewView({
         )}
 
         {/* Header Hero Card */}
-        <div className="bg-white rounded-xl border border-slate-200/90 p-5 sm:p-6 shadow-xs">
+        <Card className="bg-white rounded-xl border-slate-200/90 p-5 sm:p-6 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                <Badge variant="outline" className="px-2.5 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border-primary/20">
                   Hợp đồng 4 Bên
-                </span>
-                <span className="text-xs font-medium px-2.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 tabular-nums">
+                </Badge>
+                <Badge variant="secondary" className="text-xs font-medium px-2.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 tabular-nums">
                   {currentContract.contractNumber}
-                </span>
-                <span
-                  className={`text-xs font-medium px-2.5 py-0.5 rounded border ${
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className={`text-xs font-medium px-2.5 py-0.5 rounded ${
                     isAccepted
                       ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                       : 'bg-amber-50 text-amber-800 border-amber-200'
                   }`}
                 >
                   {CONTRACT_STATUS_LABELS[currentContract.status]}
-                </span>
+                </Badge>
               </div>
               <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                 {currentContract.packageName}
@@ -196,9 +201,9 @@ export function DoctorContractReviewView({
                   Bác sĩ đã chấp thuận chuyên môn
                 </div>
               ) : (
-                <span className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs font-semibold">
+                <Badge variant="outline" className="gap-2 px-4 py-2 rounded-lg bg-primary/10 border-primary/20 text-primary text-xs font-semibold">
                   Ký trực tiếp trên Documenso bên dưới
-                </span>
+                </Badge>
               )}
             </div>
           </div>
@@ -212,7 +217,7 @@ export function DoctorContractReviewView({
               onClick={() => setActiveTab('summary')}
               className={`pb-3 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
                 activeTab === 'summary'
-                  ? 'border-blue-600 text-blue-700 font-semibold'
+                  ? 'border-primary text-primary font-semibold'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -226,7 +231,7 @@ export function DoctorContractReviewView({
               onClick={() => setActiveTab('full')}
               className={`pb-3 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
                 activeTab === 'full'
-                  ? 'border-blue-600 text-blue-700 font-semibold'
+                  ? 'border-primary text-primary font-semibold'
                   : 'border-transparent text-slate-500 hover:text-slate-800'
               }`}
             >
@@ -234,7 +239,7 @@ export function DoctorContractReviewView({
               Toàn văn Hợp đồng &amp; 4 Chữ ký
             </button>
           </div>
-        </div>
+        </Card>
 
         {/* Tab 1: Care Needs Summary + Documenso Signing Embed */}
         {activeTab === 'summary' && (

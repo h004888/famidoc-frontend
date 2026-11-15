@@ -3,6 +3,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import {
   DocumensoSigningEmbed,
   type ContractStatus,
@@ -244,7 +247,7 @@ export function ContractSigningTrackerView({
           aria-live="polite"
           className="rounded-2xl border border-slate-200 bg-white p-10 text-center space-y-3"
         >
-          <div className="w-8 h-8 mx-auto border-2 border-[#2E37A4]/20 border-t-[#2E37A4] rounded-full animate-spin" />
+          <div className="w-8 h-8 mx-auto border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
           <p className="text-xs text-slate-500 font-medium">
             Đang tải tiến trình ký hợp đồng...
           </p>
@@ -313,13 +316,12 @@ export function ContractSigningTrackerView({
             Đường dẫn này cần mã hợp đồng. Hãy mở lại đường dẫn trong email thông báo
             thanh toán, hoặc chọn gói dịch vụ để bắt đầu.
           </p>
-          <Link
-            href="/family/subscription"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2E37A4] hover:bg-[#232b85] text-white text-xs font-bold transition-colors"
-          >
-            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-            Về danh sách gói dịch vụ
-          </Link>
+          <Button asChild size="sm" className="rounded-xl text-xs font-bold gap-2">
+            <Link href="/family/subscription">
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              Về danh sách gói dịch vụ
+            </Link>
+          </Button>
         </div>
       </div>
     );
@@ -380,12 +382,12 @@ export function ContractSigningTrackerView({
       </div>
 
       {/* Contract Metadata Overview Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+      <Card className="bg-white rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
         <div className="bg-slate-50/80 px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <span className="px-2.5 py-1 rounded-md bg-[#2E37A4]/10 text-[#2E37A4] font-bold text-xs tabular-nums">
+            <Badge variant="outline" className="px-2.5 py-1 rounded-md bg-primary/10 text-primary border-primary/20 font-bold text-xs tabular-nums">
               {currentContract.contractNumber || currentContract.id}
-            </span>
+            </Badge>
             <span className="text-xs text-slate-500 font-medium">
               Khởi tạo:{' '}
               <strong className="text-slate-700 tabular-nums">
@@ -431,7 +433,7 @@ export function ContractSigningTrackerView({
 
           <div className="space-y-1">
             <span className="text-slate-400 font-medium block">Giá trị gói khám</span>
-            <p className="font-bold text-[#2E37A4] text-base tabular-nums">
+            <p className="font-bold text-primary text-base tabular-nums">
               {currentContract.packagePrice || '—'}
             </p>
           </div>
@@ -450,7 +452,7 @@ export function ContractSigningTrackerView({
             </p>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Nhúng Documenso ngay cho Bên A ký khi đang chờ chữ ký */}
       {contractId && isAwaitingSignatures && (
@@ -466,28 +468,28 @@ export function ContractSigningTrackerView({
 
       {/* Action Notice & Trigger Banners */}
       {isPaymentReady && (
-        <div className="p-5 rounded-2xl bg-blue-50/60 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
-              <h2 className="text-sm sm:text-base font-bold text-blue-900">
+              <span className="w-2.5 h-2.5 rounded-full bg-primary animate-pulse" />
+              <h2 className="text-sm sm:text-base font-bold text-slate-900">
                 Hợp đồng đã hoàn tất đủ 4 chữ ký số trên Documenso!
               </h2>
             </div>
-            <p className="text-xs text-blue-700 max-w-xl leading-relaxed">
+            <p className="text-xs text-slate-600 max-w-xl leading-relaxed">
               Tất cả 4 bên (Gia đình, Cơ sở y tế, Bác sĩ, Nền tảng FamiDoc) đã ký kết hoàn tất. Vui
               lòng thanh toán VietQR để kích hoạt gói và mở khóa trang Quản lý thành viên.
             </p>
           </div>
 
-          <button
+          <Button
             type="button"
             onClick={handlePaymentClick}
-            className="px-6 py-3 bg-[#2E37A4] hover:bg-[#232b85] active:bg-[#1a2068] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs hover:shadow transition-all inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer shrink-0"
+            className="h-auto px-6 py-3 rounded-xl text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0"
           >
             <span className="material-symbols-outlined text-[18px]">qr_code_2</span>
             <span>Thanh toán VietQR ngay</span>
-          </button>
+          </Button>
         </div>
       )}
 
@@ -555,7 +557,7 @@ export function ContractSigningTrackerView({
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold tabular-nums ${
                   isFamilySigned
                     ? 'bg-emerald-600 text-white'
-                    : 'bg-[#2E37A4] text-white'
+                    : 'bg-primary text-primary-foreground'
                 }`}
               >
                 {isFamilySigned ? '✓' : '1'}
@@ -573,7 +575,7 @@ export function ContractSigningTrackerView({
               className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
                 isFamilySigned
                   ? 'bg-emerald-50 text-emerald-700'
-                  : 'bg-blue-100 text-[#2E37A4]'
+                  : 'bg-primary/10 text-primary'
               }`}
             >
               {isFamilySigned ? 'Đã hoàn tất' : 'Đang chờ Bên A ký'}
@@ -595,7 +597,7 @@ export function ContractSigningTrackerView({
             isAllSigned
               ? 'bg-slate-50/70 border-slate-200'
               : isFamilySigned
-              ? 'bg-blue-50/40 border-blue-200 shadow-xs'
+              ? 'bg-primary/5 border-primary/20 shadow-xs'
               : 'bg-white border-slate-200 opacity-80'
           }`}
         >
@@ -606,7 +608,7 @@ export function ContractSigningTrackerView({
                   isAllSigned
                     ? 'bg-emerald-600 text-white'
                     : isFamilySigned
-                    ? 'bg-[#2E37A4] text-white'
+                    ? 'bg-primary text-primary-foreground'
                     : 'bg-slate-100 text-slate-500 border border-slate-200'
                 }`}
               >
@@ -626,7 +628,7 @@ export function ContractSigningTrackerView({
                 isAllSigned
                   ? 'bg-emerald-50 text-emerald-700'
                   : isFamilySigned
-                  ? 'bg-blue-100 text-[#2E37A4]'
+                  ? 'bg-primary/10 text-primary'
                   : 'bg-slate-100 text-slate-500'
               }`}
             >
@@ -702,7 +704,7 @@ export function ContractSigningTrackerView({
                   isActive
                     ? 'bg-emerald-600 text-white'
                     : isPaymentReady
-                    ? 'bg-[#2E37A4] text-white'
+                    ? 'bg-primary text-primary-foreground'
                     : 'bg-slate-100 text-slate-500 border border-slate-200'
                 }`}
               >
@@ -722,7 +724,7 @@ export function ContractSigningTrackerView({
                 isActive
                   ? 'bg-emerald-50 text-emerald-700'
                   : isPaymentReady
-                  ? 'bg-blue-100 text-[#2E37A4]'
+                  ? 'bg-primary/10 text-primary'
                   : 'bg-slate-100 text-slate-500'
               }`}
             >
@@ -751,7 +753,7 @@ export function ContractSigningTrackerView({
           <span>•</span>
           <Link
             href="/contact"
-            className="text-[#2E37A4] font-semibold hover:underline"
+            className="text-primary font-semibold hover:underline"
           >
             Gửi yêu cầu hỗ trợ
           </Link>

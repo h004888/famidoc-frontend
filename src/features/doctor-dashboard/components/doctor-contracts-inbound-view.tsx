@@ -2,6 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import type { FourPartyContract } from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
 
@@ -76,11 +80,11 @@ export function DoctorContractsInboundView({
   return (
     <div className="space-y-6">
       {/* Header Profile / Quota status */}
-      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <Card className="bg-white border-slate-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 mb-2">
+          <Badge variant="outline" className="rounded-full text-xs font-semibold bg-primary/10 text-primary border-primary/20 mb-2">
             <span>Bên C • Bác sĩ gia đình phụ trách</span>
-          </div>
+          </Badge>
           <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
             Danh sách Hợp đồng Y tế Phân công
           </h1>
@@ -91,14 +95,16 @@ export function DoctorContractsInboundView({
 
         <div className="flex items-center gap-3">
           {!isControlledByProps && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={triggerReload}
               disabled={isLoading}
-              className="px-3 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50"
+              className="rounded-lg text-xs font-semibold"
             >
               Làm mới
-            </button>
+            </Button>
           )}
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-right">
             <span className="block text-[11px] text-slate-500 font-medium">Panel Cap / Định biên</span>
@@ -107,73 +113,70 @@ export function DoctorContractsInboundView({
             </span>
           </div>
         </div>
-      </div>
+      </Card>
 
       {loadError && (
-        <div
+        <Alert
           role="alert"
-          className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2"
+          variant="destructive"
+          className="rounded-xl bg-rose-50 border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2"
         >
-          <span>{loadError}</span>
-          <button
+          <AlertDescription>{loadError}</AlertDescription>
+          <Button
             type="button"
+            variant="destructive"
+            size="sm"
             onClick={triggerReload}
-            className="px-3 py-1.5 rounded-md bg-rose-600 text-white font-semibold cursor-pointer"
+            className="rounded-md font-semibold"
           >
             Thử lại
-          </button>
-        </div>
+          </Button>
+        </Alert>
       )}
 
       {/* Tabs Filter */}
       <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant={filter === 'all' ? 'default' : 'ghost'}
           onClick={() => setFilter('all')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-            filter === 'all'
-              ? 'bg-blue-600 text-white'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
+          className="rounded-lg text-xs font-semibold"
         >
           Tất cả ({contracts.length})
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          size="sm"
+          variant={filter === 'pending' ? 'default' : 'ghost'}
           onClick={() => setFilter('pending')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-            filter === 'pending'
-              ? 'bg-blue-600 text-white'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
+          className="rounded-lg text-xs font-semibold"
         >
           Chờ tiếp nhận ({contracts.filter(isContractPendingForDoctor).length})
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          size="sm"
+          variant={filter === 'active' ? 'default' : 'ghost'}
           onClick={() => setFilter('active')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-            filter === 'active'
-              ? 'bg-blue-600 text-white'
-              : 'text-slate-600 hover:bg-slate-100'
-          }`}
+          className="rounded-lg text-xs font-semibold"
         >
           Đang phụ trách ({contracts.filter((c) => c.status === 'ACTIVE').length})
-        </button>
+        </Button>
       </div>
 
       {/* List */}
       {isLoading ? (
-        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500 text-xs">
+        <Card className="bg-white border-slate-200 rounded-xl p-12 text-center text-slate-500 text-xs">
           Đang tải danh sách hợp đồng phân công...
-        </div>
+        </Card>
       ) : filteredContracts.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center text-slate-500">
+        <Card className="bg-white border-slate-200 rounded-xl p-12 text-center text-slate-500">
           <p className="text-sm font-semibold">Chưa có hợp đồng nào được phân công</p>
           <p className="text-xs text-slate-400 mt-1">
             Khi hộ gia đình đăng ký gói hoặc Cơ sở y tế phân công hộ gia đình mới, danh sách sẽ hiển thị tại đây.
           </p>
-        </div>
+        </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredContracts.map((contract) => {
@@ -181,31 +184,31 @@ export function DoctorContractsInboundView({
               Boolean(contract.signatures?.family) || contract.status !== 'DRAFT';
             const isPendingReview = isContractPendingForDoctor(contract);
             return (
-              <div
+              <Card
                 key={contract.id}
-                className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm hover:border-blue-300 transition-colors flex flex-col justify-between"
+                className="bg-white border-slate-200 rounded-xl p-5 shadow-sm hover:border-primary/40 transition-colors flex flex-col justify-between"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-blue-700 tabular-nums">
+                    <span className="text-xs font-bold text-primary tabular-nums">
                       {contract.contractNumber}
                     </span>
                     {!familySigned ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      <Badge variant="outline" className="text-[11px] font-semibold bg-slate-100 text-slate-700 border-slate-200">
                         Chờ Bên A ký trước
-                      </span>
+                      </Badge>
                     ) : isPendingReview ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                      <Badge variant="outline" className="text-[11px] font-semibold bg-amber-50 text-amber-700 border-amber-200">
                         Chờ bác sĩ ký Documenso
-                      </span>
+                      </Badge>
                     ) : contract.status === 'PENDING_PAYMENT' ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                      <Badge variant="outline" className="text-[11px] font-semibold bg-primary/10 text-primary border-primary/20">
                         Chờ gia đình thanh toán
-                      </span>
+                      </Badge>
                     ) : (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <Badge variant="outline" className="text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">
                         Đang phụ trách
-                      </span>
+                      </Badge>
                     )}
                   </div>
 
@@ -227,22 +230,20 @@ export function DoctorContractsInboundView({
                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(contract.packagePrice)}
                   </span>
                   {isPendingReview ? (
-                    <Link
-                      href={`/doctor/contracts/${contract.id}/review`}
-                      className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                    >
-                      Thẩm định &amp; Ký Documenso
-                    </Link>
+                    <Button asChild size="sm" className="rounded-lg text-xs font-semibold">
+                      <Link href={`/doctor/contracts/${contract.id}/review`}>
+                        Thẩm định &amp; Ký Documenso
+                      </Link>
+                    </Button>
                   ) : (
-                    <Link
-                      href={`/doctor/contracts/${contract.id}/review`}
-                      className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
-                    >
-                      Xem hồ sơ hợp đồng
-                    </Link>
+                    <Button asChild variant="secondary" size="sm" className="rounded-lg text-xs font-semibold">
+                      <Link href={`/doctor/contracts/${contract.id}/review`}>
+                        Xem hồ sơ hợp đồng
+                      </Link>
+                    </Button>
                   )}
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>

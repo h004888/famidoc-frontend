@@ -1,6 +1,21 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 interface AppointmentCoordination {
   id: string;
@@ -129,7 +144,6 @@ export function FacilityCoordinationView() {
   const [filterType, setFilterType] = useState<'all' | 'home_visit' | 'facility' | 'telehealth'>('all');
   const [complaintFilter, setComplaintFilter] = useState<'all' | 'pending' | 'high' | 'resolved'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
 
   // Resolution Modal State
   const [resolvingTicket, setResolvingTicket] = useState<ComplaintTicket | null>(null);
@@ -137,8 +151,13 @@ export function FacilityCoordinationView() {
   const [customNote, setCustomNote] = useState<string>('');
 
   const showNotification = (message: string, type: 'success' | 'info' | 'warning' = 'success') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 4000);
+    if (type === 'warning') {
+      toast.warning(message);
+    } else if (type === 'info') {
+      toast.info(message);
+    } else {
+      toast.success(message);
+    }
   };
 
   const filteredAppointments = useMemo(() => {
@@ -222,29 +241,29 @@ export function FacilityCoordinationView() {
   const highSeverityCount = complaints.filter((c) => c.severity === 'high' && c.status !== 'resolved').length;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Floating Page Header */}
         <header className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 text-[#2E37A4] border border-indigo-100">
+              <Badge variant="outline" className="gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary border-primary/20">
                 <span className="material-symbols-outlined text-[15px]">domain</span>
                 Bệnh viện Đại học Y Dược TP.HCM
-              </span>
+              </Badge>
               <span>/</span>
               <span className="text-slate-700">Điều Phối Vận Hành &amp; CSKH</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 shadow-2xs">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 Đường dây nóng CSKH 24/7 trực tuyến
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-[#2E37A4] border border-indigo-200 shadow-2xs">
+              </Badge>
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border-primary/20 shadow-2xs">
                 <span className="material-symbols-outlined text-[15px]">verified</span>
                 Cam kết SLA &lt; 2 Giờ
-              </span>
+              </Badge>
             </div>
           </div>
 
@@ -264,7 +283,7 @@ export function FacilityCoordinationView() {
                 onClick={() => setActiveTab('coordination')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   activeTab === 'coordination'
-                    ? 'bg-white text-[#2E37A4] shadow-xs ring-1 ring-slate-200/50'
+                    ? 'bg-white text-primary shadow-xs ring-1 ring-slate-200/50'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -279,7 +298,7 @@ export function FacilityCoordinationView() {
                 onClick={() => setActiveTab('complaints')}
                 className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   activeTab === 'complaints'
-                    ? 'bg-white text-[#2E37A4] shadow-xs ring-1 ring-slate-200/50'
+                    ? 'bg-white text-primary shadow-xs ring-1 ring-slate-200/50'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -298,32 +317,6 @@ export function FacilityCoordinationView() {
             </div>
           </div>
         </header>
-
-        {/* Global Toast Notification */}
-        {notification && (
-          <div
-            className={`p-4 rounded-2xl border text-sm font-semibold flex items-center justify-between gap-3 shadow-sm transition-all animate-in fade-in slide-in-from-top-2 duration-300 ${
-              notification.type === 'success'
-                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-                : notification.type === 'warning'
-                ? 'bg-amber-50 border-amber-200 text-amber-800'
-                : 'bg-indigo-50 border-indigo-200 text-[#2E37A4]'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px]">
-                {notification.type === 'success' ? 'check_circle' : notification.type === 'warning' ? 'warning' : 'info'}
-              </span>
-              <span>{notification.message}</span>
-            </div>
-            <button
-              onClick={() => setNotification(null)}
-              className="text-slate-400 hover:text-slate-600 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-          </div>
-        )}
 
         {/* ========================================================================= */}
         {/* TAB 1: COORDINATION                                                       */}
@@ -347,7 +340,7 @@ export function FacilityCoordinationView() {
                     onClick={() => setFilterType(tab.key)}
                     className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                       filterType === tab.key
-                        ? 'bg-[#2E37A4] text-white shadow-xs'
+                        ? 'bg-primary text-primary-foreground shadow-xs'
                         : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80'
                     }`}
                   >
@@ -386,7 +379,7 @@ export function FacilityCoordinationView() {
                           <span
                             className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 ${
                               apt.type === 'home_visit'
-                                ? 'bg-indigo-50 text-[#2E37A4] border border-indigo-200/70'
+                                ? 'bg-primary/10 text-primary border border-primary/20'
                                 : apt.type === 'facility'
                                 ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/70'
                                 : 'bg-purple-50 text-purple-800 border border-purple-200/70'
@@ -420,7 +413,7 @@ export function FacilityCoordinationView() {
                           <span className="leading-snug">{apt.addressOrRoom}</span>
                         </div>
                         <div className="flex items-center gap-2.5 pt-1 border-t border-slate-200/60">
-                          <span className="material-symbols-outlined text-[16px] text-[#2E37A4] shrink-0">stethoscope</span>
+                          <span className="material-symbols-outlined text-[16px] text-primary shrink-0">stethoscope</span>
                           <span
                             className={`font-semibold ${
                               isUrgent ? 'text-rose-600' : 'text-slate-800'
@@ -508,21 +501,21 @@ export function FacilityCoordinationView() {
                 <p className="text-xs text-slate-500 mt-1 font-medium">Cần xử lý dứt điểm trước 13:30 hôm nay</p>
               </div>
 
-              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
+              <Card className="bg-white p-5 rounded-2xl border-slate-200/80 shadow-xs hover:shadow-md transition-all">
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Thời gian xử lý TB</span>
-                  <div className="w-8 h-8 rounded-xl bg-indigo-50 text-[#2E37A4] flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
                     <span className="material-symbols-outlined text-[18px]">speed</span>
                   </div>
                 </div>
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">38 phút</span>
-                  <span className="text-[11px] font-semibold text-[#2E37A4] bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-200">
+                  <Badge variant="outline" className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full border-primary/20">
                     -82p so với SLA
-                  </span>
+                  </Badge>
                 </div>
                 <p className="text-xs text-slate-500 mt-1 font-medium">Quy chuẩn cho phép: tối đa 120 phút</p>
-              </div>
+              </Card>
 
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all">
                 <div className="flex items-center justify-between gap-2 mb-2">
@@ -543,7 +536,7 @@ export function FacilityCoordinationView() {
               {/* Header Box */}
               <div className="p-6 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-50/70 via-white to-indigo-50/30">
                 <div className="flex items-start sm:items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] flex items-center justify-center text-white shadow-md ring-4 ring-[#2E37A4]/10 shrink-0">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] flex items-center justify-center text-white shadow-md ring-4 ring-primary/10 shrink-0">
                     <span className="material-symbols-outlined text-[24px]">support_agent</span>
                   </div>
                   <div>
@@ -557,24 +550,30 @@ export function FacilityCoordinationView() {
                 </div>
 
                 <div className="flex items-center gap-2 self-start md:self-center">
-                  <button
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() =>
                       showNotification('Đang kết nối tổng đài CSKH 1900 6868 (Nhánh 1 - Bác sĩ điều phối)...', 'info')
                     }
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-semibold border border-slate-200/80 shadow-xs transition-colors cursor-pointer"
+                    className="rounded-xl text-xs font-semibold gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[16px] text-amber-500">call</span>
                     <span>Tổng đài CSKH</span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() =>
                       showNotification('Đã xuất báo cáo SLA tuần định dạng PDF gửi Ban Giám đốc CSYT', 'success')
                     }
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-[#2E37A4] rounded-xl text-xs font-semibold border border-indigo-200/70 transition-colors cursor-pointer"
+                    className="bg-primary/10 hover:bg-primary/15 text-primary border-primary/20 rounded-xl text-xs font-semibold gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[16px]">file_download</span>
                     <span>Xuất báo cáo SLA</span>
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -611,12 +610,12 @@ export function FacilityCoordinationView() {
                   <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
                     search
                   </span>
-                  <input
+                  <Input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     placeholder="Tìm mã ticket, tên, SĐT..."
-                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] transition-all"
+                    className="w-full pl-9 pr-3 py-2 bg-slate-50 border-slate-200 rounded-xl text-xs text-slate-800"
                   />
                   {searchQuery && (
                     <button
@@ -783,7 +782,7 @@ export function FacilityCoordinationView() {
 
                             {ticket.relatedDoctor && (
                               <div className="flex items-center gap-1.5 text-slate-500 font-medium">
-                                <span className="material-symbols-outlined text-[16px] text-[#2E37A4]">stethoscope</span>
+                                <span className="material-symbols-outlined text-[16px] text-primary">stethoscope</span>
                                 <span>{ticket.relatedDoctor}</span>
                               </div>
                             )}
@@ -796,24 +795,29 @@ export function FacilityCoordinationView() {
 
                           {/* Action Buttons */}
                           <div className="flex items-center gap-2">
-                            <button
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
                               onClick={() =>
                                 showNotification(`Đang kết nối cuộc gọi CSKH trực tiếp tới số ${ticket.phone}...`, 'info')
                               }
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                              className="rounded-xl text-xs font-semibold gap-1"
                             >
                               <span className="material-symbols-outlined text-[15px] text-slate-500">phone_forwarded</span>
                               Gọi gia đình
-                            </button>
+                            </Button>
 
                             {!isResolved && (
-                              <button
+                              <Button
+                                type="button"
+                                size="sm"
                                 onClick={() => handleOpenResolveModal(ticket)}
-                                className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#2E37A4] hover:bg-indigo-800 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                                className="rounded-xl text-xs font-semibold gap-1.5"
                               >
                                 <span className="material-symbols-outlined text-[16px]">check_circle</span>
                                 Xử lý &amp; Hoàn tất SLA
-                              </button>
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -829,113 +833,111 @@ export function FacilityCoordinationView() {
         {/* ========================================================================= */}
         {/* RESOLUTION MODAL DIALOG                                                   */}
         {/* ========================================================================= */}
-        {resolvingTicket && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs animate-in fade-in duration-200">
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-lg w-full p-6 space-y-5 animate-in zoom-in-95 duration-200">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#2E37A4] flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-[20px]">assignment_turned_in</span>
+        <Dialog open={Boolean(resolvingTicket)} onOpenChange={(open) => !open && setResolvingTicket(null)}>
+          <DialogContent className="sm:max-w-lg rounded-2xl p-6 space-y-4">
+            {resolvingTicket && (
+              <>
+                <DialogHeader>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[20px]">assignment_turned_in</span>
+                    </div>
+                    <div>
+                      <DialogTitle className="text-base font-bold text-slate-900">
+                        Biên Bản Xử Lý Sự Cố {resolvingTicket.id}
+                      </DialogTitle>
+                      <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                        Gia đình: {resolvingTicket.familyHead} ({resolvingTicket.phone})
+                      </DialogDescription>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">
-                      Biên Bản Xử Lý Sự Cố {resolvingTicket.id}
-                    </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Gia đình: {resolvingTicket.familyHead} ({resolvingTicket.phone})
-                    </p>
-                  </div>
+                </DialogHeader>
+
+                {/* Ticket Title Recall */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 font-medium">
+                  {resolvingTicket.title}
                 </div>
 
-                <button
-                  onClick={() => setResolvingTicket(null)}
-                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
-                </button>
-              </div>
-
-              {/* Ticket Title Recall */}
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 font-medium">
-                {resolvingTicket.title}
-              </div>
-
-              {/* Action Options */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Phương án giải quyết SLA:
-                </label>
+                {/* Action Options */}
                 <div className="space-y-2">
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-800">
-                    <input
-                      type="radio"
-                      name="action"
-                      checked={resolutionAction === 'apologize_voucher'}
-                      onChange={() => setResolutionAction('apologize_voucher')}
-                      className="text-[#2E37A4] focus:ring-[#2E37A4]"
-                    />
-                    <span>Gọi điện xin lỗi, giải thích nguyên nhân và tặng mã miễn phí vận chuyển ca kế tiếp</span>
-                  </label>
+                  <Label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    Phương án giải quyết SLA:
+                  </Label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-800">
+                      <input
+                        type="radio"
+                        name="action"
+                        checked={resolutionAction === 'apologize_voucher'}
+                        onChange={() => setResolutionAction('apologize_voucher')}
+                        className="accent-[#0037c1]"
+                      />
+                      <span>Gọi điện xin lỗi, giải thích nguyên nhân và tặng mã miễn phí vận chuyển ca kế tiếp</span>
+                    </label>
 
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-800">
-                    <input
-                      type="radio"
-                      name="action"
-                      checked={resolutionAction === 'fix_prescription'}
-                      onChange={() => setResolutionAction('fix_prescription')}
-                      className="text-[#2E37A4] focus:ring-[#2E37A4]"
-                    />
-                    <span>Đã can thiệp kỹ thuật IT/BHYT, kích hoạt thành công đơn thuốc và giao thuốc cho bệnh nhân</span>
-                  </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-800">
+                      <input
+                        type="radio"
+                        name="action"
+                        checked={resolutionAction === 'fix_prescription'}
+                        onChange={() => setResolutionAction('fix_prescription')}
+                        className="accent-[#0037c1]"
+                      />
+                      <span>Đã can thiệp kỹ thuật IT/BHYT, kích hoạt thành công đơn thuốc và giao thuốc cho bệnh nhân</span>
+                    </label>
 
-                  <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-800">
-                    <input
-                      type="radio"
-                      name="action"
-                      checked={resolutionAction === 'custom'}
-                      onChange={() => setResolutionAction('custom')}
-                      className="text-[#2E37A4] focus:ring-[#2E37A4]"
-                    />
-                    <span>Phương án khác (Nhập chi tiết biên bản phía dưới)</span>
-                  </label>
+                    <label className="flex items-center gap-2.5 p-3 rounded-xl border border-slate-200 hover:bg-slate-50 cursor-pointer text-xs font-medium text-slate-800">
+                      <input
+                        type="radio"
+                        name="action"
+                        checked={resolutionAction === 'custom'}
+                        onChange={() => setResolutionAction('custom')}
+                        className="accent-[#0037c1]"
+                      />
+                      <span>Phương án khác (Nhập chi tiết biên bản phía dưới)</span>
+                    </label>
+                  </div>
                 </div>
-              </div>
 
-              {/* Custom Note input */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                  Ghi chú biên bản bổ sung (Lưu hồ sơ kiểm toán y tế):
-                </label>
-                <textarea
-                  rows={3}
-                  value={customNote}
-                  onChange={(e) => setCustomNote(e.target.value)}
-                  placeholder="Nhập nội dung thỏa thuận với hộ gia đình, nhân sự chịu trách nhiệm..."
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] transition-all"
-                />
-              </div>
+                {/* Custom Note input */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                    Ghi chú biên bản bổ sung (Lưu hồ sơ kiểm toán y tế):
+                  </Label>
+                  <Textarea
+                    rows={3}
+                    value={customNote}
+                    onChange={(e) => setCustomNote(e.target.value)}
+                    placeholder="Nhập nội dung thỏa thuận với hộ gia đình, nhân sự chịu trách nhiệm..."
+                    className="bg-slate-50 border-slate-200 rounded-xl text-xs text-slate-800"
+                  />
+                </div>
 
-              {/* Modal Actions */}
-              <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2.5">
-                <button
-                  type="button"
-                  onClick={() => setResolvingTicket(null)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer transition-colors"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmResolution}
-                  className="px-5 py-2 rounded-xl text-xs font-semibold bg-[#2E37A4] hover:bg-indigo-800 text-white shadow-xs cursor-pointer transition-colors flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">check</span>
-                  Xác nhận &amp; Đóng Ticket SLA
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                {/* Modal Actions */}
+                <DialogFooter className="pt-2 border-t border-slate-100">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setResolvingTicket(null)}
+                    className="rounded-xl text-xs font-semibold"
+                  >
+                    Hủy bỏ
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleConfirmResolution}
+                    className="rounded-xl text-xs font-semibold gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">check</span>
+                    Xác nhận &amp; Đóng Ticket SLA
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

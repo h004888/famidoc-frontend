@@ -1,6 +1,8 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { LandingHeader } from '@/features/landing/components/landing-header';
 import { LandingFooter } from '@/features/landing/components/landing-footer';
 
@@ -18,10 +20,10 @@ export default function PrivacyPage() {
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 space-y-8">
         {/* Header Title */}
         <div className="space-y-3 border-b border-slate-200 pb-6">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold">
+          <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border-emerald-200 text-emerald-800 text-xs font-bold">
             <span className="material-symbols-outlined text-[16px]">verified_user</span>
             <span>Nghị định 13/2023/NĐ-CP &amp; Tiêu chuẩn Bảo mật Y tế HIPAA</span>
-          </div>
+          </Badge>
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
             Chính Sách Bảo Mật Dữ Liệu Y Tế &amp; Hồ Sơ Sức Khỏe Điện Tử (EHR)
           </h1>
@@ -112,12 +114,9 @@ export default function PrivacyPage() {
               privacy@famidoc.vn
             </a>
           </div>
-          <Link
-            href="/contact"
-            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition-colors"
-          >
-            Liên hệ hỗ trợ
-          </Link>
+          <Button asChild variant="secondary" size="sm" className="rounded-xl font-bold">
+            <Link href="/contact">Liên hệ hỗ trợ</Link>
+          </Button>
         </div>
       </main>
 

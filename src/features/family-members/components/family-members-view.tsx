@@ -2,6 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { ConfirmDialog } from '@/components/shared';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   contractsApi,
   patientsApi,
@@ -192,7 +205,6 @@ export function FamilyMembersView() {
   const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form State Thêm Thành Viên
@@ -206,9 +218,8 @@ export function FamilyMembersView() {
   const [newAllergies, setNewAllergies] = useState('');
   const [newChronic, setNewChronic] = useState('');
 
-  const showToast = (msg: string, durationMs = 3500) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), durationMs);
+  const showToast = (msg: string) => {
+    toast.success(msg);
   };
 
   useEffect(() => {
@@ -423,14 +434,14 @@ export function FamilyMembersView() {
   });
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* 1. HEADER CHÍNH & ĐIỀU HƯỚNG */}
         <header className="space-y-4">
           <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
             <Link
               href="/family"
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-[#2E37A4] transition-colors"
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-primary transition-colors"
             >
               <span className="material-symbols-outlined text-[16px]">arrow_back</span>
               <span>Bảng Sức Khỏe Gia Đình</span>
@@ -442,9 +453,9 @@ export function FamilyMembersView() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-primary bg-primary/10 border-primary/20">
                   HĐ {contractBadgeCode}
-                </span>
+                </Badge>
                 <span
                   data-testid="member-quota-badge"
                   className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums border ${
@@ -464,10 +475,10 @@ export function FamilyMembersView() {
                       : `${membersList.length} thành viên y tế`}
                   </span>
                 </span>
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
+                <Badge variant="secondary" className="gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
                   <span className="material-symbols-outlined text-[14px] text-slate-500">verified</span>
                   <span>Đồng bộ Hồ sơ FamiDoc</span>
-                </span>
+                </Badge>
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
@@ -483,25 +494,29 @@ export function FamilyMembersView() {
 
             {/* Cụm nút hành động tinh gọn */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <Link
-                href="/family/subscription"
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50/90 hover:bg-blue-100 text-[#2E37A4] border border-blue-200/90 rounded-xl text-sm font-semibold transition-all whitespace-nowrap outline-hidden"
+              <Button
+                asChild
+                variant="outline"
+                className="min-h-11 bg-primary/10 hover:bg-primary/15 text-primary border-primary/20 rounded-xl text-sm font-semibold gap-2"
               >
-                <span className="material-symbols-outlined text-[19px]">history_edu</span>
-                <span>Hợp Đồng &amp; Gói Dịch Vụ</span>
-              </Link>
+                <Link href="/family/subscription">
+                  <span className="material-symbols-outlined text-[19px]">history_edu</span>
+                  <span>Hợp Đồng &amp; Gói Dịch Vụ</span>
+                </Link>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => {
-                  showToast('Đang chuẩn bị xuất file Sổ Hộ Tịch Y Tế PDF...', 3000);
+                  showToast('Đang chuẩn bị xuất file Sổ Hộ Tịch Y Tế PDF...');
                   window.print();
                 }}
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all whitespace-nowrap outline-hidden cursor-pointer"
+                className="min-h-11 rounded-xl text-sm font-medium gap-2"
               >
                 <span className="material-symbols-outlined text-[18px] text-slate-500">download</span>
                 <span>Xuất PDF</span>
-              </button>
+              </Button>
             </div>
           </div>
         </header>
@@ -515,7 +530,7 @@ export function FamilyMembersView() {
           <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 p-6 shadow-xs flex flex-col justify-between gap-5">
             <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
               <div className="flex items-center gap-2.5 text-xs">
-                <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">cottage</span>
+                <span className="material-symbols-outlined text-[20px] text-primary">cottage</span>
                 <span className="font-bold text-slate-900 text-sm">Hồ Sơ Hộ Gia Đình</span>
                 <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   {activeContract ? 'Hợp đồng hiệu lực' : 'Đang đồng bộ'}
@@ -526,7 +541,7 @@ export function FamilyMembersView() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex items-start gap-3.5 p-3 rounded-xl bg-slate-50/70 border border-slate-100">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0 border border-blue-100">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
                   <span className="material-symbols-outlined text-[20px]">account_circle</span>
                 </div>
                 <div className="min-w-0">
@@ -552,17 +567,17 @@ export function FamilyMembersView() {
               </div>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="p-3.5 rounded-xl bg-primary/10 border border-primary/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
               <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">workspace_premium</span>
+                <span className="material-symbols-outlined text-[20px] text-primary">workspace_premium</span>
                 <div>
-                  <span className="font-bold text-[#2E37A4]">{packageName}</span>
+                  <span className="font-bold text-primary">{packageName}</span>
                   <p className="text-slate-600 text-[11px] line-clamp-1">{packageDesc}</p>
                 </div>
               </div>
               <Link
                 href="/family/billing"
-                className="text-[11px] font-semibold text-[#2E37A4] hover:underline whitespace-nowrap self-start sm:self-auto inline-flex items-center gap-1"
+                className="text-[11px] font-semibold text-primary hover:underline whitespace-nowrap self-start sm:self-auto inline-flex items-center gap-1"
               >
                 <span>Gói &amp; Thanh toán</span>
                 <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
@@ -571,7 +586,7 @@ export function FamilyMembersView() {
           </div>
 
           {/* Cột Phải (5 cols): 01 BÁC SĨ GIA ĐÌNH TRỰC THUỘC HỘ */}
-          <div className="lg:col-span-5 bg-gradient-to-br from-[#2E37A4] to-[#1c236b] rounded-2xl p-6 text-white shadow-md flex flex-col justify-between gap-5 relative overflow-hidden">
+          <div className="lg:col-span-5 bg-gradient-to-br from-[#0037c1] to-[#00237a] rounded-2xl p-6 text-white shadow-md flex flex-col justify-between gap-5 relative overflow-hidden">
             <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
 
             <div>
@@ -602,7 +617,7 @@ export function FamilyMembersView() {
                         {getInitials(assignedDoctor.fullName)}
                       </div>
                     )}
-                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-[#2E37A4] flex items-center justify-center">
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-[#0037c1] flex items-center justify-center">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                     </span>
                   </div>
@@ -646,7 +661,7 @@ export function FamilyMembersView() {
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <a
                   href={assignedDoctor?.phone ? `tel:${assignedDoctor.phone.replace(/\s+/g, '')}` : 'tel:19008821'}
-                  className="py-2.5 px-3 rounded-xl bg-white text-[#2E37A4] hover:bg-blue-50 text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-xs"
+                  className="py-2.5 px-3 rounded-xl bg-white text-primary hover:bg-blue-50 text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-xs"
                 >
                   <span className="material-symbols-outlined text-[16px]">call</span>
                   <span>Hotline 24/7</span>
@@ -669,7 +684,7 @@ export function FamilyMembersView() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/60">
             <div>
               <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">group</span>
+                <span className="material-symbols-outlined text-[20px] text-primary">group</span>
                 <span>
                   Thành Viên Trong Hộ ({filteredMembers.length}
                   {memberLimit !== null && !searchQuery.trim() ? `/${memberLimit}` : ''})
@@ -685,16 +700,16 @@ export function FamilyMembersView() {
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-[18px]">
                   search
                 </span>
-                <input
+                <Input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Tìm theo tên hoặc BHYT..."
-                  className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-white border border-slate-200 rounded-xl text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-[#2E37A4] shadow-2xs"
+                  className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-white rounded-xl"
                 />
               </div>
 
-              <button
+              <Button
                 type="button"
                 disabled={isQuotaReached}
                 onClick={() => {
@@ -706,13 +721,13 @@ export function FamilyMembersView() {
                     ? `Đã đạt giới hạn ${memberLimit}/${memberLimit} thành viên của gói hiện tại`
                     : 'Thêm thành viên mới'
                 }
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#2E37A4] hover:bg-[#222982] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer shadow-2xs"
+                className="rounded-xl text-xs sm:text-sm font-semibold shrink-0 gap-1.5"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
                 <span className="hidden sm:inline">
                   {isQuotaReached ? 'Đã đủ suất gói' : 'Thêm thành viên'}
                 </span>
-              </button>
+              </Button>
             </div>
           </div>
 
@@ -735,7 +750,7 @@ export function FamilyMembersView() {
               </span>
               <Link
                 href="/family/billing"
-                className="font-semibold text-[#2E37A4] hover:underline shrink-0"
+                className="font-semibold text-primary hover:underline shrink-0"
               >
                 Nâng cấp gói hoặc mua thêm suất →
               </Link>
@@ -762,18 +777,18 @@ export function FamilyMembersView() {
                     ? `Gói dịch vụ của bạn hỗ trợ tối đa ${memberLimit} thành viên. Hãy tạo hồ sơ thành viên đầu tiên để bác sĩ theo dõi sức khỏe.`
                     : 'Hãy thêm hồ sơ thành viên đầu tiên vào sổ hộ tịch y tế của gia đình.'}
                 </p>
-                <button
+                <Button
                   type="button"
                   disabled={isQuotaReached}
                   onClick={() => {
                     setAddError(null);
                     setShowAddMemberModal(true);
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer"
+                  className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[18px]">person_add</span>
                   <span>Thêm thành viên đầu tiên</span>
-                </button>
+                </Button>
               </div>
             ) : filteredMembers.length === 0 ? (
               <div className="p-10 text-center bg-white rounded-2xl border border-slate-200/70 space-y-2">
@@ -783,7 +798,7 @@ export function FamilyMembersView() {
                 <button
                   type="button"
                   onClick={() => setSearchQuery('')}
-                  className="text-xs font-semibold text-[#2E37A4] underline cursor-pointer"
+                  className="text-xs font-semibold text-primary underline cursor-pointer"
                 >
                   Xóa tìm kiếm
                 </button>
@@ -804,7 +819,7 @@ export function FamilyMembersView() {
                   >
                     {/* Cột 1: Thông tin nhân khẩu & Nhóm máu */}
                     <div className="flex items-center gap-3.5 min-w-0 lg:w-5/12">
-                      <div className="w-12 h-12 rounded-full bg-blue-50 text-[#2E37A4] font-bold text-base flex items-center justify-center shrink-0 border border-blue-100">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-bold text-base flex items-center justify-center shrink-0 border border-primary/20">
                         {initials}
                       </div>
 
@@ -812,14 +827,14 @@ export function FamilyMembersView() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <Link
                             href={`/family/members/${m.id}`}
-                            className="font-bold text-slate-900 hover:text-[#2E37A4] transition-colors truncate text-sm sm:text-base"
+                            className="font-bold text-slate-900 hover:text-primary transition-colors truncate text-sm sm:text-base"
                           >
                             {m.name}
                           </Link>
                           <span
                             className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${
                               m.isHouseholdHead
-                                ? 'bg-indigo-50 text-[#2E37A4] border border-indigo-200'
+                                ? 'bg-primary/10 text-primary border border-primary/20'
                                 : 'bg-slate-100 text-slate-700'
                             }`}
                           >
@@ -847,9 +862,9 @@ export function FamilyMembersView() {
                           type="button"
                           onClick={() => {
                             navigator.clipboard?.writeText(m.bhytNumber);
-                            showToast(`Đã sao chép mã BHYT: ${m.bhytNumber}`, 2500);
+                            showToast(`Đã sao chép mã BHYT: ${m.bhytNumber}`);
                           }}
-                          className="text-slate-400 hover:text-[#2E37A4] p-0.5 cursor-pointer"
+                          className="text-slate-400 hover:text-primary p-0.5 cursor-pointer"
                           title="Sao chép"
                         >
                           <span className="material-symbols-outlined text-[14px]">content_copy</span>
@@ -877,7 +892,7 @@ export function FamilyMembersView() {
                     <div className="flex items-center gap-2 shrink-0 self-end lg:self-center">
                       <Link
                         href={`/family/members/${m.id}`}
-                        className="px-3.5 py-2 rounded-xl bg-blue-50/90 hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white font-semibold text-xs transition-all inline-flex items-center gap-1"
+                        className="px-3.5 py-2 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-semibold text-xs transition-all inline-flex items-center gap-1"
                       >
                         <span>Xem y bạ</span>
                         <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
@@ -935,455 +950,386 @@ export function FamilyMembersView() {
       </main>
 
       {/* MODAL 1: THÊM THÀNH VIÊN MỚI */}
-      {showAddMemberModal && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-5 bg-[#2E37A4] text-white flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">person_add</span>
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-base text-white truncate">
-                    Thêm Người Thân Vào Sổ Hộ Tịch Y Tế
-                  </h3>
-                  <p className="text-xs text-blue-100 truncate mt-0.5">
-                    HĐ {contractBadgeCode} · {assignedDoctor?.fullName || 'Bác sĩ Gia đình FamiDoc'}
-                  </p>
-                </div>
+      <Dialog open={showAddMemberModal} onOpenChange={setShowAddMemberModal}>
+        <DialogContent className="sm:max-w-lg rounded-2xl p-0 overflow-hidden border-slate-200/80 gap-0">
+          <DialogHeader className="px-6 py-5 bg-primary text-primary-foreground text-left">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[22px]">person_add</span>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setShowAddMemberModal(false)}
-                aria-label="Đóng cửa sổ"
-                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleAddMemberSubmit} className="p-6 space-y-4 text-xs">
-              {addError && (
-                <div
-                  role="alert"
-                  className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium"
-                >
-                  {addError}
-                </div>
-              )}
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Họ và tên người thân <span className="text-rose-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Ví dụ: Nguyễn Thị Lan"
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/15 outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Quan hệ với chủ hộ
-                  </label>
-                  <select
-                    value={newRelation}
-                    onChange={(e) => setNewRelation(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
-                  >
-                    <option value="Cha ruột">Cha ruột</option>
-                    <option value="Mẹ ruột">Mẹ ruột</option>
-                    <option value="Vợ">Vợ</option>
-                    <option value="Chồng">Chồng</option>
-                    <option value="Con trai">Con trai</option>
-                    <option value="Con gái">Con gái</option>
-                    <option value="Khác">Người thân khác</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Ngày tháng năm sinh
-                  </label>
-                  <input
-                    type="date"
-                    value={newBirthDate}
-                    onChange={(e) => setNewBirthDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Giới tính
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setNewGender('Nam')}
-                      className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
-                        newGender === 'Nam'
-                          ? 'bg-blue-50 border-[#2E37A4] text-[#2E37A4]'
-                          : 'border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      Nam
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setNewGender('Nữ')}
-                      className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
-                        newGender === 'Nữ'
-                          ? 'bg-rose-50 border-rose-500 text-rose-600'
-                          : 'border-slate-200 text-slate-600'
-                      }`}
-                    >
-                      Nữ
-                    </button>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Nhóm máu
-                  </label>
-                  <select
-                    value={newBloodType}
-                    onChange={(e) => setNewBloodType(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
-                  >
-                    <option value="O+">Nhóm máu O+</option>
-                    <option value="A+">Nhóm máu A+</option>
-                    <option value="B+">Nhóm máu B+</option>
-                    <option value="AB+">Nhóm máu AB+</option>
-                    <option value="Chưa rõ">Chưa rõ nhóm máu</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Mã số thẻ BHYT
-                  </label>
-                  <input
-                    type="text"
-                    value={newBhyt}
-                    onChange={(e) => setNewBhyt(e.target.value)}
-                    placeholder="VD: GD4790123891024"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-bold tabular-nums uppercase text-xs focus:border-[#2E37A4] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Nơi ĐKKCB ban đầu
-                  </label>
-                  <input
-                    type="text"
-                    value={newBhytHospital}
-                    onChange={(e) => setNewBhytHospital(e.target.value)}
-                    placeholder="VD: BV Đại học Y Dược"
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs focus:border-[#2E37A4] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2.5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div>
-                    <label className="block font-semibold text-slate-600 mb-1 text-[11px]">
-                      Dị ứng thuốc / thức ăn
-                    </label>
-                    <input
-                      type="text"
-                      value={newAllergies}
-                      onChange={(e) => setNewAllergies(e.target.value)}
-                      placeholder="VD: Penicillin, Tôm cua..."
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-xs focus:border-[#2E37A4] outline-none"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block font-semibold text-slate-600 mb-1 text-[11px]">
-                      Bệnh nền đang theo dõi
-                    </label>
-                    <input
-                      type="text"
-                      value={newChronic}
-                      onChange={(e) => setNewChronic(e.target.value)}
-                      placeholder="VD: Huyết áp, Dạ dày..."
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 text-xs focus:border-[#2E37A4] outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  disabled={isSubmittingAdd}
-                  onClick={() => setShowAddMemberModal(false)}
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingAdd}
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-60"
-                >
-                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                  <span>{isSubmittingAdd ? 'Đang lưu...' : 'Lưu thành viên'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: CHỈNH SỬA THÔNG TIN THÀNH VIÊN */}
-      {editingMember && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200/80 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
-            <div className="px-6 py-5 bg-[#2E37A4] text-white flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">edit</span>
-                </div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-base text-white truncate">
-                    Chỉnh Sửa Hồ Sơ: {editingMember.name}
-                  </h3>
-                  <p className="text-xs text-blue-100 truncate mt-0.5">
-                    HĐ {contractBadgeCode} · {editingMember.relationship}
-                  </p>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setEditingMember(null)}
-                aria-label="Đóng cửa sổ"
-                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleUpdateMemberSubmit} className="p-6 space-y-4 text-xs">
-              {editError && (
-                <div
-                  role="alert"
-                  className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium"
-                >
-                  {editError}
-                </div>
-              )}
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">Họ và tên</label>
-                <input
-                  type="text"
-                  required
-                  value={editingMember.name}
-                  onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Quan hệ với chủ hộ</label>
-                  <input
-                    type="text"
-                    value={editingMember.relationship}
-                    onChange={(e) =>
-                      setEditingMember({ ...editingMember, relationship: e.target.value })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Nhóm máu</label>
-                  <select
-                    value={editingMember.bloodType}
-                    onChange={(e) =>
-                      setEditingMember({ ...editingMember, bloodType: e.target.value })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
-                  >
-                    <option value="O+">Nhóm máu O+</option>
-                    <option value="A+">Nhóm máu A+</option>
-                    <option value="B+">Nhóm máu B+</option>
-                    <option value="AB+">Nhóm máu AB+</option>
-                    <option value="Chưa rõ">Chưa rõ nhóm máu</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Mã số thẻ BHYT</label>
-                  <input
-                    type="text"
-                    value={editingMember.bhytNumber}
-                    onChange={(e) =>
-                      setEditingMember({ ...editingMember, bhytNumber: e.target.value.toUpperCase() })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-bold tabular-nums text-xs focus:border-[#2E37A4] outline-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">Nơi ĐKKCB ban đầu</label>
-                  <input
-                    type="text"
-                    value={editingMember.bhytHospital}
-                    onChange={(e) =>
-                      setEditingMember({ ...editingMember, bhytHospital: e.target.value })
-                    }
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs focus:border-[#2E37A4] outline-none"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Bệnh nền đang theo dõi (ngăn cách bằng dấu phẩy)
-                </label>
-                <input
-                  type="text"
-                  value={editingMember.chronicDiseases.join(', ')}
-                  onChange={(e) =>
-                    setEditingMember({
-                      ...editingMember,
-                      chronicDiseases: e.target.value
-                        .split(',')
-                        .map((s) => s.trim())
-                        .filter(Boolean),
-                    })
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 text-xs focus:border-[#2E37A4] outline-none"
-                />
-              </div>
-
-              <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  disabled={isSubmittingEdit}
-                  onClick={() => setEditingMember(null)}
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmittingEdit}
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-60"
-                >
-                  <span className="material-symbols-outlined text-[18px]">check</span>
-                  <span>{isSubmittingEdit ? 'Đang cập nhật...' : 'Cập nhật hồ sơ'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 3: XÁC NHẬN TÁCH THÀNH VIÊN */}
-      {deletingMember && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200/80 space-y-4 animate-in fade-in zoom-in-95 my-auto">
-            <div className="flex items-center gap-3 text-rose-600">
-              <div className="w-10 h-10 rounded-xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[22px]">warning</span>
-              </div>
-              <div>
-                <h3 className="font-bold text-base text-slate-900">
-                  Xác nhận tách thành viên khỏi hộ
-                </h3>
-                <p className="text-xs text-slate-500">HĐ {contractBadgeCode}</p>
+              <div className="min-w-0">
+                <DialogTitle className="font-bold text-base text-white truncate">
+                  Thêm Người Thân Vào Sổ Hộ Tịch Y Tế
+                </DialogTitle>
+                <DialogDescription className="text-xs text-blue-100 truncate mt-0.5">
+                  HĐ {contractBadgeCode} · {assignedDoctor?.fullName || 'Bác sĩ Gia đình FamiDoc'}
+                </DialogDescription>
               </div>
             </div>
+          </DialogHeader>
 
-            {deleteError && (
+          <form onSubmit={handleAddMemberSubmit} className="p-6 space-y-4 text-xs">
+            {addError && (
               <div
                 role="alert"
                 className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium"
               >
-                {deleteError}
+                {addError}
               </div>
             )}
 
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Bạn có chắc chắn muốn tách hồ sơ y tế của{' '}
-              <strong className="text-slate-900">{deletingMember.name}</strong> ({deletingMember.relationship}){' '}
-              khỏi danh sách thành viên hoạt động? Lịch sử y khoa trước đây vẫn được bảo toàn và suất thành viên sẽ được giải phóng.
-            </p>
+            <div>
+              <Label className="block font-semibold text-slate-700 mb-1">
+                Họ và tên người thân <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                type="text"
+                required
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Ví dụ: Nguyễn Thị Lan"
+                className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1">
+                  Quan hệ với chủ hộ
+                </Label>
+                <select
+                  value={newRelation}
+                  onChange={(e) => setNewRelation(e.target.value)}
+                  className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-primary outline-none"
+                >
+                  <option value="Cha ruột">Cha ruột</option>
+                  <option value="Mẹ ruột">Mẹ ruột</option>
+                  <option value="Vợ">Vợ</option>
+                  <option value="Chồng">Chồng</option>
+                  <option value="Con trai">Con trai</option>
+                  <option value="Con gái">Con gái</option>
+                  <option value="Khác">Người thân khác</option>
+                </select>
+              </div>
+
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1">
+                  Ngày tháng năm sinh
+                </Label>
+                <Input
+                  type="date"
+                  value={newBirthDate}
+                  onChange={(e) => setNewBirthDate(e.target.value)}
+                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1">
+                  Giới tính
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setNewGender('Nam')}
+                    className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
+                      newGender === 'Nam'
+                        ? 'bg-primary/10 border-primary text-primary'
+                        : 'border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    Nam
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewGender('Nữ')}
+                    className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
+                      newGender === 'Nữ'
+                        ? 'bg-rose-50 border-rose-500 text-rose-600'
+                        : 'border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    Nữ
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1">
+                  Nhóm máu
+                </Label>
+                <select
+                  value={newBloodType}
+                  onChange={(e) => setNewBloodType(e.target.value)}
+                  className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-primary outline-none"
+                >
+                  <option value="O+">Nhóm máu O+</option>
+                  <option value="A+">Nhóm máu A+</option>
+                  <option value="B+">Nhóm máu B+</option>
+                  <option value="AB+">Nhóm máu AB+</option>
+                  <option value="Chưa rõ">Chưa rõ nhóm máu</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1">
+                  Mã số thẻ BHYT
+                </Label>
+                <Input
+                  type="text"
+                  value={newBhyt}
+                  onChange={(e) => setNewBhyt(e.target.value)}
+                  placeholder="VD: GD4790123891024"
+                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-bold tabular-nums uppercase text-xs"
+                />
+              </div>
+
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1">
+                  Nơi ĐKKCB ban đầu
+                </Label>
+                <Input
+                  type="text"
+                  value={newBhytHospital}
+                  onChange={(e) => setNewBhytHospital(e.target.value)}
+                  placeholder="VD: BV Đại học Y Dược"
+                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs"
+                />
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <Label className="block font-semibold text-slate-600 mb-1 text-[11px]">
+                    Dị ứng thuốc / thức ăn
+                  </Label>
+                  <Input
+                    type="text"
+                    value={newAllergies}
+                    onChange={(e) => setNewAllergies(e.target.value)}
+                    placeholder="VD: Penicillin, Tôm cua..."
+                    className="h-9 rounded-lg bg-white text-slate-900 text-xs"
+                  />
+                </div>
+
+                <div>
+                  <Label className="block font-semibold text-slate-600 mb-1 text-[11px]">
+                    Bệnh nền đang theo dõi
+                  </Label>
+                  <Input
+                    type="text"
+                    value={newChronic}
+                    onChange={(e) => setNewChronic(e.target.value)}
+                    placeholder="VD: Huyết áp, Dạ dày..."
+                    className="h-9 rounded-lg bg-white text-slate-900 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
 
             <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
-              <button
+              <Button
                 type="button"
-                disabled={isSubmittingDelete}
-                onClick={() => setDeletingMember(null)}
-                className="flex-1 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
+                variant="outline"
+                disabled={isSubmittingAdd}
+                onClick={() => setShowAddMemberModal(false)}
+                className="flex-1 h-10 rounded-xl text-xs sm:text-sm font-semibold"
               >
                 Hủy bỏ
-              </button>
-              <button
-                type="button"
-                disabled={isSubmittingDelete}
-                onClick={handleDeleteMember}
-                className="flex-1 py-2.5 text-xs sm:text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-60"
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmittingAdd}
+                className="flex-1 h-10 rounded-xl text-xs sm:text-sm font-semibold gap-1.5"
               >
-                {isSubmittingDelete ? 'Đang xử lý...' : 'Xác nhận tách'}
-              </button>
+                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                <span>{isSubmittingAdd ? 'Đang lưu...' : 'Lưu thành viên'}</span>
+              </Button>
             </div>
-          </div>
-        </div>
-      )}
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      {/* Accessible Feedback Toast */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
-          <span className="font-medium">{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-2 text-slate-400 hover:text-white cursor-pointer"
-            aria-label="Đóng thông báo"
+      {/* MODAL 2: CHỈNH SỬA THÔNG TIN THÀNH VIÊN */}
+      <Dialog open={Boolean(editingMember)} onOpenChange={(open) => !open && setEditingMember(null)}>
+        <DialogContent className="sm:max-w-lg rounded-2xl p-0 overflow-hidden border-slate-200/80 gap-0">
+          {editingMember && (
+            <>
+              <DialogHeader className="px-6 py-5 bg-primary text-primary-foreground text-left">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                    <span className="material-symbols-outlined text-[22px]">edit</span>
+                  </div>
+                  <div className="min-w-0">
+                    <DialogTitle className="font-bold text-base text-white truncate">
+                      Chỉnh Sửa Hồ Sơ: {editingMember.name}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-blue-100 truncate mt-0.5">
+                      HĐ {contractBadgeCode} · {editingMember.relationship}
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <form onSubmit={handleUpdateMemberSubmit} className="p-6 space-y-4 text-xs">
+                {editError && (
+                  <div
+                    role="alert"
+                    className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium"
+                  >
+                    {editError}
+                  </div>
+                )}
+
+                <div>
+                  <Label className="block font-semibold text-slate-700 mb-1">Họ và tên</Label>
+                  <Input
+                    type="text"
+                    required
+                    value={editingMember.name}
+                    onChange={(e) => setEditingMember({ ...editingMember, name: e.target.value })}
+                    className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="block font-semibold text-slate-700 mb-1">Quan hệ với chủ hộ</Label>
+                    <Input
+                      type="text"
+                      value={editingMember.relationship}
+                      onChange={(e) =>
+                        setEditingMember({ ...editingMember, relationship: e.target.value })
+                      }
+                      className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="block font-semibold text-slate-700 mb-1">Nhóm máu</Label>
+                    <select
+                      value={editingMember.bloodType}
+                      onChange={(e) =>
+                        setEditingMember({ ...editingMember, bloodType: e.target.value })
+                      }
+                      className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-primary outline-none"
+                    >
+                      <option value="O+">Nhóm máu O+</option>
+                      <option value="A+">Nhóm máu A+</option>
+                      <option value="B+">Nhóm máu B+</option>
+                      <option value="AB+">Nhóm máu AB+</option>
+                      <option value="Chưa rõ">Chưa rõ nhóm máu</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="block font-semibold text-slate-700 mb-1">Mã số thẻ BHYT</Label>
+                    <Input
+                      type="text"
+                      value={editingMember.bhytNumber}
+                      onChange={(e) =>
+                        setEditingMember({ ...editingMember, bhytNumber: e.target.value.toUpperCase() })
+                      }
+                      className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-bold tabular-nums text-xs"
+                    />
+                  </div>
+
+                  <div>
+                    <Label className="block font-semibold text-slate-700 mb-1">Nơi ĐKKCB ban đầu</Label>
+                    <Input
+                      type="text"
+                      value={editingMember.bhytHospital}
+                      onChange={(e) =>
+                        setEditingMember({ ...editingMember, bhytHospital: e.target.value })
+                      }
+                      className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="block font-semibold text-slate-700 mb-1">
+                    Bệnh nền đang theo dõi (ngăn cách bằng dấu phẩy)
+                  </Label>
+                  <Input
+                    type="text"
+                    value={editingMember.chronicDiseases.join(', ')}
+                    onChange={(e) =>
+                      setEditingMember({
+                        ...editingMember,
+                        chronicDiseases: e.target.value
+                          .split(',')
+                          .map((s) => s.trim())
+                          .filter(Boolean),
+                      })
+                    }
+                    className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 text-xs"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubmittingEdit}
+                    onClick={() => setEditingMember(null)}
+                    className="flex-1 h-10 rounded-xl text-xs sm:text-sm font-semibold"
+                  >
+                    Hủy bỏ
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={isSubmittingEdit}
+                    className="flex-1 h-10 rounded-xl text-xs sm:text-sm font-semibold gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">check</span>
+                    <span>{isSubmittingEdit ? 'Đang cập nhật...' : 'Cập nhật hồ sơ'}</span>
+                  </Button>
+                </div>
+              </form>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* MODAL 3: XÁC NHẬN TÁCH THÀNH VIÊN */}
+      <ConfirmDialog
+        open={Boolean(deletingMember)}
+        onOpenChange={(open) => !open && setDeletingMember(null)}
+        title="Xác nhận tách thành viên khỏi hộ"
+        description={
+          deletingMember ? (
+            <>
+              Bạn có chắc chắn muốn tách hồ sơ y tế của{' '}
+              <strong className="font-semibold text-slate-900">{deletingMember.name}</strong> (
+              {deletingMember.relationship}) khỏi danh sách thành viên hoạt động? Lịch sử y khoa trước đây vẫn được bảo toàn và
+              suất thành viên sẽ được giải phóng. HĐ {contractBadgeCode}
+            </>
+          ) : undefined
+        }
+        headerIcon={<span className="material-symbols-outlined text-[22px] text-rose-600">warning</span>}
+        confirmLabel="Xác nhận tách"
+        cancelLabel="Hủy bỏ"
+        variant="destructive"
+        isLoading={isSubmittingDelete}
+        onConfirm={handleDeleteMember}
+      >
+        {deleteError && (
+          <div
+            role="alert"
+            className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium"
           >
-            <span className="material-symbols-outlined text-[16px]">close</span>
-          </button>
-        </div>
-      )}
+            {deleteError}
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 
 const NAV_LINKS = [
@@ -180,12 +181,15 @@ export function LandingHeader() {
                   Đăng nhập
                 </Link>
 
-                <Link
-                  href="/register"
-                  className="hidden md:inline-flex px-3.5 sm:px-5 py-2 sm:py-2.5 rounded-md bg-[#0046c0] hover:bg-[#003899] text-white text-xs sm:text-sm font-medium transition-colors items-center gap-1.5 shadow-xs"
+                <Button
+                  asChild
+                  size="sm"
+                  className="hidden md:inline-flex rounded-md bg-[#0046c0] hover:bg-[#003899] text-white text-xs sm:text-sm font-medium gap-1.5 shadow-xs"
                 >
-                  <span>Đăng ký</span>
-                </Link>
+                  <Link href="/register">
+                    <span>Đăng ký</span>
+                  </Link>
+                </Button>
               </>
             )}
 

@@ -4,6 +4,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { FamilyMembersView } from '../family-members-view';
 import { contractsApi, patientsApi } from '@/lib/api';
 
@@ -74,11 +75,18 @@ describe('FamilyMembersView full real API integration', () => {
       updatedAt: '2026-11-14T00:00:00.000Z',
     });
 
+    const toastSpy = vi.spyOn(toast, 'success');
+
     render(<FamilyMembersView />);
 
     await waitFor(() => {
       expect(screen.getByTestId('family-members-empty-state')).toBeInTheDocument();
     });
+
+    await userEvent.click(screen.getByRole('button', { name: /Thêm thành viên đầu tiên/i }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /Thêm thành viên đầu tiên/i }));
     await userEvent.type(screen.getByPlaceholderText(/Ví dụ: Nguyễn Thị Lan/i), 'Trần Thị Mai');
@@ -95,6 +103,7 @@ describe('FamilyMembersView full real API integration', () => {
       );
       expect(screen.getByText('Trần Thị Mai')).toBeInTheDocument();
       expect(screen.getByTestId('member-quota-badge')).toHaveTextContent('1 / 2 thành viên');
+      expect(toastSpy).toHaveBeenCalled();
     });
   });
 

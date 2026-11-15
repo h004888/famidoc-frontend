@@ -3,6 +3,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 
 interface InquiryFormData {
@@ -91,6 +96,7 @@ export function ContactView() {
       setIsSubmitted(true);
       const randomCode = 'FMD-' + Math.floor(100000 + Math.random() * 900000);
       setInquiryCode(randomCode);
+      toast.success(`Đã gửi yêu cầu tư vấn #${randomCode}! Bác sĩ điều phối sẽ liên hệ lại sớm nhất.`);
 
       // Tự động cuộn đến khối thông báo thành công (Nielsen H1 & Krug)
       const formSection = document.getElementById('contact-form-section');
@@ -262,14 +268,15 @@ export function ContactView() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         {/* Name Input */}
                         <div>
-                          <input
+                          <Input
                             type="text"
                             name="name"
                             value={formData.fullName}
                             onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                             placeholder="Họ và tên của bạn *"
-                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${formErrors.fullName ? 'border-rose-500' : ''
-                              }`}
+                            className={`w-full h-[50px] px-5 rounded-md bg-white border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] text-sm text-[#232323] placeholder:text-[#4a6f8a] ${
+                              formErrors.fullName ? 'border-rose-500' : ''
+                            }`}
                           />
                           {formErrors.fullName && (
                             <p className="text-xs text-rose-500 mt-1 pl-1">{formErrors.fullName}</p>
@@ -278,14 +285,15 @@ export function ContactView() {
 
                         {/* Email Input */}
                         <div>
-                          <input
+                          <Input
                             type="email"
                             name="email"
                             value={formData.email}
                             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                             placeholder="Địa chỉ Email"
-                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${formErrors.email ? 'border-rose-500' : ''
-                              }`}
+                            className={`w-full h-[50px] px-5 rounded-md bg-white border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] text-sm text-[#232323] placeholder:text-[#4a6f8a] ${
+                              formErrors.email ? 'border-rose-500' : ''
+                            }`}
                           />
                           {formErrors.email && (
                             <p className="text-xs text-rose-500 mt-1 pl-1">{formErrors.email}</p>
@@ -296,14 +304,15 @@ export function ContactView() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                         {/* Phone Input */}
                         <div>
-                          <input
+                          <Input
                             type="tel"
                             name="phone_number"
                             value={formData.phoneNumber}
                             onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
                             placeholder="Số điện thoại di động *"
-                            className={`w-full h-[50px] px-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all ${formErrors.phoneNumber ? 'border-rose-500' : ''
-                              }`}
+                            className={`w-full h-[50px] px-5 rounded-md bg-white border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] text-sm text-[#232323] placeholder:text-[#4a6f8a] ${
+                              formErrors.phoneNumber ? 'border-rose-500' : ''
+                            }`}
                           />
                           {formErrors.phoneNumber && (
                             <p className="text-xs text-rose-500 mt-1 pl-1">{formErrors.phoneNumber}</p>
@@ -317,7 +326,7 @@ export function ContactView() {
                             value={formData.packageInterest}
                             onChange={(e) => setFormData({ ...formData, packageInterest: e.target.value })}
                             aria-label="Chọn dịch vụ hoặc gói y tế quan tâm"
-                            className="w-full h-[50px] px-4 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] transition-all cursor-pointer"
+                            className="w-full h-[50px] px-4 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-primary text-sm text-[#232323] transition-all cursor-pointer"
                           >
                             <option value="Gói Chăm Sóc Sức Khỏe Gia Đình Toàn Diện">
                               Gói Sức Khỏe Gia Đình Toàn Diện
@@ -343,32 +352,33 @@ export function ContactView() {
 
                       {/* Message Textarea */}
                       <div>
-                        <textarea
+                        <Textarea
                           name="message"
                           rows={4}
                           value={formData.notes}
                           onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                           placeholder="Nội dung cần tư vấn hoặc tình trạng sức khỏe hiện tại của các thành viên trong gia đình..."
-                          className="w-full p-4 sm:p-5 rounded-md bg-white border border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] focus:outline-hidden focus:border-[#0046c0] text-sm text-[#232323] placeholder:text-[#4a6f8a] transition-all resize-y"
+                          className="w-full p-4 sm:p-5 rounded-md bg-white border-slate-200 shadow-[0_0_15px_0_rgba(221,221,221,0.64)] text-sm text-[#232323] placeholder:text-[#4a6f8a] resize-y"
                         />
                       </div>
 
                       {/* Terms & Privacy Consent */}
                       <div className="space-y-1">
                         <label className="flex items-start gap-2.5 text-xs text-[#4a6f8a] cursor-pointer select-none">
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={formData.agreedConsent}
-                            onChange={(e) => setFormData({ ...formData, agreedConsent: e.target.checked })}
-                            className="mt-0.5 rounded border-slate-300 text-[#0046c0] focus:ring-[#0046c0] cursor-pointer"
+                            onCheckedChange={(checked) =>
+                              setFormData({ ...formData, agreedConsent: checked === true })
+                            }
+                            className="mt-0.5"
                           />
                           <span>
                             Tôi đồng ý với{' '}
-                            <Link href="/terms" className="text-[#0046c0] hover:underline font-medium">
+                            <Link href="/terms" className="text-primary hover:underline font-medium">
                               Điều khoản dịch vụ
                             </Link>{' '}
                             và cam kết bảo mật hồ sơ y tế theo{' '}
-                            <Link href="/privacy" className="text-[#0046c0] hover:underline font-medium">
+                            <Link href="/privacy" className="text-primary hover:underline font-medium">
                               Chính sách bảo mật FamiDoc
                             </Link>
                             .
@@ -381,10 +391,10 @@ export function ContactView() {
 
                       {/* Submit Button (.drop-btn) */}
                       <div>
-                        <button
+                        <Button
                           type="submit"
                           disabled={isSubmitting}
-                          className="inline-flex items-center justify-center gap-2 font-semibold text-[15px] text-white bg-[#0046c0] hover:bg-[#4a6f8a] px-9 py-3.5 rounded transition-all duration-300 shadow-sm disabled:opacity-70 cursor-pointer"
+                          className="h-auto px-9 py-3.5 rounded font-semibold text-[15px] gap-2"
                         >
                           {isSubmitting ? (
                             <>
@@ -399,7 +409,7 @@ export function ContactView() {
                               <span className="material-symbols-outlined text-base">send</span>
                             </>
                           )}
-                        </button>
+                        </Button>
                       </div>
                     </form>
                   )}
