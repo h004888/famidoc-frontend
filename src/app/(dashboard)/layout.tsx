@@ -1,6 +1,5 @@
 import React, { Suspense } from 'react';
 import Link from 'next/link';
-import { cookies } from 'next/headers';
 import {
   DashboardSidebar,
   FamilySubscriptionGateGuard,
@@ -8,32 +7,21 @@ import {
   SiteHeader,
 } from '@/components/layout';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
-import { COOKIE_KEYS } from '@/lib/auth-storage';
-import { LoginRole } from '@/features/auth/schemas/auth.schema';
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  let initialRole: LoginRole | undefined;
-  try {
-    const cookieStore = await cookies();
-    const rawRole = cookieStore.get(COOKIE_KEYS.ROLE)?.value as LoginRole | undefined;
-    if (rawRole && ['ADMIN', 'FACILITY', 'DOCTOR', 'FAMILY', 'PATIENT'].includes(rawRole)) {
-      initialRole = rawRole;
-    }
-  } catch {}
-
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <FamilySubscriptionGateProvider>
       <SidebarProvider defaultOpen={true}>
         <div className="flex min-h-screen w-full bg-[#f5f6f8] text-slate-900 antialiased font-sans">
           {/* Sidenav - Thanh điều hướng dọc chuẩn Preclinic */}
           <Suspense fallback={<div className="hidden lg:block w-64 bg-white border-r border-slate-200/90 shrink-0" />}>
-            <DashboardSidebar initialRole={initialRole} />
+            <DashboardSidebar />
           </Suspense>
 
           {/* Main content wrapper */}
           <SidebarInset className="flex min-w-0 flex-1 flex-col bg-[#f5f6f8] pb-16 lg:pb-0">
             <Suspense fallback={<div className="hidden h-16 border-b border-slate-200/90 bg-white lg:block" />}>
-              <SiteHeader initialRole={initialRole} />
+              <SiteHeader />
             </Suspense>
 
             {/* Nội dung trang */}
