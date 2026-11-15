@@ -108,7 +108,7 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
     ).toHaveAttribute('href', '/doctors');
   });
 
-  it('UT-CMP-09: Bấm nút "Đặt lịch khám" trên thẻ bác sĩ', async () => {
+  it('UT-CMP-09: Bấm nút "Đặt lịch khám" trên thẻ bác sĩ mở Dialog và đóng an toàn bằng Escape', async () => {
     const user = userEvent.setup();
     render(<LandingDoctors />);
     const links = screen.getAllByRole('link', { name: /xem hồ sơ chi tiết/i });

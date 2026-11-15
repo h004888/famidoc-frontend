@@ -1,615 +1,477 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
-  useContractWorkflow,
-  updateContractStep,
-  resetContractWorkflow,
-} from '@/lib/contract-workflow-storage';
-import { contractsApi, type StaffingContractItem } from '@/lib/api/contracts.api';
+  CONTRACT_STATUS_LABELS,
+  DocumensoSigningEmbed,
+  type FourPartyContract,
+} from '@/features/four-party-contract';
+import { contractsApi } from '@/lib/api';
+import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
-interface LegalContract {
-  id: string;
-  title: string;
-  type: 'b2b_hospital' | 'four_parties' | 'appendix';
-  partnerName: string;
-  effectiveDate: string;
-  expiryDate: string;
-  revenueShareRate: string;
-  status: 'active' | 'pending_signature' | 'expiring_soon' | 'terminated';
-  signedBy: string;
-  rawB2b?: StaffingContractItem;
+type AdminStatusFilter = 'ALL' | 'READY_FOR_ADMIN' | 'WAITING_FAMILY' | 'PENDING_PAYMENT' | 'ACTIVE';
+
+function countSignatures(contract: FourPartyContract): number {
+  const sigs = contract.signatures ?? {};
+  return [sigs.family, sigs.facility, sigs.doctor, sigs.platform].filter(Boolean).length;
 }
 
-const STATIC_CONTRACTS: LegalContract[] = [];
-
 export function AdminContractsView() {
-  const workflow = useContractWorkflow();
-  const [filterType, setFilterType] = useState<'all' | 'b2b_hospital' | 'four_parties' | 'appendix'>('all');
+  const [contracts, setContracts] = useState<FourPartyContract[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState<AdminStatusFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedContract, setSelectedContract] = useState<LegalContract | null>(null);
-  const [notification, setNotification] = useState('');
-  const [isSigningAdmin, setIsSigningAdmin] = useState(false);
+  const [selectedContract, setSelectedContract] = useState<FourPartyContract | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
-  // B2B Staffing Contracts state (Flow 2.1)
-  const [b2bContracts, setB2bContracts] = useState<LegalContract[]>([]);
+  // B2B Staffing Contract Draft Modal (Flow 2.1)
   const [showCreateB2BModal, setShowCreateB2BModal] = useState(false);
   const [newFacilityName, setNewFacilityName] = useState('');
-  const [newContractCode, setNewContractCode] = useState('');
   const [newFacilityShare, setNewFacilityShare] = useState(85);
   const [isCreatingDraft, setIsCreatingDraft] = useState(false);
-
-  // Load staffing contracts directly from Backend API
-  const loadB2b = async () => {
-    try {
-      const res = await contractsApi.getStaffingContracts();
-      if (res && Array.isArray(res.data)) {
-        const mapped: LegalContract[] = res.data.map((item) => ({
-          id: item.contractNumber,
-          title: `Hợp đồng Cung ứng Nhân lực B2B (${item.contractNumber})`,
-          type: 'b2b_hospital' as const,
-          partnerName: item.facilityName,
-          effectiveDate: new Date(item.validFrom).toLocaleDateString('vi-VN'),
-          expiryDate: new Date(item.validTo).toLocaleDateString('vi-VN'),
-          revenueShareRate: `${item.facilitySharePercent}% CSYT / ${item.platformSharePercent}% Platform`,
-          status:
-            item.status === 'ACTIVE'
-              ? 'active'
-              : item.status === 'TERMINATED'
-              ? 'terminated'
-              : 'pending_signature',
-          signedBy:
-            item.status === 'ACTIVE'
-              ? 'Đã ký số: Admin FamiDoc SmartCA & CSYT'
-              : item.facilitySigned
-              ? 'CSYT đã ký (Chờ Admin duyệt)'
-              : 'Chờ CSYT & Admin ký số',
-          rawB2b: item,
-        }));
-        setB2bContracts(mapped);
-      } else {
-        setB2bContracts([]);
-      }
-    } catch (err) {
-      console.warn('Lỗi tải danh sách hợp đồng B2B tại Admin:', err);
-      setB2bContracts([]);
-    }
-  };
-
-  useEffect(() => {
-    loadB2b();
-  }, []);
 
   const handleCreateB2BDraft = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingDraft(true);
-
     try {
       await contractsApi.createStaffingContract({
         platformCommissionRate: 100 - newFacilityShare,
         facilityRevenueRate: newFacilityShare,
       });
-      await loadB2b();
-      setNotification(`Đã khởi tạo dự thảo hợp đồng B2B thành công trên Database!`);
+      toast.success('Đã khởi tạo dự thảo hợp đồng B2B thành công trên hệ thống!');
       setShowCreateB2BModal(false);
+      triggerReload();
     } catch (err: any) {
-      console.warn('Lỗi tạo dự thảo hợp đồng B2B:', err);
-      setNotification(`[Lỗi] ${err?.message || 'Không thể tạo hợp đồng trên máy chủ.'}`);
+      toast.error(err?.message || 'Không thể tạo hợp đồng B2B trên máy chủ.');
     } finally {
       setIsCreatingDraft(false);
-      setTimeout(() => setNotification(''), 4500);
     }
   };
 
-  const fourPartyItem: LegalContract = {
-    id: workflow?.contractCode || 'CTR-4P-2026-88219',
-    title: `Hợp đồng Điện tử Cung cấp Dịch vụ Y tế Gia đình 4 Bên (${workflow?.packageName || 'Gói Toàn Diện VIP'})`,
-    type: 'four_parties',
-    partnerName: `Hộ ${workflow?.familyHeadName || 'Nguyễn Văn An'} (${workflow?.familyId || 'FAM-88219'})`,
-    effectiveDate: '10/11/2026',
-    expiryDate: '10/11/2027',
-    revenueShareRate: '85% BV ĐHYD / 15% Nền tảng (CFG-05)',
-    status: workflow?.step === 'ACTIVE'
-      ? 'active'
-      : workflow?.adminSigned
-      ? 'active'
-      : 'pending_signature',
-    signedBy: workflow?.adminSigned
-      ? `Đã ký số: Hộ ${workflow.familyHeadName}, Admin FamiDoc SmartCA`
-      : 'Chờ Quản trị viên FamiDoc ký số (Bên B)',
+  const triggerReload = () => {
+    setIsLoading(true);
+    setLoadError(null);
+    setReloadTick((t) => t + 1);
   };
 
-  const allContracts: LegalContract[] = [fourPartyItem, ...b2bContracts, ...STATIC_CONTRACTS];
+  useEffect(() => {
+    let active = true;
+    async function loadContracts() {
+      try {
+        const items = await contractsApi.getMedicalContracts({ limit: 50 });
+        if (!active) return;
+        setContracts(items);
+        setLoadError(null);
+      } catch (err) {
+        if (!active) return;
+        setLoadError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải danh sách hợp đồng từ máy chủ.'
+        );
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+    void loadContracts();
+    return () => {
+      active = false;
+    };
+  }, [reloadTick]);
 
-  const filteredContracts = allContracts.filter((c) => {
-    const matchesType = filterType === 'all' || c.type === filterType;
+  const filteredContracts = contracts.filter((c) => {
+    const q = searchQuery.toLowerCase().trim();
     const matchesSearch =
-      c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.partnerName.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesType && matchesSearch;
+      !q ||
+      c.contractNumber.toLowerCase().includes(q) ||
+      c.id.toLowerCase().includes(q) ||
+      c.familyRepresentativeName.toLowerCase().includes(q) ||
+      (c.facilityName || '').toLowerCase().includes(q) ||
+      (c.doctorName || '').toLowerCase().includes(q);
+
+    if (!matchesSearch) return false;
+
+    const familySigned = Boolean(c.signatures?.family);
+    const adminSigned = Boolean(c.signatures?.platform);
+
+    if (filterStatus === 'WAITING_FAMILY') {
+      return c.status === 'DRAFT' && !familySigned;
+    }
+    if (filterStatus === 'READY_FOR_ADMIN') {
+      return familySigned && !adminSigned && c.status !== 'ACTIVE' && c.status !== 'CANCELLED';
+    }
+    if (filterStatus === 'PENDING_PAYMENT') {
+      return c.status === 'PENDING_PAYMENT';
+    }
+    if (filterStatus === 'ACTIVE') {
+      return c.status === 'ACTIVE';
+    }
+    return true;
   });
 
-  const handleApproveSignature = async (contractId: string) => {
-    if (contractId === fourPartyItem.id) {
-      setIsSigningAdmin(true);
-      setTimeout(() => {
-        updateContractStep('PENDING_FACILITY_SIGN', {
-          adminSigned: true,
-          adminSignedAt: new Date().toLocaleString('vi-VN'),
-          adminSignerName: 'Ban Quản Trị Hệ Thống (FamiDoc Admin SmartCA)',
-          adminCertSerial: 'FMD-CA-2026-889102',
-        });
-        setIsSigningAdmin(false);
-        setSelectedContract(null);
-        setNotification(
-          `Đã ký số điện tử Nền tảng thành công! Hợp đồng ${contractId} đã được chuyển tới Bệnh viện ĐHYD (Màn hình SCR-22).`
-        );
-        setTimeout(() => setNotification(''), 4000);
-      }, 1200);
-      return;
-    }
-
-    if (selectedContract?.rawB2b) {
-      setIsSigningAdmin(true);
-      try {
-        await contractsApi.signStaffingContract(selectedContract.rawB2b.id, {
-          signatureHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-          signedPdfUrl: `https://cdn.famidoc.vn/contracts/staffing/${selectedContract.rawB2b.contractNumber}-signed.pdf`,
-        });
-        setNotification(`Đã ký số phê duyệt hợp đồng B2B ${contractId} thành công! Hợp đồng chính thức ACTIVE.`);
-        await loadB2b();
-      } catch (err: any) {
-        console.warn('Lỗi admin ký hợp đồng B2B:', err);
-        setNotification(err?.message || 'Không thể ký duyệt hợp đồng B2B trên máy chủ.');
-      } finally {
-        setIsSigningAdmin(false);
-        setSelectedContract(null);
-        setTimeout(() => setNotification(''), 4000);
-      }
-      return;
-    }
-
-    setNotification(`Đã xác thực và ký duyệt phụ lục ${contractId}`);
-    setSelectedContract(null);
-    setTimeout(() => setNotification(''), 3000);
-  };
-
-  const handleResetDemo = () => {
-    resetContractWorkflow();
-    setNotification('Đã reset dữ liệu hợp đồng về trạng thái mẫu!');
-    setTimeout(() => setNotification(''), 3000);
-  };
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#0052cc] uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
               <span className="material-symbols-outlined text-[17px]">gavel</span>
-              <span>Ban Quản Trị Hệ Thống • Phê Duyệt Pháp Lý &amp; HĐ 4 Bên</span>
+              <span>Ban Quản Trị Hệ Thống • Phê Duyệt Pháp Lý &amp; Documenso 4 Bên</span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
-              Quản lý Hợp đồng &amp; Pháp lý Nền tảng
+              Quản lý Hợp đồng &amp; Ký Duyệt Nền tảng (Bên D)
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Phê duyệt hợp đồng 4 bên theo chu trình sequential signing, phân bổ doanh thu 85/15 và quản trị văn bản pháp lý B2B
+              Theo dõi hợp đồng 4 bên thật từ hệ thống: Bên A ký trước trên Documenso, sau đó Admin (Bên D), CSYT (Bên B) và Bác sĩ (Bên C) ký song song.
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
+          <div className="flex items-center gap-2.5">
+            <Button
               type="button"
+              size="sm"
               onClick={() => setShowCreateB2BModal(true)}
-              className="px-4 py-1.5 bg-[#0052cc] hover:bg-[#003da6] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5"
+              className="rounded-xl bg-primary text-white text-xs font-semibold cursor-pointer gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">add_circle</span>
               <span>Thiết Lập Dự Thảo HĐ B2B</span>
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
-              onClick={handleResetDemo}
-              className="px-3.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+              variant="outline"
+              size="sm"
+              onClick={triggerReload}
+              disabled={isLoading}
+              className="rounded-xl bg-white text-xs font-semibold cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[16px] text-slate-500">restart_alt</span>
-              <span>Reset Demo</span>
-            </button>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold">
+              <span className={`material-symbols-outlined text-[16px] text-slate-500 ${isLoading ? 'animate-spin' : ''}`}>
+                refresh
+              </span>
+              <span>Làm mới</span>
+            </Button>
+            <Badge className="gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold tabular-nums">
               <span className="material-symbols-outlined text-[16px] text-amber-400">verified</span>
-              <span>Tổng cộng: {allContracts.length} văn bản pháp lý</span>
-            </div>
+              <span>Tổng cộng: {contracts.length} hợp đồng</span>
+            </Badge>
           </div>
         </div>
 
-        {/* Feedback Alert */}
-        {notification && (
-          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-2xs">
-            <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-            <span>{notification}</span>
-          </div>
+        {loadError && (
+          <Alert variant="destructive" className="rounded-xl bg-rose-50 border-rose-200 text-rose-800">
+            <AlertDescription className="flex items-center justify-between gap-3 text-xs sm:text-sm text-rose-800">
+              <span>{loadError}</span>
+              <Button
+                type="button"
+                size="xs"
+                variant="destructive"
+                onClick={triggerReload}
+                className="rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Thử lại
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Filter and Search Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          <div className="relative flex-1">
-            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm theo tên đối tác, mã hợp đồng, tiêu đề văn bản..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-[#0052cc]/20"
-            />
-          </div>
+        <Card className="rounded-2xl border-slate-200 py-4 shadow-xs">
+          <CardContent className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4">
+            <div className="relative flex-1">
+              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+                search
+              </span>
+              <Input
+                type="text"
+                placeholder="Tìm theo mã hợp đồng, đại diện hộ gia đình, cơ sở y tế, bác sĩ..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 bg-slate-50 rounded-xl text-xs sm:text-sm"
+              />
+            </div>
 
-          <div className="flex items-center gap-2">
-            {(['all', 'b2b_hospital', 'four_parties', 'appendix'] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setFilterType(t)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  filterType === t
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {t === 'all' && 'Tất cả'}
-                {t === 'b2b_hospital' && 'HĐ Đối tác B2B'}
-                {t === 'four_parties' && 'HĐ 4 Bên Gia đình'}
-                {t === 'appendix' && 'Phụ lục HĐ'}
-              </button>
-            ))}
-          </div>
-        </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  ['ALL', 'Tất cả'],
+                  ['READY_FOR_ADMIN', 'Chờ Admin ký (Bên D)'],
+                  ['WAITING_FAMILY', 'Chờ Bên A ký'],
+                  ['PENDING_PAYMENT', 'Chờ thanh toán'],
+                  ['ACTIVE', 'Đang hiệu lực'],
+                ] as const
+              ).map(([key, label]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  size="sm"
+                  variant={filterStatus === key ? 'default' : 'secondary'}
+                  onClick={() => setFilterStatus(key)}
+                  className="rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer"
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Contracts Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider">
-                <tr>
-                  <th className="py-3.5 px-4">Mã &amp; Tiêu đề Hợp đồng</th>
-                  <th className="py-3.5 px-4">Đối tác / Cơ sở y tế</th>
-                  <th className="py-3.5 px-4">Thời hạn hiệu lực</th>
-                  <th className="py-3.5 px-4">Tỷ lệ phân bổ B2B</th>
-                  <th className="py-3.5 px-4 text-center">Trạng thái</th>
-                  <th className="py-3.5 px-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredContracts.map((c) => {
-                  const isFourParty = c.type === 'four_parties';
+        <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+          <Table className="text-xs sm:text-sm">
+            <TableHeader>
+              <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
+                <TableHead className="py-3.5 px-4 text-slate-600">Mã Hợp đồng &amp; Gói</TableHead>
+                <TableHead className="py-3.5 px-4 text-slate-600">Hộ gia đình (Bên A)</TableHead>
+                <TableHead className="py-3.5 px-4 text-slate-600">CSYT (Bên B) &amp; Bác sĩ (Bên C)</TableHead>
+                <TableHead className="py-3.5 px-4 text-right text-slate-600">Giá trị</TableHead>
+                <TableHead className="py-3.5 px-4 text-center text-slate-600">Tiến độ Documenso</TableHead>
+                <TableHead className="py-3.5 px-4 text-right text-slate-600">Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-slate-100">
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-slate-500 text-xs">
+                    Đang tải danh sách hợp đồng từ hệ thống...
+                  </TableCell>
+                </TableRow>
+              ) : filteredContracts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-slate-500 text-xs">
+                    Không có hợp đồng nào phù hợp với bộ lọc hiện tại.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredContracts.map((c) => {
+                  const sigCount = countSignatures(c);
+                  const familySigned = Boolean(c.signatures?.family);
+                  const adminSigned = Boolean(c.signatures?.platform);
+
                   return (
-                    <tr
-                      key={c.id}
-                      className={`hover:bg-slate-50/70 transition-colors ${
-                        isFourParty ? 'bg-blue-50/20' : ''
-                      }`}
-                    >
-                      <td className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900 leading-snug flex items-center gap-1.5">
-                          {isFourParty && (
-                            <span className="px-2 py-0.5 rounded-md bg-blue-100 text-[#0052cc] text-[10px] font-bold">
-                              4-Party
-                            </span>
-                          )}
-                          <span>{c.title}</span>
+                    <TableRow key={c.id} className="hover:bg-slate-50/70">
+                      <TableCell className="py-3.5 px-4">
+                        <div className="font-bold text-slate-900">{c.packageName}</div>
+                        <div className="tabular-nums text-[11px] text-slate-500 mt-0.5">
+                          {c.contractNumber} • {c.membersCount ?? 1} thành viên
                         </div>
-                        <div className="tabular-nums text-[11px] text-slate-400 mt-0.5">{c.id}</div>
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-700">
-                        {c.partnerName}
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-600">
-                        <div>
-                          {c.effectiveDate} - {c.expiryDate}
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4">
+                        <div className="font-semibold text-slate-800">
+                          {c.familyRepresentativeName}
                         </div>
-                      </td>
-                      <td className="py-3.5 px-4 font-semibold text-[#0052cc]">
-                        {c.revenueShareRate}
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        {c.status === 'active' && (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            Đang hiệu lực
-                          </span>
-                        )}
-                        {c.status === 'pending_signature' && (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
-                            Chờ Admin ký số
-                          </span>
-                        )}
-                        {c.status === 'expiring_soon' && (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                            Sắp hết hạn (&lt;30 ngày)
-                          </span>
-                        )}
-                        {c.status === 'terminated' && (
-                          <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600">
-                            Đã thanh lý
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 text-right">
+                        <div className="text-[11px] text-slate-500 tabular-nums">
+                          {c.familyRepresentativePhone}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-xs text-slate-700">
+                        <div className="font-medium">{c.facilityName || '—'}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {c.doctorName || 'Chưa phân công BS'}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-right font-semibold text-primary tabular-nums">
+                        {formatPrice(c.packagePrice)}
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-center space-y-1">
+                        <Badge
+                          variant="outline"
+                          className={`rounded-full text-[11px] font-semibold ${
+                            c.status === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : familySigned
+                              ? 'bg-blue-50 text-primary border-blue-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          {c.status === 'ACTIVE'
+                            ? 'Đang hiệu lực'
+                            : c.status === 'PENDING_PAYMENT'
+                            ? 'Chờ thanh toán VietQR'
+                            : !familySigned
+                            ? 'Chờ Bên A ký trước'
+                            : adminSigned
+                            ? 'Admin đã ký — chờ bên khác'
+                            : CONTRACT_STATUS_LABELS[c.status] || 'Bên A đã ký'}
+                        </Badge>
+                        <div className="text-[11px] text-slate-500 tabular-nums">
+                          {sigCount}/4 chữ ký Documenso
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {isFourParty && (
-                            <Link
-                              href={`/admin/contracts/${c.id}/review`}
-                              className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-colors"
-                            >
-                              Thẩm định 4 Bên
-                            </Link>
-                          )}
-                          <button
+                          <Button asChild size="xs" variant="secondary" className="rounded-lg bg-accent text-primary hover:bg-accent/80 font-semibold">
+                            <Link href={`/admin/contracts/${c.id}/review`}>Thẩm định 4 Bên</Link>
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant={familySigned && !adminSigned ? 'default' : 'secondary'}
                             onClick={() => setSelectedContract(c)}
-                            className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer ${
-                              c.status === 'pending_signature'
-                                ? 'bg-[#0052cc] hover:bg-[#003da6] text-white shadow-xs'
-                                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                            }`}
+                            className="rounded-lg font-semibold cursor-pointer"
                           >
-                            {c.status === 'pending_signature' ? 'Xem & Ký Duyệt' : 'Chi tiết'}
-                          </button>
+                            {familySigned && !adminSigned
+                              ? 'Ký trên Documenso'
+                              : 'Chi tiết & Documenso'}
+                          </Button>
                         </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                    </TableRow>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                })
+              )}
+            </TableBody>
+          </Table>
+        </Card>
 
-        {/* Modal: Chi tiết điều khoản pháp lý & Phê duyệt ký số */}
-        {selectedContract && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-            <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 animate-scale-up">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#0052cc] text-[22px]">
-                    description
-                  </span>
-                  <h3 className="font-bold text-slate-900 text-base">Hồ sơ Pháp lý Điện tử 4 Bên</h3>
-                </div>
-                <button
-                  onClick={() => setSelectedContract(null)}
-                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
-                </button>
-              </div>
+        {/* Dialog: Ký trực tiếp trên Documenso & Chi tiết 4 bên */}
+        <Dialog open={Boolean(selectedContract)} onOpenChange={(open) => !open && setSelectedContract(null)}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 sm:max-w-3xl">
+            {selectedContract && (
+              <>
+                <DialogHeader className="border-b border-slate-100 pb-3">
+                  <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                    <span className="material-symbols-outlined text-primary text-[22px]">
+                      description
+                    </span>
+                    <span>Ký Hợp Đồng 4 Bên Trên Documenso — Bên D (Nền tảng)</span>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500 tabular-nums">
+                    Mã HĐ: {selectedContract.contractNumber} • Chủ hộ: {selectedContract.familyRepresentativeName}
+                  </DialogDescription>
+                </DialogHeader>
 
-              <div className="space-y-3 text-xs text-slate-600">
-                <div className="p-3 bg-slate-50 rounded-xl space-y-1">
-                  <div className="font-bold text-slate-900 text-sm">{selectedContract.title}</div>
-                  <div className="tabular-nums text-slate-500">Mã văn bản: {selectedContract.id}</div>
-                  <div className="text-slate-700">
-                    Bên thụ hưởng: <strong>{selectedContract.partnerName}</strong>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div className={`p-2 rounded-lg border ${selectedContract.signatures?.family ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+                    <strong>Bên A (Gia đình)</strong>
+                    <div>{selectedContract.signatures?.family ? 'Đã ký ✓' : 'Chưa ký'}</div>
                   </div>
-                  <div className="text-slate-700">
-                    Tỷ lệ chia sẻ doanh thu: <strong>{selectedContract.revenueShareRate}</strong>
+                  <div className={`p-2 rounded-lg border ${selectedContract.signatures?.facility ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                    <strong>Bên B (CSYT)</strong>
+                    <div>{selectedContract.signatures?.facility ? 'Đã ký ✓' : 'Chờ ký'}</div>
                   </div>
-                </div>
-
-                {/* Nếu là HĐ 4 Bên, hiển thị tiến trình ký 4 bên */}
-                {selectedContract.type === 'four_parties' && workflow && (
-                  <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl space-y-2">
-                    <div className="font-bold text-[#0052cc] flex items-center gap-1.5">
-                      <span className="material-symbols-outlined text-[16px]">draw</span>
-                      <span>Quy trình Ký Tuần Tự (Sequential 4-Party Signing):</span>
-                    </div>
-                    <div className="space-y-1.5 text-[11px]">
-                      <div className="flex items-center justify-between">
-                        <span>1. Đại diện Gia đình ({workflow.familyHeadName}):</span>
-                        <span className="text-emerald-700 font-bold">Đã ký OTP ✓</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>2. Nền tảng FamiDoc (Admin):</span>
-                        <span className={workflow.adminSigned ? 'text-emerald-700 font-bold' : 'text-amber-700 font-bold'}>
-                          {workflow.adminSigned ? 'Đã ký số SmartCA ✓' : 'Đang chờ ký (Bạn)'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>3. Cơ sở Y tế (BV ĐHYD):</span>
-                        <span className={workflow.facilitySigned ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
-                          {workflow.facilitySigned ? 'Đã phân công BS & Ký ✓' : 'Chờ chuyển tiếp (SCR-22)'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>4. Bác sĩ Phụ trách:</span>
-                        <span className={workflow.doctorSigned ? 'text-emerald-700 font-bold' : 'text-slate-500'}>
-                          {workflow.doctorSigned ? 'Đã ký cam kết ✓' : 'Chờ xác nhận (SCR-16)'}
-                        </span>
-                      </div>
-                    </div>
+                  <div className={`p-2 rounded-lg border ${selectedContract.signatures?.doctor ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                    <strong>Bên C (Bác sĩ)</strong>
+                    <div>{selectedContract.signatures?.doctor ? 'Đã ký ✓' : 'Chờ ký'}</div>
                   </div>
-                )}
-
-                <div className="border border-slate-200 p-3 rounded-xl space-y-2">
-                  <div className="font-bold text-slate-800">Trạng thái Ký số Chứng thư:</div>
-                  <p className="text-slate-600">{selectedContract.signedBy}</p>
-                  <div className="flex items-center gap-1.5 text-emerald-600 font-semibold text-[11px]">
-                    <span className="material-symbols-outlined text-[16px]">verified</span>
-                    <span>Chuẩn chữ ký số SHA-256 RSA (Bộ TT&amp;TT &amp; Viettel-CA HSM)</span>
+                  <div className={`p-2 rounded-lg border ${selectedContract.signatures?.platform ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-blue-50 border-blue-200 text-blue-900'}`}>
+                    <strong>Bên D (Admin)</strong>
+                    <div>{selectedContract.signatures?.platform ? 'Đã ký ✓' : 'Chờ ký'}</div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex items-center justify-between pt-4 mt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotification(`Đang tải file PDF hợp đồng ${selectedContract.id}...`);
-                    setTimeout(() => setNotification(''), 3000);
+                <DocumensoSigningEmbed
+                  contractId={selectedContract.id}
+                  onSyncCompleted={(res) => {
+                    const msg = `Đã đồng bộ chữ ký Documenso cho ${selectedContract.contractNumber} (${res.signedRoles.length}/4 bên).`;
+                    toast.success(msg);
+                    triggerReload();
                   }}
-                  className="px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-50 flex items-center gap-1.5 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">download</span>
-                  <span>Tải bản PDF</span>
-                </button>
+                />
 
-                <div className="flex items-center gap-2">
-                  <button
+                <DialogFooter className="border-t border-slate-100 pt-2">
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => setSelectedContract(null)}
-                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                    className="rounded-lg text-xs font-semibold cursor-pointer"
                   >
                     Đóng
-                  </button>
-                  {selectedContract.type === 'four_parties' && (
-                    <Link
-                      href={`/admin/contracts/${selectedContract.id}/review`}
-                      className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold"
-                    >
-                      Thẩm định &amp; Ký 4 bên
-                    </Link>
-                  )}
-                  {selectedContract.status === 'pending_signature' && selectedContract.type !== 'four_parties' && (
-                    <button
-                      type="button"
-                      disabled={isSigningAdmin}
-                      onClick={() => handleApproveSignature(selectedContract.id)}
-                      className="px-4 py-1.5 bg-[#0052cc] hover:bg-[#003da6] text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
-                    >
-                      {isSigningAdmin ? (
-                        <>
-                          <span className="material-symbols-outlined text-[14px] animate-spin">
-                            progress_activity
-                          </span>
-                          <span>Đang ký SmartCA...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined text-[14px]">draw</span>
-                          <span>Ký Số Duyệt (Bên B)</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+        {/* Modal tạo dự thảo hợp đồng B2B nhân lực y tế (Flow 2.1) */}
+        <Dialog open={showCreateB2BModal} onOpenChange={setShowCreateB2BModal}>
+          <DialogContent className="max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                <span className="material-symbols-outlined text-primary text-[20px]">handshake</span>
+                Thiết Lập Dự Thảo HĐ B2B Nhân Lực Y Tế
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                Flow 2.1 - Admin thiết lập dự thảo hợp đồng cung ứng nhân lực y tế với Cơ sở y tế đối tác.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateB2BDraft} className="space-y-4 pt-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Cơ sở y tế đối tác
+                </label>
+                <Input
+                  value={newFacilityName}
+                  onChange={(e) => setNewFacilityName(e.target.value)}
+                  placeholder="VD: Bệnh viện Đa khoa An Sinh"
+                  className="text-xs"
+                />
               </div>
-            </div>
-          </div>
-        )}
-        {/* MODAL: THIẾT LẬP DỰ THẢO HỢP ĐỒNG B2B (POST /api/v1/contracts/staffing) */}
-        {showCreateB2BModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
-            <div className="w-full max-w-lg bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#0052cc] flex items-center justify-center font-bold">
-                    <span className="material-symbols-outlined text-[20px]">handshake</span>
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900">Thiết Lập Dự Thảo HĐ B2B</h3>
-                    <p className="text-xs text-slate-500">Flow 2.1 - Hợp tác cung ứng nhân lực y tế</p>
-                  </div>
-                </div>
-                <button
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Tỷ lệ chia sẻ doanh thu CSYT (%)
+                </label>
+                <Input
+                  type="number"
+                  min={50}
+                  max={95}
+                  value={newFacilityShare}
+                  onChange={(e) => setNewFacilityShare(Number(e.target.value))}
+                  className="text-xs font-bold"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  CSYT: {newFacilityShare}% • Nền tảng FamiDoc: {100 - newFacilityShare}%
+                </p>
+              </div>
+              <DialogFooter className="gap-2 pt-2">
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setShowCreateB2BModal(false)}
-                  className="text-slate-400 hover:text-slate-600 font-bold p-1"
+                  className="text-xs"
                 >
-                  ✕
-                </button>
-              </div>
-
-              <form onSubmit={handleCreateB2BDraft} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Cơ Sở Y Tế Đối Tác <span className="text-rose-500">*</span>
-                  </label>
-                  <select
-                    value={newFacilityName}
-                    onChange={(e) => {
-                      setNewFacilityName(e.target.value);
-                      if (e.target.value.includes('An Sinh')) {
-                        setNewContractCode('STAFF-2026-ANSINH-002');
-                      } else if (e.target.value.includes('FamiCare')) {
-                        setNewContractCode('STAFF-2026-FAMICARE-002');
-                      } else {
-                        setNewContractCode(`STAFF-2026-B2B-${Math.floor(100 + Math.random() * 900)}`);
-                      }
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-[#0052cc]/20"
-                  >
-                    <option value="Bệnh viện Đa khoa An Sinh">Bệnh viện Đa khoa An Sinh (contact@ansinhhospital.vn)</option>
-                    <option value="Trung tâm Y tế Kỹ thuật cao An Sinh Hub">Trung tâm Y tế Kỹ thuật cao An Sinh Hub</option>
-                    <option value="Bệnh viện Đa khoa Quốc tế FamiCare">Bệnh viện Đa khoa Quốc tế FamiCare</option>
-                    <option value="Phòng khám Đa khoa Quốc tế Trustcare Hub">Phòng khám Đa khoa Quốc tế Trustcare Hub</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Mã Định Danh Hợp Đồng <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newContractCode}
-                    onChange={(e) => setNewContractCode(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 tracking-wide focus:outline-hidden focus:ring-2 focus:ring-[#0052cc]/20"
-                    placeholder="Ví dụ: STAFF-2026-ANSINH-002"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50/60 rounded-xl border border-blue-100">
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-blue-900">Tỷ lệ CSYT hưởng (%)</label>
-                    <input
-                      type="number"
-                      min="50"
-                      max="95"
-                      value={newFacilityShare}
-                      onChange={(e) => setNewFacilityShare(Number(e.target.value))}
-                      className="w-full px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-xs sm:text-sm font-bold text-blue-900"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="block text-xs font-semibold text-slate-600">Phí Nền tảng FamiDoc</label>
-                    <div className="px-3 py-2 text-xs sm:text-sm font-bold text-slate-700 bg-white/70 rounded-lg border border-blue-200">
-                      {100 - newFacilityShare}% Platform
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200 text-[11px] text-amber-900 leading-relaxed">
-                  💡 <strong>Quy trình ký 2 bên:</strong> Khi Admin bấm <em>"Tạo Dự Thảo &amp; Ký Số Platform"</em>, hợp đồng sẽ được đóng dấu số Admin SmartCA và gửi thẳng sang cổng Portal của Cơ sở y tế ở trạng thái <code>DRAFT</code> để đại diện CSYT thẩm định và ký số hoàn tất.
-                </div>
-
-                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setShowCreateB2BModal(false)}
-                    className="px-4 py-2 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl hover:bg-slate-50 cursor-pointer"
-                  >
-                    Hủy bỏ
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isCreatingDraft}
-                    className="px-5 py-2 bg-[#0052cc] hover:bg-[#003da6] text-white text-xs font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-60"
-                  >
-                    {isCreatingDraft ? (
-                      <span>Đang tạo dự thảo...</span>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-sm">draw</span>
-                        <span>Tạo Dự Thảo &amp; Ký Số Platform</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+                  Hủy bỏ
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isCreatingDraft}
+                  className="text-xs font-semibold"
+                >
+                  {isCreatingDraft ? 'Đang tạo...' : 'Lưu & Gửi Dự Thảo'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

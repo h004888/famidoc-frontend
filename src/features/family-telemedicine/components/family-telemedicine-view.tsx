@@ -3,6 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 
 interface ChatMessage {
   id: string;
@@ -48,7 +59,6 @@ export function FamilyTelemedicineView() {
   const [newChatMessage, setNewChatMessage] = useState('');
   const [showEndCallModal, setShowEndCallModal] = useState(false);
   const [callDuration, setCallDuration] = useState(254); // in seconds
-  const [attachmentToast, setAttachmentToast] = useState<string | null>(null);
 
   // Timer for call duration
   useEffect(() => {
@@ -81,7 +91,7 @@ export function FamilyTelemedicineView() {
   };
 
   const handleUploadPhoto = () => {
-    setAttachmentToast('Đã tải ảnh kết quả máy đo huyết áp Omron lên phòng gọi!');
+    toast.success('Đã tải ảnh kết quả máy đo huyết áp Omron lên phòng gọi!');
     const msg: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: 'patient',
@@ -95,32 +105,11 @@ export function FamilyTelemedicineView() {
       },
     };
     setChatMessages((prev) => [...prev, msg]);
-    setTimeout(() => setAttachmentToast(null), 4000);
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="max-w-7xl mx-auto py-4 sm:py-6 px-4 sm:px-6 lg:px-8 space-y-4 sm:space-y-6">
-        {/* Realtime Toast */}
-        {attachmentToast && (
-          <div
-            role="status"
-            className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in"
-          >
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px]">check_circle</span>
-              <span>{attachmentToast}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setAttachmentToast(null)}
-              className="text-emerald-700 hover:opacity-80 p-1 cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px]">close</span>
-            </button>
-          </div>
-        )}
-
         {/* Top Session Status Bar */}
         <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -281,7 +270,7 @@ export function FamilyTelemedicineView() {
                 onClick={() => setActiveTab('chat')}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   activeTab === 'chat'
-                    ? 'bg-white text-[#2E37A4] shadow-xs'
+                    ? 'bg-white text-primary shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -294,7 +283,7 @@ export function FamilyTelemedicineView() {
                 onClick={() => setActiveTab('vitals')}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   activeTab === 'vitals'
-                    ? 'bg-white text-[#2E37A4] shadow-xs'
+                    ? 'bg-white text-primary shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -307,7 +296,7 @@ export function FamilyTelemedicineView() {
                 onClick={() => setActiveTab('doctor')}
                 className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 cursor-pointer ${
                   activeTab === 'doctor'
-                    ? 'bg-white text-[#2E37A4] shadow-xs'
+                    ? 'bg-white text-primary shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -335,7 +324,7 @@ export function FamilyTelemedicineView() {
                           <div
                             className={`p-3 rounded-2xl text-xs leading-relaxed max-w-[85%] ${
                               isMe
-                                ? 'bg-[#2E37A4] text-white rounded-br-xs'
+                                ? 'bg-primary text-primary-foreground rounded-br-xs'
                                 : 'bg-slate-100 text-slate-800 rounded-bl-xs border border-slate-200/60'
                             }`}
                           >
@@ -356,20 +345,21 @@ export function FamilyTelemedicineView() {
 
                   {/* Message Input Form */}
                   <form onSubmit={handleSendMessage} className="pt-2 border-t border-slate-100 flex items-center gap-2">
-                    <input
+                    <Input
                       type="text"
                       value={newChatMessage}
                       onChange={(e) => setNewChatMessage(e.target.value)}
                       placeholder="Nhắn tin với Bác sĩ Nghĩa..."
-                      className="flex-1 p-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4]"
+                      className="flex-1 rounded-xl text-xs"
                     />
-                    <button
+                    <Button
                       type="submit"
-                      className="w-9 h-9 rounded-xl bg-[#2E37A4] hover:bg-indigo-800 text-white flex items-center justify-center shrink-0 cursor-pointer shadow-xs"
+                      size="icon"
+                      className="w-9 h-9 rounded-xl shrink-0"
                       title="Gửi tin nhắn"
                     >
                       <span className="material-symbols-outlined text-[18px]">send</span>
-                    </button>
+                    </Button>
                   </form>
                 </div>
               )}
@@ -435,7 +425,7 @@ export function FamilyTelemedicineView() {
                       className="w-14 h-14 rounded-2xl object-cover border border-slate-200 shrink-0"
                     />
                     <div>
-                      <div className="text-xs font-semibold text-[#2E37A4]">
+                      <div className="text-xs font-semibold text-primary">
                         Bác Sĩ Quản Nhiệm Hộ
                       </div>
                       <h4 className="text-sm font-bold text-slate-900">
@@ -474,45 +464,51 @@ export function FamilyTelemedicineView() {
         </div>
 
         {/* Modal Xác nhận Rời phòng khám */}
-        {showEndCallModal && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95">
+        <Dialog open={showEndCallModal} onOpenChange={setShowEndCallModal}>
+          <DialogContent className="sm:max-w-md rounded-3xl p-6 space-y-4">
+            <DialogHeader>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-[22px]">call_end</span>
                 </div>
                 <div>
-                  <h3 className="font-bold text-base text-slate-900">Rời Phòng Khám Telehealth</h3>
-                  <p className="text-xs text-slate-500">Kết thúc phiên tư vấn trực tuyến</p>
+                  <DialogTitle className="font-bold text-base text-slate-900">
+                    Rời Phòng Khám Telehealth
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500">
+                    Kết thúc phiên tư vấn trực tuyến
+                  </DialogDescription>
                 </div>
               </div>
+            </DialogHeader>
 
-              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                Bạn có chắc chắn muốn rời phòng khám? Bác sĩ sẽ hoàn tất phiếu khám SOAP và cập nhật đơn thuốc mới vào hồ sơ bệnh án của gia đình.
-              </p>
+            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+              Bạn có chắc chắn muốn rời phòng khám? Bác sĩ sẽ hoàn tất phiếu khám SOAP và cập nhật đơn thuốc mới vào hồ sơ bệnh án của gia đình.
+            </p>
 
-              <div className="flex gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowEndCallModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Ở lại phòng khám
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowEndCallModal(false);
-                    router.push('/family/appointments');
-                  }}
-                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
-                >
-                  Rời phòng gọi
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+            <DialogFooter className="pt-2 sm:justify-stretch gap-2.5">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEndCallModal(false)}
+                className="flex-1 rounded-xl font-semibold text-xs"
+              >
+                Ở lại phòng khám
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  setShowEndCallModal(false);
+                  router.push('/family/appointments');
+                }}
+                className="flex-1 rounded-xl font-bold text-xs"
+              >
+                Rời phòng gọi
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

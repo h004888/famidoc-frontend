@@ -1,8 +1,27 @@
-import React, { Suspense } from 'react';
+import { Suspense, cache } from 'react';
 import { Metadata } from 'next';
 import { notFound, redirect } from 'next/navigation';
 import { DoctorDetailView, type Facility } from '@/features/doctors';
 import { publicApi, type PublicDoctorDetailDto } from '@/lib/api/public.api';
+
+export const getDoctorDetail = cache(
+  (() => {
+    const inFlight = new Map<string, Promise<PublicDoctorDetailDto>>();
+
+    return (id: string): Promise<PublicDoctorDetailDto> => {
+      const existing = inFlight.get(id);
+      if (existing) {
+        return existing;
+      }
+
+      const pending = publicApi
+        .getDoctorDetail(id)
+        .finally(() => inFlight.delete(id));
+      inFlight.set(id, pending);
+      return pending;
+    };
+  })()
+);
 
 export async function generateMetadata({
   params,
@@ -11,10 +30,10 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   try {
-    const doctor = await publicApi.getDoctorDetail(id);
+    const doctor = await getDoctorDetail(id);
     const doctorTitle = doctor?.academicTitle
       ? `${doctor.academicTitle} ${doctor.doctorName}`
-      : doctor?.doctorName || doctor?.fullName || `Chuyên gia ${id}`;
+      : doctor?.doctorName || `Chuyên gia ${id}`;
 
     return {
       title: `${doctorTitle} | FamiDoc Pro`,
@@ -40,7 +59,7 @@ export async function DoctorDetailPageContent({
   let facilityItem: Facility | null = null;
 
   try {
-    doctor = await publicApi.getDoctorDetail(id);
+    doctor = await getDoctorDetail(id);
   } catch {
     try {
       const facilityDetail = await publicApi.getFacilityDetail(id);
@@ -112,7 +131,7 @@ export async function DoctorDetailPageContent({
     redirect(`/facilities/${id}`);
   }
 
-  return <DoctorDetailView id={id} initialDoctor={doctor} />;
+  return <DoctorDetailView initialDoctor={doctor} />;
 }
 
 export default function DoctorDetailPage({

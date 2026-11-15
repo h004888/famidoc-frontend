@@ -6,31 +6,74 @@ import { contractsApi } from '@/lib/api';
 
 vi.mock('@/lib/api', () => ({
   contractsApi: {
-    getMedicalContractById: vi.fn().mockResolvedValue({
-      id: 'FMD-2026-REGR821',
-      status: 'DOCTOR_ACCEPTED',
-    }),
+    getMedicalContractDetail: vi.fn(),
+    getSigningSession: vi.fn(),
+    syncDocumenso: vi.fn(),
   },
 }));
 
+vi.mock('@documenso/embed-react', () => ({
+  EmbedSignDocument: ({
+    token,
+    onDocumentCompleted,
+  }: {
+    token: string;
+    onDocumentCompleted?: () => void;
+  }) => (
+    <div data-testid="mock-tracker-documenso-form" data-token={token}>
+      <button type="button" onClick={() => onDocumentCompleted?.()}>
+        Ký xong
+      </button>
+    </div>
+  ),
+}));
+
 const mockPush = vi.fn();
-let mockSearchParams = new URLSearchParams();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: mockPush,
     replace: vi.fn(),
   }),
-  useSearchParams: () => mockSearchParams,
+  useSearchParams: () => new URLSearchParams(),
 }));
 
-describe('Màn 7: ContractSigningTrackerView (Stepper theo dõi tiến độ ký kết 4 bên)', () => {
+const detailDto = (overrides: Record<string, unknown> = {}) => ({
+  id: 'FMD-2026-REGR821',
+  contractNumber: 'MC2026TEST01',
+  contractStatus: 'PENDING_PAYMENT',
+  totalAmount: '9600000.00',
+  memberCount: 4,
+  startDate: '2026-01-01T00:00:00.000Z',
+  endDate: '2026-12-31T00:00:00.000Z',
+  createdAt: '2026-01-01T00:00:00.000Z',
+  facility: { facilityName: 'Bệnh viện Đại học Y Dược TP.HCM' },
+  doctor: { user: { fullName: 'BS. Trần Thanh Mai' } },
+  servicePackage: { packageName: 'Gói Toàn Diện Gia Đình (12 Tháng)' },
+  ...overrides,
+});
+
+describe('ContractSigningTrackerView (Luồng Documenso 2 pha & Thanh toán)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSearchParams = new URLSearchParams();
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue(
+      detailDto() as never
+    );
+    vi.mocked(contractsApi.getSigningSession).mockResolvedValue({
+      contractId: 'FMD-2026-REGR821',
+      contractNumber: 'MC2026TEST01',
+      contractStatus: 'PENDING_APPROVAL',
+      signerRole: 'FAMILY_REP',
+      alreadySigned: false,
+      canSign: true,
+      signingToken: 'tok-ben-a',
+      signingUrl: 'https://sign.famidoc.online/sign/tok-ben-a',
+      signedRoles: [],
+      signedPdfUrl: null,
+    });
   });
 
-  it('renders 5-step stepper and contract metadata', () => {
+  it('hiển thị quy trình 2 pha (Bên A trước -> B/C/D song song) và thông tin hợp đồng', () => {
     render(
       <ContractSigningTrackerView
         contract={{
@@ -40,85 +83,100 @@ describe('Màn 7: ContractSigningTrackerView (Stepper theo dõi tiến độ ký
           facilityName: 'Bệnh viện Đại học Y Dược TP.HCM',
           doctorName: 'BS. CKII Lê Hoàng Nam',
           status: 'FAMILY_SIGNED',
+          signedRoles: ['FAMILY_REP', 'ASSIGNED_DOCTOR'],
         }}
       />
     );
 
-    // Contract details
     expect(screen.getByText(/FMD-2026-REGR821/i)).toBeInTheDocument();
     expect(screen.getByText(/Gói Toàn Diện Gia Đình \(12 Tháng\)/i)).toBeInTheDocument();
     expect(screen.getByText(/9\.600\.000 đ/i)).toBeInTheDocument();
-
-    // 5 Steps in the Stepper
-    expect(screen.getByText(/1\. Gia đình ký số/i)).toBeInTheDocument();
-    expect(screen.getByText(/2\. Nền tảng ký duyệt/i)).toBeInTheDocument();
-    expect(screen.getByText(/3\. CSYT phân công & ký/i)).toBeInTheDocument();
-    expect(screen.getByText(/4\. Bác sĩ ký chấp thuận/i)).toBeInTheDocument();
-    expect(screen.getByText(/5\. Thanh toán & Kích hoạt/i)).toBeInTheDocument();
-  });
-
-  it('correctly marks current step when status is FAMILY_SIGNED', () => {
-    render(
-      <ContractSigningTrackerView
-        contract={{
-          id: 'FMD-2026-REGR821',
-          status: 'FAMILY_SIGNED',
-        }}
-      />
+    expect(screen.getByTestId('phase-1-family')).toHaveAttribute(
+      'data-phase-status',
+      'completed'
     );
-
-    // Step 1 completed, Step 2 is in progress/current
-    expect(screen.getByTestId('step-1')).toHaveAttribute('data-step-status', 'completed');
-    expect(screen.getByTestId('step-2')).toHaveAttribute('data-step-status', 'current');
-    expect(screen.getByTestId('step-3')).toHaveAttribute('data-step-status', 'pending');
-    expect(screen.getByTestId('step-4')).toHaveAttribute('data-step-status', 'pending');
-    expect(screen.getByTestId('step-5')).toHaveAttribute('data-step-status', 'pending');
-  });
-
-  it('correctly marks current step when status is FACILITY_ASSIGNED', () => {
-    render(
-      <ContractSigningTrackerView
-        contract={{
-          id: 'FMD-2026-REGR821',
-          status: 'FACILITY_ASSIGNED',
-        }}
-      />
+    expect(screen.getByTestId('phase-2-parallel')).toHaveAttribute(
+      'data-phase-status',
+      'current'
     );
-
-    // Steps 1, 2, 3 completed; Step 4 is current
-    expect(screen.getByTestId('step-1')).toHaveAttribute('data-step-status', 'completed');
-    expect(screen.getByTestId('step-2')).toHaveAttribute('data-step-status', 'completed');
-    expect(screen.getByTestId('step-3')).toHaveAttribute('data-step-status', 'completed');
-    expect(screen.getByTestId('step-4')).toHaveAttribute('data-step-status', 'current');
-    expect(screen.getByTestId('step-5')).toHaveAttribute('data-step-status', 'pending');
+    expect(screen.getByTestId('party-status-ASSIGNED_DOCTOR')).toHaveAttribute(
+      'data-signed',
+      'true'
+    );
+    expect(screen.getByTestId('party-status-HEALTHCARE_FACILITY')).toHaveAttribute(
+      'data-signed',
+      'false'
+    );
   });
 
-  it('displays VietQR payment button when contract reaches DOCTOR_ACCEPTED or PENDING_PAYMENT', () => {
+  it('nhúng Documenso ngay khi Bên A chưa ký xong (PENDING_APPROVAL) và đồng bộ sau khi hoàn tất', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail)
+      .mockResolvedValueOnce(
+        detailDto({
+          contractStatus: 'PENDING_APPROVAL',
+          signatures: [],
+        }) as never
+      )
+      .mockResolvedValueOnce(
+        detailDto({
+          contractStatus: 'PENDING_APPROVAL',
+          signatures: [
+            { signerRole: 'FAMILY_REP', signerUserId: 'u1', signedAt: '2026-11-13T10:00:00Z' },
+          ],
+        }) as never
+      );
+    vi.mocked(contractsApi.syncDocumenso).mockResolvedValueOnce({
+      synced: true,
+      contractId: 'FMD-2026-REGR821',
+      contractStatus: 'PENDING_APPROVAL',
+      signedRoles: ['FAMILY_REP'],
+      signedPdfUrl: null,
+    });
+
+    render(<ContractSigningTrackerView contractId="FMD-2026-REGR821" />);
+
+    const form = await screen.findByTestId('mock-tracker-documenso-form');
+    expect(form).toHaveAttribute('data-token', 'tok-ben-a');
+
+    fireEvent.click(screen.getByRole('button', { name: /Ký xong/i }));
+
+    await waitFor(() => {
+      expect(contractsApi.syncDocumenso).toHaveBeenCalledWith('FMD-2026-REGR821');
+      expect(screen.getByTestId('phase-1-family')).toHaveAttribute(
+        'data-phase-status',
+        'completed'
+      );
+    });
+  });
+
+  it('hiển thị nút Thanh toán VietQR khi đủ 4/4 chữ ký (PENDING_PAYMENT)', () => {
     const handleProceedPayment = vi.fn();
     render(
       <ContractSigningTrackerView
         contract={{
           id: 'FMD-2026-REGR821',
-          status: 'DOCTOR_ACCEPTED',
+          status: 'PENDING_PAYMENT',
           packagePrice: '9.600.000 đ',
         }}
         onProceedPayment={handleProceedPayment}
       />
     );
 
-    // Steps 1..4 completed, Step 5 is current
-    expect(screen.getByTestId('step-4')).toHaveAttribute('data-step-status', 'completed');
-    expect(screen.getByTestId('step-5')).toHaveAttribute('data-step-status', 'current');
+    expect(screen.getByTestId('phase-2-parallel')).toHaveAttribute(
+      'data-phase-status',
+      'completed'
+    );
+    expect(screen.getByTestId('phase-3-payment')).toHaveAttribute(
+      'data-phase-status',
+      'current'
+    );
 
-    // Shows VietQR action callout
     const payBtn = screen.getByRole('button', { name: /Thanh toán VietQR/i });
-    expect(payBtn).toBeInTheDocument();
-
     fireEvent.click(payBtn);
     expect(handleProceedPayment).toHaveBeenCalled();
   });
 
-  it('calls contractsApi.getMedicalContractById when refresh button is clicked', async () => {
+  it('gọi contractsApi.getMedicalContractDetail khi bấm Cập nhật tiến độ', async () => {
     render(
       <ContractSigningTrackerView
         contract={{
@@ -128,27 +186,33 @@ describe('Màn 7: ContractSigningTrackerView (Stepper theo dõi tiến độ ký
       />
     );
 
-    const refreshBtn = screen.getByRole('button', { name: /Cập nhật tiến độ/i });
-    fireEvent.click(refreshBtn);
+    fireEvent.click(screen.getByRole('button', { name: /Cập nhật tiến độ/i }));
 
     await waitFor(() => {
-      expect(contractsApi.getMedicalContractById).toHaveBeenCalledWith('FMD-2026-REGR821');
+      expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledWith('FMD-2026-REGR821');
     });
   });
 
-  it('displays active contract status and link when status is ACTIVE', () => {
+  it('hiển thị trạng thái ACTIVE cùng liên kết tới /family/members và bản sao hợp đồng', () => {
     render(
       <ContractSigningTrackerView
         contract={{
           id: 'FMD-2026-REGR821',
+          memberCount: 4,
           status: 'ACTIVE',
         }}
       />
     );
 
-    // All steps completed
-    expect(screen.getByTestId('step-5')).toHaveAttribute('data-step-status', 'completed');
+    expect(screen.getByTestId('phase-3-payment')).toHaveAttribute(
+      'data-phase-status',
+      'completed'
+    );
     expect(screen.getByText(/Hợp đồng đang có hiệu lực pháp lý/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Quản lý thành viên/i })).toHaveAttribute(
+      'href',
+      '/family/members'
+    );
     expect(screen.getByRole('link', { name: /Xem bản sao hợp đồng/i })).toHaveAttribute(
       'href',
       '/family/subscription/contract'
@@ -159,5 +223,25 @@ describe('Màn 7: ContractSigningTrackerView (Stepper theo dõi tiến độ ký
     const { container } = render(<ContractSigningTrackerView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');
+  });
+
+  it('hiển thị lỗi có thể thấy được khi tải hợp đồng thất bại', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockRejectedValue(
+      Object.assign(new Error('Not found'), { status: 404 })
+    );
+
+    render(<ContractSigningTrackerView contractId="missing-contract" />);
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Không tìm thấy hợp đồng này/i)
+    ).toBeInTheDocument();
+  });
+
+  it('hiển thị trạng thái trống khi không có contractId', () => {
+    render(<ContractSigningTrackerView />);
+
+    expect(screen.getByText(/Chưa có hợp đồng để theo dõi/i)).toBeInTheDocument();
+    expect(contractsApi.getMedicalContractDetail).not.toHaveBeenCalled();
   });
 });

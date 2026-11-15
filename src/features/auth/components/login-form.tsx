@@ -9,6 +9,13 @@ import { saveAuthSession, AuthUser } from '@/lib/auth-storage';
 import { httpClient } from '@/lib/api/http-client';
 import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
 import { useRouter } from 'next/navigation';
+import { resolveReturnUrl } from '../return-url';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function LoginForm() {
   const router = useRouter();
@@ -17,7 +24,7 @@ export function LoginForm() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(true);
+  const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -65,7 +72,11 @@ export function LoginForm() {
       saveAuthSession(role, authUser, data.accessToken, validData.rememberMe);
       setLoading(false);
 
-      const redirectPath = getDefaultPathForRole(role);
+      const isFamilyRole = role === 'FAMILY' || role === 'PATIENT';
+      // Quay lại đúng trang người dùng định vào; chỉ nhận đường dẫn nội bộ hợp lệ.
+      const returnUrl = resolveReturnUrl(searchParams.get('redirect'));
+      const redirectPath =
+        returnUrl ?? (isFamilyRole ? '/' : getDefaultPathForRole(role));
       if (typeof window !== 'undefined') {
         window.location.replace(redirectPath);
       } else {
@@ -73,8 +84,15 @@ export function LoginForm() {
       }
     } catch (err: unknown) {
       setLoading(false);
+      const rawMessage = err instanceof Error ? err.message.trim() : '';
+      const isUnhelpfulMessage =
+        !rawMessage ||
+        rawMessage.toLowerCase() === 'unauthorized' ||
+        /^API error \(\d+\)$/.test(rawMessage);
       setErrors({
-        global: err instanceof Error ? err.message : 'Tài khoản hoặc mật khẩu không chính xác',
+        global: isUnhelpfulMessage
+          ? 'Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại.'
+          : rawMessage,
       });
     }
   };
@@ -260,17 +278,15 @@ export function LoginForm() {
 
             {/* Form Đăng Nhập */}
             <form onSubmit={handleSubmit} className="space-y-4" data-purpose="login-form">
-              {/* Thông báo lỗi chung (Global error alert) */}
               {errors.global && (
-                <div
-                  role="alert"
-                  className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2.5 shadow-2xs"
-                >
-                  <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-xs shrink-0 font-bold">
-                    !
-                  </span>
-                  <span>{errors.global}</span>
-                </div>
+                <Alert variant="destructive" className="rounded-2xl border-red-200 bg-red-50 text-red-700">
+                  <AlertDescription className="flex items-center gap-2.5 text-xs font-semibold text-red-700">
+                    <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-xs shrink-0 font-bold">
+                      !
+                    </span>
+                    <span>{errors.global}</span>
+                  </AlertDescription>
+                </Alert>
               )}
 
               {/* Trường Email / Tên đăng nhập */}
@@ -290,7 +306,7 @@ export function LoginForm() {
                       <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                     </svg>
                   </span>
-                  <input
+                  <Input
                     id="login-email"
                     name="email"
                     type="email"
@@ -324,7 +340,7 @@ export function LoginForm() {
                       <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                     </svg>
                   </span>
-                  <input
+                  <Input
                     id="login-password"
                     name="password"
                     aria-label="Mật khẩu"
@@ -364,8 +380,8 @@ export function LoginForm() {
               <div className="flex items-center justify-between pt-0.5">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
-                    id="login-remember"
                     type="checkbox"
+                    id="login-remember"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300 focus:ring-blue-500 cursor-pointer"
@@ -374,7 +390,7 @@ export function LoginForm() {
                 </label>
                 <Link
                   href="/forgot-password"
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline transition-colors"
+                  className="text-xs font-semibold text-primary hover:underline transition-colors"
                 >
                   Quên mật khẩu?
                 </Link>
@@ -394,19 +410,7 @@ export function LoginForm() {
                       <span>Đang đăng nhập...</span>
                     </>
                   ) : (
-                    <>
-                      <span>Đăng nhập hệ thống</span>
-                      <svg
-                        className="w-4 h-4 transition-transform group-hover:translate-x-1"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        viewBox="0 0 24 24"
-                      >
-                        <line x1="5" x2="19" y1="12" y2="12" />
-                        <polyline points="12 5 19 12 12 19" />
-                      </svg>
-                    </>
+                    <span>Đăng nhập hệ thống</span>
                   )}
                 </button>
               </div>
@@ -420,7 +424,7 @@ export function LoginForm() {
                 <div className="flex-grow border-t border-slate-200" />
               </div>
 
-              <button
+              <Button
                 type="button"
                 className="w-full h-9 sm:h-10 flex items-center justify-center gap-2 border border-slate-200 rounded-xl bg-white hover:bg-slate-50 text-slate-700 transition-colors text-xs font-semibold shadow-xs cursor-pointer"
               >
@@ -443,7 +447,7 @@ export function LoginForm() {
                   />
                 </svg>
                 <span>Đăng nhập với Google</span>
-              </button>
+              </Button>
             </form>
 
             {/* Card Footer */}

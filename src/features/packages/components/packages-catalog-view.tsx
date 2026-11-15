@@ -2,6 +2,14 @@
 
 import React, { useState, useMemo } from 'react';
 import Link from 'next/link';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import { useAuth } from '@/features/auth/context/auth-context';
 
@@ -684,75 +692,75 @@ export function PackagesCatalogView() {
           </div>
 
           <div className="overflow-x-auto rounded-2xl border border-slate-200 shadow-xs">
-            <table className="w-full text-xs text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200">
-                  <th className="p-3.5 sm:p-4 min-w-[180px]">Tiêu chí / Quyền lợi</th>
-                  <th className="p-3.5 sm:p-4 min-w-[140px]">Gói Trải Nghiệm</th>
-                  <th className="p-3.5 sm:p-4 min-w-[140px] bg-blue-50/60 text-[#0046c0]">Gói Đồng Hành (★)</th>
-                  <th className="p-3.5 sm:p-4 min-w-[140px]">Gói An Tâm</th>
-                  <th className="p-3.5 sm:p-4 min-w-[140px]">Gói Toàn Diện</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700">
-                <tr>
-                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Thời hạn gói</td>
-                  <td className="p-3.5 sm:p-4">1 tháng</td>
-                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">3 tháng</td>
-                  <td className="p-3.5 sm:p-4">6 tháng</td>
-                  <td className="p-3.5 sm:p-4">12 tháng</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Thành viên mặc định / Tối đa</td>
-                  <td className="p-3.5 sm:p-4">1 / 2 người</td>
-                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">3 / 6 người</td>
-                  <td className="p-3.5 sm:p-4">4 / 8 người</td>
-                  <td className="p-3.5 sm:p-4">6 / 10 người</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Khám tại nhà toàn kỳ</td>
-                  <td className="p-3.5 sm:p-4">1 lần (1.000k/lần)</td>
-                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">3 lần (950k/lần)</td>
-                  <td className="p-3.5 sm:p-4">7 lần (925k/lần)</td>
-                  <td className="p-3.5 sm:p-4">14 lần (900k/lần)</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Tư vấn Video miễn phí</td>
-                  <td className="p-3.5 sm:p-4">1 lượt</td>
-                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">4 lượt</td>
-                  <td className="p-3.5 sm:p-4">8 lượt</td>
-                  <td className="p-3.5 sm:p-4">Theo kế hoạch bác sĩ</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Nhắn tin với Bác sĩ</td>
-                  <td className="p-3.5 sm:p-4">Miễn phí trong kỳ</td>
-                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">Miễn phí trong kỳ</td>
-                  <td className="p-3.5 sm:p-4">Miễn phí trong kỳ</td>
-                  <td className="p-3.5 sm:p-4">Miễn phí 365 ngày</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Hồ sơ bệnh án điện tử (EHR)</td>
-                  <td className="p-3.5 sm:p-4">Chuẩn HL7 cá nhân</td>
-                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">EHR Gia đình</td>
-                  <td className="p-3.5 sm:p-4">EHR Liên thông</td>
-                  <td className="p-3.5 sm:p-4">Y bạ Gia tộc trọn đời</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Phụ phí thêm người</td>
-                  <td className="p-3.5 sm:p-4">75.000đ/người/tháng</td>
-                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-semibold text-slate-900">75.000đ/người/tháng</td>
-                  <td className="p-3.5 sm:p-4">75.000đ/người/tháng</td>
-                  <td className="p-3.5 sm:p-4">75.000đ/người/tháng</td>
-                </tr>
-                <tr>
-                  <td className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Giá trọn gói cơ bản</td>
-                  <td className="p-3.5 sm:p-4 font-bold text-slate-900">1.000.000 đ</td>
-                  <td className="p-3.5 sm:p-4 bg-blue-50/20 font-bold text-[#0046c0]">2.850.000 đ</td>
-                  <td className="p-3.5 sm:p-4 font-bold text-slate-900">6.475.000 đ</td>
-                  <td className="p-3.5 sm:p-4 font-bold text-slate-900">12.600.000 đ</td>
-                </tr>
-              </tbody>
-            </table>
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow className="bg-slate-100 text-slate-800 font-bold border-b border-slate-200 hover:bg-slate-100">
+                  <TableHead className="p-3.5 sm:p-4 min-w-[180px] font-bold text-slate-800">Tiêu chí / Quyền lợi</TableHead>
+                  <TableHead className="p-3.5 sm:p-4 min-w-[140px] font-bold text-slate-800">Gói Trải Nghiệm</TableHead>
+                  <TableHead className="p-3.5 sm:p-4 min-w-[140px] bg-primary/10 text-primary font-bold">Gói Đồng Hành (★)</TableHead>
+                  <TableHead className="p-3.5 sm:p-4 min-w-[140px] font-bold text-slate-800">Gói An Tâm</TableHead>
+                  <TableHead className="p-3.5 sm:p-4 min-w-[140px] font-bold text-slate-800">Gói Toàn Diện</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-slate-100 text-slate-700">
+                <TableRow>
+                  <TableCell className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Thời hạn gói</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">1 tháng</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 bg-primary/5 font-semibold text-slate-900">3 tháng</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">6 tháng</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">12 tháng</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Thành viên mặc định / Tối đa</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">1 / 2 người</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 bg-primary/5 font-semibold text-slate-900">3 / 6 người</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">4 / 8 người</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">6 / 10 người</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Khám tại nhà toàn kỳ</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">1 lần (1.000k/lần)</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 bg-primary/5 font-semibold text-slate-900">3 lần (950k/lần)</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">7 lần (925k/lần)</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">14 lần (900k/lần)</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Tư vấn Video miễn phí</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">1 lượt</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 bg-primary/5 font-semibold text-slate-900">4 lượt</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">8 lượt</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">Theo kế hoạch bác sĩ</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Nhắn tin với Bác sĩ</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">Miễn phí trong kỳ</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 bg-primary/5 font-semibold text-slate-900">Miễn phí trong kỳ</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">Miễn phí trong kỳ</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">Miễn phí 365 ngày</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Hồ sơ bệnh án điện tử (EHR)</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">Chuẩn HL7 cá nhân</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 bg-primary/5 font-semibold text-slate-900">EHR Gia đình</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">EHR Liên thông</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">Y bạ Gia tộc trọn đời</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Phụ phí thêm người</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">75.000đ/người/tháng</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 bg-primary/5 font-semibold text-slate-900">75.000đ/người/tháng</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">75.000đ/người/tháng</TableCell>
+                  <TableCell className="p-3.5 sm:p-4">75.000đ/người/tháng</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="p-3.5 sm:p-4 font-semibold text-slate-900 bg-slate-50/50">Giá trọn gói cơ bản</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 font-bold text-slate-900">1.000.000 đ</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 bg-primary/5 font-bold text-primary">2.850.000 đ</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 font-bold text-slate-900">6.475.000 đ</TableCell>
+                  <TableCell className="p-3.5 sm:p-4 font-bold text-slate-900">12.600.000 đ</TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
           </div>
         </section>
 

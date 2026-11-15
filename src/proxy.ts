@@ -45,7 +45,8 @@ export function proxy(request: NextRequest) {
     // Nếu CHƯA ĐĂNG NHẬP -> Bắt buộc chuyển hướng về trang /login
     if (!isAuthenticated || !currentRole) {
       const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
+      // Giữ cả query string để deep link (ví dụ link thanh toán trong email) không mất ngữ cảnh.
+      loginUrl.searchParams.set('redirect', `${pathname}${request.nextUrl.search}`);
       return NextResponse.redirect(loginUrl);
     }
 

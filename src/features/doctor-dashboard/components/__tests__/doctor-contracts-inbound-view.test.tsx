@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { DoctorContractsInboundView } from '../doctor-contracts-inbound-view';
 import type { FourPartyContract } from '@/features/four-party-contract';
 
@@ -108,13 +108,13 @@ describe('Màn hình Bác sĩ: DoctorContractsInboundView (/doctor/contracts)', 
 
   it('renders status badges distinguishing pending medical review vs active care', () => {
     render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
-    expect(screen.getByText(/Chờ tiếp nhận y tế/i)).toBeInTheDocument();
+    expect(screen.getByText(/Chờ bác sĩ ký Documenso/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Đang phụ trách/i).length).toBeGreaterThan(0);
   });
 
   it('provides action link directing to contract review and care needs summary screen', () => {
     render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
-    const reviewLink = screen.getByRole('link', { name: /Thẩm định & Ký số/i });
+    const reviewLink = screen.getByRole('link', { name: /Thẩm định & Ký Documenso/i });
     expect(reviewLink).toHaveAttribute('href', '/doctor/contracts/ct-doc-001/review');
   });
 

@@ -82,7 +82,7 @@ interface Rfc9457ErrorBody {
  */
 export function mapRegistrationErrorToFields(apiError: ApiError): Record<string, string> {
   const result: Record<string, string> = {};
-  if (!apiError.details) return result;
+  if (!apiError.details && apiError.status < 500) return result;
 
   const errorData =
     apiError.details && typeof apiError.details === 'object'
@@ -119,6 +119,11 @@ export function mapRegistrationErrorToFields(apiError: ApiError): Record<string,
     result.global = detail || 'Dữ liệu không hợp lệ. Vui lòng kiểm tra lại thông tin.';
   } else if (apiError.status === 409 && !result.email && !result.phone) {
     result.global = detail || 'Đã xảy ra xung đột dữ liệu. Vui lòng kiểm tra lại.';
+  } else if (apiError.status >= 500) {
+    result.global =
+      apiError.status === 503
+        ? 'Hệ thống gửi email xác thực đang tạm gián đoạn. Vui lòng thử lại sau ít phút.'
+        : detail || 'Lỗi kết nối máy chủ. Vui lòng thử lại sau.';
   }
 
   return result;

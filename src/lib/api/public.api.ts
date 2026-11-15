@@ -26,24 +26,6 @@ export interface PublicDoctorFacilityDto {
   hotline?: string;
 }
 
-export interface PublicDoctorCarePackageDto {
-  id: string;
-  name: string;
-  packageName?: string;
-  code?: string;
-  price?: number | string;
-  formattedPrice?: string;
-  basePrice?: number;
-  monthlyPrice?: string;
-  durationMonths?: number;
-  description?: string;
-  features?: string[];
-  badge?: string;
-  popular?: boolean;
-  highlight?: string;
-  [key: string]: unknown;
-}
-
 export interface PublicDoctorDto {
   id: string;
   doctorName: string;
@@ -65,44 +47,110 @@ export interface PublicDoctorDto {
   facility?: PublicDoctorFacilityDto | null;
 }
 
-export interface PublicDoctorDetailDto extends PublicDoctorDto {
-  specialtyKey?: string;
-  cchnNumber?: string;
-  hospital?: string;
-  location?: string;
-  fee?: string;
-  consultationCount?: number;
-  isVerified?: boolean;
-  schedule?: string | null;
-  education?: string[];
-  services?: string[];
-  carePackages?: PublicDoctorCarePackageDto[];
-  reviews?: PublicDoctorReviewDto[];
-  stats?: {
-    ratingAvg?: number;
-    rating?: number;
-    totalReviews?: number;
-    reviewCount?: number;
-    consultationCount?: number;
-    experienceYears?: number;
-  };
+export interface PublicDoctorStatsDto {
+  experienceYears: number;
+  ratingAvg: number | null;
+  totalReviews: number;
+  completedEncounters: number;
+}
+
+export interface PublicDoctorPanelDto {
+  activeCount: number;
+  maxCapacity: number;
+}
+
+export interface PublicDoctorFacilitySummaryDto {
+  id: string;
+  facilityName: string;
+  address: string;
+  verificationStatus: string;
+}
+
+export interface PublicDoctorCredentialDto {
+  id: string;
+  type: string;
+  typeLabel: string;
+  issuingAuthority: string;
+  issueYear: number;
+  verified: boolean;
+}
+
+export interface PublicDoctorTreatedCaseDto {
+  id: string;
+  summary: string;
+}
+
+export interface CareModelItemDto {
+  id: string;
+  category: 'SERVICE_MODE' | 'COMMITMENT';
+  title: string;
+  description: string;
+  icon?: string | null;
+  sortOrder: number;
+}
+
+export interface DoctorCareModelDto {
+  serviceModes: CareModelItemDto[];
+  commitments: CareModelItemDto[];
+}
+
+export interface PublicDoctorCarePackageDto {
+  id: string;
+  packageCode: string;
+  packageName: string;
+  durationMonths: number;
+  basePrice: number;
+  formattedPrice?: string;
+  monthlyPrice?: string;
+  periodicVisitsQuota: number;
+  telehealthQuota: number;
+  highlight?: string;
+  features?: string[];
+  includedMembers: number;
+  maxMembers: number;
+  additionalMemberMonthlyPrice: number;
+}
+
+export interface PublicDoctorReviewDto {
+  id: string;
+  patientDisplayName: string;
+  ratingStars: number;
+  comment?: string | null;
+  packageName?: string | null;
+  district?: string | null;
+  reviewedAt: string | Date;
+  [key: string]: unknown;
+}
+
+export interface PublicDoctorReviewsSummaryDto {
+  ratingAvg: number | null;
+  totalReviews: number;
+  items: PublicDoctorReviewDto[];
+}
+
+export interface PublicDoctorDetailDto {
+  id: string;
+  doctorName: string;
+  academicTitle?: string | null;
+  specialty: string;
+  specialtyKey: string;
+  avatarUrl?: string | null;
+  bio?: string | null;
+  isVerified: boolean;
+  isAvailable: boolean;
+  panel: PublicDoctorPanelDto;
+  stats: PublicDoctorStatsDto;
+  facility: PublicDoctorFacilitySummaryDto | null;
+  credentials: PublicDoctorCredentialDto[];
+  treatedCases: PublicDoctorTreatedCaseDto[];
+  careModel: DoctorCareModelDto;
+  carePackages: PublicDoctorCarePackageDto[];
+  reviews: PublicDoctorReviewsSummaryDto;
 }
 
 export interface PublicDoctorsResponse {
   items: PublicDoctorDto[];
   pagination?: PaginationMeta;
-}
-
-export interface PublicDoctorReviewDto {
-  id: string;
-  authorName: string;
-  rating: number;
-  comment?: string;
-  createdAt?: string;
-  serviceName?: string;
-  verified?: boolean;
-  badge?: string;
-  [key: string]: unknown;
 }
 
 export interface PublicDoctorReviewsQuery {
@@ -318,23 +366,5 @@ export const publicApi = {
     }
 
     return { items: [] };
-  },
-
-  submitConsultationRequest: async (
-    payload: SubmitConsultationPayload
-  ): Promise<ConsultationResponseDto> => {
-    const defaultEmail = `${(payload.phone || '').replace(/\D/g, '') || 'tuvan'}@khachhang.famidoc.vn`;
-    const body = payload.email ? payload : { email: defaultEmail, ...payload };
-
-    const res = await httpClient.post<RawPublicEnvelopeResponse<ConsultationResponseDto> | ConsultationResponseDto>(
-      '/api/v1/public/consultation-requests',
-      body
-    );
-
-    if (res && typeof res === 'object' && 'data' in res && res.data) {
-      return res.data;
-    }
-
-    return res as ConsultationResponseDto;
   },
 };

@@ -1,6 +1,23 @@
 'use client';
 
 import React, { useState } from 'react';
+import { toast } from 'sonner';
+import { ConfirmDialog, PageHeader } from '@/components/shared';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 
 interface SystemUser {
   id: string;
@@ -126,7 +143,6 @@ export function AdminUsersView() {
   const [auditLogs] = useState<AuditLogEntry[]>(INITIAL_LOGS);
   const [filterRole, setFilterRole] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [notification, setNotification] = useState('');
   const [confirmSuspendUser, setConfirmSuspendUser] = useState<SystemUser | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
 
@@ -141,14 +157,11 @@ export function AdminUsersView() {
 
   const handleActionClick = (u: SystemUser) => {
     if (u.status === 'suspended') {
-      // Mở khóa trực tiếp
       setUsers((prev) =>
         prev.map((item) => (item.id === u.id ? { ...item, status: 'active' } : item))
       );
-      setNotification(`Đã khôi phục hoạt động cho tài khoản ${u.name} (${u.id})`);
-      setTimeout(() => setNotification(''), 3000);
+      toast.success(`Đã khôi phục hoạt động cho tài khoản ${u.name} (${u.id})`);
     } else {
-      // Mở modal xác nhận khóa tài khoản (Nielsen H5: Ngăn ngừa lỗi)
       setConfirmSuspendUser(u);
       setSuspendReason('');
     }
@@ -159,266 +172,239 @@ export function AdminUsersView() {
     setUsers((prev) =>
       prev.map((item) => (item.id === confirmSuspendUser.id ? { ...item, status: 'suspended' } : item))
     );
-    setNotification(
+    toast.success(
       `Đã khóa quyền truy cập tài khoản ${confirmSuspendUser.name}. Lý do: ${
         suspendReason.trim() || 'Theo quyết định an ninh hệ thống'
       }`
     );
     setConfirmSuspendUser(null);
     setSuspendReason('');
-    setTimeout(() => setNotification(''), 4000);
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-              Quản trị Tài khoản, Phân quyền RBAC &amp; Audit Logs
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Kiểm soát quyền truy cập dữ liệu y tế nhạy cảm và nhật ký truy vết an ninh tuân thủ HIPAA
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 bg-slate-200/60 p-1 rounded-xl">
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${activeTab === 'users'
-                ? 'bg-white text-indigo-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-                }`}
-            >
-              Danh sách Người dùng ({users.length})
-            </button>
-            <button
-              onClick={() => setActiveTab('audit_logs')}
-              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all ${activeTab === 'audit_logs'
-                ? 'bg-white text-indigo-600 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-                }`}
-            >
-              Audit Logs Bảo mật ({auditLogs.length})
-            </button>
-          </div>
-        </div>
-
-        {/* Feedback Alert */}
-        {notification && (
-          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2">
-            <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-            <span>{notification}</span>
-          </div>
-        )}
+        <PageHeader
+          title="Quản trị Tài khoản, Phân quyền RBAC & Audit Logs"
+          description="Kiểm soát quyền truy cập dữ liệu y tế nhạy cảm và nhật ký truy vết an ninh tuân thủ HIPAA"
+          actions={
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'users' | 'audit_logs')}>
+              <TabsList className="rounded-xl bg-slate-200/70 p-1">
+                <TabsTrigger value="users" className="rounded-lg px-4 text-xs sm:text-sm font-semibold data-[state=active]:text-primary">
+                  Danh sách Người dùng ({users.length})
+                </TabsTrigger>
+                <TabsTrigger value="audit_logs" className="rounded-lg px-4 text-xs sm:text-sm font-semibold data-[state=active]:text-primary">
+                  Audit Logs Bảo mật ({auditLogs.length})
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          }
+        />
 
         {/* TAB 1: USERS & RBAC */}
         {activeTab === 'users' && (
           <div className="space-y-4">
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-              <div className="relative flex-1">
-                <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
-                  search
-                </span>
-                <input
-                  type="text"
-                  placeholder="Tìm theo họ tên, email, số điện thoại..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500/20 focus:outline-hidden"
-                />
-              </div>
+            <Card className="rounded-2xl border-slate-200 py-4 shadow-xs">
+              <CardContent className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4">
+                <div className="relative flex-1">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+                    search
+                  </span>
+                  <Input
+                    type="text"
+                    placeholder="Tìm theo họ tên, email, số điện thoại..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 bg-slate-50 rounded-xl text-xs sm:text-sm"
+                  />
+                </div>
 
-              <select
-                value={filterRole}
-                onChange={(e) => setFilterRole(e.target.value)}
-                className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-700"
-              >
-                <option value="all">Tất cả vai trò</option>
-                <option value="super_admin">Quản trị viên Cấp cao</option>
-                <option value="facility_admin">Quản lý Bệnh viện B2B</option>
-                <option value="doctor">Bác sĩ Gia đình</option>
-                <option value="family_head">Đại diện Hộ gia đình</option>
-              </select>
-            </div>
+                <select
+                  aria-label="Lọc theo vai trò"
+                  value={filterRole}
+                  onChange={(e) => setFilterRole(e.target.value)}
+                  className="h-9 px-3 bg-slate-50 border border-input rounded-xl text-xs sm:text-sm font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="all">Tất cả vai trò</option>
+                  <option value="super_admin">Quản trị viên Cấp cao</option>
+                  <option value="facility_admin">Quản lý Bệnh viện B2B</option>
+                  <option value="doctor">Bác sĩ Gia đình</option>
+                  <option value="family_head">Đại diện Hộ gia đình</option>
+                </select>
+              </CardContent>
+            </Card>
 
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs sm:text-sm">
-                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider">
-                    <tr>
-                      <th className="py-3.5 px-4">Người dùng</th>
-                      <th className="py-3.5 px-4">Liên hệ</th>
-                      <th className="py-3.5 px-4">Vai trò RBAC</th>
-                      <th className="py-3.5 px-4 text-center">Bảo mật 2FA</th>
-                      <th className="py-3.5 px-4 text-center">Trạng thái</th>
-                      <th className="py-3.5 px-4 text-right">Thao tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {filteredUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900">{u.name}</div>
-                          <div className="tabular-nums text-[11px] text-slate-400">{u.id}</div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="text-slate-800">{u.email}</div>
-                          <div className="text-[11px] text-slate-400">{u.phone}</div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          {u.role === 'super_admin' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-900 text-white">
-                              Super Admin
-                            </span>
-                          )}
-                          {u.role === 'facility_admin' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">
-                              Quản lý BV B2B
-                            </span>
-                          )}
-                          {u.role === 'doctor' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800">
-                              Bác sĩ CCHN
-                            </span>
-                          )}
-                          {u.role === 'family_head' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
-                              Chủ hộ gia đình
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          {u.mfaEnabled ? (
-                            <span className="text-emerald-600 font-semibold flex items-center justify-center gap-1">
-                              <span className="material-symbols-outlined text-[16px]">verified_user</span>
-                              <span>Bật</span>
-                            </span>
-                          ) : (
-                            <span className="text-slate-400 font-medium">Chưa kích hoạt</span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-center">
-                          {u.status === 'active' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                              Hoạt động
-                            </span>
-                          )}
-                          {u.status === 'suspended' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-                              Đã khóa
-                            </span>
-                          )}
-                          {u.status === 'pending_2fa' && (
-                            <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                              Chờ KYC
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <button
-                            onClick={() => handleActionClick(u)}
-                            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${u.status === 'suspended'
+            <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+              <Table className="text-xs sm:text-sm">
+                <TableHeader>
+                  <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
+                    <TableHead className="py-3.5 px-4 text-slate-600">Người dùng</TableHead>
+                    <TableHead className="py-3.5 px-4 text-slate-600">Liên hệ</TableHead>
+                    <TableHead className="py-3.5 px-4 text-slate-600">Vai trò RBAC</TableHead>
+                    <TableHead className="py-3.5 px-4 text-center text-slate-600">Bảo mật 2FA</TableHead>
+                    <TableHead className="py-3.5 px-4 text-center text-slate-600">Trạng thái</TableHead>
+                    <TableHead className="py-3.5 px-4 text-right text-slate-600">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-100">
+                  {filteredUsers.map((u) => (
+                    <TableRow key={u.id} className="hover:bg-slate-50/70">
+                      <TableCell className="py-3.5 px-4">
+                        <div className="font-bold text-slate-900">{u.name}</div>
+                        <div className="tabular-nums text-[11px] text-slate-400">{u.id}</div>
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4">
+                        <div className="text-slate-800">{u.email}</div>
+                        <div className="text-[11px] text-slate-400 tabular-nums">{u.phone}</div>
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4">
+                        {u.role === 'super_admin' && (
+                          <Badge className="rounded-full text-[11px] font-bold bg-slate-900 text-white">
+                            Super Admin
+                          </Badge>
+                        )}
+                        {u.role === 'facility_admin' && (
+                          <Badge variant="secondary" className="rounded-full text-[11px] font-bold bg-blue-100 text-blue-800">
+                            Quản lý BV B2B
+                          </Badge>
+                        )}
+                        {u.role === 'doctor' && (
+                          <Badge variant="secondary" className="rounded-full text-[11px] font-bold bg-accent text-primary">
+                            Bác sĩ CCHN
+                          </Badge>
+                        )}
+                        {u.role === 'family_head' && (
+                          <Badge variant="secondary" className="rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">
+                            Chủ hộ gia đình
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-center">
+                        {u.mfaEnabled ? (
+                          <span className="text-emerald-600 font-semibold flex items-center justify-center gap-1">
+                            <span className="material-symbols-outlined text-[16px]">verified_user</span>
+                            <span>Bật</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 font-medium">Chưa kích hoạt</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-center">
+                        {u.status === 'active' && (
+                          <Badge variant="outline" className="rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">
+                            Hoạt động
+                          </Badge>
+                        )}
+                        {u.status === 'suspended' && (
+                          <Badge variant="outline" className="rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border-rose-200">
+                            Đã khóa
+                          </Badge>
+                        )}
+                        {u.status === 'pending_2fa' && (
+                          <Badge variant="outline" className="rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border-amber-200">
+                            Chờ KYC
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-right">
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant={u.status === 'suspended' ? 'default' : 'secondary'}
+                          onClick={() => handleActionClick(u)}
+                          className={`rounded-lg text-xs font-semibold cursor-pointer ${
+                            u.status === 'suspended'
                               ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                              : 'bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-700'
-                              }`}
-                          >
-                            {u.status === 'suspended' ? 'Mở khóa' : 'Khóa truy cập'}
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+                              : 'hover:bg-rose-50 hover:text-rose-600'
+                          }`}
+                        >
+                          {u.status === 'suspended' ? 'Mở khóa' : 'Khóa truy cập'}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
           </div>
         )}
 
         {/* TAB 2: AUDIT LOGS */}
         {activeTab === 'audit_logs' && (
-          <div className="space-y-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100 mb-4">
+          <Card className="rounded-2xl border-slate-200 p-5 shadow-xs space-y-4">
+            <CardContent className="p-0 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
                 <div>
                   <h2 className="text-base font-bold text-slate-900">Bảng Nhật ký Truy vết An ninh (Immutable Audit Logs)</h2>
                   <p className="text-xs text-slate-500 mt-0.5">Lưu trữ toàn bộ thao tác tác động lên EMR bệnh án và luồng giải ngân Escrow</p>
                 </div>
-                <button
-                  onClick={() => {
-                    setNotification('Đang chuẩn bị file CSV Audit Logs có chữ ký số xác thực...');
-                    setTimeout(() => setNotification(''), 3000);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toast.info('Đang chuẩn bị file CSV Audit Logs có chữ ký số xác thực...')}
+                  className="rounded-xl text-xs font-semibold cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">download</span>
                   <span>Xuất file Audit Kiểm toán</span>
-                </button>
+                </Button>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200">
-                    <tr>
-                      <th className="py-3 px-3">Thời gian (UTC+7)</th>
-                      <th className="py-3 px-3">Người thực hiện</th>
-                      <th className="py-3 px-3">Hành động ghi vết</th>
-                      <th className="py-3 px-3">Đối tượng tác động</th>
-                      <th className="py-3 px-3">Địa chỉ IP</th>
-                      <th className="py-3 px-3 text-center">Cấp độ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {auditLogs.map((log) => (
-                      <tr key={log.id} className="hover:bg-slate-50/70 tabular-nums">
-                        <td className="py-3 px-3 text-slate-500 font-sans">{log.timestamp}</td>
-                        <td className="py-3 px-3 font-sans">
-                          <span className="font-bold text-slate-800">{log.actorName}</span>
-                          <span className="text-[10px] text-slate-400 block">{log.actorRole}</span>
-                        </td>
-                        <td className="py-3 px-3 font-bold text-indigo-700">{log.action}</td>
-                        <td className="py-3 px-3 text-slate-600 font-sans">{log.targetResource}</td>
-                        <td className="py-3 px-3 text-slate-500">{log.ipAddress}</td>
-                        <td className="py-3 px-3 text-center">
-                          {log.severity === 'critical' ? (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700">
-                              Nguy hiểm
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
-                              Thông tin
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
+              <Table className="text-xs">
+                <TableHeader>
+                  <TableRow className="bg-slate-50 text-slate-500 uppercase text-[10px] font-semibold tracking-wider border-b border-slate-200 hover:bg-slate-50">
+                    <TableHead className="py-3 px-3 text-slate-500">Thời gian (UTC+7)</TableHead>
+                    <TableHead className="py-3 px-3 text-slate-500">Người thực hiện</TableHead>
+                    <TableHead className="py-3 px-3 text-slate-500">Hành động ghi vết</TableHead>
+                    <TableHead className="py-3 px-3 text-slate-500">Đối tượng tác động</TableHead>
+                    <TableHead className="py-3 px-3 text-slate-500">Địa chỉ IP</TableHead>
+                    <TableHead className="py-3 px-3 text-center text-slate-500">Cấp độ</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-100">
+                  {auditLogs.map((log) => (
+                    <TableRow key={log.id} className="hover:bg-slate-50/70 tabular-nums">
+                      <TableCell className="py-3 px-3 text-slate-500 font-sans">{log.timestamp}</TableCell>
+                      <TableCell className="py-3 px-3 font-sans">
+                        <span className="font-bold text-slate-800">{log.actorName}</span>
+                        <span className="text-[10px] text-slate-400 block">{log.actorRole}</span>
+                      </TableCell>
+                      <TableCell className="py-3 px-3 font-bold text-primary">{log.action}</TableCell>
+                      <TableCell className="py-3 px-3 text-slate-600 font-sans">{log.targetResource}</TableCell>
+                      <TableCell className="py-3 px-3 text-slate-500">{log.ipAddress}</TableCell>
+                      <TableCell className="py-3 px-3 text-center">
+                        {log.severity === 'critical' ? (
+                          <Badge className="rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 hover:bg-rose-100">
+                            Nguy hiểm
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
+                            Thông tin
+                          </Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
 
-        {/* MODAL XÁC NHẬN KHÓA TRUY CẬP TÀI KHOẢN (NIELSEN H5: NGĂN NGỪA LỖI TÁC VỤ PHÁ HỦY) */}
-        {confirmSuspendUser && (
-          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-200 space-y-4 animate-in fade-in zoom-in-95">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[24px]">gavel</span>
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-rose-900">
-                    Xác Nhận Khóa Quyền Truy Cập
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Hành động này sẽ vô hiệu hóa phiên đăng nhập tức thời
-                  </p>
-                </div>
-              </div>
-
+        {/* DIALOG XÁC NHẬN KHÓA TRUY CẬP TÀI KHOẢN */}
+        <ConfirmDialog
+          open={Boolean(confirmSuspendUser)}
+          onOpenChange={(open) => !open && setConfirmSuspendUser(null)}
+          title="Xác Nhận Khóa Quyền Truy Cập"
+          description="Hành động này sẽ vô hiệu hóa phiên đăng nhập tức thời"
+          headerIcon={<span className="material-symbols-outlined text-[24px] text-rose-600">gavel</span>}
+          confirmLabel="Xác nhận Khóa tài khoản"
+          cancelLabel="Hủy bỏ"
+          variant="destructive"
+          onConfirm={handleConfirmSuspend}
+        >
+          {confirmSuspendUser && (
+            <div className="space-y-3">
               <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1.5 leading-relaxed">
                 <p>
                   Bạn đang chuẩn bị khóa tài khoản của:{' '}
@@ -430,37 +416,21 @@ export function AdminUsersView() {
               </div>
 
               <div className="space-y-1 text-xs">
-                <label className="block font-bold text-slate-700">
+                <Label htmlFor="suspend-reason" className="font-bold text-slate-700">
                   Lý do khóa tài khoản (Ghi vào biên bản kiểm toán):
-                </label>
-                <textarea
+                </Label>
+                <Textarea
+                  id="suspend-reason"
                   rows={2}
                   value={suspendReason}
                   onChange={(e) => setSuspendReason(e.target.value)}
                   placeholder="Ví dụ: Nghi vấn lộ thông tin, khiếu nại vi phạm SLA chưa giải quyết..."
-                  className="w-full p-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
+                  className="rounded-xl text-xs bg-slate-50 focus-visible:bg-white"
                 />
               </div>
-
-              <div className="flex gap-2.5 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setConfirmSuspendUser(null)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmSuspend}
-                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
-                >
-                  Xác nhận Khóa tài khoản
-                </button>
-              </div>
             </div>
-          </div>
-        )}
+          )}
+        </ConfirmDialog>
       </main>
     </div>
   );

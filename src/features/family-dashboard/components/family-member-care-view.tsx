@@ -2,6 +2,19 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { MOCK_EHR } from '@/features/family-members';
 
 export interface MemberHealthData {
@@ -496,7 +509,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
   const [vitalsToast, setVitalsToast] = useState<string | null>(null);
   const [showHomeVisitGuide, setShowHomeVisitGuide] = useState(false);
   const [showPrescriptionQrModal, setShowPrescriptionQrModal] = useState<string | null>(null);
-  const [deliveryToast, setDeliveryToast] = useState<string | null>(null);
   const [ehrFilter, setEhrFilter] = useState<'all' | 'home_visit' | 'telehealth' | 'lab_result'>('all');
   const [expandedEhrId, setExpandedEhrId] = useState<string | null>('ehr-01');
 
@@ -512,6 +524,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
   const [docNote, setDocNote] = useState('');
   const [docFileName, setDocFileName] = useState('');
   const [externalDocToast, setExternalDocToast] = useState<string | null>(null);
+  const [deliveryToast, setDeliveryToast] = useState<string | null>(null);
 
   const memberDocsList = externalDocs[activeId] || [];
 
@@ -728,14 +741,14 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
   const isWarning = currentMember.status === 'warning';
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* 1. THANH ĐIỀU HƯỚNG & CHUYỂN ĐỔI THÀNH VIÊN NHANH (THOÁNG ĐÃNG, KHÔNG KHUNG HỘP NẶNG NỀ) */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <nav aria-label="Điều hướng trang" className="flex items-center gap-2 flex-wrap">
             <Link
               href="/family"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-[#2E37A4] bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition-all"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-primary bg-white px-3.5 py-2 rounded-xl border border-slate-200/80 shadow-xs hover:border-slate-300 transition-all"
             >
               <span className="material-symbols-outlined text-[18px]">arrow_back</span>
               <span>Bảng Sức khỏe Gia đình</span>
@@ -743,7 +756,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
             <Link
               href="/family/members"
-              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-500 hover:text-[#2E37A4] px-3 py-2 rounded-xl hover:bg-slate-100/70 transition-all"
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-medium text-slate-500 hover:text-primary px-3 py-2 rounded-xl hover:bg-slate-100/70 transition-all"
             >
               <span className="material-symbols-outlined text-[18px]">badge</span>
               <span>Sổ Quản lý thành viên &amp; BHYT</span>
@@ -761,7 +774,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                   href={`/family/members/${m.id}`}
                   className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
                     isCurrent
-                      ? 'bg-[#2E37A4] text-white shadow-xs'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
                   }`}
                 >
@@ -781,48 +794,25 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
           </div>
         </div>
 
-        {/* Toast thông báo cập nhật số đo */}
-        {vitalsToast && (
-          <aside
-            role="status"
-            aria-live="polite"
-            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm font-medium flex items-center justify-between shadow-xs animate-fade-in"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-emerald-600">
-                check_circle
-              </span>
-              <span>{vitalsToast}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setVitalsToast(null)}
-              className="text-emerald-700 hover:text-emerald-900 p-1 cursor-pointer"
-              aria-label="Đóng thông báo"
-            >
-              ✕
-            </button>
-          </aside>
-        )}
-
         {/* 2. PROFILE BANNER THÀNH VIÊN — THIẾT KẾ THOÁNG MẮT, PHÂN TẦNG RÕ RÀNG */}
         <section className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/70 shadow-xs space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex items-start sm:items-center gap-5 min-w-0">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#2563eb] text-white font-bold text-2xl sm:text-3xl flex items-center justify-center shadow-sm shrink-0">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-tr from-[#0037c1] to-[#1d4ed8] text-white font-bold text-2xl sm:text-3xl flex items-center justify-center shadow-sm shrink-0">
                 {currentMember.avatar || initials}
               </div>
 
               <div className="space-y-2 min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold text-[#2E37A4] bg-blue-50/80 border border-blue-200/70">
+                  <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-semibold text-primary bg-primary/10 border-primary/20">
                     {currentMember.relation} · <span className="tabular-nums font-bold">{currentMember.age}</span> tuổi
-                  </span>
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tabular-nums bg-slate-100 text-slate-700 border border-slate-200/80">
+                  </Badge>
+                  <Badge variant="secondary" className="px-3 py-1 rounded-full text-xs font-bold tabular-nums bg-slate-100 text-slate-700 border border-slate-200/80">
                     Nhóm máu {currentMember.bloodType}
-                  </span>
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                  </Badge>
+                  <Badge
+                    variant="outline"
+                    className={`gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
                       isWarning
                         ? 'bg-amber-50 text-amber-800 border-amber-200/90'
                         : 'bg-emerald-50 text-emerald-800 border-emerald-200/90'
@@ -834,7 +824,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                       }`}
                     />
                     <span>{currentMember.statusText}</span>
-                  </span>
+                  </Badge>
                 </div>
 
                 <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
@@ -849,21 +839,21 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
             {/* Cụm nút hành động chính */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <button
+              <Button
                 type="button"
                 onClick={() => window.print()}
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-medium shadow-xs hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap outline-hidden"
+                className="min-h-11 rounded-xl text-xs sm:text-sm font-medium gap-2"
               >
-                <span className="material-symbols-outlined text-[19px] text-[#2E37A4]">print</span>
+                <span className="material-symbols-outlined text-[19px] text-primary">print</span>
                 <span>In hồ sơ bệnh án</span>
-              </button>
+              </Button>
             </div>
           </div>
 
           {/* Dải thông tin lâm sàng trọng tâm (Bệnh nền, Dị ứng, BHYT) */}
           <div className="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-3.5 text-xs">
             <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-center gap-3">
-              <span className="material-symbols-outlined text-[20px] text-[#2E37A4] shrink-0">
+              <span className="material-symbols-outlined text-[20px] text-primary shrink-0">
                 medical_information
               </span>
               <div className="min-w-0">
@@ -1016,7 +1006,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
             <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-9 h-9 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-100 flex items-center justify-center">
+                  <span className="w-9 h-9 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
                     <span className="material-symbols-outlined text-[19px]">water_drop</span>
                   </span>
                   <span className="text-xs font-bold text-slate-700">Đường huyết</span>
@@ -1246,7 +1236,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
             <div className="space-y-5">
               <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-[20px]">event_available</span>
                   </div>
                   <div>
@@ -1261,7 +1251,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
                 <Link
                   href="/family/appointments"
-                  className="text-xs font-semibold text-[#2E37A4] hover:underline flex items-center gap-1 shrink-0"
+                  className="text-xs font-semibold text-primary hover:underline flex items-center gap-1 shrink-0"
                 >
                   <span>Quản lý lịch hẹn</span>
                   <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
@@ -1270,13 +1260,13 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
               {currentMember.upcomingVisit ? (
                 <div className="space-y-4">
-                  <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200/80 flex flex-wrap items-center justify-between gap-3">
+                  <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <span className="material-symbols-outlined text-[22px] text-[#2E37A4]">
+                      <span className="material-symbols-outlined text-[22px] text-primary">
                         {currentMember.upcomingVisit.mode === 'home' ? 'home_health' : 'videocam'}
                       </span>
                       <div>
-                        <div className="text-[11px] font-bold text-[#2E37A4] uppercase tracking-wider">
+                        <div className="text-[11px] font-bold text-primary uppercase tracking-wider">
                           {currentMember.upcomingVisit.mode === 'home'
                             ? 'Khám bác sĩ tại nhà'
                             : 'Tư vấn Telehealth Video'}
@@ -1294,7 +1284,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                   </div>
 
                   <div className="p-4 rounded-xl bg-slate-50/70 border border-slate-200/60 flex items-start gap-3.5">
-                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-[#2E37A4] flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
+                    <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 text-primary flex items-center justify-center shrink-0 mt-0.5 shadow-2xs">
                       <span className="material-symbols-outlined text-[19px]">stethoscope</span>
                     </div>
                     <div className="space-y-1 text-xs min-w-0">
@@ -1319,42 +1309,37 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                   <p className="text-xs text-slate-500">
                     Chưa có lịch hẹn nào sắp tới cho {currentMember.name}.
                   </p>
-                  <Link
-                    href="/family/appointments"
-                    className="inline-block px-4 py-2 bg-[#2E37A4] text-white text-xs font-semibold rounded-xl"
-                  >
-                    Đặt lịch khám mới
-                  </Link>
+                  <Button asChild size="sm" className="rounded-xl text-xs font-semibold">
+                    <Link href="/family/appointments">Đặt lịch khám mới</Link>
+                  </Button>
                 </div>
               )}
             </div>
 
             {currentMember.upcomingVisit && (
               <div className="grid grid-cols-2 gap-3 pt-3 border-t border-slate-100">
-                <Link
-                  href="/family/appointments"
-                  className="py-2.5 px-4 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl text-xs sm:text-sm font-semibold text-center text-slate-700 transition-colors flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[17px]">edit_calendar</span>
-                  <span>Đổi ngày giờ</span>
-                </Link>
+                <Button asChild variant="outline" className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5">
+                  <Link href="/family/appointments">
+                    <span className="material-symbols-outlined text-[17px]">edit_calendar</span>
+                    <span>Đổi ngày giờ</span>
+                  </Link>
+                </Button>
                 {currentMember.upcomingVisit.mode === 'home' ? (
-                  <button
+                  <Button
                     type="button"
                     onClick={() => setShowHomeVisitGuide(true)}
-                    className="py-2.5 px-4 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-semibold text-center transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[17px]">fact_check</span>
                     <span>Hướng dẫn đón BS</span>
-                  </button>
+                  </Button>
                 ) : (
-                  <Link
-                    href="/family/appointments"
-                    className="py-2.5 px-4 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-semibold text-center transition-colors flex items-center justify-center gap-1.5 shadow-xs"
-                  >
-                    <span className="material-symbols-outlined text-[17px]">videocam</span>
-                    <span>Vào phòng Video</span>
-                  </Link>
+                  <Button asChild className="rounded-xl text-xs sm:text-sm font-semibold gap-1.5">
+                    <Link href="/family/appointments">
+                      <span className="material-symbols-outlined text-[17px]">videocam</span>
+                      <span>Vào phòng Video</span>
+                    </Link>
+                  </Button>
                 )}
               </div>
             )}
@@ -1400,7 +1385,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                           className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             isTaken
                               ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-white border border-slate-200 text-[#2E37A4]'
+                              : 'bg-white border border-slate-200 text-primary'
                           }`}
                         >
                           <span className="material-symbols-outlined text-[18px]">
@@ -1429,7 +1414,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                         className={`min-h-9 px-4 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer whitespace-nowrap outline-hidden ${
                           isTaken
                             ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/90'
-                            : 'bg-white hover:bg-slate-100 text-[#2E37A4] border border-slate-300 shadow-2xs'
+                            : 'bg-white hover:bg-slate-100 text-primary border border-slate-300 shadow-2xs'
                         }`}
                       >
                         {isTaken ? 'Đã uống' : 'Bấm đã uống'}
@@ -1459,7 +1444,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
           {/* Header + Bộ lọc trên 1 thanh thoáng đãng */}
           <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100">
             <div className="flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[22px]">history_edu</span>
               </div>
               <div>
@@ -1516,7 +1501,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                       onClick={() => setExpandedEhrId(isExpanded ? null : entry.id)}
                     >
                       <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-[#2E37A4] flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 text-primary flex items-center justify-center shrink-0">
                           <span className="material-symbols-outlined text-[20px]">
                             {entry.type === 'home_visit'
                               ? 'home_health'
@@ -1541,9 +1526,9 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                       </div>
 
                       <div className="flex items-center gap-3 self-end sm:self-center shrink-0">
-                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#2E37A4] border border-blue-200/70">
+                        <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border-primary/20">
                           {entry.typeLabel}
-                        </span>
+                        </Badge>
                         <span className="material-symbols-outlined text-slate-400 text-[20px]">
                           {isExpanded ? 'expand_less' : 'expand_more'}
                         </span>
@@ -1596,22 +1581,24 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                           <div className="space-y-2.5">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <span className="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
-                                Toa thuốc điều trị chỉ định (Mã đơn quốc gia: <span className="text-[#2E37A4] font-bold tabular-nums">RX-2026-0088219</span>):
+                                Toa thuốc điều trị chỉ định (Mã đơn quốc gia: <span className="text-primary font-bold tabular-nums">RX-2026-0088219</span>):
                               </span>
                               <div className="flex items-center gap-2">
                                 <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                                   <span className="material-symbols-outlined text-[13px]">verified</span>
                                   Đã ký số Viettel-CA
                                 </span>
-                                <button
+                                <Button
                                   type="button"
+                                  variant="outline"
+                                  size="xs"
                                   onClick={() => setShowPrescriptionQrModal(entry.id)}
-                                  className="inline-flex items-center gap-1 text-xs font-bold text-[#2E37A4] hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-xl border border-indigo-200 transition-colors cursor-pointer"
+                                  className="text-xs font-bold text-primary bg-primary/10 hover:bg-primary/15 border-primary/20 rounded-xl gap-1"
                                   title="Xem mã QR để mang ra quầy thuốc mua"
                                 >
                                   <span className="material-symbols-outlined text-[15px]">qr_code_2</span>
                                   <span>Mã QR Đơn Thuốc</span>
-                                </button>
+                                </Button>
                               </div>
                             </div>
                             <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/80 bg-white p-3 space-y-2">
@@ -1802,62 +1789,46 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
       </main>
 
       {/* MODAL 1: HƯỚNG DẪN ĐÓN BÁC SĨ TẠI NHÀ */}
-      {showHomeVisitGuide && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-fade-in">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3.5">
-              <div className="flex items-center gap-2.5 text-[#2E37A4]">
-                <span className="material-symbols-outlined text-[24px]">home_health</span>
-                <h3 className="font-bold text-base text-slate-900">
-                  Hướng Dẫn Đón Bác Sĩ Tại Nhà
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowHomeVisitGuide(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 cursor-pointer"
-                aria-label="Đóng"
-              >
-                ✕
-              </button>
-            </div>
+      <Dialog open={showHomeVisitGuide} onOpenChange={setShowHomeVisitGuide}>
+        <DialogContent className="sm:max-w-md rounded-3xl p-6 sm:p-7 space-y-4">
+          <DialogHeader className="border-b border-slate-100 pb-3.5">
+            <DialogTitle className="flex items-center gap-2.5 text-slate-900 font-bold text-base">
+              <span className="material-symbols-outlined text-[24px] text-primary">home_health</span>
+              <span>Hướng Dẫn Đón Bác Sĩ Tại Nhà</span>
+            </DialogTitle>
+          </DialogHeader>
 
-            <div className="space-y-4 text-xs text-slate-600 leading-relaxed">
-              <div className="p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200/70 text-slate-800 space-y-1">
-                <div><strong>Bác sĩ phụ trách:</strong> PGS.TS Nguyễn Trọng Nghĩa</div>
-                <div>
-                  <strong>Thời gian dự kiến:</strong> {currentMember.upcomingVisit?.time} ·{' '}
-                  {currentMember.upcomingVisit?.date}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="font-bold text-slate-800 text-sm">Gia đình vui lòng chuẩn bị trước:</p>
-                <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
-                  <li>Căn cước công dân và thẻ BHYT của người bệnh ({currentMember.name}).</li>
-                  <li>Các toa thuốc đang uống hoặc kết quả khám trong 3 tháng gần nhất.</li>
-                  <li>Không ăn sáng nếu có chỉ định lấy máu xét nghiệm đường huyết/mỡ máu.</li>
-                  <li>Chuẩn bị khu vực khám thoáng mát, đủ ánh sáng và một ly nước ấm.</li>
-                </ul>
+          <div className="space-y-4 text-xs text-slate-600 leading-relaxed">
+            <div className="p-3.5 rounded-2xl bg-primary/10 border border-primary/20 text-slate-800 space-y-1">
+              <div><strong>Bác sĩ phụ trách:</strong> PGS.TS Nguyễn Trọng Nghĩa</div>
+              <div>
+                <strong>Thời gian dự kiến:</strong> {currentMember.upcomingVisit?.time} ·{' '}
+                {currentMember.upcomingVisit?.date}
               </div>
             </div>
 
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => setShowHomeVisitGuide(false)}
-                className="w-full py-3 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white font-semibold text-xs sm:text-sm cursor-pointer shadow-xs transition-colors"
-              >
-                Đã hiểu &amp; Đóng hướng dẫn
-              </button>
+            <div className="space-y-2">
+              <p className="font-bold text-slate-800 text-sm">Gia đình vui lòng chuẩn bị trước:</p>
+              <ul className="list-disc pl-5 space-y-1.5 text-slate-600">
+                <li>Căn cước công dân và thẻ BHYT của người bệnh ({currentMember.name}).</li>
+                <li>Các toa thuốc đang uống hoặc kết quả khám trong 3 tháng gần nhất.</li>
+                <li>Không ăn sáng nếu có chỉ định lấy máu xét nghiệm đường huyết/mỡ máu.</li>
+                <li>Chuẩn bị khu vực khám thoáng mát, đủ ánh sáng và một ly nước ấm.</li>
+              </ul>
             </div>
           </div>
-        </div>
-      )}
+
+          <DialogFooter className="pt-2">
+            <Button
+              type="button"
+              onClick={() => setShowHomeVisitGuide(false)}
+              className="w-full py-3 h-auto rounded-xl font-semibold text-xs sm:text-sm"
+            >
+              Đã hiểu &amp; Đóng hướng dẫn
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* MODAL 2: GHI / SỬA SỐ ĐO SINH HIỆU HẰNG NGÀY */}
       {showVitalsModal && (
@@ -2100,115 +2071,105 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
       )}
 
       {/* MODAL 3: MÃ QR ĐƠN THUỐC QUỐC GIA (THÔNG TƯ 04/2022/TT-BYT) */}
-      {showPrescriptionQrModal && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-200 space-y-5 animate-in zoom-in-95">
-            <div className="flex justify-between items-start border-b border-slate-100 pb-3.5">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-200 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[24px]">qr_code_2</span>
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900">
-                    Đơn Thuốc Điện Tử Quốc Gia
-                  </h3>
-                  <p className="text-xs text-slate-500">Mã liên thông: <span className="font-bold tabular-nums text-[#2E37A4]">RX-2026-0088219</span></p>
-                </div>
+      <Dialog
+        open={Boolean(showPrescriptionQrModal)}
+        onOpenChange={(open) => !open && setShowPrescriptionQrModal(null)}
+      >
+        <DialogContent className="sm:max-w-md rounded-3xl p-6 sm:p-7 space-y-4">
+          <DialogHeader className="border-b border-slate-100 pb-3.5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[24px]">qr_code_2</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowPrescriptionQrModal(null)}
-                className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 cursor-pointer"
-                aria-label="Đóng"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* QR Code Container */}
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200/80 text-center space-y-3">
-              <div className="w-44 h-44 mx-auto bg-white p-3 rounded-2xl border-2 border-[#2E37A4]/20 shadow-xs flex flex-col items-center justify-center">
-                {/* Visual SVG QR Representation */}
-                <svg className="w-full h-full" viewBox="0 0 100 100" fill="none">
-                  <rect width="100" height="100" fill="white" />
-                  <path
-                    d="M10 10h28v28h-28z M16 16v16h16v-16z M62 10h28v28h-28z M68 16v16h16v-16z M10 62h28v28h-28z M16 68v16h16v-16z"
-                    fill="#2E37A4"
-                  />
-                  <rect x="22" y="22" width="4" height="4" fill="#2E37A4" />
-                  <rect x="74" y="22" width="4" height="4" fill="#2E37A4" />
-                  <rect x="22" y="74" width="4" height="4" fill="#2E37A4" />
-                  <rect x="44" y="10" width="8" height="8" fill="#2E37A4" />
-                  <rect x="44" y="24" width="8" height="8" fill="#2E37A4" />
-                  <rect x="44" y="38" width="8" height="8" fill="#2E37A4" />
-                  <rect x="10" y="44" width="8" height="8" fill="#2E37A4" />
-                  <rect x="24" y="44" width="8" height="8" fill="#2E37A4" />
-                  <rect x="62" y="44" width="12" height="6" fill="#2E37A4" />
-                  <rect x="80" y="44" width="10" height="6" fill="#2E37A4" />
-                  <rect x="44" y="62" width="8" height="8" fill="#2E37A4" />
-                  <rect x="44" y="76" width="8" height="8" fill="#2E37A4" />
-                  <rect x="62" y="62" width="8" height="8" fill="#2E37A4" />
-                  <rect x="76" y="62" width="14" height="8" fill="#2E37A4" />
-                  <rect x="62" y="76" width="14" height="8" fill="#2E37A4" />
-                  <rect x="82" y="86" width="8" height="4" fill="#2E37A4" />
-                </svg>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                  Cổng Đơn Thuốc Quốc Gia (Bộ Y Tế)
-                </span>
-                <p className="text-xs text-slate-600 leading-snug">
-                  Quét mã QR tại bất kỳ quầy thuốc GPP trên toàn quốc (Long Châu, An Khang, Pharmacity...) để mua đúng thuốc theo phác đồ bác sĩ.
-                </p>
+              <div>
+                <DialogTitle className="font-bold text-base text-slate-900">
+                  Đơn Thuốc Điện Tử Quốc Gia
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500">
+                  Mã liên thông: <span className="font-bold tabular-nums text-primary">RX-2026-0088219</span>
+                </DialogDescription>
               </div>
             </div>
+          </DialogHeader>
 
-            {/* Verification Metadata */}
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
-              <div className="flex justify-between">
-                <span className="text-slate-500">Bác sĩ ký số:</span>
-                <span className="font-semibold text-slate-800">PGS.TS Nguyễn Trọng Nghĩa</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Chứng thư số:</span>
-                <span className="font-bold text-emerald-700">Viettel-CA (SHA-256)</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Thời hạn mua thuốc:</span>
-                <span className="font-bold tabular-nums text-slate-800">30 ngày kể từ ngày ký</span>
-              </div>
+          {/* QR Code Container */}
+          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200/80 text-center space-y-3">
+            <div className="w-44 h-44 mx-auto bg-white p-3 rounded-2xl border-2 border-primary/20 shadow-xs flex flex-col items-center justify-center">
+              {/* Visual SVG QR Representation */}
+              <svg className="w-full h-full" viewBox="0 0 100 100" fill="none">
+                <rect width="100" height="100" fill="white" />
+                <path
+                  d="M10 10h28v28h-28z M16 16v16h16v-16z M62 10h28v28h-28z M68 16v16h16v-16z M10 62h28v28h-28z M16 68v16h16v-16z"
+                  fill="#0037c1"
+                />
+                <rect x="22" y="22" width="4" height="4" fill="#0037c1" />
+                <rect x="74" y="22" width="4" height="4" fill="#0037c1" />
+                <rect x="22" y="74" width="4" height="4" fill="#0037c1" />
+                <rect x="44" y="10" width="8" height="8" fill="#0037c1" />
+                <rect x="44" y="24" width="8" height="8" fill="#0037c1" />
+                <rect x="44" y="38" width="8" height="8" fill="#0037c1" />
+                <rect x="10" y="44" width="8" height="8" fill="#0037c1" />
+                <rect x="24" y="44" width="8" height="8" fill="#0037c1" />
+                <rect x="62" y="44" width="12" height="6" fill="#0037c1" />
+                <rect x="80" y="44" width="10" height="6" fill="#0037c1" />
+                <rect x="44" y="62" width="8" height="8" fill="#0037c1" />
+                <rect x="44" y="76" width="8" height="8" fill="#0037c1" />
+                <rect x="62" y="62" width="8" height="8" fill="#0037c1" />
+                <rect x="76" y="62" width="14" height="8" fill="#0037c1" />
+                <rect x="62" y="76" width="14" height="8" fill="#0037c1" />
+                <rect x="82" y="86" width="8" height="4" fill="#0037c1" />
+              </svg>
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setDeliveryToast('Đã gửi yêu cầu cấp phát & giao thuốc tận nhà (2h) tới nhà thuốc liên kết GPP!');
-                  setShowPrescriptionQrModal(null);
-                  setTimeout(() => setDeliveryToast(null), 5000);
-                }}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-[#2E37A4] hover:bg-indigo-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-[16px]">local_shipping</span>
-                <span>Yêu Cầu Giao Thuốc Tận Nhà</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowPrescriptionQrModal(null)}
-                className="py-2.5 px-4 rounded-xl border border-slate-200 font-semibold text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                Đóng
-              </button>
+            <div className="space-y-1">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                Cổng Đơn Thuốc Quốc Gia (Bộ Y Tế)
+              </span>
+              <p className="text-xs text-slate-600 leading-snug">
+                Quét mã QR tại bất kỳ quầy thuốc GPP trên toàn quốc (Long Châu, An Khang, Pharmacity...) để mua đúng thuốc theo phác đồ bác sĩ.
+              </p>
             </div>
           </div>
-        </div>
-      )}
+
+          <div className="p-3.5 bg-slate-50 rounded-2xl space-y-1.5 text-xs text-slate-600 border border-slate-200/80">
+            <div className="flex justify-between">
+              <span className="text-slate-500">Bác sĩ kê đơn:</span>
+              <strong className="text-slate-900">BS.CKII Trần Mai Phương</strong>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Chứng thư số:</span>
+              <span className="font-bold text-emerald-700">Viettel-CA (SHA-256)</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">Thời hạn mua thuốc:</span>
+              <span className="font-bold tabular-nums text-slate-800">30 ngày kể từ ngày ký</span>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <DialogFooter className="flex-col sm:flex-row gap-2.5 pt-2">
+            <Button
+              type="button"
+              onClick={() => {
+                toast.success('Đã gửi yêu cầu cấp phát & giao thuốc tận nhà (2h) tới nhà thuốc liên kết GPP!');
+                setShowPrescriptionQrModal(null);
+              }}
+              className="flex-1 rounded-xl font-bold text-xs gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">local_shipping</span>
+              <span>Yêu Cầu Giao Thuốc Tận Nhà</span>
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowPrescriptionQrModal(null)}
+              className="rounded-xl font-semibold text-xs"
+            >
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Realtime Delivery Toast */}
       {deliveryToast && (

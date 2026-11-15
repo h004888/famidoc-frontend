@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
-import { DoctorDetailView } from './doctor-detail-view';
 import { publicApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
+import { DoctorDetailView } from './doctor-detail-view';
 
 // Types
 export interface Doctor {
@@ -25,6 +26,7 @@ export interface Doctor {
   services: ('home' | 'telehealth' | 'clinic')[];
   fee: string;
   bio: string;
+  treatedCases?: string[];
   education: string[];
   schedule: string;
 }

@@ -2,6 +2,11 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { EmptyState } from '@/components/shared';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 export type NotificationCategory = 'vitals' | 'appointment' | 'medication' | 'billing';
 
@@ -93,6 +98,7 @@ export function NotificationsView() {
 
   const markAllAsRead = () => {
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    toast.success('Đã đánh dấu tất cả thông báo là đã đọc.');
   };
 
   const markAsRead = (id: string) => {
@@ -103,6 +109,7 @@ export function NotificationsView() {
 
   const deleteNotification = (id: string) => {
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    toast.success('Đã xóa thông báo.');
   };
 
   const filteredNotifications = notifications.filter((item) => {
@@ -122,8 +129,8 @@ export function NotificationsView() {
     if (category === 'appointment') {
       return {
         icon: 'calendar_month',
-        badgeBg: 'bg-blue-50 text-[#2E37A4] border-blue-200/80',
-        tagText: 'text-[#2E37A4] bg-blue-50',
+        badgeBg: 'bg-blue-50 text-primary border-blue-200/80',
+        tagText: 'text-primary bg-blue-50',
       };
     }
     if (category === 'medication') {
@@ -141,67 +148,77 @@ export function NotificationsView() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
-      <main className="max-w-6xl mx-auto py-5 sm:py-7 px-4 sm:px-6 lg:px-8 space-y-5">
-        {/* 1. HEADER THÔNG BÁO GIA ĐÌNH (GỌN GÀNG, DỄ HIỂU) */}
-        <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-            <div className="w-12 h-12 rounded-2xl bg-[#2E37A4] text-white flex items-center justify-center shadow-xs shrink-0">
-              <span className="material-symbols-outlined text-[24px]">
-                notifications_active
-              </span>
-            </div>
-
-            <div className="space-y-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
-                  Thông Báo Gia Đình
-                </h1>
-                {unreadCount > 0 ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200 tabular-nums">
-                    {unreadCount} tin chưa đọc
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    Đã xem tất cả
-                  </span>
-                )}
+    <div className="min-h-screen bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+      <main className="mx-auto max-w-6xl space-y-5 px-4 py-5 sm:px-6 sm:py-7 lg:px-8">
+        <Card className="rounded-2xl border-slate-200/80 bg-white py-5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] sm:py-6">
+          <CardContent className="flex flex-col justify-between gap-4 px-5 sm:flex-row sm:items-center sm:px-6">
+            <div className="flex min-w-0 items-start gap-3.5 sm:items-center">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-xs">
+                <span className="material-symbols-outlined text-[24px]">
+                  notifications_active
+                </span>
               </div>
 
-              <p className="text-xs text-slate-500">
-                Cập nhật cảnh báo chỉ số sức khỏe, lịch hẹn bác sĩ, đơn thuốc và biên lai của gia
-                đình
-              </p>
+              <div className="min-w-0 space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="text-lg font-bold tracking-tight text-slate-900 sm:text-xl">
+                    Thông Báo Gia Đình
+                  </h1>
+                  {unreadCount > 0 ? (
+                    <Badge
+                      variant="outline"
+                      className="rounded-full border-rose-200 bg-rose-50 px-2.5 py-0.5 text-[11px] font-bold text-rose-600 tabular-nums"
+                    >
+                      {unreadCount} tin chưa đọc
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="rounded-full border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-bold text-emerald-700"
+                    >
+                      Đã xem tất cả
+                    </Badge>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  Cập nhật cảnh báo chỉ số sức khỏe, lịch hẹn bác sĩ, đơn thuốc và biên lai của gia đình
+                </p>
+              </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-            <button
-              type="button"
-              onClick={markAllAsRead}
-              disabled={unreadCount === 0}
-              className="px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 disabled:opacity-50 text-slate-700 font-bold text-xs rounded-xl border border-slate-200 transition-colors inline-flex items-center gap-1.5 cursor-pointer disabled:cursor-not-allowed"
-            >
-              <span className="material-symbols-outlined text-[17px] text-[#2E37A4]">
-                done_all
-              </span>
-              <span>Đọc tất cả</span>
-            </button>
+            <div className="flex shrink-0 items-center gap-2 self-start sm:self-auto">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={markAllAsRead}
+                disabled={unreadCount === 0}
+                className="h-9 cursor-pointer rounded-xl border-slate-200 bg-slate-50 px-3.5 text-xs font-bold text-slate-700 hover:bg-slate-100"
+              >
+                <span className="material-symbols-outlined text-[17px] text-primary">
+                  done_all
+                </span>
+                <span>Đọc tất cả</span>
+              </Button>
 
-            <Link
-              href="/settings"
-              className="px-3.5 py-2.5 bg-blue-50/80 hover:bg-blue-100 text-[#2E37A4] border border-blue-200/80 font-bold text-xs rounded-xl transition-colors inline-flex items-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[17px]">tune</span>
-              <span>Cài đặt</span>
-            </Link>
-          </div>
-        </div>
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="h-9 rounded-xl border-blue-200/80 bg-blue-50/80 px-3.5 text-xs font-bold text-primary hover:bg-blue-100"
+              >
+                <Link href="/settings">
+                  <span className="material-symbols-outlined text-[17px]">tune</span>
+                  <span>Cài đặt</span>
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-        {/* 2. KHUNG DANH SÁCH THÔNG BÁO PHẲNG (GỘP THANH LỌC VÀ DANH SÁCH VÀO 1 MẶT PHẲNG) */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] overflow-hidden">
-          {/* Thanh lọc gọn trên đầu danh sách */}
-          <div className="px-4 sm:px-6 py-3.5 border-b border-slate-100 flex items-center justify-between gap-3 overflow-x-auto">
+        <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200/80 bg-white py-0 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+          <div className="flex items-center justify-between gap-3 overflow-x-auto border-b border-slate-100 px-4 py-3.5 sm:px-6">
             <div className="flex items-center gap-1.5 text-xs">
               {[
                 { id: 'all', label: `Tất cả (${notifications.length})` },
@@ -213,42 +230,34 @@ export function NotificationsView() {
               ].map((tab) => {
                 const isActive = activeFilter === tab.id;
                 return (
-                  <button
+                  <Button
                     key={tab.id}
                     type="button"
+                    size="sm"
+                    variant={isActive ? 'default' : 'ghost'}
                     onClick={() => setActiveFilter(tab.id as typeof activeFilter)}
-                    className={`px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all cursor-pointer ${
-                      isActive
-                        ? 'bg-[#2E37A4] text-white shadow-2xs'
-                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    className={`h-8 cursor-pointer rounded-xl px-3 text-xs font-bold whitespace-nowrap ${
+                      isActive ? 'shadow-2xs' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
                     {tab.label}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
 
-            <span className="text-xs text-slate-400 hidden md:inline shrink-0">
+            <span className="hidden shrink-0 text-xs text-slate-400 md:inline">
               Bấm vào thông báo để đánh dấu đã đọc
             </span>
           </div>
 
-          {/* Danh sách thông báo ngăn cách bằng đường kẻ mảnh (Không dùng nhiều hộp rời rạc) */}
           {filteredNotifications.length === 0 ? (
-            <div className="p-12 text-center space-y-2">
-              <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-                <span className="material-symbols-outlined text-[26px]">
-                  notifications_off
-                </span>
-              </div>
-              <h3 className="font-bold text-slate-800 text-sm">
-                Không có thông báo nào trong mục này
-              </h3>
-              <p className="text-xs text-slate-400">
-                Khi có lịch khám hoặc cập nhật sức khỏe mới, hệ thống sẽ hiển thị tại đây.
-              </p>
-            </div>
+            <EmptyState
+              icon="notifications_off"
+              title="Không có thông báo nào trong mục này"
+              description="Khi có lịch khám hoặc cập nhật sức khỏe mới, hệ thống sẽ hiển thị tại đây."
+              className="rounded-none border-0 shadow-none"
+            />
           ) : (
             <div className="divide-y divide-slate-100">
               {filteredNotifications.map((item) => {
@@ -258,42 +267,37 @@ export function NotificationsView() {
                   <div
                     key={item.id}
                     onClick={() => markAsRead(item.id)}
-                    className={`p-4 sm:px-6 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer ${
+                    className={`flex cursor-pointer flex-col justify-between gap-4 p-4 transition-colors sm:flex-row sm:items-center sm:px-6 ${
                       !item.isRead
                         ? 'bg-blue-50/25 hover:bg-blue-50/40'
                         : 'bg-white hover:bg-slate-50/60'
                     }`}
                   >
-                    {/* Bên trái: Icon + Nội dung */}
-                    <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                    <div className="flex min-w-0 flex-1 items-start gap-3.5">
                       <div
-                        className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 mt-0.5 ${style.badgeBg}`}
+                        className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border ${style.badgeBg}`}
                       >
                         <span className="material-symbols-outlined text-[20px]">
                           {style.icon}
                         </span>
                       </div>
 
-                      <div className="space-y-1 min-w-0 flex-1">
-                        {/* Dòng nhãn loại & thời gian */}
+                      <div className="min-w-0 flex-1 space-y-1">
                         <div className="flex flex-wrap items-center gap-2 text-[11px]">
-                          <span
-                            className={`px-2 py-0.5 rounded-md font-bold ${style.tagText}`}
-                          >
+                          <span className={`rounded-md px-2 py-0.5 font-bold ${style.tagText}`}>
                             {item.categoryLabel}
                           </span>
-                          <span className="text-slate-400 font-medium">
+                          <span className="font-medium text-slate-400">
                             • {item.timestamp}
                           </span>
                           {!item.isRead && (
-                            <span className="inline-flex items-center gap-1 text-[#2E37A4] font-bold">
-                              <span className="w-1.5 h-1.5 rounded-full bg-[#2E37A4]" />
+                            <span className="inline-flex items-center gap-1 font-bold text-primary">
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
                               Mới
                             </span>
                           )}
                         </div>
 
-                        {/* Tiêu đề thông báo */}
                         <h3
                           className={`text-sm leading-snug ${
                             !item.isRead
@@ -304,47 +308,51 @@ export function NotificationsView() {
                           {item.title}
                         </h3>
 
-                        {/* Nội dung chi tiết */}
-                        <p className="text-xs text-slate-500 leading-relaxed">
+                        <p className="text-xs leading-relaxed text-slate-500">
                           {item.message}
                         </p>
                       </div>
                     </div>
 
-                    {/* Bên phải: Nút chuyển trang & Nút xóa */}
-                    <div className="flex items-center justify-end gap-2 shrink-0 pl-13 sm:pl-0">
-                      <Link
-                        href={item.linkHref}
+                    <div className="flex shrink-0 items-center justify-end gap-2 pl-13 sm:pl-0">
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="secondary"
                         onClick={(e) => e.stopPropagation()}
-                        className="px-3.5 py-2 rounded-xl bg-slate-100/90 hover:bg-[#2E37A4] text-slate-700 hover:text-white text-xs font-bold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
+                        className="h-8 rounded-xl bg-slate-100/90 px-3.5 text-xs font-bold whitespace-nowrap text-slate-700 hover:bg-primary hover:text-primary-foreground"
                       >
-                        <span>{item.linkLabel}</span>
-                        <span className="material-symbols-outlined text-[15px]">
-                          arrow_forward
-                        </span>
-                      </Link>
+                        <Link href={item.linkHref}>
+                          <span>{item.linkLabel}</span>
+                          <span className="material-symbols-outlined text-[15px]">
+                            arrow_forward
+                          </span>
+                        </Link>
+                      </Button>
 
-                      <button
+                      <Button
                         type="button"
+                        size="icon-sm"
+                        variant="ghost"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteNotification(item.id);
                         }}
-                        className="w-8 h-8 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors cursor-pointer"
+                        className="cursor-pointer rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                         title="Xóa thông báo"
                         aria-label="Xóa thông báo"
                       >
                         <span className="material-symbols-outlined text-[18px]">
                           close
                         </span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 );
               })}
             </div>
           )}
-        </div>
+        </Card>
       </main>
     </div>
   );

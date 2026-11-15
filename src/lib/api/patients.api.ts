@@ -1,8 +1,31 @@
 import { httpClient } from './http-client';
+import { unwrapApiEnvelope } from './envelope';
 
 export type PatientGender = 'MALE' | 'FEMALE' | 'OTHER';
 export type PatientRelationship = 'SELF' | 'SPOUSE' | 'CHILD' | 'PARENT' | 'OTHER';
-export type AllergySeverity = 'MILD' | 'MODERATE' | 'SEVERE';
+export type PatientStatus = 'ACTIVE' | 'INACTIVE';
+export type AllergenType = 'DRUG' | 'FOOD' | 'ENVIRONMENTAL';
+export type AllergySeverity = 'MILD' | 'MODERATE' | 'LIFE_THREATENING_ANAPHYLAXIS';
+export type PatientDocumentType = 'LAB_RESULT' | 'IMAGING_XRAY_CT' | 'DISCHARGE_SUMMARY';
+
+export interface PatientAllergyDto {
+  id?: string;
+  allergenType: AllergenType;
+  allergenName: string;
+  severity: AllergySeverity;
+  clinicalManifestation?: string | null;
+  createdAt?: string;
+}
+
+export interface PatientDocumentDto {
+  id?: string;
+  documentName: string;
+  documentType: PatientDocumentType;
+  fileUrl: string;
+  fileSizeKb?: number;
+  recordedDate: string;
+  uploadedAt?: string;
+}
 
 export interface PatientDto {
   id: string;
@@ -10,9 +33,14 @@ export interface PatientDto {
   fullName: string;
   dateOfBirth: string;
   gender: PatientGender;
-  relationshipToHead: PatientRelationship;
-  identityCardNumber?: string;
-  healthInsuranceNumber?: string;
+  relationshipToHead: PatientRelationship | string;
+  citizenId?: string | null;
+  identityCardNumber?: string | null;
+  healthInsuranceNumber?: string | null;
+  bloodType?: string | null;
+  registeredHospital?: string | null;
+  chronicDiseases?: string | null;
+  status?: PatientStatus;
   allergies?: PatientAllergyDto[];
   documents?: PatientDocumentDto[];
   createdAt: string;
@@ -23,64 +51,56 @@ export interface CreatePatientDto {
   fullName: string;
   dateOfBirth: string;
   gender: PatientGender;
-  relationshipToHead: PatientRelationship;
+  relationshipToRepresentative?: PatientRelationship | string;
+  relationshipToHead?: PatientRelationship | string;
+  identityNumber?: string;
   identityCardNumber?: string;
+  citizenId?: string;
+  phoneNumber?: string;
+  bloodType?: string;
   healthInsuranceNumber?: string;
+  registeredHospital?: string;
+  chronicDiseases?: string;
+  familyId?: string;
 }
 
-export interface PatientAllergyDto {
-  id?: string;
-  allergen: string;
-  allergyType: 'DRUG' | 'FOOD' | 'ENVIRONMENT';
-  severity: AllergySeverity;
-  reactionDetails?: string;
-}
-
-export interface PatientDocumentDto {
-  id?: string;
-  documentType: 'LAB_RESULT' | 'PRESCRIPTION' | 'DISCHARGE_SUMMARY' | 'IMAGING' | 'OTHER';
-  fileUrl: string;
-  title: string;
-  notes?: string;
-}
+export type UpdatePatientDto = Partial<CreatePatientDto> & {
+  status?: PatientStatus;
+};
 
 export const patientsApi = {
   getFamilyMembers: async (): Promise<PatientDto[]> => {
-    const res = await httpClient.get<any>('/api/v1/patients');
-    if (res && typeof res === 'object') {
-      if ('data' in res && Array.isArray(res.data)) return res.data;
-    }
-    if (Array.isArray(res)) return res;
-    return [];
+    const payload = await httpClient.get<unknown>('/api/v1/patients');
+    return unwrapApiEnvelope<PatientDto[]>(payload);
   },
 
   getMemberById: async (id: string): Promise<PatientDto> => {
-    const res = await httpClient.get<any>(`/api/v1/patients/${id}`);
-    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
-    return res as PatientDto;
+    const payload = await httpClient.get<unknown>(`/api/v1/patients/${id}`);
+    return unwrapApiEnvelope<PatientDto>(payload);
   },
 
   createFamilyMember: async (dto: CreatePatientDto): Promise<PatientDto> => {
-    const res = await httpClient.post<any>('/api/v1/patients', dto);
-    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
-    return res as PatientDto;
+    const payload = await httpClient.post<unknown>('/api/v1/patients', dto);
+    return unwrapApiEnvelope<PatientDto>(payload);
   },
 
-  updateFamilyMember: async (id: string, dto: Partial<CreatePatientDto>): Promise<PatientDto> => {
-    const res = await httpClient.put<any>(`/api/v1/patients/${id}`, dto);
-    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
-    return res as PatientDto;
+  updateFamilyMember: async (id: string, dto: UpdatePatientDto): Promise<PatientDto> => {
+    const payload = await httpClient.put<unknown>(`/api/v1/patients/${id}`, dto);
+    return unwrapApiEnvelope<PatientDto>(payload);
+  },
+
+  detachFamilyMember: async (id: string): Promise<PatientDto> => {
+    const payload = await httpClient.delete<unknown>(`/api/v1/patients/${id}`);
+    return unwrapApiEnvelope<PatientDto>(payload);
   },
 
   addMemberAllergy: async (patientId: string, dto: PatientAllergyDto): Promise<PatientAllergyDto> => {
-    const res = await httpClient.post<any>(`/api/v1/patients/${patientId}/allergies`, dto);
-    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
-    return res as PatientAllergyDto;
+    const payload = await httpClient.post<unknown>(`/api/v1/patients/${patientId}/allergies`, dto);
+    return unwrapApiEnvelope<PatientAllergyDto>(payload);
   },
 
   addMemberDocument: async (patientId: string, dto: PatientDocumentDto): Promise<PatientDocumentDto> => {
-    const res = await httpClient.post<any>(`/api/v1/patients/${patientId}/documents`, dto);
-    if (res && typeof res === 'object' && 'data' in res && res.data) return res.data;
-    return res as PatientDocumentDto;
+    const payload = await httpClient.post<unknown>(`/api/v1/patients/${patientId}/documents`, dto);
+    return unwrapApiEnvelope<PatientDocumentDto>(payload);
   },
 };

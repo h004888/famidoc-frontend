@@ -282,19 +282,20 @@ export function FacilityStaffView() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={filterDepartment}
-              onChange={(e) => setFilterDepartment(e.target.value)}
-              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium text-slate-700 focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
-            >
-              <option value="all">Tất cả chuyên khoa</option>
-              <option value="Khoa Y học Gia đình">Khoa Y học Gia đình</option>
-              <option value="Khoa Nội Tổng quát">Khoa Nội Tổng quát</option>
-              <option value="Khoa Nhi">Khoa Nhi</option>
-              <option value="Khoa Nội tiết">Khoa Nội tiết</option>
-              <option value="Khoa Cấp cứu & Y tế Gia đình">Khoa Cấp cứu & Y tế Gia đình</option>
-            </select>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                aria-label="Lọc theo chuyên khoa"
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment(e.target.value)}
+                className="h-9 px-3 bg-slate-50 border border-input rounded-xl text-xs sm:text-sm font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <option value="all">Tất cả chuyên khoa</option>
+                <option value="Khoa Y học Gia đình">Khoa Y học Gia đình</option>
+                <option value="Khoa Nội Tổng quát">Khoa Nội Tổng quát</option>
+                <option value="Khoa Nhi">Khoa Nhi</option>
+                <option value="Khoa Nội tiết">Khoa Nội tiết</option>
+                <option value="Khoa Cấp cứu & Y tế Gia đình">Khoa Cấp cứu &amp; Y tế Gia đình</option>
+              </select>
 
             <select
               value={filterStatus}

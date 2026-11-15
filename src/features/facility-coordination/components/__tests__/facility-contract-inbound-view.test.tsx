@@ -1,6 +1,14 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { contractsApi } from '@/lib/api';
+
+vi.mock('@documenso/embed-react', () => ({
+  EmbedSignDocument: ({ token }: { token: string }) => (
+    <div data-testid="mock-facility-documenso-form" data-token={token} />
+  ),
+}));
 import { FacilityContractInboundView } from '../facility-contract-inbound-view';
 import type { FourPartyContract } from '@/features/four-party-contract';
 

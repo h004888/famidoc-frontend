@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { useContractWorkflow } from '@/lib/contract-workflow-storage';
 import { contractsApi, patientsApi, type MedicalContractListItem, type PatientDto } from '@/lib/api';
 import { getStoredAuthSession } from '@/lib/auth-storage';
@@ -9,6 +10,12 @@ import {
   INITIAL_FAMILY_MEMBERS_DATA,
   MemberHealthData,
 } from './family-member-care-view';
+import { KpiStatCard } from '@/components/dashboard';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Progress } from '@/components/ui/progress';
 
 interface FamilyMedicationItem {
   id: string;
@@ -296,17 +303,16 @@ export function FamilyDashboardView() {
       return updated;
     });
 
-    setToastMessage('Đã cập nhật trạng thái uống thuốc hôm nay của gia đình!');
-    setTimeout(() => setToastMessage(null), 3000);
+    toast.success('Đã cập nhật trạng thái uống thuốc hôm nay của gia đình!');
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
-      <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* 1. HEADER THOÁNG ĐÃNG TRỰC TIẾP TRÊN NỀN CANVAS (GIẢI PHÓNG KHUNG HỘP) */}
+    <div className="min-h-screen bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+      <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        {/* 1. HEADER THOÁNG ĐÃNG TRỰC TIẾP TRÊN NỀN CANVAS */}
         <header className="space-y-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2 min-w-0">
+          <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
+            <div className="min-w-0 space-y-2">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span
                   suppressHydrationWarning
@@ -336,37 +342,40 @@ export function FamilyDashboardView() {
                 Bảng Sức Khỏe Gia Đình: Hộ {familyHeadName}
               </h1>
 
-              <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
+              <p className="max-w-3xl text-sm leading-relaxed text-slate-600">
                 Trung tâm điều hành sức khỏe hằng ngày · Theo dõi chỉ số sức khỏe, nhắc lịch uống thuốc và lịch khám bác sĩ tại nhà
               </p>
             </div>
 
-            {/* Cụm nút hành động tinh gọn & phân cấp chuẩn */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <Link
-                href="/family/appointments"
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all whitespace-nowrap outline-hidden"
-              >
-                <span className="material-symbols-outlined text-[20px]">calendar_month</span>
-                <span>Đặt lịch khám</span>
-              </Link>
+            <div className="flex shrink-0 flex-wrap items-center gap-3">
+              <Button asChild className="min-h-11 rounded-xl px-5 py-2.5 text-sm font-semibold shadow-xs">
+                <Link href="/family/appointments">
+                  <span className="material-symbols-outlined text-[20px]">calendar_month</span>
+                  <span>Đặt lịch khám</span>
+                </Link>
+              </Button>
 
-              <Link
-                href="/family/telemedicine"
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all whitespace-nowrap outline-hidden"
+              <Button
+                asChild
+                variant="outline"
+                className="min-h-11 rounded-xl border-slate-200/90 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
               >
-                <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">videocam</span>
-                <span>Gọi video bác sĩ</span>
-              </Link>
+                <Link href="/family/telemedicine">
+                  <span className="material-symbols-outlined text-[20px] text-primary">videocam</span>
+                  <span>Gọi video bác sĩ</span>
+                </Link>
+              </Button>
 
-              <a
-                href="tel:19006868"
-                className="min-h-11 inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-rose-50 hover:bg-rose-100/80 text-rose-700 border border-rose-200/80 rounded-xl text-sm font-bold tabular-nums transition-colors whitespace-nowrap outline-hidden"
-                title="Tổng đài y tế cấp cứu khẩn cấp 24/7"
+              <Button
+                asChild
+                variant="outline"
+                className="min-h-11 rounded-xl border-rose-200/80 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 tabular-nums hover:bg-rose-100/80 hover:text-rose-800"
               >
-                <span className="material-symbols-outlined text-[19px] text-rose-600">emergency</span>
-                <span>SOS 1900 6868</span>
-              </a>
+                <a href="tel:19006868" title="Tổng đài y tế cấp cứu khẩn cấp 24/7">
+                  <span className="material-symbols-outlined text-[19px] text-rose-600">emergency</span>
+                  <span>SOS 1900 6868</span>
+                </a>
+              </Button>
             </div>
           </div>
         </header>
@@ -602,55 +611,50 @@ export function FamilyDashboardView() {
         </section>
 
         {/* 2. CẢNH BÁO SỨC KHỎE NHẸ NHÀNG (KHI CÓ CHỈ SỐ CẦN CHÚ Ý) */}
-        {warningMembersCount > 0 && warningMember && (
-          <aside
-            aria-label="Cảnh báo sức khỏe trong ngày"
-            className="p-4 sm:p-5 rounded-2xl bg-amber-50/70 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all"
-          >
-            <div className="flex items-start sm:items-center gap-3.5 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 shadow-xs">
-                <span className="material-symbols-outlined text-[20px]">warning</span>
-              </div>
-              <div className="min-w-0">
-                <div className="font-semibold text-sm text-amber-900">
-                  Lưu ý sức khỏe hôm nay: {warningMember.name} ({warningMember.bpStatus} - Huyết áp {warningMember.bp} mmHg)
-                </div>
-                <p className="text-xs sm:text-sm text-slate-700 mt-0.5 leading-relaxed">
-                  Chỉ số cần theo dõi. Vui lòng kiểm tra lại vào buổi chiều và nhắc thành viên dùng thuốc đúng giờ theo chỉ định của bác sĩ phụ trách.
-                </p>
-              </div>
-            </div>
-
-            <Link
-              href={`/family/members/${warningMember.id}`}
-              className="min-h-9 px-4 py-2 bg-white hover:bg-amber-100/50 text-slate-900 border border-amber-300 font-medium text-xs sm:text-sm rounded-xl transition-colors self-start sm:self-auto shrink-0 inline-flex items-center justify-center whitespace-nowrap outline-hidden shadow-xs"
-            >
-              Xem chi tiết {warningMember.name.split(' ').slice(-1)[0]}
-            </Link>
-          </aside>
-        )}
-
-        {/* 3. DẢI 3 CHỈ SỐ NHỊP NGÀY (KPI) THOÁNG ĐẠT VỚI KHOẢNG THỞ LỚN */}
-        <section
-          aria-label="Tổng quan chỉ số hộ gia đình"
-          className="grid grid-cols-1 md:grid-cols-3 gap-5 sm:gap-6"
+        <Alert
+          role="alert"
+          className="flex flex-col justify-between gap-4 rounded-2xl border-amber-200/80 bg-amber-50/70 p-4 transition-all sm:flex-row sm:items-center sm:p-5"
         >
-          {/* KPI 1 */}
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Trạng thái cả gia đình
-              </span>
-              <span className="material-symbols-outlined text-slate-400 text-[20px]">group</span>
+          <div className="flex min-w-0 items-start gap-3.5 sm:items-center">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 shadow-xs">
+              <span className="material-symbols-outlined text-[20px]">warning</span>
             </div>
-            <div className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
-              {totalMembers} thành viên
-            </div>
-            <div className="text-xs font-medium text-amber-800 flex items-center gap-1.5 pt-1">
-              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" />
-              <span>{warningMembersCount} người cần chú ý huyết áp</span>
+            <div className="min-w-0">
+              <AlertTitle className="text-sm font-semibold text-amber-900">
+                Lưu ý sức khỏe hôm nay: Bác Nguyễn Văn Phúc (Huyết áp 135/85 mmHg)
+              </AlertTitle>
+              <AlertDescription className="mt-0.5 text-xs leading-relaxed text-slate-700 sm:text-sm">
+                Chỉ số cần theo dõi. Vui lòng kiểm tra lại vào buổi chiều và nhắc thành viên dùng thuốc đúng giờ theo chỉ định của bác sĩ phụ trách.
+              </AlertDescription>
             </div>
           </div>
+
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
+            className="min-h-9 self-start rounded-xl border-amber-300 bg-white text-xs font-semibold text-slate-900 shadow-xs hover:bg-amber-100/50 sm:self-auto sm:text-sm"
+          >
+            <Link href={`/family/members/${warningMember?.id || 'm-01'}`}>
+              Xem chi tiết {warningMember?.name ? warningMember.name.split(' ').slice(-1)[0] : 'Phúc'}
+            </Link>
+          </Button>
+        </Alert>
+
+        {/* 3. DẢI 3 CHỈ SỐ NHỊP NGÀY (KPI) */}
+        <section aria-label="Tổng quan chỉ số hộ gia đình" className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">
+          <KpiStatCard
+            title="Trạng thái cả gia đình"
+            value={`${totalMembers} thành viên`}
+            icon="group"
+            iconClassName="bg-primary/10 text-primary"
+            footer={
+              <div className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
+                <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                <span>{warningMembersCount} người cần chú ý huyết áp</span>
+              </div>
+            }
+          />
 
           {/* KPI 2 */}
           <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
@@ -669,6 +673,12 @@ export function FamilyDashboardView() {
                   className="h-full bg-emerald-500 rounded-full transition-all duration-300"
                   style={{ width: `${medPercent}%` }}
                 />
+                <div className="flex items-center justify-between text-xs font-medium text-emerald-800">
+                  <span>Đạt {medPercent}%</span>
+                  <span className="font-normal text-slate-500">
+                    Còn {totalMedicines - takenMedicines} cữ tối
+                  </span>
+                </div>
               </div>
               <div className="text-xs font-medium text-emerald-800 flex items-center justify-between">
                 <span>Đạt {medPercent}%</span>
@@ -699,140 +709,149 @@ export function FamilyDashboardView() {
           </div>
         </section>
 
+        {/* 4. CHỈ SỐ SỨC KHỎE HÔM NAY CỦA CÁC THÀNH VIÊN */}
         <section className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
             <div>
               <h2 className="text-lg font-bold text-slate-900 tracking-tight">
                 Chỉ Số Sức Khỏe Hôm Nay Của Các Thành Viên ({totalMembers})
               </h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
                 Cập nhật tự động từ thiết bị đo IoT gia đình và sổ theo dõi hàng ngày
               </p>
             </div>
 
             <Link
               href="/family/members"
-              className="text-xs sm:text-sm font-semibold text-[#2E37A4] hover:text-[#222982] inline-flex items-center gap-1 hover:underline outline-hidden"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline sm:text-sm"
             >
               <span>Mở sổ Quản lý thành viên &amp; BHYT</span>
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </Link>
           </div>
 
-          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             {membersList.map((m) => {
               const isWarning = m.status === 'warning';
+              const memberMeds = membersData[m.id]?.medicines || [];
+              const medTaken = memberMeds.filter((x) => x.status === 'taken').length;
+              const medTotal = memberMeds.length;
 
               return (
-                <Link
-                  key={m.id}
-                  href={`/family/members/${m.id}`}
-                  className="group bg-white p-6 rounded-2xl border border-slate-200/70 hover:border-slate-300 shadow-xs hover:shadow-md transition-all flex flex-col justify-between gap-5 outline-hidden"
-                >
-                  {/* Hàng 1: Avatar, Họ tên, Tuổi, Vai trò & Badge Trạng thái */}
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
-                        {m.avatar}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="font-bold text-base text-slate-900 group-hover:text-[#2E37A4] transition-colors truncate">
-                          {m.name}
+                <Link key={m.id} href={`/family/members/${m.id}`} className="group block outline-hidden">
+                  <Card className="h-full gap-5 rounded-2xl border-slate-200/70 bg-white p-6 shadow-xs transition-all hover:border-slate-300 hover:shadow-md">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3.5">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-2xl transition-transform group-hover:scale-105">
+                          {m.avatar}
                         </div>
-                        <div className="text-xs text-slate-500 font-medium truncate mt-0.5">
-                          {m.relation} · <span className="tabular-nums">{m.age}</span> tuổi
+                        <div className="min-w-0">
+                          <div className="truncate text-base font-bold text-slate-900 transition-colors group-hover:text-primary">
+                            {m.name}
+                          </div>
+                          <div className="mt-0.5 truncate text-xs font-medium text-slate-500">
+                            {m.relation} · <span className="tabular-nums">{m.age}</span> tuổi
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <span
-                      className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shrink-0 ${isWarning
-                        ? 'bg-amber-50 text-amber-800 border border-amber-200/80'
-                        : 'bg-emerald-50 text-emerald-800 border border-emerald-200/80'
+                      <Badge
+                        variant="outline"
+                        className={`shrink-0 gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${
+                          isWarning
+                            ? 'border-amber-200/80 bg-amber-50 text-amber-800'
+                            : 'border-emerald-200/80 bg-emerald-50 text-emerald-800'
                         }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${isWarning ? 'bg-amber-500' : 'bg-emerald-500'
-                          }`}
-                      />
-                      <span>{isWarning ? 'Cần chú ý' : 'Ổn định'}</span>
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-4 gap-2.5 p-3 rounded-xl bg-slate-50/70 border border-slate-100/90">
-                    <div className="text-center">
-                      <span className="text-[11px] font-medium text-slate-500 block truncate">
-                        Huyết áp
-                      </span>
-                      <span
-                        className={`font-bold tabular-nums text-sm sm:text-base mt-1 block truncate ${isWarning ? 'text-amber-800' : 'text-slate-900'
-                          }`}
                       >
-                        {m.bp}
-                      </span>
+                        <span
+                          className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                            isWarning ? 'bg-amber-500' : 'bg-emerald-500'
+                          }`}
+                        />
+                        <span>{isWarning ? 'Cần chú ý' : 'Ổn định'}</span>
+                      </Badge>
                     </div>
 
-                    <div className="text-center">
-                      <span className="text-[11px] font-medium text-slate-500 block truncate">
-                        SpO2
-                      </span>
-                      <span className="font-bold tabular-nums text-sm sm:text-base text-slate-900 mt-1 block truncate">
-                        {m.spo2}
-                      </span>
+                    <div className="grid grid-cols-4 gap-2.5 rounded-xl border border-slate-100/90 bg-slate-50/70 p-3">
+                      <div className="text-center">
+                        <span className="block truncate text-[11px] font-medium text-slate-500">
+                          Huyết áp
+                        </span>
+                        <span
+                          className={`mt-1 block truncate text-sm font-bold tabular-nums sm:text-base ${
+                            isWarning ? 'text-amber-800' : 'text-slate-900'
+                          }`}
+                        >
+                          {m.bp}
+                        </span>
+                      </div>
+
+                      <div className="text-center">
+                        <span className="block truncate text-[11px] font-medium text-slate-500">
+                          SpO2
+                        </span>
+                        <span className="mt-1 block truncate text-sm font-bold text-slate-900 tabular-nums sm:text-base">
+                          {m.spo2}
+                        </span>
+                      </div>
+
+                      <div className="text-center">
+                        <span className="block truncate text-[11px] font-medium text-slate-500">
+                          Nhịp tim
+                        </span>
+                        <span className="mt-1 block truncate text-sm font-bold text-slate-900 tabular-nums sm:text-base">
+                          {m.heartRate.split(' ')[0]}
+                        </span>
+                      </div>
+
+                      <div className="text-center">
+                        <span className="block truncate text-[11px] font-medium text-slate-500">
+                          Glucose
+                        </span>
+                        <span className="mt-1 block truncate text-sm font-bold text-slate-900 tabular-nums sm:text-base">
+                          {m.glucose.split(' ')[0]}
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="text-center">
-                      <span className="text-[11px] font-medium text-slate-500 block truncate">
-                        Nhịp tim
+                    <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
+                      <span className="truncate">
+                        Thuốc {medTaken}/{medTotal} liều thuốc · {m.lastUpdated}
                       </span>
-                      <span className="font-bold tabular-nums text-sm sm:text-base text-slate-900 mt-1 block truncate">
-                        {m.heartRate.split(' ')[0]}
-                      </span>
-                    </div>
-
-                    <div className="text-center">
-                      <span className="text-[11px] font-medium text-slate-500 block truncate">
-                        Glucose
-                      </span>
-                      <span className="font-bold tabular-nums text-sm sm:text-base text-slate-900 mt-1 block truncate">
-                        {m.glucose.split(' ')[0]}
+                      <span className="inline-flex shrink-0 items-center gap-0.5 font-semibold text-primary transition-transform group-hover:translate-x-0.5">
+                        <span>Chi tiết</span>
+                        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                       </span>
                     </div>
-                  </div>
-
-                  {/* Hàng 3: Nút mở hồ sơ chi tiết */}
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-end text-xs">
-                    <span className="font-semibold text-[#2E37A4] group-hover:translate-x-0.5 transition-transform inline-flex items-center gap-0.5 shrink-0">
-                      <span>Xem hồ sơ chi tiết</span>
-                      <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                    </span>
-                  </div>
+                  </Card>
                 </Link>
               );
             })}
           </div>
         </section>
 
-        {/* 5. LƯỚI BẤT ĐỐI XỨNG: LỊCH UỐNG THUỐC (2/3) + BÁC SĨ GIA ĐÌNH & QUYỀN LỢI (1/3) */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 items-start">
-          {/* Cột trái (2/3): Lịch uống thuốc hôm nay */}
-          <section className="lg:col-span-2 bg-white rounded-2xl border border-slate-200/70 shadow-xs p-5 sm:p-6 space-y-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+        {/* 5. LƯỚI BẤT ĐỐI XỨNG: LỊCH UỐNG THUỐC (2/3) + BÁC SĨ QUẢN NHIỆM (1/3) */}
+        <div className="grid grid-cols-1 items-start gap-6 sm:gap-8 lg:grid-cols-3">
+          <Card className="gap-5 rounded-2xl border-slate-200/70 bg-white p-5 shadow-xs sm:p-6 lg:col-span-2">
+            <CardHeader className="flex flex-col justify-between gap-3 border-b border-slate-100 p-0 pb-3 sm:flex-row sm:items-center">
               <div>
-                <h2 className="font-bold text-base sm:text-lg text-slate-900">
+                <CardTitle className="text-base font-bold text-slate-900 sm:text-lg">
                   Lịch Uống Thuốc Hôm Nay Của Cả Gia Đình
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+                </CardTitle>
+                <CardDescription className="mt-0.5 text-xs text-slate-500 sm:text-sm">
                   Nhắc nhở và kiểm tra nhanh việc dùng thuốc của từng thành viên trong ngày
-                </p>
+                </CardDescription>
               </div>
 
-              <span className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums bg-slate-100 text-slate-800 self-start sm:self-auto shrink-0">
+              <Badge
+                variant="secondary"
+                className="shrink-0 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 tabular-nums sm:self-auto"
+              >
                 Tiến độ: {medPercent}% ({takenMedicines}/{totalMedicines})
-              </span>
-            </div>
+              </Badge>
+            </CardHeader>
 
-            <div className="space-y-3">
+            <CardContent className="space-y-3 p-0">
               {familyMedicines.map((item) => {
                 const isTaken = item.status === 'taken';
                 const originalMedId = item.id.replace(`${item.memberId}-`, '');
@@ -840,42 +859,47 @@ export function FamilyDashboardView() {
                 return (
                   <div
                     key={item.id}
-                    className="p-4 rounded-xl border border-slate-100 hover:border-slate-200 hover:bg-slate-50/60 transition-colors flex items-center justify-between gap-4"
+                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-4 transition-colors hover:border-slate-200 hover:bg-slate-50/60"
                   >
-                    <div className="flex items-center gap-3.5 min-w-0">
+                    <div className="flex min-w-0 items-center gap-3.5">
                       <div
-                        className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isTaken ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-[#2E37A4]'
-                          }`}
+                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
+                          isTaken ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-primary'
+                        }`}
                       >
                         <span className="material-symbols-outlined text-[18px]">
                           {isTaken ? 'check' : 'medication'}
                         </span>
                       </div>
                       <div className="min-w-0">
-                        <div className="font-semibold text-sm text-slate-900 truncate">
+                        <div className="truncate text-sm font-semibold text-slate-900">
                           {item.medName}
                         </div>
-                        <div className="text-xs text-slate-500 truncate mt-0.5">
-                          <span className="font-medium text-slate-700">{item.memberName}</span> ({item.relation}) · {item.time} · {item.dosage}
+                        <div className="mt-0.5 truncate text-xs text-slate-500">
+                          <span className="font-medium text-slate-700">{item.memberName}</span> ({item.relation}) ·{' '}
+                          {item.time} · {item.dosage}
                         </div>
                       </div>
                     </div>
 
-                    <button
+                    <Button
                       type="button"
+                      size="sm"
+                      variant="outline"
                       onClick={() => handleToggleMedStatus(item.memberId, originalMedId)}
-                      className={`min-h-9 px-4 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-colors cursor-pointer outline-hidden whitespace-nowrap ${isTaken
-                        ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80'
-                        : 'bg-white hover:bg-slate-100 text-[#2E37A4] border border-slate-300'
-                        }`}
+                      className={`min-h-9 shrink-0 cursor-pointer whitespace-nowrap rounded-xl px-4 text-xs font-semibold ${
+                        isTaken
+                          ? 'border-emerald-200/80 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
+                          : 'border-slate-300 bg-white text-primary hover:bg-slate-100'
+                      }`}
                     >
                       {isTaken ? 'Đã uống' : 'Bấm đã uống'}
-                    </button>
+                    </Button>
                   </div>
                 );
               })}
-            </div>
-          </section>
+            </CardContent>
+          </Card>
 
           {/* Cột phải (1/3): Bác sĩ gia đình phụ trách & Hạn mức khám */}
           <aside className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-5">
@@ -977,20 +1001,6 @@ export function FamilyDashboardView() {
           </aside>
         </div>
       </main>
-
-      {/* Accessible Toast */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-fade-in"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400">
-            check_circle
-          </span>
-          <span className="font-medium">{toastMessage}</span>
-        </div>
-      )}
     </div>
   );
 }

@@ -8,6 +8,12 @@ import { useAuth } from '../context/auth-context';
 import { authApi, mapRegistrationErrorToFields } from '@/lib/api/auth.api';
 import { facilitiesApi } from '@/lib/api/facilities.api';
 import { ApiError } from '@/lib/http/errors';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function RegisterForm() {
   const router = useRouter();
@@ -499,17 +505,16 @@ export function RegisterForm() {
 
             {/* Global error banner (from authApi errors) */}
             {errors.global && (
-              <div
-                role="alert"
-                className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2"
-              >
-                <svg className="w-4 h-4 shrink-0 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" x2="12" y1="8" y2="12" />
-                  <line x1="12" x2="12.01" y1="16" y2="16" />
-                </svg>
-                <span className="font-medium">{errors.global}</span>
-              </div>
+              <Alert variant="destructive" className="mb-4 rounded-xl border-rose-200 bg-rose-50 text-rose-700">
+                <AlertDescription className="flex items-center gap-2 text-xs text-rose-700">
+                  <svg className="w-4 h-4 shrink-0 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" x2="12" y1="8" y2="12" />
+                    <line x1="12" x2="12.01" y1="16" y2="16" />
+                  </svg>
+                  <span className="font-medium">{errors.global}</span>
+                </AlertDescription>
+              </Alert>
             )}
 
             {/* Registration Form */}
@@ -531,7 +536,7 @@ export function RegisterForm() {
                       <circle cx="12" cy="7" r="4" />
                     </svg>
                   </span>
-                  <input
+                  <Input
                     id="register-fullname"
                     type="text"
                     name="fullName"
@@ -569,7 +574,7 @@ export function RegisterForm() {
                         <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                       </svg>
                     </span>
-                    <input
+                    <Input
                       id="register-email"
                       type="email"
                       name="email"
@@ -599,7 +604,6 @@ export function RegisterForm() {
                       : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
                       }`}
                   >
-                    {/* Country Prefix */}
                     <div className="flex items-center pl-3 pr-2 border-r border-slate-200 text-slate-600 bg-slate-50/60 text-xs font-medium space-x-1 select-none shrink-0">
                       <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -648,7 +652,7 @@ export function RegisterForm() {
                         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                       </svg>
                     </span>
-                    <input
+                    <Input
                       id="register-password"
                       type={showPassword ? 'text' : 'password'}
                       name="password"
@@ -695,7 +699,7 @@ export function RegisterForm() {
                         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                       </svg>
                     </span>
-                    <input
+                    <Input
                       id="register-confirmpassword"
                       type={showConfirmPassword ? 'text' : 'password'}
                       name="confirmPassword"
@@ -822,7 +826,6 @@ export function RegisterForm() {
 
               {/* Terms Checkboxes */}
               <div className="pt-2 space-y-2.5" data-purpose="terms-checkboxes">
-                {/* errors.acceptTerms */}
                 {errors.acceptTerms && (
                   <p role="alert" className="text-xs text-red-600 font-medium">
                     {errors.acceptTerms}
@@ -840,11 +843,11 @@ export function RegisterForm() {
                   />
                   <span className="text-[11px] sm:text-xs text-slate-600 leading-snug">
                     Tôi đồng ý với{' '}
-                    <Link href="/privacy" className="text-blue-600 font-medium hover:underline">
+                    <Link href="/privacy" className="text-primary font-medium hover:underline">
                       Chính sách bảo mật y tế
                     </Link>{' '}
                     &amp;{' '}
-                    <Link href="/terms" className="text-blue-600 font-medium hover:underline">
+                    <Link href="/terms" className="text-primary font-medium hover:underline">
                       Điều khoản dịch vụ Khám bệnh từ xa
                     </Link>
                     .
@@ -875,19 +878,7 @@ export function RegisterForm() {
                   {loading ? (
                     <span>Đang khởi tạo tài khoản...</span>
                   ) : (
-                    <>
-                      <span>Đăng ký tài khoản FamiDoc</span>
-                      <svg
-                        className="w-4 h-4 transition-transform group-hover:translate-x-1"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        viewBox="0 0 24 24"
-                      >
-                        <line x1="5" x2="19" y1="12" y2="12" />
-                        <polyline points="12 5 19 12 12 19" />
-                      </svg>
-                    </>
+                    <span>Đăng ký tài khoản FamiDoc</span>
                   )}
                 </button>
               </div>
@@ -1214,7 +1205,7 @@ export function RegisterForm() {
               {/* Sign-in Link */}
               <div className="text-slate-500 whitespace-nowrap shrink-0">
                 Đã có tài khoản?{' '}
-                <Link href="/login" className="font-semibold text-blue-600 hover:underline">
+                <Link href="/login" className="font-semibold text-primary hover:underline">
                   Đăng nhập ngay
                 </Link>
               </div>

@@ -3,7 +3,20 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/features/auth/context/auth-context';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
+/**
+ * Accessible user profile dropdown in the dashboard topbar.
+ */
 export function DashboardTopbarUser() {
   const { user, role } = useAuth();
   const [mounted, setMounted] = useState(false);

@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PackagesCatalogView } from '../packages-catalog-view';
+import { PackageDetailView } from '../package-detail-view';
 
 // Mock useRouter
 vi.mock('next/navigation', () => ({

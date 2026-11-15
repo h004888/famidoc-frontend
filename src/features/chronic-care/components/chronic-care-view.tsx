@@ -2,6 +2,26 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface VitalRecord {
   id: string;
@@ -190,7 +210,6 @@ export function ChronicCareView() {
   const [membersVitals, setMembersVitals] =
     useState<Record<string, MemberVitalProfile>>(INITIAL_MEMBER_VITALS);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // State cho Form Ghi nhận số đo mới
   const [newBpSys, setNewBpSys] = useState('120');
@@ -248,10 +267,9 @@ export function ChronicCareView() {
     });
 
     setShowAddModal(false);
-    setToastMessage(
+    toast.success(
       `Đã lưu số đo mới cho ${currentProfile.name} (${sys}/${dia} mmHg). Bác sĩ ${currentProfile.doctorName} đã nhận được cập nhật.`
     );
-    setTimeout(() => setToastMessage(null), 4000);
   };
 
   // Tính tọa độ SVG cho biểu đồ
@@ -268,14 +286,14 @@ export function ChronicCareView() {
   });
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* 1. HEADER CANVAS THOÁNG ĐÃNG ĐỒNG BỘ VỚI /family */}
         <header className="space-y-4">
           <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
             <Link
               href="/family"
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-[#2E37A4] transition-colors"
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-primary transition-colors"
             >
               <span className="material-symbols-outlined text-[16px]">arrow_back</span>
               <span>Bảng Sức Khỏe Gia Đình</span>
@@ -287,13 +305,13 @@ export function ChronicCareView() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-primary bg-primary/10 border-primary/20">
                   Hộ #FAM-88219
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                </Badge>
+                <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border-emerald-200/60">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0 animate-pulse" />
                   <span>Bác sĩ gia đình theo dõi 24/7</span>
-                </span>
+                </Badge>
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
@@ -307,22 +325,25 @@ export function ChronicCareView() {
 
             {/* Cụm nút hành động tinh gọn & phân cấp chuẩn */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <button
+              <Button
                 type="button"
                 onClick={() => setShowAddModal(true)}
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all whitespace-nowrap outline-hidden cursor-pointer"
+                className="min-h-11 rounded-xl text-sm font-semibold gap-2"
               >
                 <span className="material-symbols-outlined text-[20px]">add_chart</span>
                 <span>Ghi số đo mới</span>
-              </button>
+              </Button>
 
-              <Link
-                href="/family/appointments"
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all whitespace-nowrap outline-hidden"
+              <Button
+                asChild
+                variant="outline"
+                className="min-h-11 rounded-xl text-sm font-medium gap-2"
               >
-                <span className="material-symbols-outlined text-[19px] text-[#2E37A4]">stethoscope</span>
-                <span>Hỏi Bác sĩ</span>
-              </Link>
+                <Link href="/family/appointments">
+                  <span className="material-symbols-outlined text-[19px] text-primary">stethoscope</span>
+                  <span>Hỏi Bác sĩ</span>
+                </Link>
+              </Button>
             </div>
           </div>
         </header>
@@ -332,7 +353,7 @@ export function ChronicCareView() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">family_restroom</span>
+                <span className="material-symbols-outlined text-[20px] text-primary">family_restroom</span>
                 <span>Chọn Người Thân Để Xem Biểu Đồ &amp; Nhật Ký Đo</span>
               </h2>
               <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
@@ -356,7 +377,7 @@ export function ChronicCareView() {
                   onClick={() => setSelectedMemberId(m.id)}
                   className={`p-5 sm:p-6 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-4 outline-hidden ${
                     isSelected
-                      ? 'border-[#2E37A4] bg-white ring-2 ring-[#2E37A4]/15 shadow-sm'
+                      ? 'border-primary bg-white ring-2 ring-primary/15 shadow-sm'
                       : 'border-slate-200/70 bg-white hover:bg-slate-50/70 hover:border-slate-300 shadow-xs'
                   }`}
                 >
@@ -364,7 +385,7 @@ export function ChronicCareView() {
                     <div
                       className={`w-12 h-12 rounded-2xl font-bold text-sm flex items-center justify-center shrink-0 border transition-all ${
                         isSelected
-                          ? 'bg-[#2E37A4] text-white border-[#2E37A4]'
+                          ? 'bg-primary text-primary-foreground border-primary'
                           : 'bg-slate-100 text-slate-700 border-slate-200/80'
                       }`}
                     >
@@ -390,7 +411,7 @@ export function ChronicCareView() {
                         Ổn định
                       </span>
                     )}
-                    <span className="text-xs font-bold tabular-nums text-[#2E37A4]">
+                    <span className="text-xs font-bold tabular-nums text-primary">
                       HA: {latest.bpSystolic}/{latest.bpDiastolic}
                     </span>
                   </div>
@@ -491,7 +512,7 @@ export function ChronicCareView() {
           <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-100 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center">
                   <span className="material-symbols-outlined text-[20px]">water_drop</span>
                 </div>
                 <span className="text-xs font-semibold text-slate-600">Đường huyết</span>
@@ -573,7 +594,7 @@ export function ChronicCareView() {
         <section className="bg-white p-6 sm:p-7 rounded-2xl border border-slate-200/70 shadow-xs space-y-6">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0 border border-blue-100 shadow-2xs">
+              <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs">
                 <span className="material-symbols-outlined text-[24px]">ssid_chart</span>
               </div>
               <div>
@@ -590,7 +611,7 @@ export function ChronicCareView() {
               {/* Chú giải màu sắc */}
               <div className="flex items-center gap-4 text-xs font-semibold">
                 <span className="inline-flex items-center gap-1.5 text-slate-700">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#2E37A4]" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-primary" />
                   <span>Tâm thu (SYS)</span>
                 </span>
                 <span className="inline-flex items-center gap-1.5 text-slate-700">
@@ -612,7 +633,7 @@ export function ChronicCareView() {
                     onClick={() => setTimeRange(r.id as '7d' | '30d' | '90d')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                       timeRange === r.id
-                        ? 'bg-white text-[#2E37A4] shadow-xs'
+                        ? 'bg-white text-primary shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -661,10 +682,10 @@ export function ChronicCareView() {
                 Ngưỡng chú ý: 140 mmHg
               </text>
 
-              {/* Đường biểu diễn Tâm thu (SYS - Indigo #2E37A4) */}
+              {/* Đường biểu diễn Tâm thu (SYS - Primary #0037c1) */}
               <polyline
                 fill="none"
-                stroke="#2E37A4"
+                stroke="#0037c1"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -678,7 +699,7 @@ export function ChronicCareView() {
                       cx={p.x}
                       cy={p.y}
                       r={isHigh ? '5.5' : '4.5'}
-                      fill={isHigh ? '#fa8c16' : '#2E37A4'}
+                      fill={isHigh ? '#fa8c16' : '#0037c1'}
                       stroke="#ffffff"
                       strokeWidth="2"
                     />
@@ -687,7 +708,7 @@ export function ChronicCareView() {
                       y={p.y - 10}
                       fontSize="10"
                       fontWeight="600"
-                      fill={isHigh ? '#d46b08' : '#2E37A4'}
+                      fill={isHigh ? '#d46b08' : '#0037c1'}
                       textAnchor="middle"
                     >
                       {p.val}
@@ -763,14 +784,16 @@ export function ChronicCareView() {
               </div>
             </div>
 
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => setShowAddModal(true)}
-              className="self-start sm:self-auto px-4 py-2 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-[#2E37A4] border border-blue-200/80 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              className="self-start sm:self-auto rounded-xl bg-primary/10 hover:bg-primary/15 text-primary border-primary/20 text-xs font-semibold gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">add</span>
               <span>Thêm lần đo</span>
-            </button>
+            </Button>
           </div>
 
           {/* Giao diện Mobile (< md): Danh sách Thẻ Nhật Ký Đo */}
@@ -779,7 +802,7 @@ export function ChronicCareView() {
               <div key={rec.id} className="p-4 space-y-3">
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-xs font-semibold tabular-nums text-slate-800 flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-[15px] text-[#2E37A4]">
+                    <span className="material-symbols-outlined text-[15px] text-primary">
                       schedule
                     </span>
                     <span>{rec.timestamp}</span>
@@ -805,7 +828,7 @@ export function ChronicCareView() {
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 flex flex-col gap-0.5">
                     <span className="text-[10px] text-slate-500 font-medium">Huyết áp</span>
-                    <span className="font-bold tabular-nums text-sm text-[#2E37A4]">
+                    <span className="font-bold tabular-nums text-sm text-primary">
                       {rec.bpSystolic}/{rec.bpDiastolic}{' '}
                       <span className="text-[10px] font-normal text-slate-400">mmHg</span>
                     </span>
@@ -843,43 +866,43 @@ export function ChronicCareView() {
 
           {/* Giao diện Desktop (>= md): Bảng chuẩn lâm sàng thoáng & đẹp */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
-                <tr>
-                  <th className="py-3.5 px-6">Thời điểm &amp; Ghi chú</th>
-                  <th className="py-3.5 px-6">Huyết áp (SYS/DIA)</th>
-                  <th className="py-3.5 px-6">Đường huyết</th>
-                  <th className="py-3.5 px-6">Nhịp tim &amp; SpO2</th>
-                  <th className="py-3.5 px-6">Thiết bị ghi nhận</th>
-                  <th className="py-3.5 px-6 text-right">Đánh giá</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-800">
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider text-[11px] hover:bg-slate-50/80">
+                  <TableHead className="py-3.5 px-6 text-slate-500">Thời điểm &amp; Ghi chú</TableHead>
+                  <TableHead className="py-3.5 px-6 text-slate-500">Huyết áp (SYS/DIA)</TableHead>
+                  <TableHead className="py-3.5 px-6 text-slate-500">Đường huyết</TableHead>
+                  <TableHead className="py-3.5 px-6 text-slate-500">Nhịp tim &amp; SpO2</TableHead>
+                  <TableHead className="py-3.5 px-6 text-slate-500">Thiết bị ghi nhận</TableHead>
+                  <TableHead className="py-3.5 px-6 text-right text-slate-500">Đánh giá</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-slate-100 text-slate-800">
                 {currentProfile.records.map((rec) => (
-                  <tr key={rec.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-4 px-6">
+                  <TableRow key={rec.id} className="hover:bg-slate-50/60 transition-colors">
+                    <TableCell className="py-4 px-6">
                       <div className="font-semibold tabular-nums text-slate-900">{rec.timestamp}</div>
                       <div className="text-[11px] text-slate-500 mt-0.5">{rec.notes || '—'}</div>
-                    </td>
-                    <td className="py-4 px-6 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="py-4 px-6 whitespace-nowrap">
                       <span
                         className={`font-bold tabular-nums text-sm ${
                           rec.status === 'warning' || rec.status === 'critical'
                             ? 'text-amber-800'
-                            : 'text-[#2E37A4]'
+                            : 'text-primary'
                         }`}
                       >
                         {rec.bpSystolic}/{rec.bpDiastolic}
                       </span>{' '}
                       <span className="text-[11px] tabular-nums text-slate-400">mmHg</span>
-                    </td>
-                    <td className="py-4 px-6 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="py-4 px-6 whitespace-nowrap">
                       <span className="font-bold tabular-nums text-sm text-slate-900">
                         {rec.glucose}
                       </span>{' '}
                       <span className="text-[11px] tabular-nums text-slate-400">mmol/L</span>
-                    </td>
-                    <td className="py-4 px-6 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="py-4 px-6 whitespace-nowrap">
                       <span className="font-semibold tabular-nums text-slate-800">
                         {rec.heartRate} bpm
                       </span>
@@ -887,226 +910,191 @@ export function ChronicCareView() {
                       <span className="font-semibold tabular-nums text-emerald-700">
                         {rec.spo2}%
                       </span>
-                    </td>
-                    <td className="py-4 px-6 text-slate-500 whitespace-nowrap">{rec.device}</td>
-                    <td className="py-4 px-6 text-right whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="py-4 px-6 text-slate-500 whitespace-nowrap">{rec.device}</TableCell>
+                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
                       {rec.status === 'normal' && (
-                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80">
+                        <Badge variant="outline" className="whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border-emerald-200/80">
                           Bình thường
-                        </span>
+                        </Badge>
                       )}
                       {rec.status === 'warning' && (
-                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200/80">
+                        <Badge variant="outline" className="whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border-amber-200/80">
                           Hơi cao · Chú ý
-                        </span>
+                        </Badge>
                       )}
                       {rec.status === 'critical' && (
-                        <span className="inline-block whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/80">
+                        <Badge variant="outline" className="whitespace-nowrap px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border-rose-200/80">
                           Cần gọi Bác sĩ
-                        </span>
+                        </Badge>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </section>
       </main>
 
       {/* MODAL GHI NHẬN SỐ ĐO MỚI */}
-      {showAddModal && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200/80 overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-200">
-            {/* Header Modal */}
-            <div className="px-6 py-5 bg-[#2E37A4] text-white flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[22px]">add_chart</span>
+      <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
+        <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden border-slate-200/80 gap-0">
+          <DialogHeader className="px-6 py-5 bg-primary text-primary-foreground text-left">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[22px]">add_chart</span>
+              </div>
+              <div className="min-w-0">
+                <DialogTitle className="font-bold text-base text-white truncate">
+                  Ghi Nhận Số Đo Sức Khỏe Mới
+                </DialogTitle>
+                <DialogDescription className="text-xs text-blue-100 truncate mt-0.5">
+                  Người thân: {currentProfile.name} ({currentProfile.age} tuổi)
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <form onSubmit={handleAddRecord} className="p-6 space-y-4 text-xs">
+            {/* Huyết áp SYS / DIA */}
+            <div>
+              <Label className="block font-semibold text-slate-700 mb-1.5">
+                Chỉ số Huyết áp (mmHg) <span className="text-rose-500">*</span>
+              </Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <span className="text-[11px] text-slate-500 block mb-1">
+                    Tâm thu (SYS)
+                  </span>
+                  <Input
+                    type="number"
+                    required
+                    min={60}
+                    max={250}
+                    value={newBpSys}
+                    onChange={(e) => setNewBpSys(e.target.value)}
+                    placeholder="120"
+                    className="h-10 rounded-xl bg-slate-50/50 focus:bg-white font-bold tabular-nums text-sm text-slate-900"
+                  />
                 </div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-base text-white truncate">
-                    Ghi Nhận Số Đo Sức Khỏe Mới
-                  </h3>
-                  <p className="text-xs text-blue-100 truncate mt-0.5">
-                    Người thân: {currentProfile.name} ({currentProfile.age} tuổi)
-                  </p>
+                <div>
+                  <span className="text-[11px] text-slate-500 block mb-1">
+                    Tâm trương (DIA)
+                  </span>
+                  <Input
+                    type="number"
+                    required
+                    min={40}
+                    max={160}
+                    value={newBpDia}
+                    onChange={(e) => setNewBpDia(e.target.value)}
+                    placeholder="80"
+                    className="h-10 rounded-xl bg-slate-50/50 focus:bg-white font-bold tabular-nums text-sm text-slate-900"
+                  />
                 </div>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setShowAddModal(false)}
-                aria-label="Đóng cửa sổ"
-                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 text-white flex items-center justify-center cursor-pointer shrink-0 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
             </div>
 
-            <form onSubmit={handleAddRecord} className="p-6 space-y-4 text-xs">
-              {/* Huyết áp SYS / DIA */}
+            {/* Đường huyết, Nhịp tim, SpO2 */}
+            <div className="grid grid-cols-3 gap-2.5">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">
-                  Chỉ số Huyết áp (mmHg) <span className="text-rose-500">*</span>
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-[11px] text-slate-500 block mb-1">
-                      Tâm thu (SYS)
-                    </span>
-                    <input
-                      type="number"
-                      required
-                      min={60}
-                      max={250}
-                      value={newBpSys}
-                      onChange={(e) => setNewBpSys(e.target.value)}
-                      placeholder="120"
-                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-sm text-slate-900 focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/15 outline-none"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[11px] text-slate-500 block mb-1">
-                      Tâm trương (DIA)
-                    </span>
-                    <input
-                      type="number"
-                      required
-                      min={40}
-                      max={160}
-                      value={newBpDia}
-                      onChange={(e) => setNewBpDia(e.target.value)}
-                      placeholder="80"
-                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-sm text-slate-900 focus:border-[#2E37A4] focus:ring-2 focus:ring-[#2E37A4]/15 outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Đường huyết, Nhịp tim, SpO2 */}
-              <div className="grid grid-cols-3 gap-2.5">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Đường huyết
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={newGlucose}
-                    onChange={(e) => setNewGlucose(e.target.value)}
-                    placeholder="5.6"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-xs sm:text-sm text-slate-900 focus:border-[#2E37A4] outline-none"
-                  />
-                  <span className="text-[10px] tabular-nums text-slate-400 mt-0.5 block">mmol/L</span>
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Nhịp tim
-                  </label>
-                  <input
-                    type="number"
-                    value={newHeartRate}
-                    onChange={(e) => setNewHeartRate(e.target.value)}
-                    placeholder="75"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-xs sm:text-sm text-slate-900 focus:border-[#2E37A4] outline-none"
-                  />
-                  <span className="text-[10px] tabular-nums text-slate-400 mt-0.5 block">nhịp/phút</span>
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Oxy SpO2
-                  </label>
-                  <input
-                    type="number"
-                    value={newSpo2}
-                    onChange={(e) => setNewSpo2(e.target.value)}
-                    placeholder="98"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white font-bold tabular-nums text-xs sm:text-sm text-slate-900 focus:border-[#2E37A4] outline-none"
-                  />
-                  <span className="text-[10px] tabular-nums text-slate-400 mt-0.5 block">%</span>
-                </div>
-              </div>
-
-              {/* Thời điểm / Ngữ cảnh đo */}
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1.5">
-                  Thời điểm / Ghi chú lúc đo
-                </label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {[
-                    'Đo trước ăn sáng',
-                    'Sau ăn tối 2 tiếng',
-                    'Trước khi đi ngủ',
-                    'Khi thấy hơi mệt',
-                  ].map((preset) => (
-                    <button
-                      key={preset}
-                      type="button"
-                      onClick={() => setNewNotes(preset)}
-                      className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
-                        newNotes === preset
-                          ? 'bg-[#2E37A4] text-white border-[#2E37A4]'
-                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
-                      }`}
-                    >
-                      {preset}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  type="text"
-                  value={newNotes}
-                  onChange={(e) => setNewNotes(e.target.value)}
-                  placeholder="Hoặc tự nhập ghi chú..."
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 text-xs sm:text-sm focus:border-[#2E37A4] outline-none"
+                <Label className="block font-semibold text-slate-700 mb-1">
+                  Đường huyết
+                </Label>
+                <Input
+                  type="number"
+                  step="0.1"
+                  value={newGlucose}
+                  onChange={(e) => setNewGlucose(e.target.value)}
+                  placeholder="5.6"
+                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white font-bold tabular-nums text-xs sm:text-sm text-slate-900"
                 />
+                <span className="text-[10px] tabular-nums text-slate-400 mt-0.5 block">mmol/L</span>
               </div>
-
-              <div className="flex gap-2.5 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
-                >
-                  Hủy bỏ
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                  <span>Lưu số đo</span>
-                </button>
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1">
+                  Nhịp tim
+                </Label>
+                <Input
+                  type="number"
+                  value={newHeartRate}
+                  onChange={(e) => setNewHeartRate(e.target.value)}
+                  placeholder="75"
+                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white font-bold tabular-nums text-xs sm:text-sm text-slate-900"
+                />
+                <span className="text-[10px] tabular-nums text-slate-400 mt-0.5 block">nhịp/phút</span>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1">
+                  Oxy SpO2
+                </Label>
+                <Input
+                  type="number"
+                  value={newSpo2}
+                  onChange={(e) => setNewSpo2(e.target.value)}
+                  placeholder="98"
+                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white font-bold tabular-nums text-xs sm:text-sm text-slate-900"
+                />
+                <span className="text-[10px] tabular-nums text-slate-400 mt-0.5 block">%</span>
+              </div>
+            </div>
 
-      {/* Accessible Feedback Toast */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
-          <span className="font-medium">{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-2 text-slate-400 hover:text-white cursor-pointer"
-            aria-label="Đóng thông báo"
-          >
-            <span className="material-symbols-outlined text-[16px]">close</span>
-          </button>
-        </div>
-      )}
+            {/* Thời điểm / Ngữ cảnh đo */}
+            <div>
+              <Label className="block font-semibold text-slate-700 mb-1.5">
+                Thời điểm / Ghi chú lúc đo
+              </Label>
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {[
+                  'Đo trước ăn sáng',
+                  'Sau ăn tối 2 tiếng',
+                  'Trước khi đi ngủ',
+                  'Khi thấy hơi mệt',
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => setNewNotes(preset)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors cursor-pointer ${
+                      newNotes === preset
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+              </div>
+              <Input
+                type="text"
+                value={newNotes}
+                onChange={(e) => setNewNotes(e.target.value)}
+                placeholder="Hoặc tự nhập ghi chú..."
+                className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 text-xs sm:text-sm"
+              />
+            </div>
+
+            <div className="flex gap-2.5 pt-2 border-t border-slate-100">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAddModal(false)}
+                className="flex-1 h-10 rounded-xl text-xs sm:text-sm font-semibold"
+              >
+                Hủy bỏ
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 h-10 rounded-xl text-xs sm:text-sm font-semibold gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                <span>Lưu số đo</span>
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

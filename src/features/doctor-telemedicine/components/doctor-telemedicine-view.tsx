@@ -3,6 +3,20 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ChatMessage {
   id: string;
@@ -49,9 +63,6 @@ export function DoctorTelemedicineView() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
   const [newChatMessage, setNewChatMessage] = useState('');
   const [showEndConsultModal, setShowEndConsultModal] = useState(false);
-  const [screenShareToast, setScreenShareToast] = useState<string | null>(null);
-  const [saveNoteToast, setSaveNoteToast] = useState<string | null>(null);
-  const [snapshotToast, setSnapshotToast] = useState<string | null>(null);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,100 +81,39 @@ export function DoctorTelemedicineView() {
   };
 
   const handleCaptureSnapshot = () => {
-    setSnapshotToast('Đã chụp ảnh chứng từ lâm sàng từ camera bệnh nhân và lưu vào hồ sơ EMR!');
-    setTimeout(() => setSnapshotToast(null), 4000);
+    toast.success('Đã chụp ảnh chứng từ lâm sàng từ camera bệnh nhân và lưu vào hồ sơ EMR!');
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
-        {/* Realtime Feedback Toasts */}
-        <div className="space-y-2">
-          {screenShareToast && (
-            <div
-              role="status"
-              className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-[#2E37A4] text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[20px]">screen_share</span>
-                <span>{screenShareToast}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setScreenShareToast(null)}
-                className="text-[#2E37A4] hover:opacity-80 p-1 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-          )}
-
-          {saveNoteToast && (
-            <div
-              role="status"
-              className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-                <span>{saveNoteToast}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSaveNoteToast(null)}
-                className="text-emerald-700 hover:text-emerald-900 p-1 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-          )}
-
-          {snapshotToast && (
-            <div
-              role="status"
-              className="p-4 rounded-2xl bg-sky-50 border border-sky-200 text-sky-800 text-xs sm:text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
-            >
-              <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[20px] text-sky-600">add_a_photo</span>
-                <span>{snapshotToast}</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSnapshotToast(null)}
-                className="text-sky-700 hover:text-sky-900 p-1 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-          )}
-        </div>
-
         {/* Floating Page Header & Consultation Info */}
         <header className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 text-[#2E37A4] border border-indigo-100">
+              <Badge variant="outline" className="gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary border-primary/20">
                 <span className="material-symbols-outlined text-[15px]">videocam</span>
                 Bác Sĩ Gia Đình FamiDoc
-              </span>
+              </Badge>
               <span>/</span>
               <span className="text-slate-700">Phòng Khám Từ Xa Telehealth</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 shadow-2xs">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 WebRTC E2EE 256-bit Bảo Mật Y Tế
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-[#2E37A4] border border-indigo-200 shadow-2xs">
+              </Badge>
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border-primary/20 shadow-2xs">
                 <span className="material-symbols-outlined text-[15px]">verified_user</span>
                 Bản Quyền FamiDoc Telemedicine
-              </span>
+              </Badge>
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-5">
+          <Card className="bg-white p-6 rounded-2xl border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-5">
             <div className="flex items-start sm:items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center shadow-md ring-4 ring-[#2E37A4]/10 shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-white flex items-center justify-center shadow-md ring-4 ring-primary/10 shrink-0">
                 <span className="material-symbols-outlined text-[24px]">telepresence</span>
               </div>
               <div className="space-y-1">
@@ -171,9 +121,9 @@ export function DoctorTelemedicineView() {
                   <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                     Phòng Khám Trực Tuyến Telehealth
                   </h1>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-indigo-50 text-[#2E37A4] border border-indigo-200">
+                  <Badge variant="outline" className="px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-primary/10 text-primary border-primary/20">
                     Phòng #TELE-88219
-                  </span>
+                  </Badge>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-500">
                   Bệnh nhân: <strong className="text-slate-800">Nguyễn Văn Phúc (78 tuổi)</strong> • Hộ: FAM-88219 • Bác sĩ tư vấn: <strong className="text-slate-800">PGS.TS Nguyễn Trọng Nghĩa</strong>
@@ -189,15 +139,14 @@ export function DoctorTelemedicineView() {
                 <span>00:14:32</span>
               </div>
 
-              <Link
-                href="/doctor/encounters?patientId=PT-01&encounterId=TELE-88219"
-                className="inline-flex items-center gap-1.5 px-4 py-2 bg-[#2E37A4] hover:bg-indigo-800 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[17px]">clinical_notes</span>
-                <span>Kê Đơn Thuốc &amp; Ký Số EMR</span>
-              </Link>
+              <Button asChild className="rounded-xl text-xs sm:text-sm font-bold gap-1.5">
+                <Link href="/doctor/encounters?patientId=PT-01&encounterId=TELE-88219">
+                  <span className="material-symbols-outlined text-[17px]">clinical_notes</span>
+                  <span>Kê Đơn Thuốc &amp; Ký Số EMR</span>
+                </Link>
+              </Button>
             </div>
-          </div>
+          </Card>
         </header>
 
         {/* Video Consultation Stage & Clinical Patient Sidebar Grid */}
@@ -231,7 +180,7 @@ export function DoctorTelemedicineView() {
                 <div className="text-center space-y-4 max-w-sm">
                   {/* Patient Visual Avatar */}
                   <div className="relative inline-block">
-                    <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-gradient-to-tr from-slate-800 to-slate-700 border-4 border-slate-600/70 flex items-center justify-center text-white font-bold text-3xl sm:text-4xl shadow-2xl mx-auto ring-4 ring-[#2E37A4]/30">
+                    <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-gradient-to-tr from-slate-800 to-slate-700 border-4 border-slate-600/70 flex items-center justify-center text-white font-bold text-3xl sm:text-4xl shadow-2xl mx-auto ring-4 ring-primary/30">
                       VP
                     </div>
                     {/* Active Voice Wave Pulse */}
@@ -270,7 +219,7 @@ export function DoctorTelemedicineView() {
                 </div>
 
                 <div className="text-center">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center font-bold text-sm mx-auto shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-white flex items-center justify-center font-bold text-sm mx-auto shadow-xs">
                     TN
                   </div>
                 </div>
@@ -320,14 +269,13 @@ export function DoctorTelemedicineView() {
                   onClick={() => {
                     const next = !isScreenSharing;
                     setIsScreenSharing(next);
-                    setScreenShareToast(
+                    toast.info(
                       next ? 'Đang chia sẻ màn hình hồ sơ xét nghiệm cho bệnh nhân...' : 'Đã dừng chia sẻ màn hình.'
                     );
-                    setTimeout(() => setScreenShareToast(null), 3000);
                   }}
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all cursor-pointer shadow-md ${
                     isScreenSharing
-                      ? 'bg-[#2E37A4] text-white ring-2 ring-white/50'
+                      ? 'bg-primary text-white ring-2 ring-white/50'
                       : 'bg-white/15 text-white hover:bg-white/25 border border-white/10'
                   }`}
                   title="Chia sẻ hồ sơ bệnh án"
@@ -360,7 +308,7 @@ export function DoctorTelemedicineView() {
             {/* Quick Helper Banner below video */}
             <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-xs flex items-center justify-between text-xs text-slate-600">
               <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#2E37A4] text-[18px]">verified</span>
+                <span className="material-symbols-outlined text-primary text-[18px]">verified</span>
                 <span>Cuộc gọi được lưu trữ mã hóa tuân thủ theo tiêu chuẩn Thông tư Bộ Y Tế.</span>
               </div>
               <span className="text-slate-400 font-medium">Bảo mật E2EE</span>
@@ -386,7 +334,7 @@ export function DoctorTelemedicineView() {
                     onClick={() => setActiveTab(tab.key)}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                       activeTab === tab.key
-                        ? 'bg-white text-[#2E37A4] shadow-xs'
+                        ? 'bg-white text-primary shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
@@ -403,7 +351,7 @@ export function DoctorTelemedicineView() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-[#2E37A4] text-[18px]">sensors</span>
+                        <span className="material-symbols-outlined text-primary text-[18px]">sensors</span>
                         Đo Lường Trực Tiếp (Omron Live)
                       </span>
                       <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
@@ -416,7 +364,7 @@ export function DoctorTelemedicineView() {
                         <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">
                           Huyết áp
                         </span>
-                        <div className="text-base sm:text-lg font-bold text-[#2E37A4] tabular-nums">
+                        <div className="text-base sm:text-lg font-bold text-primary tabular-nums">
                           135/85 <span className="text-xs font-normal text-slate-500">mmHg</span>
                         </div>
                         <span className="text-[10px] text-amber-700 font-medium block">
@@ -532,28 +480,27 @@ export function DoctorTelemedicineView() {
                     ))}
                   </div>
 
-                  <textarea
+                  <Textarea
                     rows={6}
                     value={quickNote}
                     onChange={(e) => setQuickNote(e.target.value)}
                     placeholder="Ghi nhận triệu chứng lâm sàng phát hiện qua video, thắc mắc của bệnh nhân, dặn dò điều chỉnh thuốc..."
-                    className="w-full p-3.5 rounded-xl border border-slate-200 text-xs text-slate-800 bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] transition-all leading-relaxed"
+                    className="w-full p-3.5 rounded-xl border-slate-200 text-xs text-slate-800 bg-slate-50/70 focus:bg-white transition-all leading-relaxed"
                   />
 
-                  <button
+                  <Button
                     type="button"
                     onClick={() => {
                       if (quickNote.trim()) {
-                        setSaveNoteToast('Đã lưu ghi chú lâm sàng vào hồ sơ bệnh án EMR!');
+                        toast.success('Đã lưu ghi chú lâm sàng vào hồ sơ bệnh án EMR!');
                         setQuickNote('');
-                        setTimeout(() => setSaveNoteToast(null), 3500);
                       }
                     }}
-                    className="w-full py-2.5 bg-[#2E37A4] hover:bg-indigo-800 text-white rounded-xl text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                    className="w-full rounded-xl text-xs font-bold gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[16px]">save</span>
                     Lưu Vào Bệnh Án EMR
-                  </button>
+                  </Button>
                 </div>
               )}
 
@@ -566,7 +513,7 @@ export function DoctorTelemedicineView() {
                         key={msg.id}
                         className={`p-3 rounded-xl max-w-[85%] ${
                           msg.sender === 'doctor'
-                            ? 'ml-auto bg-indigo-50 border border-indigo-100 text-[#2E37A4]'
+                            ? 'ml-auto bg-primary/10 border border-primary/20 text-primary'
                             : 'mr-auto bg-slate-100 text-slate-800'
                         }`}
                       >
@@ -579,7 +526,7 @@ export function DoctorTelemedicineView() {
                         {msg.attachment && (
                           <div className="mt-2 p-2 bg-white rounded-lg border border-slate-200/80 flex items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5 truncate">
-                              <span className="material-symbols-outlined text-[16px] text-[#2E37A4]">image</span>
+                              <span className="material-symbols-outlined text-[16px] text-primary">image</span>
                               <span className="text-[11px] font-medium text-slate-800 truncate">
                                 {msg.attachment.name}
                               </span>
@@ -592,19 +539,20 @@ export function DoctorTelemedicineView() {
                   </div>
 
                   <form onSubmit={handleSendMessage} className="pt-3 border-t border-slate-100 flex items-center gap-2">
-                    <input
+                    <Input
                       type="text"
                       value={newChatMessage}
                       onChange={(e) => setNewChatMessage(e.target.value)}
                       placeholder="Gửi tin nhắn hoặc dặn dò cho gia đình..."
-                      className="flex-1 p-2.5 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4]"
+                      className="flex-1 rounded-xl text-xs bg-slate-50 focus:bg-white"
                     />
-                    <button
+                    <Button
                       type="submit"
-                      className="px-3.5 py-2.5 bg-[#2E37A4] hover:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0"
+                      size="icon"
+                      className="rounded-xl shrink-0"
                     >
                       <span className="material-symbols-outlined text-[16px]">send</span>
-                    </button>
+                    </Button>
                   </form>
                 </div>
               )}
@@ -614,50 +562,51 @@ export function DoctorTelemedicineView() {
       </main>
 
       {/* MODAL KẾT THÚC CA KHÁM TELEHEALTH */}
-      {showEndConsultModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 animate-in zoom-in-95 duration-200">
+      <Dialog open={showEndConsultModal} onOpenChange={setShowEndConsultModal}>
+        <DialogContent className="sm:max-w-md rounded-3xl p-6 space-y-4">
+          <DialogHeader>
             <div className="flex items-start gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-indigo-50 text-[#2E37A4] flex items-center justify-center shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[24px]">clinical_notes</span>
               </div>
               <div>
-                <h3 className="font-bold text-base text-slate-900">
+                <DialogTitle className="font-bold text-base text-slate-900">
                   Kết Thúc Ca Khám Telehealth
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 mt-0.5">
                   Bệnh nhân: <strong className="text-slate-800">Nguyễn Văn Phúc (Phòng #TELE-88219)</strong>
-                </p>
+                </DialogDescription>
               </div>
             </div>
+          </DialogHeader>
 
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-              Bạn có muốn kết thúc phiên gọi video trực tuyến và chuyển thẳng sang màn hình <strong>Kê đơn thuốc điện tử chuẩn 1NF &amp; Ký số EMR Viettel-CA</strong> cho bệnh nhân này không?
-            </p>
+          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+            Bạn có muốn kết thúc phiên gọi video trực tuyến và chuyển thẳng sang màn hình <strong>Kê đơn thuốc điện tử chuẩn 1NF &amp; Ký số EMR Viettel-CA</strong> cho bệnh nhân này không?
+          </p>
 
-            <div className="flex gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowEndConsultModal(false)}
-                className="flex-1 py-2.5 rounded-xl border border-slate-200 font-semibold text-xs text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                Tiếp tục tư vấn
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowEndConsultModal(false);
-                  router.push('/doctor/encounters?patientId=PT-01&encounterId=TELE-88219');
-                }}
-                className="flex-1 py-2.5 rounded-xl bg-[#2E37A4] hover:bg-indigo-800 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-[16px]">check</span>
-                Chuyển Sang Kê Đơn EMR
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          <DialogFooter className="pt-2 sm:justify-stretch gap-2.5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowEndConsultModal(false)}
+              className="flex-1 rounded-xl font-semibold text-xs"
+            >
+              Tiếp tục tư vấn
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setShowEndConsultModal(false);
+                router.push('/doctor/encounters?patientId=PT-01&encounterId=TELE-88219');
+              }}
+              className="flex-1 rounded-xl font-bold text-xs gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">check</span>
+              Chuyển Sang Kê Đơn EMR
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

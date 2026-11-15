@@ -132,14 +132,7 @@ export function ContractDocumentSheet({ contract, className }: ContractDocumentS
           </div>
 
           <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/40">
-            <h3 className="font-semibold text-slate-900 mb-1">Bên B: Nền tảng Famidoc</h3>
-            <p className="text-slate-700">Đơn vị: Công ty Cổ phần Công nghệ Y tế Famidoc</p>
-            <p className="text-slate-600">Vai trò: Điều phối công nghệ, bảo mật hồ sơ & thanh toán ký gửi</p>
-            <p className="text-slate-600">Cổng hỗ trợ: hotro@famidoc.vn • Hotline: 1900-8822</p>
-          </div>
-
-          <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/40">
-            <h3 className="font-semibold text-slate-900 mb-1">Bên C: Cơ sở Y tế</h3>
+            <h3 className="font-semibold text-slate-900 mb-1">Bên B: Cơ sở Y tế</h3>
             <p className="text-slate-700">Đơn vị: <span className="font-medium text-slate-900">{contract.facilityName ?? 'Chờ chỉ định CSYT'}</span></p>
             {contract.facilityAddress && (
               <p className="text-slate-600">Địa chỉ: {contract.facilityAddress}</p>
@@ -148,10 +141,17 @@ export function ContractDocumentSheet({ contract, className }: ContractDocumentS
           </div>
 
           <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/40">
-            <h3 className="font-semibold text-slate-900 mb-1">Bên D: Bác sĩ Gia đình</h3>
+            <h3 className="font-semibold text-slate-900 mb-1">Bên C: Bác sĩ Gia đình</h3>
             <p className="text-slate-700">Bác sĩ: <span className="font-medium text-slate-900">{contract.doctorName ?? 'Chờ phân công bác sĩ'}</span></p>
             <p className="text-slate-600">Chức danh: {contract.doctorTitle ?? 'Bác sĩ Gia đình Chuyên trách'}</p>
             <p className="text-slate-600">Nhiệm vụ: Trực tiếp theo dõi, thăm khám định kỳ & tư vấn 24/7</p>
+          </div>
+
+          <div className="p-3.5 rounded-lg border border-slate-200 bg-slate-50/40">
+            <h3 className="font-semibold text-slate-900 mb-1">Bên D: Nền tảng Famidoc</h3>
+            <p className="text-slate-700">Đơn vị: Công ty Cổ phần Công nghệ Y tế Famidoc</p>
+            <p className="text-slate-600">Vai trò: Điều phối công nghệ, bảo mật hồ sơ & thanh toán ký gửi</p>
+            <p className="text-slate-600">Cổng hỗ trợ: hotro@famidoc.vn • Hotline: 1900-8822</p>
           </div>
         </div>
       </section>
@@ -180,7 +180,7 @@ export function ContractDocumentSheet({ contract, className }: ContractDocumentS
               Điều 2: Trách nhiệm và quyền hạn
             </h3>
             <p>
-              Bên C và Bên D có trách nhiệm bảo đảm chất lượng thăm khám, theo dõi hồ sơ bệnh án định kỳ theo đúng Luật Khám bệnh, chữa bệnh số 15/2023/QH15 và các quy chuẩn y tế hiện hành. Bên B đảm bảo hạ tầng kết nối liên tục, giám sát định biên không quá 30 hộ/bác sĩ.
+              Bên B và Bên C có trách nhiệm bảo đảm chất lượng thăm khám, theo dõi hồ sơ bệnh án định kỳ theo đúng Luật Khám bệnh, chữa bệnh số 15/2023/QH15 và các quy chuẩn y tế hiện hành. Bên D đảm bảo hạ tầng kết nối liên tục, giám sát định biên không quá 30 hộ/bác sĩ.
             </p>
           </div>
 
@@ -189,7 +189,7 @@ export function ContractDocumentSheet({ contract, className }: ContractDocumentS
               Điều 3: Tính toàn vẹn và giá trị pháp lý
             </h3>
             <p>
-              Hợp đồng này được khởi tạo và ký kết dưới hình thức chứng thư số điện tử theo Luật Giao dịch điện tử 2023, có giá trị pháp lý tương đương văn bản giấy truyền thống. Mỗi bên xác nhận nội dung bằng chữ ký số có lưu mã băm bảo mật SHA-256 dưới đây.
+              Hợp đồng này được khởi tạo và ký kết dưới hình thức chứng thư số điện tử theo Luật Giao dịch điện tử 2023, có giá trị pháp lý tương đương văn bản giấy truyền thống. Bên A ký xác nhận trước, sau đó Bên B, Bên C và Bên D ký song song trên nền tảng Documenso để hoàn tất hiệu lực pháp lý.
             </p>
           </div>
         </div>
@@ -208,22 +208,22 @@ export function ContractDocumentSheet({ contract, className }: ContractDocumentS
             signature={signatures?.family}
           />
           <SignatureBox
-            testId="signature-box-platform"
-            partyTitle="Bên B"
-            roleDescription="Nền tảng Famidoc"
-            signature={signatures?.platform}
-          />
-          <SignatureBox
             testId="signature-box-facility"
-            partyTitle="Bên C"
+            partyTitle="Bên B"
             roleDescription="Cơ sở Y tế phối hợp"
             signature={signatures?.facility}
           />
           <SignatureBox
             testId="signature-box-doctor"
-            partyTitle="Bên D"
+            partyTitle="Bên C"
             roleDescription="Bác sĩ Gia đình phụ trách"
             signature={signatures?.doctor}
+          />
+          <SignatureBox
+            testId="signature-box-platform"
+            partyTitle="Bên D"
+            roleDescription="Nền tảng Famidoc"
+            signature={signatures?.platform}
           />
         </div>
       </section>

@@ -1,16 +1,46 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FacilityDoctorAssignView, type AvailableDoctor } from '../facility-doctor-assign-view';
 import type { FourPartyContract } from '@/features/four-party-contract';
-import { contractsApi } from '@/lib/api';
+import { contractsApi, publicApi } from '@/lib/api';
 
-vi.mock('@/lib/api', () => ({
-  contractsApi: {
-    assignDoctor: vi.fn().mockResolvedValue({ id: 'ct-4p-001', doctorId: 'doc-01' }),
-    signContract: vi.fn().mockResolvedValue({ signatureHash: 'simulated-facility-hash' }),
-  },
+vi.mock('@documenso/embed-react', () => ({
+  EmbedSignDocument: ({
+    token,
+    onDocumentCompleted,
+  }: {
+    token: string;
+    onDocumentCompleted?: (detail: unknown) => void;
+  }) => (
+    <div data-testid="mock-facility-documenso-form" data-token={token}>
+      <button
+        type="button"
+        onClick={() => onDocumentCompleted?.({ completed: true })}
+      >
+        Hoàn tất ký trên Documenso
+      </button>
+    </div>
+  ),
 }));
+
+vi.mock('@/lib/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api')>();
+  return {
+    ...actual,
+    contractsApi: {
+      ...actual.contractsApi,
+      getMedicalContractById: vi.fn(),
+      assignDoctor: vi.fn().mockResolvedValue({ id: 'ct-4p-001', doctorId: 'doc-01' }),
+      getSigningSession: vi.fn(),
+      syncDocumenso: vi.fn(),
+    },
+    publicApi: {
+      ...actual.publicApi,
+      getDoctors: vi.fn(),
+    },
+  };
+});
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -22,7 +52,7 @@ vi.mock('next/navigation', () => ({
 const mockContract: FourPartyContract = {
   id: 'ct-4p-001',
   contractNumber: 'HD-4P-2026-0001',
-  status: 'PLATFORM_SIGNED',
+  status: 'FAMILY_SIGNED',
   packageId: 'pkg-gold',
   packageName: 'Gói Chăm Sóc Toàn Diện Gia Đình',
   packagePrice: 9600000,
@@ -48,12 +78,6 @@ const mockContract: FourPartyContract = {
       signerRole: 'FAMILY',
       signedAt: '2026-11-09T08:30:00.000Z',
       sha256Hash: 'a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890',
-    },
-    platform: {
-      signedBy: 'Ban Điều Hành Famidoc',
-      signerRole: 'PLATFORM',
-      signedAt: '2026-11-09T09:15:00.000Z',
-      sha256Hash: 'b2c3d4e5f6a17890abcdef1234567890abcdef1234567890abcdef1234567891',
     },
   },
 };
@@ -82,7 +106,7 @@ const mockDoctors: AvailableDoctor[] = [
     name: 'BS. Đỗ Minh Tuấn',
     title: 'Bác sĩ Gia đình',
     specialty: 'Y học Gia đình & Nhi khoa',
-    currentAssignedHouseholds: 30, // MAX REACHED!
+    currentAssignedHouseholds: 30,
     phone: '0903889903',
     rating: 4.7,
   },
@@ -91,64 +115,80 @@ const mockDoctors: AvailableDoctor[] = [
     name: 'BS. Nguyễn Hải Đăng',
     title: 'Bác sĩ Đa khoa',
     specialty: 'Nội khoa tổng quát',
-    currentAssignedHouseholds: 31, // EXCEEDED!
+    currentAssignedHouseholds: 31,
     phone: '0903889904',
     rating: 4.6,
   },
 ];
 
-describe('FacilityDoctorAssignView (Màn 2: Phân công Bác sĩ & Ký số CSYT)', () => {
-  it('renders family summary, care package details, and members list', () => {
+describe('FacilityDoctorAssignView (Phân công Bác sĩ & Ký Documenso CSYT)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(contractsApi.getSigningSession).mockResolvedValue({
+      contractId: 'ct-4p-001',
+      contractNumber: 'HD-4P-2026-0001',
+      contractStatus: 'PENDING_APPROVAL',
+      signerRole: 'HEALTHCARE_FACILITY',
+      alreadySigned: false,
+      canSign: true,
+      signingToken: 'tok-facility',
+      signingUrl: 'https://sign.famidoc.online/sign/tok-facility',
+      signedRoles: ['FAMILY_REP'],
+      signedPdfUrl: null,
+    });
+    vi.mocked(contractsApi.syncDocumenso).mockResolvedValue({
+      synced: true,
+      contractId: 'ct-4p-001',
+      contractStatus: 'PENDING_APPROVAL',
+      signedRoles: ['FAMILY_REP', 'HEALTHCARE_FACILITY'],
+      signedPdfUrl: null,
+    });
+  });
+
+  it('loads real contract and doctors by contractId when props are omitted', async () => {
+    vi.mocked(contractsApi.getMedicalContractById).mockResolvedValueOnce(mockContract);
+    vi.mocked(publicApi.getDoctors).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'doc-01',
+          doctorName: 'BS. CKII Lê Hoàng Nam',
+          specialty: 'Nội tổng quát',
+          academicTitle: 'BSCKII',
+          isAvailable: true,
+        },
+      ],
+    });
+
+    render(<FacilityDoctorAssignView contractId="ct-4p-001" />);
+
+    await waitFor(() => {
+      expect(contractsApi.getMedicalContractById).toHaveBeenCalledWith('ct-4p-001');
+      expect(publicApi.getDoctors).toHaveBeenCalledWith({ facilityId: 'fac-01', limit: 50 });
+      expect(screen.getAllByText(/HD-4P-2026-0001/i).length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByTestId('mock-facility-documenso-form')).toHaveAttribute(
+        'data-token',
+        'tok-facility'
+      );
+    });
+  });
+
+  it('renders family summary, care package details, and disables capped doctors (>= 30)', async () => {
     render(<FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />);
 
-    // Header & Contract info
-    expect(screen.getByText(/Phân công Bác sĩ Gia đình & Ký số CSYT/i)).toBeInTheDocument();
     expect(screen.getByText(/HD-4P-2026-0001/i)).toBeInTheDocument();
-
-    // Family and package info
     expect(screen.getAllByText('Nguyễn Văn An').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText('0912345678')).toBeInTheDocument();
-    expect(screen.getByText('Gói Chăm Sóc Toàn Diện Gia Đình')).toBeInTheDocument();
-    expect(screen.getByText(/123 Đường Nguyễn Trãi/i)).toBeInTheDocument();
-
-    // Member list
-    expect(screen.getByText(/Trần Thị Mai Phương/i)).toBeInTheDocument();
-    expect(screen.getByText(/Nguyễn Minh Quân/i)).toBeInTheDocument();
-  });
-
-  it('displays doctors with actual quota ratio (e.g. 21/30 hộ)', () => {
-    render(<FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />);
-
-    // Check doctor names
-    expect(screen.getByText('BS. CKII Lê Hoàng Nam')).toBeInTheDocument();
-
-    // Check quota indicator
     expect(screen.getByText(/21\/30 hộ/i)).toBeInTheDocument();
-    expect(screen.getByText(/28\/30 hộ/i)).toBeInTheDocument();
+
+    expect(screen.getByTestId('select-doctor-doc-03')).toBeDisabled();
+    expect(screen.getByTestId('select-doctor-doc-04')).toBeDisabled();
+    expect(screen.getByTestId('select-doctor-doc-01')).not.toBeDisabled();
+
+    await waitFor(() => {
+      expect(contractsApi.getSigningSession).toHaveBeenCalledWith('ct-4p-001');
+    });
   });
 
-  it('disables selection and displays quota violation warning for doctors with >= 30 households', () => {
-    render(<FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />);
-
-    // doc-03 has 30/30 (quota limit reached)
-    expect(screen.getAllByText(/30\/30 hộ/i).length).toBeGreaterThanOrEqual(1);
-    const doc3Btn = screen.getByTestId('select-doctor-doc-03');
-    expect(doc3Btn).toBeDisabled();
-
-    // doc-04 has 31/30 (exceeded quota)
-    expect(screen.getByText(/31\/30 hộ/i)).toBeInTheDocument();
-    const doc4Btn = screen.getByTestId('select-doctor-doc-04');
-    expect(doc4Btn).toBeDisabled();
-
-    // doc-01 has 21/30 (available)
-    const doc1Btn = screen.getByTestId('select-doctor-doc-01');
-    expect(doc1Btn).not.toBeDisabled();
-
-    // Warning text should be visible for capped doctors
-    expect(screen.getAllByText(/Đã đạt định biên tối đa|Vượt ngưỡng định biên/i).length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('submits digital signature, validates quota < 30, and transitions contract status to FACILITY_ASSIGNED', async () => {
+  it('calls contractsApi.assignDoctor when saving doctor assignment and syncs Documenso on embed complete', async () => {
     const handleAssignSuccess = vi.fn();
 
     render(
@@ -159,54 +199,26 @@ describe('FacilityDoctorAssignView (Màn 2: Phân công Bác sĩ & Ký số CSYT
       />
     );
 
-    // Select available doctor (doc-01)
-    const doc1Btn = screen.getByTestId('select-doctor-doc-01');
-    fireEvent.click(doc1Btn);
-
-    // Doctor is selected, check selected confirmation
-    expect(screen.getByText(/Đã chọn: BS. CKII Lê Hoàng Nam/i)).toBeInTheDocument();
-
-    // Agree to digital signing terms checkbox
-    const termsCheckbox = screen.getByLabelText(/Xác nhận phân công bác sĩ và ký duyệt hợp đồng/i);
-    fireEvent.click(termsCheckbox);
-
-    // Click Sign & Assign button
-    const submitBtn = screen.getByRole('button', { name: /Ký số điện tử & Hoàn tất phân công/i });
-    expect(submitBtn).not.toBeDisabled();
-    fireEvent.click(submitBtn);
-
-    // Verify success callback is called with updated contract
-    await waitFor(() => {
-      expect(handleAssignSuccess).toHaveBeenCalledTimes(1);
-    });
-
-    const updatedContract = handleAssignSuccess.mock.calls[0][0];
-    expect(updatedContract.status).toBe('FACILITY_ASSIGNED');
-    expect(updatedContract.doctorId).toBe('doc-01');
-    expect(updatedContract.doctorName).toBe('BS. CKII Lê Hoàng Nam');
-    expect(updatedContract.signatures.facility).toBeDefined();
-    expect(updatedContract.signatures.facility.signerRole).toBe('FACILITY');
-    expect(updatedContract.signatures.facility.sha256Hash).toBeDefined();
-
-    // Success UI message appears
-    expect(screen.getByText(/Phân công bác sĩ & Ký số CSYT thành công/i)).toBeInTheDocument();
-  });
-
-  it('calls contractsApi.assignDoctor and contractsApi.signContract on submission', async () => {
-    render(<FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />);
-
-    const doc1Btn = screen.getByTestId('select-doctor-doc-01');
-    fireEvent.click(doc1Btn);
-
-    const termsCheckbox = screen.getByLabelText(/Xác nhận phân công bác sĩ và ký duyệt hợp đồng/i);
-    fireEvent.click(termsCheckbox);
-
-    const submitBtn = screen.getByRole('button', { name: /Ký số điện tử & Hoàn tất phân công/i });
-    fireEvent.click(submitBtn);
+    fireEvent.click(screen.getByTestId('select-doctor-doc-01'));
+    fireEvent.click(screen.getByRole('button', { name: /Lưu phân công bác sĩ/i }));
 
     await waitFor(() => {
       expect(contractsApi.assignDoctor).toHaveBeenCalledWith('ct-4p-001', { doctorId: 'doc-01' });
-      expect(contractsApi.signContract).toHaveBeenCalledWith('ct-4p-001', expect.any(Object));
+      expect(handleAssignSuccess).toHaveBeenCalledWith(
+        expect.objectContaining({
+          doctorId: 'doc-01',
+          doctorName: 'BS. CKII Lê Hoàng Nam',
+        })
+      );
+    });
+
+    const completeBtn = await screen.findByRole('button', {
+      name: /Hoàn tất ký trên Documenso/i,
+    });
+    fireEvent.click(completeBtn);
+
+    await waitFor(() => {
+      expect(contractsApi.syncDocumenso).toHaveBeenCalledWith('ct-4p-001');
     });
   });
 

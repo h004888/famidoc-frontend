@@ -2,6 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { doctorsApi, type DoctorProfileDto } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 export function DoctorVerificationView() {
   const [profile, setProfile] = useState<DoctorProfileDto | null>(null);
@@ -149,7 +157,7 @@ export function DoctorVerificationView() {
     <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+        <Card className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border-slate-200 shadow-xs">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a]">
@@ -174,15 +182,16 @@ export function DoctorVerificationView() {
             </p>
           </div>
 
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={() => setShowUpdateModal(true)}
-            className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer self-start md:self-auto"
+            className="rounded-xl text-xs font-bold gap-1.5 self-start md:self-auto"
           >
             <span className="material-symbols-outlined text-[16px]">upload_file</span>
             <span>Cập nhật / Nộp hồ sơ CCHN</span>
-          </button>
-        </div>
+          </Button>
+        </Card>
 
         {/* Verification Status Banner (2-Tier Pipeline chuẩn BYT) */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
@@ -399,21 +408,13 @@ export function DoctorVerificationView() {
       </main>
 
       {/* Modal Nộp / Cập nhật hồ sơ CCHN */}
-      {showUpdateModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-              <h3 className="font-bold text-sm text-[#0f172a]">
-                Nộp Hồ Sơ Xác Thực Chứng Chỉ Hành Nghề (CCHN)
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowUpdateModal(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
-              >
-                ✕
-              </button>
-            </div>
+      <Dialog open={showUpdateModal} onOpenChange={setShowUpdateModal}>
+        <DialogContent className="sm:max-w-lg rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b border-slate-100 pb-2">
+            <DialogTitle className="font-bold text-base text-[#0f172a]">
+              Nộp Hồ Sơ Xác Thực Chứng Chỉ Hành Nghề (CCHN)
+            </DialogTitle>
+          </DialogHeader>
 
             <form onSubmit={handleSubmitCredentials} className="space-y-3 text-xs">
               <div>
@@ -491,50 +492,32 @@ export function DoctorVerificationView() {
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-slate-100">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setShowUpdateModal(false)}
-                  className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
+                  className="flex-1 rounded-lg text-xs font-semibold"
                 >
                   Hủy
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  size="sm"
                   disabled={isSubmitting}
-                  className="flex-1 py-2 text-xs font-semibold text-white bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg shadow-xs flex items-center justify-center gap-1.5"
+                  className="flex-1 text-xs font-semibold rounded-lg shadow-xs flex items-center justify-center gap-1.5"
                 >
                   {isSubmitting ? (
                     <span>Đang nộp hồ sơ...</span>
                   ) : (
                     <span>Gửi Thẩm Định 2 Cấp</span>
                   )}
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* Accessible Feedback Toast */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
-          <span className="font-medium">{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-2 text-slate-400 hover:text-white"
-            aria-label="Đóng thông báo"
-          >
-            <span className="material-symbols-outlined text-[16px]">close</span>
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
 

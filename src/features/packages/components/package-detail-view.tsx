@@ -2,6 +2,22 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import { ContractSigningWizard } from '@/features/subscription-contract';
 
@@ -333,17 +349,12 @@ const BLOG_POSTS = [
 ];
 
 export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetailViewProps) {
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [leadName, setLeadName] = useState('');
   const [leadPhone, setLeadPhone] = useState('');
   const [leadSuccess, setLeadSuccess] = useState(false);
   const [showSigningWizard, setShowSigningWizard] = useState(false);
 
   const pkg = PACKAGE_DETAILS[packageId] || PACKAGE_DETAILS['pkg-toan-dien'];
-
-  const toggleFaq = (idx: number) => {
-    setOpenFaqIndex(openFaqIndex === idx ? null : idx);
-  };
 
   const handleLeadSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -585,26 +596,26 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
 
             <div className="rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs sm:text-sm">
-                  <thead className="bg-[#0046c0] text-white">
-                    <tr>
-                      <th className="py-4 px-5 font-semibold">Danh Mục Quyền Lợi</th>
-                      <th className="py-4 px-5 font-semibold">Định Mức Gói</th>
-                      <th className="py-4 px-5 font-semibold hidden md:table-cell">Phạm Vi Chăm Sóc</th>
-                      <th className="py-4 px-5 font-semibold text-right">Chi Phí Vượt Mức</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
+                <Table className="text-xs sm:text-sm">
+                  <TableHeader>
+                    <TableRow className="bg-primary text-primary-foreground hover:bg-primary border-none">
+                      <TableHead className="py-4 px-5 font-semibold text-white">Danh Mục Quyền Lợi</TableHead>
+                      <TableHead className="py-4 px-5 font-semibold text-white">Định Mức Gói</TableHead>
+                      <TableHead className="py-4 px-5 font-semibold text-white hidden md:table-cell">Phạm Vi Chăm Sóc</TableHead>
+                      <TableHead className="py-4 px-5 font-semibold text-white text-right">Chi Phí Vượt Mức</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody className="divide-y divide-slate-100 bg-white">
                     {pkg.tableItems.map((item, idx) => (
-                      <tr key={idx} className={item.highlight ? 'bg-blue-50/60 font-medium' : 'hover:bg-slate-50/60 transition-colors'}>
-                        <td className="py-3.5 px-5 font-semibold text-slate-900">{item.title}</td>
-                        <td className="py-3.5 px-5 font-bold text-[#0046c0] tabular-nums">{item.quota}</td>
-                        <td className="py-3.5 px-5 text-slate-600 hidden md:table-cell">{item.scope}</td>
-                        <td className="py-3.5 px-5 text-right font-medium text-slate-700">{item.extraCost}</td>
-                      </tr>
+                      <TableRow key={idx} className={item.highlight ? 'bg-primary/5 font-medium hover:bg-primary/10' : 'hover:bg-slate-50/60 transition-colors'}>
+                        <TableCell className="py-3.5 px-5 font-semibold text-slate-900">{item.title}</TableCell>
+                        <TableCell className="py-3.5 px-5 font-bold text-primary tabular-nums">{item.quota}</TableCell>
+                        <TableCell className="py-3.5 px-5 text-slate-600 hidden md:table-cell">{item.scope}</TableCell>
+                        <TableCell className="py-3.5 px-5 text-right font-medium text-slate-700">{item.extraCost}</TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </div>
           </div>
@@ -632,26 +643,26 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
               ) : (
                 <form onSubmit={handleLeadSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Họ và tên của bạn *</label>
-                    <input
+                    <Label className="block text-xs font-semibold text-slate-700 mb-1">Họ và tên của bạn *</Label>
+                    <Input
                       type="text"
                       required
                       value={leadName}
                       onChange={(e) => setLeadName(e.target.value)}
                       placeholder="Nguyễn Văn A"
-                      className="w-full h-11 px-4 rounded-lg border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#0046c0]"
+                      className="h-11 px-4 rounded-lg text-xs text-slate-900 placeholder:text-slate-400"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Số điện thoại liên hệ *</label>
-                    <input
+                    <Label className="block text-xs font-semibold text-slate-700 mb-1">Số điện thoại liên hệ *</Label>
+                    <Input
                       type="tel"
                       required
                       value={leadPhone}
                       onChange={(e) => setLeadPhone(e.target.value)}
                       placeholder="0912 345 678"
-                      className="w-full h-11 px-4 rounded-lg border border-slate-200 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#0046c0]"
+                      className="h-11 px-4 rounded-lg text-xs text-slate-900 placeholder:text-slate-400"
                     />
                   </div>
 
@@ -677,35 +688,27 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                 <h4 className="text-xl font-bold text-[#232323]">Câu Hỏi Về Gói {pkg.name}</h4>
               </div>
 
-              <div className="space-y-3 pt-2">
-                {pkg.faqs.map((faq, idx) => {
-                  const isOpen = openFaqIndex === idx;
-                  return (
-                    <div
-                      key={idx}
-                      className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-2xs"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => toggleFaq(idx)}
-                        className={`w-full py-3.5 px-5 text-left text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 cursor-pointer transition-colors ${isOpen ? 'bg-[#0046c0] text-white' : 'text-slate-800 hover:bg-slate-50'
-                          }`}
-                      >
-                        <span>{faq.question}</span>
-                        <span className="material-symbols-outlined text-lg shrink-0">
-                          {isOpen ? 'remove' : 'add'}
-                        </span>
-                      </button>
-
-                      {isOpen && (
-                        <div className="p-5 text-xs sm:text-sm text-slate-600 leading-relaxed bg-white border-t border-slate-100">
-                          {faq.answer}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+              <Accordion
+                type="single"
+                collapsible
+                defaultValue="faq-0"
+                className="space-y-3 pt-2"
+              >
+                {pkg.faqs.map((faq, idx) => (
+                  <AccordionItem
+                    key={idx}
+                    value={`faq-${idx}`}
+                    className="rounded-xl border border-slate-200 overflow-hidden bg-white shadow-2xs data-[state=open]:border-[#0046c0]"
+                  >
+                    <AccordionTrigger className="px-5 py-3.5 text-left text-xs sm:text-sm font-semibold text-slate-800 no-underline hover:no-underline data-[state=open]:bg-[#0046c0] data-[state=open]:text-white data-[state=open]:[&>svg]:text-white [&>svg]:size-5">
+                      <span>{faq.question}</span>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-5 pt-4 pb-5 text-xs sm:text-sm text-slate-600 leading-relaxed bg-white border-t border-slate-100">
+                      {faq.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
             </div>
           </div>
         </section>
