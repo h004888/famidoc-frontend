@@ -3,11 +3,11 @@ import { render, screen } from '@testing-library/react';
 import { notFound } from 'next/navigation';
 import { publicApi } from '@/lib/api/public.api';
 import type { PublicDoctorDetailDto } from '@/lib/api/public.api';
+import { generateMetadata } from '@/app/doctors/[id]/page';
 import {
   DoctorDetailPageContent,
-  generateMetadata,
   getDoctorDetail,
-} from '@/app/doctors/[id]/page';
+} from '@/app/doctors/[id]/doctor-detail-loader';
 
 vi.mock('next/navigation', () => ({
   notFound: vi.fn(() => {
