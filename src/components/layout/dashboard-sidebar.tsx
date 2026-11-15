@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -232,6 +232,17 @@ const CLINIC_LIST = [
   { id: 'c-03', name: 'Vinmec Central Park', address: 'Bình Thạnh, TP.HCM', type: 'BV Đối tác Cấp 1' },
 ];
 
+/**
+ * Suy ra vai trò từ URL pathname để SSR và Client render đồng nhất, tránh hydration mismatch
+ */
+export const getRoleFromPathname = (path: string): LoginRole | null => {
+  if (path.startsWith('/admin')) return 'ADMIN';
+  if (path.startsWith('/facility')) return 'FACILITY';
+  if (path.startsWith('/doctor')) return 'DOCTOR';
+  if (path.startsWith('/family')) return 'FAMILY';
+  return null;
+};
+
 function DashboardSidebarInner() {
   const pathname = usePathname() || '/family';
   const { role, user, logout } = useAuth();
@@ -254,6 +265,10 @@ function DashboardSidebarInner() {
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const pathRole = getRoleFromPathname(pathname);
+  const effectiveRole: LoginRole = pathRole || (mounted ? role : 'FAMILY');
+  const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
 
   const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
   const displayName = mounted ? (user?.name || '') : '';
@@ -284,8 +299,6 @@ function DashboardSidebarInner() {
     setIsHovered(true);
   };
 
-  const currentMenu = ROLE_MENUS[role] || ROLE_MENUS.FAMILY;
-
   const renderSidebarContent = (isCollapsedState: boolean) => (
     <div className="flex h-full flex-col border-r border-slate-200/90 bg-sidebar font-sans text-sidebar-foreground">
       {/* Brand Header */}
@@ -296,7 +309,7 @@ function DashboardSidebarInner() {
         )}
       >
         <Link
-          href={getDefaultPathForRole(role)}
+          href={getDefaultPathForRole(effectiveRole)}
           className="flex items-center overflow-hidden outline-hidden"
           title="Bảng điều khiển FamiDoc"
           aria-label="Bảng điều khiển FamiDoc"

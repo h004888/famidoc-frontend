@@ -4,7 +4,7 @@ import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
-import { ROLE_MENUS } from './dashboard-sidebar';
+import { ROLE_MENUS, getRoleFromPathname } from './dashboard-sidebar';
 import { DashboardTopbarUser } from './dashboard-topbar-user';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
@@ -29,8 +29,10 @@ const EXTRA_ROUTE_LABELS: Record<string, string> = {
 export function SiteHeader() {
   const pathname = usePathname() || '/family';
   const { role } = useAuth();
-  const menuConfig = ROLE_MENUS[role] || ROLE_MENUS.FAMILY;
-  const homePath = getDefaultPathForRole(role);
+  const pathRole = getRoleFromPathname(pathname);
+  const effectiveRole = pathRole || role || 'FAMILY';
+  const menuConfig = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
+  const homePath = getDefaultPathForRole(effectiveRole);
 
   const matchedItem =
     menuConfig.items.find((item) => item.href === pathname) ||
