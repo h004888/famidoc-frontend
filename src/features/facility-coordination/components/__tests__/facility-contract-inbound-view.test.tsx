@@ -1,6 +1,13 @@
-import React from 'react';
+﻿import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { contractsApi } from '@/lib/api';
+
+vi.mock('@documenso/embed-react', () => ({
+  EmbedSignDocument: ({ token }: { token: string }) => (
+    <div data-testid="mock-facility-documenso-form" data-token={token} />
+  ),
+}));
 import { FacilityContractInboundView } from '../facility-contract-inbound-view';
 import type { FourPartyContract } from '@/features/four-party-contract';
 
@@ -135,5 +142,46 @@ describe('FacilityContractInboundView (Màn 1: Tiếp nhận Hợp đồng 4 bê
   it('conforms to typography standards without font-mono, font-black, or font-extrabold', () => {
     const { container } = render(<FacilityContractInboundView initialContracts={mockContracts} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
+  });
+
+  it('loads real contracts from contractsApi.getMedicalContracts when initialContracts is omitted and opens Documenso modal', async () => {
+    const getListSpy = vi
+      .spyOn(contractsApi, 'getMedicalContracts')
+      .mockResolvedValueOnce(mockContracts);
+    const getSessionSpy = vi
+      .spyOn(contractsApi, 'getSigningSession')
+      .mockResolvedValueOnce({
+        contractId: 'ct-4p-001',
+        contractNumber: 'HD-4P-2026-0001',
+        contractStatus: 'PENDING_APPROVAL',
+        signerRole: 'HEALTHCARE_FACILITY',
+        alreadySigned: false,
+        canSign: true,
+        signingToken: 'tok-facility',
+        signingUrl: 'https://sign.famidoc.online/sign/tok-facility',
+        signedRoles: ['FAMILY_REP'],
+        signedPdfUrl: null,
+      });
+
+    render(<FacilityContractInboundView />);
+
+    await waitFor(() => {
+      expect(getListSpy).toHaveBeenCalledWith({ limit: 50 });
+      expect(screen.getByText('HD-4P-2026-0001')).toBeInTheDocument();
+    });
+
+    const signButtons = screen.getAllByRole('button', { name: /Ký Documenso/i });
+    fireEvent.click(signButtons[0]);
+
+    await waitFor(() => {
+      expect(getSessionSpy).toHaveBeenCalledWith('ct-4p-001');
+      expect(screen.getByTestId('mock-facility-documenso-form')).toHaveAttribute(
+        'data-token',
+        'tok-facility'
+      );
+    });
+
+    getListSpy.mockRestore();
+    getSessionSpy.mockRestore();
   });
 });

@@ -35,7 +35,7 @@ describe('Task 4: LandingHeader Authentication and Session State Integration', (
     expect(screen.queryByLabelText(/Đăng xuất tài khoản/i)).not.toBeInTheDocument();
   });
 
-  it('renders user avatar, user name, dashboard navigation and logout button when user is authenticated with FAMILY role', async () => {
+  it('renders user avatar and name that open a dropdown with dashboard, profile and logout actions', async () => {
     const mockLogout = vi.fn();
     vi.spyOn(authContextModule, 'useAuth').mockReturnValue({
       isAuthenticated: true,
@@ -59,12 +59,18 @@ describe('Task 4: LandingHeader Authentication and Session State Integration', (
     expect(screen.getByText('Nguyễn Văn Đại Diện')).toBeInTheDocument();
     expect(screen.getByText('NV')).toBeInTheDocument();
 
-    const dashboardLink = screen.getByTitle('Vào Bảng Điều Khiển');
-    expect(dashboardLink).toBeInTheDocument();
-    expect(dashboardLink).toHaveAttribute('href', '/family');
+    const userMenuTrigger = screen.getByRole('button', { name: /Nguyễn Văn Đại Diện/i });
+    expect(userMenuTrigger).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
 
-    const logoutBtn = screen.getByLabelText('Đăng xuất tài khoản');
-    expect(logoutBtn).toBeInTheDocument();
+    await userEvent.click(userMenuTrigger);
+
+    expect(userMenuTrigger).toHaveAttribute('aria-expanded', 'true');
+    const dashboardLink = screen.getByRole('menuitem', { name: /Vào bảng điều khiển/i });
+    expect(dashboardLink).toHaveAttribute('href', '/family');
+    expect(screen.getByRole('menuitem', { name: /Hồ sơ cá nhân/i })).toHaveAttribute('href', '/settings');
+
+    const logoutBtn = screen.getByRole('menuitem', { name: /Đăng xuất/i });
     await userEvent.click(logoutBtn);
     expect(mockLogout).toHaveBeenCalledTimes(1);
   });

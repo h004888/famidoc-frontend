@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
-import { DoctorDetailView } from './doctor-detail-view';
 import { publicApi } from '@/lib/api';
 import { Pagination } from '@/components/ui/pagination';
 
@@ -25,6 +24,7 @@ export interface Doctor {
   services: ('home' | 'telehealth' | 'clinic')[];
   fee: string;
   bio: string;
+  treatedCases?: string[];
   education: string[];
   schedule: string;
 }
@@ -331,8 +331,6 @@ export function DoctorDirectoryView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
-  const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
-  const [selectedDetailType] = useState<'doctor' | 'facility'>('doctor');
   const [doctorPage, setDoctorPage] = useState(1);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -453,16 +451,6 @@ export function DoctorDirectoryView() {
       return matchSearch && matchCity;
     });
   }, [facilitiesList, searchQuery, selectedCity]);
-
-  if (selectedDetailId) {
-    return (
-      <DoctorDetailView
-        id={selectedDetailId}
-        type={selectedDetailType}
-        onBack={() => setSelectedDetailId(null)}
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans antialiased flex flex-col justify-between">

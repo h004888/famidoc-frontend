@@ -2,14 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { patientsApi } from '@/lib/api';
+import {
+  contractsApi,
+  patientsApi,
+  type FamilyGateStatusDto,
+  type PatientDto,
+  type PatientRelationship,
+} from '@/lib/api';
 
 export interface MemberProfile {
   id: string;
   name: string;
   relationship: string;
+  rawDateOfBirth: string;
   birthDate: string;
-  gender: string;
+  gender: 'Nam' | 'Nữ';
   avatar: string;
   bloodType: string;
   bhytNumber: string;
@@ -18,19 +25,6 @@ export interface MemberProfile {
   chronicDiseases: string[];
   emergencyContact: { name: string; phone: string; relation: string };
   isHouseholdHead?: boolean;
-}
-
-export interface HouseholdDoctor {
-  id: string;
-  name: string;
-  title: string;
-  hospital: string;
-  avatar: string;
-  phone: string;
-  licenseNo: string;
-  experienceYears: number;
-  assignedSince: string;
-  nextScheduledVisit: string;
 }
 
 export interface EHREntry {
@@ -49,68 +43,7 @@ export interface EHREntry {
   attachmentName?: string;
 }
 
-// Bác sĩ gia đình duy nhất phụ trách toàn bộ Hộ gia đình #FAM-88219
-export const INITIAL_HOUSEHOLD_DOCTOR: HouseholdDoctor = {
-  id: 'doc-01',
-  name: 'PGS.TS Nguyễn Trọng Nghĩa',
-  title: 'Bác Sĩ Gia Đình Phụ Trách Toàn Hộ',
-  hospital: 'BV Đại học Y Dược TP.HCM',
-  avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-  phone: '0912 345 678',
-  licenseNo: 'CCHN-003892/BYT',
-  experienceYears: 22,
-  assignedSince: '15/01/2026',
-  nextScheduledVisit: '09:30 · Thứ Hai, 27/10/2026 (Khám định kỳ tại nhà)',
-};
-
-export const MEMBERS: MemberProfile[] = [
-  {
-    id: 'mem-01',
-    name: 'Nguyễn Văn Phúc',
-    relationship: 'Chủ hộ (Ông nội)',
-    birthDate: '15/08/1948 (78 tuổi)',
-    gender: 'Nam',
-    avatar: '👨‍🦳',
-    bloodType: 'O+',
-    bhytNumber: 'GD4790123891024',
-    bhytHospital: 'BV Đại học Y Dược TP.HCM (Tuyến TW)',
-    allergies: ['Penicillin', 'Hải sản vỏ cứng'],
-    chronicDiseases: ['Tăng huyết áp độ 2', 'Đái tháo đường type 2 (10 năm)', 'Thoái hóa khớp gối'],
-    emergencyContact: { name: 'Nguyễn Văn An (Con trai)', phone: '0912 345 678', relation: 'Con trai trưởng' },
-    isHouseholdHead: true,
-  },
-  {
-    id: 'mem-02',
-    name: 'Trần Thị Mai',
-    relationship: 'Vợ (Mẹ)',
-    birthDate: '22/11/1984 (42 tuổi)',
-    gender: 'Nữ',
-    avatar: '👩',
-    bloodType: 'A+',
-    bhytNumber: 'GD4790882194012',
-    bhytHospital: 'BV Từ Dũ (Tuyến Tỉnh)',
-    allergies: ['Không có tiền sử dị ứng'],
-    chronicDiseases: ['Không có bệnh nền mạn tính'],
-    emergencyContact: { name: 'Nguyễn Văn An (Chồng)', phone: '0912 345 678', relation: 'Chồng' },
-    isHouseholdHead: false,
-  },
-  {
-    id: 'mem-03',
-    name: 'Nguyễn Minh Quân',
-    relationship: 'Con trai',
-    birthDate: '05/03/2014 (12 tuổi)',
-    gender: 'Nam',
-    avatar: '👦',
-    bloodType: 'O+',
-    bhytNumber: 'TE4790998124512',
-    bhytHospital: 'BV Nhi Đồng 1 (Tuyến Tỉnh)',
-    allergies: ['Bụi phấn hoa', 'Lông động vật'],
-    chronicDiseases: ['Viêm mũi dị ứng thời tiết'],
-    emergencyContact: { name: 'Trần Thị Mai (Mẹ)', phone: '0988 765 432', relation: 'Mẹ ruột' },
-    isHouseholdHead: false,
-  },
-];
-
+/** Giữ lại fixture lịch sử khám cho trang chi tiết /family/members/[id] ngoài phạm vi change này. */
 export const MOCK_EHR: Record<string, EHREntry[]> = {
   'mem-01': [
     {
@@ -118,73 +51,13 @@ export const MOCK_EHR: Record<string, EHREntry[]> = {
       date: '24/10/2026 (3 ngày trước)',
       type: 'home_visit',
       typeLabel: 'Khám Bác sĩ Tại Nhà',
-      doctorName: 'PGS.TS Nguyễn Trọng Nghĩa',
-      hospital: 'BV Đại học Y Dược TP.HCM',
+      doctorName: 'Bác sĩ Gia đình phụ trách',
+      hospital: 'Hệ thống FamiDoc',
       diagnosis: 'Tăng huyết áp vô căn (nguyên phát) • Đái tháo đường typ 2 có kiểm soát',
       icd10: 'I10 • E11.9',
       vitalSigns: { bp: '135/85 mmHg', heartRate: '78 bpm', weight: '65 kg', spo2: '98%' },
       doctorNotes:
-        'Bệnh nhân tuân thủ dùng thuốc đều đặn. Huyết áp mục tiêu duy trì tốt dưới 140/90. Không ghi nhận triệu chứng chóng mặt hay đau ngực. Tiếp tục duy trì phác đồ hiện tại và giảm lượng muối trong khẩu phần ăn.',
-      prescriptions: [
-        { name: 'Amlodipine Besylate', dosage: '5mg', frequency: 'Uống 1 viên vào 08:00 sáng', duration: '30 ngày' },
-        { name: 'Metformin Hydrochloride', dosage: '500mg', frequency: 'Uống 1 viên sau ăn tối', duration: '30 ngày' },
-        { name: 'Atorvastatin', dosage: '10mg', frequency: 'Uống 1 viên trước khi ngủ', duration: '30 ngày' },
-      ],
-      attachmentName: 'Phieu_Kham_Tai_Nha_24102026.pdf',
-    },
-    {
-      id: 'ehr-02',
-      date: '10/10/2026',
-      type: 'lab_result',
-      typeLabel: 'Xét Nghiệm Máu Định Kỳ Tại Nhà',
-      doctorName: 'PGS.TS Nguyễn Trọng Nghĩa',
-      hospital: 'Trung tâm Xét nghiệm FamiDoc Lab',
-      diagnosis: 'Theo dõi chỉ số chuyển hóa mỡ máu & đường huyết 3 tháng',
-      icd10: 'Z01.7',
-      vitalSigns: { bp: '130/80 mmHg', heartRate: '75 bpm', weight: '65.2 kg', spo2: '99%' },
-      doctorNotes:
-        'Chỉ số HbA1c đạt 6.4% (mục tiêu an toàn < 7.0%). Chức năng gan và thận (Creatinine, eGFR) hoàn toàn bình thường.',
-      labResults: [
-        { test: 'HbA1c (Đường huyết trung bình 3 tháng)', result: '6.4', unit: '%', reference: '4.0 - 6.5', status: 'normal' },
-        { test: 'Glucose mao mạch lúc đói', result: '5.8', unit: 'mmol/L', reference: '3.9 - 6.4', status: 'normal' },
-        { test: 'Cholesterol toàn phần', result: '4.9', unit: 'mmol/L', reference: '< 5.2', status: 'normal' },
-        { test: 'Creatinine huyết thanh', result: '88', unit: 'µmol/L', reference: '62 - 106', status: 'normal' },
-      ],
-      attachmentName: 'Ket_Qua_Xet_Nghiem_10102026_Signed.pdf',
-    },
-  ],
-  'mem-02': [
-    {
-      id: 'ehr-04',
-      date: '02/10/2026',
-      type: 'telehealth',
-      typeLabel: 'Khám Tư Vấn Sức Khỏe Phụ Nữ',
-      doctorName: 'PGS.TS Nguyễn Trọng Nghĩa',
-      hospital: 'BV Đại học Y Dược TP.HCM',
-      diagnosis: 'Khám sức khỏe phụ khoa định kỳ & tư vấn tiền mãn kinh',
-      icd10: 'Z01.4',
-      vitalSigns: { bp: '115/75 mmHg', heartRate: '72 bpm', weight: '54 kg', spo2: '99%' },
-      doctorNotes:
-        'Thể trạng tốt, không có dấu hiệu bất thường. Khuyên bổ sung Canxi Nano và Vitamin D3 hàng ngày.',
-    },
-  ],
-  'mem-03': [
-    {
-      id: 'ehr-05',
-      date: '18/10/2026',
-      type: 'home_visit',
-      typeLabel: 'Khám Nhi Khoa & Dinh Dưỡng Tại Nhà',
-      doctorName: 'PGS.TS Nguyễn Trọng Nghĩa',
-      hospital: 'BV Đại học Y Dược TP.HCM',
-      diagnosis: 'Viêm mũi họng cấp thể nhẹ do thời tiết • Phát triển thể chất tốt',
-      icd10: 'J00',
-      vitalSigns: { bp: '105/65 mmHg', heartRate: '86 bpm', weight: '38 kg', spo2: '99%' },
-      doctorNotes:
-        'Bé sốt nhẹ đã cắt. Họng hơi đỏ, không có mủ amidan. Vệ sinh mũi bằng nước muối sinh lý 0.9%, uống nhiều nước cam và ăn mềm.',
-      prescriptions: [
-        { name: 'Xịt mũi thảo dược FamiNose', dosage: '1 nhát mỗi bên', frequency: '3 lần/ngày', duration: '5 ngày' },
-        { name: 'Siro tăng đề kháng Kẽm + C', dosage: '10ml', frequency: 'Uống sáng sau ăn', duration: '15 ngày' },
-      ],
+        'Bệnh nhân tuân thủ dùng thuốc đều đặn. Huyết áp mục tiêu duy trì tốt dưới 140/90.',
     },
   ],
 };
@@ -192,60 +65,135 @@ export const MOCK_EHR: Record<string, EHREntry[]> = {
 export function getInitials(fullName: string): string {
   return fullName
     .split(' ')
+    .filter(Boolean)
     .slice(-2)
     .map((part) => part[0])
     .join('')
     .toUpperCase();
 }
 
+const RELATION_LABEL_TO_CODE: Record<string, PatientRelationship> = {
+  'Cha ruột': 'PARENT',
+  'Mẹ ruột': 'PARENT',
+  'Vợ': 'SPOUSE',
+  'Chồng': 'SPOUSE',
+  'Vợ / Chồng': 'SPOUSE',
+  'Con trai': 'CHILD',
+  'Con gái': 'CHILD',
+  'Con': 'CHILD',
+  'Chủ hộ (Đại diện)': 'SELF',
+  'Bản thân': 'SELF',
+  'Khác': 'OTHER',
+};
+
+const RELATION_CODE_TO_LABEL: Record<string, string> = {
+  SELF: 'Chủ hộ (Đại diện)',
+  SPOUSE: 'Vợ / Chồng',
+  CHILD: 'Con',
+  CON: 'Con',
+  VO: 'Vợ',
+  CHONG: 'Chồng',
+  PARENT: 'Cha / Mẹ',
+  BO: 'Cha ruột',
+  ME: 'Mẹ ruột',
+  OTHER: 'Người thân',
+};
+
+export function mapRelationLabelToCode(label: string): PatientRelationship {
+  if (RELATION_LABEL_TO_CODE[label]) {
+    return RELATION_LABEL_TO_CODE[label];
+  }
+  const normalized = label.trim().toUpperCase();
+  if (['SELF', 'SPOUSE', 'CHILD', 'PARENT', 'OTHER'].includes(normalized)) {
+    return normalized as PatientRelationship;
+  }
+  if (label.toLowerCase().includes('con')) return 'CHILD';
+  if (label.toLowerCase().includes('vợ') || label.toLowerCase().includes('chồng')) return 'SPOUSE';
+  if (label.toLowerCase().includes('cha') || label.toLowerCase().includes('mẹ')) return 'PARENT';
+  return 'OTHER';
+}
+
+function formatBirthDisplay(rawIso?: string): { rawDate: string; display: string } {
+  if (!rawIso) {
+    return { rawDate: '', display: 'Chưa cập nhật' };
+  }
+  const dateObj = new Date(rawIso);
+  if (Number.isNaN(dateObj.getTime())) {
+    return { rawDate: '', display: 'Chưa cập nhật' };
+  }
+  const yyyy = dateObj.getUTCFullYear();
+  const mm = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(dateObj.getUTCDate()).padStart(2, '0');
+  const age = Math.max(0, new Date().getFullYear() - yyyy);
+  return {
+    rawDate: `${yyyy}-${mm}-${dd}`,
+    display: `${dd}/${mm}/${yyyy} (${age} tuổi)`,
+  };
+}
+
+export function mapPatientDtoToMemberProfile(
+  p: PatientDto,
+  emergencyFallback?: { name: string; phone: string },
+  extraAllergies?: string[]
+): MemberProfile {
+  const { rawDate, display } = formatBirthDisplay(p.dateOfBirth);
+  const relKey = (p.relationshipToHead || 'OTHER').trim().toUpperCase();
+  const allergyList =
+    extraAllergies && extraAllergies.length > 0
+      ? extraAllergies
+      : p.allergies && p.allergies.length > 0
+        ? p.allergies.map((a) => a.allergenName)
+        : ['Không có tiền sử dị ứng'];
+  const chronicList =
+    p.chronicDiseases && p.chronicDiseases.trim()
+      ? p.chronicDiseases
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : ['Không có bệnh nền mạn tính'];
+
+  return {
+    id: p.id,
+    name: p.fullName,
+    relationship: RELATION_CODE_TO_LABEL[relKey] || p.relationshipToHead || 'Người thân',
+    rawDateOfBirth: rawDate,
+    birthDate: display,
+    gender: p.gender === 'FEMALE' ? 'Nữ' : 'Nam',
+    avatar: p.gender === 'FEMALE' ? '👩' : '👨',
+    bloodType: p.bloodType?.trim() || 'Chưa rõ',
+    bhytNumber: p.healthInsuranceNumber?.trim() || 'ĐANG CẬP NHẬT',
+    bhytHospital: p.registeredHospital?.trim() || 'Chưa cập nhật',
+    allergies: allergyList,
+    chronicDiseases: chronicList,
+    emergencyContact: {
+      name: emergencyFallback?.name || 'Đại diện hộ gia đình',
+      phone: emergencyFallback?.phone || 'Chưa cập nhật',
+      relation: 'Đại diện hộ gia đình',
+    },
+    isHouseholdHead: relKey === 'SELF',
+  };
+}
+
 export function FamilyMembersView() {
-  const [membersList, setMembersList] = useState<MemberProfile[]>(MEMBERS);
-  const [householdDoctor, setHouseholdDoctor] = useState<HouseholdDoctor>(INITIAL_HOUSEHOLD_DOCTOR);
+  const [membersList, setMembersList] = useState<MemberProfile[]>([]);
+  const [gateStatus, setGateStatus] = useState<FamilyGateStatusDto | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
   const [editingMember, setEditingMember] = useState<MemberProfile | null>(null);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
   const [deletingMember, setDeletingMember] = useState<MemberProfile | null>(null);
-  const [showChangeDoctorModal, setShowChangeDoctorModal] = useState(false);
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-
-  useEffect(() => {
-    let mounted = true;
-    patientsApi
-      .getFamilyMembers()
-      .then((data) => {
-        if (!mounted || !data || data.length === 0) return;
-        const mapped: MemberProfile[] = data.map((p) => {
-          const birthYear = p.dateOfBirth ? new Date(p.dateOfBirth).getFullYear() : 2000;
-          const age = Math.max(0, 2026 - birthYear);
-          return {
-            id: p.id,
-            name: p.fullName,
-            relationship: p.relationshipToHead === 'SELF' ? 'Chủ hộ (Đại diện)' : p.relationshipToHead,
-            birthDate: p.dateOfBirth ? `${new Date(p.dateOfBirth).toLocaleDateString('vi-VN')} (${age} tuổi)` : 'Chưa cập nhật',
-            gender: p.gender === 'FEMALE' ? 'Nữ' : 'Nam',
-            avatar: p.gender === 'FEMALE' ? '👩' : '👨',
-            bloodType: 'O+',
-            bhytNumber: p.healthInsuranceNumber || 'ĐANG CẬP NHẬT',
-            bhytHospital: 'BV Đại học Y Dược TP.HCM',
-            allergies: p.allergies && p.allergies.length > 0
-              ? p.allergies.map((a) => `${a.allergen} (${a.severity})`)
-              : ['Không có tiền sử dị ứng'],
-            chronicDiseases: ['Theo dõi định kỳ'],
-            emergencyContact: {
-              name: 'Đại diện gia đình',
-              phone: '0912 345 678',
-              relation: 'Đại diện hộ',
-            },
-            isHouseholdHead: p.relationshipToHead === 'SELF',
-          };
-        });
-        setMembersList(mapped);
-      })
-      .catch(() => {});
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   // Form State Thêm Thành Viên
   const [newName, setNewName] = useState('');
@@ -258,123 +206,209 @@ export function FamilyMembersView() {
   const [newAllergies, setNewAllergies] = useState('');
   const [newChronic, setNewChronic] = useState('');
 
+  const showToast = (msg: string, durationMs = 3500) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), durationMs);
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    Promise.allSettled([patientsApi.getFamilyMembers(), contractsApi.getFamilyGateStatus()]).then(
+      ([membersResult, gateResult]) => {
+        if (!mounted) return;
+
+        const gateData = gateResult.status === 'fulfilled' ? gateResult.value : null;
+        if (gateData) {
+          setGateStatus(gateData);
+        }
+
+        const emergencyFallback = gateData?.familyUnit
+          ? {
+              name: gateData.familyUnit.representativeName,
+              phone: gateData.familyUnit.emergencyPhone,
+            }
+          : undefined;
+
+        if (membersResult.status === 'fulfilled') {
+          const rows = Array.isArray(membersResult.value) ? membersResult.value : [];
+          setMembersList(
+            rows.map((row) => mapPatientDtoToMemberProfile(row, emergencyFallback))
+          );
+        } else {
+          setMembersList([]);
+          const msg =
+            membersResult.reason instanceof Error
+              ? membersResult.reason.message
+              : 'Không thể tải danh sách thành viên từ máy chủ.';
+          setLoadError(msg);
+        }
+
+        setIsLoading(false);
+      }
+    );
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const activeContract = gateStatus?.activeContract ?? null;
+  const familyUnit = gateStatus?.familyUnit ?? null;
+  const assignedDoctor = activeContract?.doctor ?? null;
+  const memberLimit = activeContract?.memberCount ?? null;
+  const isQuotaReached = memberLimit !== null && membersList.length >= memberLimit;
+
+  const contractBadgeCode = activeContract?.contractNumber || 'Đang đồng bộ hợp đồng';
+  const repName = familyUnit?.representativeName || 'Đại diện hộ gia đình';
+  const repPhone = familyUnit?.emergencyPhone || 'Chưa cập nhật';
+  const homeAddress = familyUnit?.homeAddress || 'Chưa cập nhật địa chỉ khám tại nhà';
+  const packageName = activeContract?.packageName || 'Gói chăm sóc gia đình đang kích hoạt';
+  const packageDesc =
+    activeContract?.packageDescription ||
+    'Quản lý hồ sơ sức khỏe tập trung cùng bác sĩ gia đình phụ trách.';
+
+  const resetAddForm = () => {
+    setNewName('');
+    setNewBirthDate('');
+    setNewBhyt('');
+    setNewAllergies('');
+    setNewChronic('');
+    setAddError(null);
+  };
+
   const handleAddMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim()) return;
+    if (!newName.trim() || isSubmittingAdd) return;
 
-    let formattedBirth = 'Chưa cập nhật';
-    if (newBirthDate) {
-      const [y, m, d] = newBirthDate.split('-');
-      const age = Math.max(0, 2026 - Number(y));
-      formattedBirth = `${d}/${m}/${y} (${age} tuổi)`;
-    }
+    setAddError(null);
+    setIsSubmittingAdd(true);
 
     try {
       const created = await patientsApi.createFamilyMember({
         fullName: newName.trim(),
         dateOfBirth: newBirthDate || '2000-01-01',
         gender: newGender === 'Nữ' ? 'FEMALE' : 'MALE',
-        relationshipToHead:
-          newRelation === 'Vợ' || newRelation === 'Chồng'
-            ? 'SPOUSE'
-            : newRelation.includes('Con')
-              ? 'CHILD'
-              : 'OTHER',
-        healthInsuranceNumber: newBhyt.trim() || undefined,
+        relationshipToRepresentative: mapRelationLabelToCode(newRelation),
+        healthInsuranceNumber: newBhyt.trim() ? newBhyt.trim().toUpperCase() : undefined,
+        bloodType: newBloodType !== 'Chưa rõ' ? newBloodType : undefined,
+        registeredHospital: newBhytHospital.trim() || undefined,
+        chronicDiseases: newChronic.trim() || undefined,
       });
 
-      const createdMember: MemberProfile = {
-        id: created.id,
-        name: created.fullName,
-        relationship: newRelation,
-        birthDate: formattedBirth,
-        gender: newGender,
-        avatar: newGender === 'Nam' ? '👨' : '👩',
-        bloodType: newBloodType,
-        bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
-        bhytHospital: newBhytHospital,
-        allergies: newAllergies.trim()
-          ? newAllergies.split(',').map((s) => s.trim()).filter(Boolean)
-          : ['Không có tiền sử dị ứng'],
-        chronicDiseases: newChronic.trim()
-          ? newChronic.split(',').map((s) => s.trim()).filter(Boolean)
-          : ['Không có bệnh nền mạn tính'],
-        emergencyContact: {
-          name: 'Nguyễn Văn Phúc (Chủ hộ)',
-          phone: '0912 345 678',
-          relation: 'Đại diện hộ gia đình',
-        },
-        isHouseholdHead: false,
-      };
+      const parsedAllergies = newAllergies
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
 
-      setMembersList((prev) => [...prev, createdMember]);
-      setShowAddMemberModal(false);
-      setToastMessage(`Đã thêm thành công người thân "${createdMember.name}" vào sổ hộ tịch y tế!`);
-      setTimeout(() => setToastMessage(null), 3500);
-    } catch {
-      const newId = `mem-0${membersList.length + 1}`;
-      const createdMember: MemberProfile = {
-        id: newId,
-        name: newName.trim(),
-        relationship: newRelation,
-        birthDate: formattedBirth,
-        gender: newGender,
-        avatar: newGender === 'Nam' ? '👨' : '👩',
-        bloodType: newBloodType,
-        bhytNumber: newBhyt.trim().toUpperCase() || 'ĐANG CẬP NHẬT',
-        bhytHospital: newBhytHospital,
-        allergies: newAllergies.trim()
-          ? newAllergies.split(',').map((s) => s.trim()).filter(Boolean)
-          : ['Không có tiền sử dị ứng'],
-        chronicDiseases: newChronic.trim()
-          ? newChronic.split(',').map((s) => s.trim()).filter(Boolean)
-          : ['Không có bệnh nền mạn tính'],
-        emergencyContact: {
-          name: 'Nguyễn Văn Phúc (Chủ hộ)',
-          phone: '0912 345 678',
-          relation: 'Đại diện hộ gia đình',
-        },
-        isHouseholdHead: false,
-      };
+      let allergyWarning = false;
+      if (parsedAllergies.length > 0) {
+        const allergyResults = await Promise.allSettled(
+          parsedAllergies.map((allergenName) =>
+            patientsApi.addMemberAllergy(created.id, {
+              allergenType: 'DRUG',
+              allergenName,
+              severity: 'MILD',
+            })
+          )
+        );
+        allergyWarning = allergyResults.some((r) => r.status === 'rejected');
+      }
 
-      setMembersList((prev) => [...prev, createdMember]);
+      const createdProfile = mapPatientDtoToMemberProfile(
+        created,
+        { name: repName, phone: repPhone },
+        parsedAllergies
+      );
+
+      setMembersList((prev) => [...prev, createdProfile]);
       setShowAddMemberModal(false);
-      setToastMessage(`Đã thêm thành công người thân "${createdMember.name}" vào sổ hộ tịch y tế!`);
-      setTimeout(() => setToastMessage(null), 3500);
+      resetAddForm();
+      showToast(
+        allergyWarning
+          ? `Đã thêm "${createdProfile.name}" nhưng chưa lưu được toàn bộ ghi chú dị ứng.`
+          : `Đã thêm thành công người thân "${createdProfile.name}" vào sổ hộ tịch y tế!`
+      );
+    } catch (err) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'Không thể thêm thành viên. Vui lòng kiểm tra thông tin hoặc hạn mức gói.';
+      setAddError(message);
+    } finally {
+      setIsSubmittingAdd(false);
     }
-
-    setNewName('');
-    setNewBirthDate('');
-    setNewBhyt('');
-    setNewAllergies('');
-    setNewChronic('');
   };
 
-  const handleUpdateMemberSubmit = (e: React.FormEvent) => {
+  const handleUpdateMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingMember) return;
+    if (!editingMember || isSubmittingEdit) return;
 
-    setMembersList((prev) =>
-      prev.map((m) => (m.id === editingMember.id ? editingMember : m))
-    );
-    setToastMessage(`Đã cập nhật thông tin thành viên "${editingMember.name}"!`);
-    setEditingMember(null);
-    setTimeout(() => setToastMessage(null), 3500);
+    setEditError(null);
+    setIsSubmittingEdit(true);
+
+    try {
+      const chronicValue = editingMember.chronicDiseases
+        .filter((cd) => !cd.toLowerCase().includes('không có'))
+        .join(', ');
+
+      const updated = await patientsApi.updateFamilyMember(editingMember.id, {
+        fullName: editingMember.name.trim(),
+        dateOfBirth: editingMember.rawDateOfBirth || undefined,
+        gender: editingMember.gender === 'Nữ' ? 'FEMALE' : 'MALE',
+        relationshipToRepresentative: mapRelationLabelToCode(editingMember.relationship),
+        bloodType: editingMember.bloodType !== 'Chưa rõ' ? editingMember.bloodType : '',
+        healthInsuranceNumber:
+          editingMember.bhytNumber && editingMember.bhytNumber !== 'ĐANG CẬP NHẬT'
+            ? editingMember.bhytNumber.trim().toUpperCase()
+            : '',
+        registeredHospital: editingMember.bhytHospital.trim() || '',
+        chronicDiseases: chronicValue,
+      });
+
+      const updatedProfile = mapPatientDtoToMemberProfile(
+        updated,
+        { name: repName, phone: repPhone },
+        editingMember.allergies
+      );
+
+      setMembersList((prev) =>
+        prev.map((m) => (m.id === editingMember.id ? updatedProfile : m))
+      );
+      setEditingMember(null);
+      showToast(`Đã cập nhật thông tin thành viên "${updatedProfile.name}"!`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Không thể cập nhật thông tin thành viên.';
+      setEditError(message);
+    } finally {
+      setIsSubmittingEdit(false);
+    }
   };
 
-  const handleDeleteMember = () => {
-    if (!deletingMember) return;
+  const handleDeleteMember = async () => {
+    if (!deletingMember || isSubmittingDelete) return;
     if (deletingMember.isHouseholdHead) {
-      setToastMessage('Không thể xóa Chủ hộ! Vui lòng chuyển quyền chủ hộ trước khi xóa.');
-      setDeletingMember(null);
-      setTimeout(() => setToastMessage(null), 4000);
+      setDeleteError('Không thể tách Chủ hộ khỏi sổ hộ tịch gia đình.');
       return;
     }
 
-    setMembersList((prev) => prev.filter((m) => m.id !== deletingMember.id));
-    setToastMessage(`Đã tách thành viên "${deletingMember.name}" khỏi sổ hộ tịch gia đình.`);
-    setDeletingMember(null);
-    setTimeout(() => setToastMessage(null), 3500);
+    setDeleteError(null);
+    setIsSubmittingDelete(true);
+
+    try {
+      await patientsApi.detachFamilyMember(deletingMember.id);
+      const removedName = deletingMember.name;
+      setMembersList((prev) => prev.filter((m) => m.id !== deletingMember.id));
+      setDeletingMember(null);
+      showToast(`Đã tách thành viên "${removedName}" khỏi danh sách hoạt động của hộ.`);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : 'Không thể tách thành viên khỏi hộ gia đình.';
+      setDeleteError(message);
+    } finally {
+      setIsSubmittingDelete(false);
+    }
   };
 
   const filteredMembers = membersList.filter((m) => {
@@ -409,15 +443,30 @@ export function FamilyMembersView() {
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
-                  Hộ #FAM-88219
+                  HĐ {contractBadgeCode}
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums bg-emerald-50 text-emerald-800 border border-emerald-200/60">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>{membersList.length} thành viên y tế</span>
+                <span
+                  data-testid="member-quota-badge"
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums border ${
+                    isQuotaReached
+                      ? 'bg-amber-50 text-amber-800 border-amber-200/70'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      isQuotaReached ? 'bg-amber-500' : 'bg-emerald-500'
+                    }`}
+                  />
+                  <span>
+                    {memberLimit !== null
+                      ? `${membersList.length} / ${memberLimit} thành viên`
+                      : `${membersList.length} thành viên y tế`}
+                  </span>
                 </span>
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
                   <span className="material-symbols-outlined text-[14px] text-slate-500">verified</span>
-                  <span>Đồng bộ VssID Quốc Gia</span>
+                  <span>Đồng bộ Hồ sơ FamiDoc</span>
                 </span>
               </div>
 
@@ -426,7 +475,7 @@ export function FamilyMembersView() {
               </h1>
 
               <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                Quản lý tập trung hồ sơ sức khỏe người thân, mã thẻ BHYT quốc gia và kết nối dài hạn với{' '}
+                Quản lý tập trung hồ sơ sức khỏe người thân, mã thẻ BHYT và kết nối dài hạn với{' '}
                 <strong className="text-slate-800 font-semibold">01 Bác sĩ Gia đình trực thuộc</strong>{' '}
                 phụ trách toàn bộ hộ gia đình.
               </p>
@@ -445,8 +494,7 @@ export function FamilyMembersView() {
               <button
                 type="button"
                 onClick={() => {
-                  setToastMessage('Đang chuẩn bị xuất file Sổ Hộ Tịch Y Tế PDF...');
-                  setTimeout(() => setToastMessage(null), 3000);
+                  showToast('Đang chuẩn bị xuất file Sổ Hộ Tịch Y Tế PDF...', 3000);
                   window.print();
                 }}
                 className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all whitespace-nowrap outline-hidden cursor-pointer"
@@ -470,10 +518,10 @@ export function FamilyMembersView() {
                 <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">cottage</span>
                 <span className="font-bold text-slate-900 text-sm">Hồ Sơ Hộ Gia Đình</span>
                 <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Hợp đồng hiệu lực
+                  {activeContract ? 'Hợp đồng hiệu lực' : 'Đang đồng bộ'}
                 </span>
               </div>
-              <span className="text-xs text-slate-400 tabular-nums">Mã Hộ: #FAM-88219</span>
+              <span className="text-xs text-slate-400 tabular-nums">HĐ: {contractBadgeCode}</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -483,8 +531,8 @@ export function FamilyMembersView() {
                 </div>
                 <div className="min-w-0">
                   <span className="text-[11px] text-slate-500 font-medium block">Đại diện chủ hộ</span>
-                  <div className="font-bold text-sm text-slate-900 truncate">Ông Nguyễn Văn Phúc</div>
-                  <div className="text-xs text-slate-500 tabular-nums">SĐT: 0912 345 678</div>
+                  <div className="font-bold text-sm text-slate-900 truncate">{repName}</div>
+                  <div className="text-xs text-slate-500 tabular-nums">SĐT: {repPhone}</div>
                 </div>
               </div>
 
@@ -494,8 +542,12 @@ export function FamilyMembersView() {
                 </div>
                 <div className="min-w-0">
                   <span className="text-[11px] text-slate-500 font-medium block">Địa chỉ khám tại nhà</span>
-                  <div className="font-bold text-sm text-slate-900 truncate">124 Nguyễn Đình Chiểu, Q.1</div>
-                  <div className="text-xs text-slate-500 truncate">TP. Hồ Chí Minh</div>
+                  <div className="font-bold text-sm text-slate-900 truncate">{homeAddress}</div>
+                  <div className="text-xs text-slate-500 truncate">
+                    {memberLimit !== null
+                      ? `Hạn mức sử dụng: ${membersList.length}/${memberLimit} thành viên`
+                      : 'Theo dõi hồ sơ hộ gia đình'}
+                  </div>
                 </div>
               </div>
             </div>
@@ -504,23 +556,22 @@ export function FamilyMembersView() {
               <div className="flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">workspace_premium</span>
                 <div>
-                  <span className="font-bold text-[#2E37A4]">Gói Chăm Sóc Toàn Diện VIP</span>
-                  <p className="text-slate-600 text-[11px]">Bác sĩ khám tại nhà định kỳ, Telehealth 24/7 và cấp phát thuốc tận nơi</p>
+                  <span className="font-bold text-[#2E37A4]">{packageName}</span>
+                  <p className="text-slate-600 text-[11px] line-clamp-1">{packageDesc}</p>
                 </div>
               </div>
               <Link
-                href="/family/subscription"
+                href="/family/billing"
                 className="text-[11px] font-semibold text-[#2E37A4] hover:underline whitespace-nowrap self-start sm:self-auto inline-flex items-center gap-1"
               >
-                <span>Chi tiết gói</span>
+                <span>Gói &amp; Thanh toán</span>
                 <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
               </Link>
             </div>
           </div>
 
-          {/* Cột Phải (5 cols): 01 BÁC SĨ GIA ĐÌNH DUY NHẤT TRỰC THUỘC TOÀN HỘ */}
+          {/* Cột Phải (5 cols): 01 BÁC SĨ GIA ĐÌNH TRỰC THUỘC HỘ */}
           <div className="lg:col-span-5 bg-gradient-to-br from-[#2E37A4] to-[#1c236b] rounded-2xl p-6 text-white shadow-md flex flex-col justify-between gap-5 relative overflow-hidden">
-            {/* Subtle background glow pattern */}
             <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
 
             <div>
@@ -529,94 +580,107 @@ export function FamilyMembersView() {
                   <span className="material-symbols-outlined text-[14px] text-emerald-400">verified</span>
                   <span>Bác Sĩ Gia Đình Trực Thuộc Hộ</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowChangeDoctorModal(true)}
-                  className="text-xs text-blue-200 hover:text-white underline cursor-pointer"
+                <Link
+                  href="/contact"
+                  className="text-xs text-blue-200 hover:text-white underline"
                 >
-                  Đổi bác sĩ
-                </button>
+                  Yêu cầu đổi bác sĩ
+                </Link>
               </div>
 
-              <div className="flex items-center gap-4 mt-4">
-                <div className="relative shrink-0">
-                  <img
-                    src={householdDoctor.avatar}
-                    alt={householdDoctor.name}
-                    className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/60 shadow-md"
-                  />
-                  <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-[#2E37A4] flex items-center justify-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                  </span>
-                </div>
+              {assignedDoctor ? (
+                <div className="flex items-center gap-4 mt-4">
+                  <div className="relative shrink-0">
+                    {assignedDoctor.avatarUrl ? (
+                      <img
+                        src={assignedDoctor.avatarUrl}
+                        alt={assignedDoctor.fullName}
+                        className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/60 shadow-md"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 rounded-2xl bg-white/20 text-white font-bold text-lg flex items-center justify-center ring-2 ring-white/60 shadow-md">
+                        {getInitials(assignedDoctor.fullName)}
+                      </div>
+                    )}
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-[#2E37A4] flex items-center justify-center">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    </span>
+                  </div>
 
-                <div className="min-w-0">
-                  <h3 className="font-bold text-base sm:text-lg text-white leading-tight truncate">
-                    {householdDoctor.name}
-                  </h3>
-                  <p className="text-xs text-blue-100 mt-0.5 truncate">{householdDoctor.title}</p>
-                  <p className="text-[11px] text-blue-200/80 truncate mt-0.5">
-                    {householdDoctor.hospital} · {householdDoctor.experienceYears} năm kinh nghiệm
-                  </p>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-base sm:text-lg text-white leading-tight truncate">
+                      {assignedDoctor.fullName}
+                    </h3>
+                    <p className="text-xs text-blue-100 mt-0.5 truncate">{assignedDoctor.title}</p>
+                    <p className="text-[11px] text-blue-200/80 truncate mt-0.5">
+                      {assignedDoctor.hospitalName} · {assignedDoctor.experienceYears} năm kinh nghiệm
+                    </p>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="mt-4 p-3 rounded-xl bg-white/10 border border-white/15 text-xs text-blue-100">
+                  {activeContract
+                    ? 'Cơ sở y tế đang hoàn tất phân công bác sĩ phụ trách chính thức cho hợp đồng.'
+                    : 'Đang tải thông tin bác sĩ phụ trách từ hợp đồng hiệu lực.'}
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
               <div className="p-3 rounded-xl bg-white/10 border border-white/15 text-xs text-blue-100 flex items-center gap-2.5">
                 <span className="material-symbols-outlined text-[18px] text-emerald-300 shrink-0">
-                  calendar_today
+                  verified_user
                 </span>
                 <div className="min-w-0">
                   <span className="text-[10px] uppercase tracking-wider text-blue-200/70 block font-semibold">
-                    Lịch khám tại nhà kế tiếp
+                    Phạm vi phục vụ hợp đồng
                   </span>
                   <span className="font-medium text-white truncate block">
-                    {householdDoctor.nextScheduledVisit}
+                    {activeContract
+                      ? `Tối đa ${activeContract.memberCount} thành viên thuộc hộ gia đình`
+                      : 'Theo dõi đồng bộ theo hợp đồng hiện hành'}
                   </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <a
-                  href={`tel:${householdDoctor.phone.replace(/\s+/g, '')}`}
+                  href={assignedDoctor?.phone ? `tel:${assignedDoctor.phone.replace(/\s+/g, '')}` : 'tel:19008821'}
                   className="py-2.5 px-3 rounded-xl bg-white text-[#2E37A4] hover:bg-blue-50 text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-xs"
                 >
                   <span className="material-symbols-outlined text-[16px]">call</span>
                   <span>Hotline 24/7</span>
                 </a>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setToastMessage(`Đã mở kênh trao đổi tin nhắn trực tiếp với ${householdDoctor.name}!`);
-                    setTimeout(() => setToastMessage(null), 3000);
-                  }}
-                  className="py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                <Link
+                  href="/family/appointments"
+                  className="py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
                 >
-                  <span className="material-symbols-outlined text-[16px]">chat</span>
-                  <span>Trao đổi y tế</span>
-                </button>
+                  <span className="material-symbols-outlined text-[16px]">event_available</span>
+                  <span>Đặt lịch khám</span>
+                </Link>
               </div>
             </div>
           </div>
         </section>
 
-        {/* 3. DANH SÁCH THÀNH VIÊN TRONG HỘ (TINH GỌN, KHÔNG RỐI MẮT) */}
+        {/* 3. DANH SÁCH THÀNH VIÊN TRONG HỘ */}
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/60">
             <div>
               <h2 className="text-lg font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">group</span>
-                <span>Thành Viên Trong Hộ ({filteredMembers.length})</span>
+                <span>
+                  Thành Viên Trong Hộ ({filteredMembers.length}
+                  {memberLimit !== null && !searchQuery.trim() ? `/${memberLimit}` : ''})
+                </span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Danh bạ y tế và mã số bảo hiểm y tế của các thành viên trong gia đình
+                Danh bạ y tế và mã số bảo hiểm y tế của các thành viên đang hoạt động trong gia đình
               </p>
             </div>
 
             <div className="flex items-center gap-3">
-              {/* Ô tìm kiếm nhanh tinh gọn */}
               <div className="relative w-full sm:w-64">
                 <span className="material-symbols-outlined absolute left-3 top-2.5 text-slate-400 text-[18px]">
                   search
@@ -632,18 +696,86 @@ export function FamilyMembersView() {
 
               <button
                 type="button"
-                onClick={() => setShowAddMemberModal(true)}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer shadow-2xs"
+                disabled={isQuotaReached}
+                onClick={() => {
+                  setAddError(null);
+                  setShowAddMemberModal(true);
+                }}
+                title={
+                  isQuotaReached
+                    ? `Đã đạt giới hạn ${memberLimit}/${memberLimit} thành viên của gói hiện tại`
+                    : 'Thêm thành viên mới'
+                }
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-[#2E37A4] hover:bg-[#222982] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shrink-0 cursor-pointer shadow-2xs"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
-                <span className="hidden sm:inline">Thêm thành viên</span>
+                <span className="hidden sm:inline">
+                  {isQuotaReached ? 'Đã đủ suất gói' : 'Thêm thành viên'}
+                </span>
               </button>
             </div>
           </div>
 
-          {/* DANH SÁCH THÀNH VIÊN — DẠNG HÀNG GỌN GÀNG, THOÁNG ĐÃNG */}
+          {loadError && (
+            <div
+              role="alert"
+              className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-center justify-between gap-3"
+            >
+              <span>{loadError}</span>
+            </div>
+          )}
+
+          {isQuotaReached && (
+            <div
+              data-testid="member-quota-reached-banner"
+              className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+            >
+              <span>
+                Hộ gia đình đã sử dụng đủ <strong>{membersList.length}/{memberLimit}</strong> suất thành viên theo hợp đồng hiện tại.
+              </span>
+              <Link
+                href="/family/billing"
+                className="font-semibold text-[#2E37A4] hover:underline shrink-0"
+              >
+                Nâng cấp gói hoặc mua thêm suất →
+              </Link>
+            </div>
+          )}
+
+          {/* DANH SÁCH THÀNH VIÊN */}
           <div className="space-y-3">
-            {filteredMembers.length === 0 ? (
+            {isLoading ? (
+              <div className="p-10 text-center bg-white rounded-2xl border border-slate-200/70 space-y-2">
+                <p className="text-sm font-semibold text-slate-700">Đang tải danh sách thành viên...</p>
+              </div>
+            ) : membersList.length === 0 ? (
+              <div
+                data-testid="family-members-empty-state"
+                className="p-10 text-center bg-white rounded-2xl border border-slate-200/70 space-y-3"
+              >
+                <span className="material-symbols-outlined text-4xl text-slate-300">group_add</span>
+                <p className="text-base font-bold text-slate-800">
+                  Chưa có hồ sơ thành viên nào trong hộ gia đình
+                </p>
+                <p className="text-xs text-slate-500 max-w-md mx-auto">
+                  {memberLimit !== null
+                    ? `Gói dịch vụ của bạn hỗ trợ tối đa ${memberLimit} thành viên. Hãy tạo hồ sơ thành viên đầu tiên để bác sĩ theo dõi sức khỏe.`
+                    : 'Hãy thêm hồ sơ thành viên đầu tiên vào sổ hộ tịch y tế của gia đình.'}
+                </p>
+                <button
+                  type="button"
+                  disabled={isQuotaReached}
+                  onClick={() => {
+                    setAddError(null);
+                    setShowAddMemberModal(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">person_add</span>
+                  <span>Thêm thành viên đầu tiên</span>
+                </button>
+              </div>
+            ) : filteredMembers.length === 0 ? (
               <div className="p-10 text-center bg-white rounded-2xl border border-slate-200/70 space-y-2">
                 <span className="material-symbols-outlined text-3xl text-slate-300">person_search</span>
                 <p className="text-sm font-semibold text-slate-700">Không tìm thấy thành viên</p>
@@ -715,8 +847,7 @@ export function FamilyMembersView() {
                           type="button"
                           onClick={() => {
                             navigator.clipboard?.writeText(m.bhytNumber);
-                            setToastMessage(`Đã sao chép mã BHYT: ${m.bhytNumber}`);
-                            setTimeout(() => setToastMessage(null), 2500);
+                            showToast(`Đã sao chép mã BHYT: ${m.bhytNumber}`, 2500);
                           }}
                           className="text-slate-400 hover:text-[#2E37A4] p-0.5 cursor-pointer"
                           title="Sao chép"
@@ -754,7 +885,10 @@ export function FamilyMembersView() {
 
                       <button
                         type="button"
-                        onClick={() => setEditingMember(m)}
+                        onClick={() => {
+                          setEditError(null);
+                          setEditingMember(m);
+                        }}
                         className="w-8 h-8 rounded-xl bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
                         title="Sửa thông tin"
                         aria-label={`Sửa thông tin của ${m.name}`}
@@ -765,7 +899,10 @@ export function FamilyMembersView() {
                       {!m.isHouseholdHead && (
                         <button
                           type="button"
-                          onClick={() => setDeletingMember(m)}
+                          onClick={() => {
+                            setDeleteError(null);
+                            setDeletingMember(m);
+                          }}
                           className="w-8 h-8 rounded-xl bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
                           title="Tách khỏi hộ"
                           aria-label={`Tách ${m.name} khỏi hộ`}
@@ -815,7 +952,7 @@ export function FamilyMembersView() {
                     Thêm Người Thân Vào Sổ Hộ Tịch Y Tế
                   </h3>
                   <p className="text-xs text-blue-100 truncate mt-0.5">
-                    Hộ #FAM-88219 · Bác sĩ phụ trách: {householdDoctor.name}
+                    HĐ {contractBadgeCode} · {assignedDoctor?.fullName || 'Bác sĩ Gia đình FamiDoc'}
                   </p>
                 </div>
               </div>
@@ -831,6 +968,15 @@ export function FamilyMembersView() {
             </div>
 
             <form onSubmit={handleAddMemberSubmit} className="p-6 space-y-4 text-xs">
+              {addError && (
+                <div
+                  role="alert"
+                  className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium"
+                >
+                  {addError}
+                </div>
+              )}
+
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
                   Họ và tên người thân <span className="text-rose-500">*</span>
@@ -988,17 +1134,19 @@ export function FamilyMembersView() {
               <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={isSubmittingAdd}
                   onClick={() => setShowAddMemberModal(false)}
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  disabled={isSubmittingAdd}
+                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-60"
                 >
                   <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                  <span>Lưu thành viên</span>
+                  <span>{isSubmittingAdd ? 'Đang lưu...' : 'Lưu thành viên'}</span>
                 </button>
               </div>
             </form>
@@ -1024,7 +1172,7 @@ export function FamilyMembersView() {
                     Chỉnh Sửa Hồ Sơ: {editingMember.name}
                   </h3>
                   <p className="text-xs text-blue-100 truncate mt-0.5">
-                    Hộ #FAM-88219 · {editingMember.relationship}
+                    HĐ {contractBadgeCode} · {editingMember.relationship}
                   </p>
                 </div>
               </div>
@@ -1040,6 +1188,15 @@ export function FamilyMembersView() {
             </div>
 
             <form onSubmit={handleUpdateMemberSubmit} className="p-6 space-y-4 text-xs">
+              {editError && (
+                <div
+                  role="alert"
+                  className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium"
+                >
+                  {editError}
+                </div>
+              )}
+
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Họ và tên</label>
                 <input
@@ -1118,24 +1275,10 @@ export function FamilyMembersView() {
                   onChange={(e) =>
                     setEditingMember({
                       ...editingMember,
-                      chronicDiseases: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
-                    })
-                  }
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 text-xs focus:border-[#2E37A4] outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Dị ứng thuốc &amp; thức ăn (ngăn cách bằng dấu phẩy)
-                </label>
-                <input
-                  type="text"
-                  value={editingMember.allergies.join(', ')}
-                  onChange={(e) =>
-                    setEditingMember({
-                      ...editingMember,
-                      allergies: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+                      chronicDiseases: e.target.value
+                        .split(',')
+                        .map((s) => s.trim())
+                        .filter(Boolean),
                     })
                   }
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 text-xs focus:border-[#2E37A4] outline-none"
@@ -1145,17 +1288,19 @@ export function FamilyMembersView() {
               <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
                 <button
                   type="button"
+                  disabled={isSubmittingEdit}
                   onClick={() => setEditingMember(null)}
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
                 >
                   Hủy bỏ
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  disabled={isSubmittingEdit}
+                  className="flex-1 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-white bg-[#2E37A4] hover:bg-[#222982] rounded-xl shadow-xs inline-flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-60"
                 >
                   <span className="material-symbols-outlined text-[18px]">check</span>
-                  <span>Cập nhật hồ sơ</span>
+                  <span>{isSubmittingEdit ? 'Đang cập nhật...' : 'Cập nhật hồ sơ'}</span>
                 </button>
               </div>
             </form>
@@ -1163,7 +1308,7 @@ export function FamilyMembersView() {
         </div>
       )}
 
-      {/* MODAL 3: XÁC NHẬN TÁCH / XÓA THÀNH VIÊN */}
+      {/* MODAL 3: XÁC NHẬN TÁCH THÀNH VIÊN */}
       {deletingMember && (
         <div
           className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
@@ -1179,150 +1324,42 @@ export function FamilyMembersView() {
                 <h3 className="font-bold text-base text-slate-900">
                   Xác nhận tách thành viên khỏi hộ
                 </h3>
-                <p className="text-xs text-slate-500">Hộ gia đình #FAM-88219</p>
+                <p className="text-xs text-slate-500">HĐ {contractBadgeCode}</p>
               </div>
             </div>
+
+            {deleteError && (
+              <div
+                role="alert"
+                className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium"
+              >
+                {deleteError}
+              </div>
+            )}
 
             <p className="text-xs text-slate-600 leading-relaxed">
               Bạn có chắc chắn muốn tách hồ sơ y tế của{' '}
               <strong className="text-slate-900">{deletingMember.name}</strong> ({deletingMember.relationship}){' '}
-              khỏi sổ hộ tịch y tế gia đình? Lịch sử khám bệnh và thẻ BHYT sẽ không còn liên kết với gói chăm sóc hiện tại.
+              khỏi danh sách thành viên hoạt động? Lịch sử y khoa trước đây vẫn được bảo toàn và suất thành viên sẽ được giải phóng.
             </p>
 
             <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
               <button
                 type="button"
+                disabled={isSubmittingDelete}
                 onClick={() => setDeletingMember(null)}
-                className="flex-1 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer"
+                className="flex-1 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors cursor-pointer disabled:opacity-50"
               >
                 Hủy bỏ
               </button>
               <button
                 type="button"
+                disabled={isSubmittingDelete}
                 onClick={handleDeleteMember}
-                className="flex-1 py-2.5 text-xs sm:text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors cursor-pointer"
+                className="flex-1 py-2.5 text-xs sm:text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-60"
               >
-                Xác nhận tách
+                {isSubmittingDelete ? 'Đang xử lý...' : 'Xác nhận tách'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 4: YÊU CẦU ĐỔI BÁC SĨ GIA ĐÌNH CHO TOÀN BỘ HỘ GIA ĐÌNH */}
-      {showChangeDoctorModal && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200/80 space-y-4 animate-in fade-in zoom-in-95 my-auto">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2.5 text-[#2E37A4]">
-                <span className="material-symbols-outlined text-[22px]">stethoscope</span>
-                <div>
-                  <h3 className="font-bold text-base text-slate-900">
-                    Đổi Bác Sĩ Gia Đình Phụ Trách Hộ
-                  </h3>
-                  <p className="text-xs text-slate-500">Áp dụng đồng bộ cho toàn bộ Hộ #FAM-88219</p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowChangeDoctorModal(false)}
-                aria-label="Đóng cửa sổ"
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 cursor-pointer transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Theo quy chuẩn Y học gia đình FamiDoc, mỗi hộ gia đình được phụ trách xuyên suốt bởi{' '}
-              <strong className="text-slate-800 font-semibold">01 Bác sĩ Gia đình trực thuộc</strong>. Bạn có thể chọn điều chuyển sang bác sĩ trưởng khoa khác dưới đây:
-            </p>
-
-            <div className="space-y-2.5 text-xs">
-              {[
-                {
-                  name: 'PGS.TS Nguyễn Trọng Nghĩa',
-                  title: 'Bác Sĩ Gia Đình Phụ Trách Toàn Hộ',
-                  hospital: 'BV Đại học Y Dược TP.HCM',
-                  spec: 'Nội tổng quát & Tim mạch (22 năm KN)',
-                  avatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-                },
-                {
-                  name: 'BSCKII Trần Mai Phương',
-                  title: 'Bác sĩ Chuyên khoa Y Học Gia Đình',
-                  hospital: 'BV Nhi Đồng 1 & Trung tâm Y học Gia đình',
-                  spec: 'Y học gia đình & Dinh dưỡng (18 năm KN)',
-                  avatar: 'https://images.unsplash.com/photo-1594824813586-b4d291986422?q=80&w=200&auto=format&fit=crop',
-                },
-                {
-                  name: 'ThS.BS Lê Hoàng Nam',
-                  title: 'Bác sĩ Gia Đình & Hội Chẩn Lão Khoa',
-                  hospital: 'BV Bạch Mai & ĐHYD TP.HCM',
-                  spec: 'Lão khoa & Quản lý bệnh mạn tính (15 năm KN)',
-                  avatar: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=200&auto=format&fit=crop',
-                },
-              ].map((doc, idx) => {
-                const isCurrent = doc.name === householdDoctor.name;
-                return (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      if (!isCurrent) {
-                        setHouseholdDoctor((prev) => ({
-                          ...prev,
-                          name: doc.name,
-                          title: doc.title,
-                          hospital: doc.hospital,
-                          avatar: doc.avatar,
-                        }));
-                        setToastMessage(`Đã điều chuyển Bác sĩ Gia đình phụ trách hộ sang ${doc.name}!`);
-                      }
-                      setShowChangeDoctorModal(false);
-                      setTimeout(() => setToastMessage(null), 3500);
-                    }}
-                    className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between cursor-pointer ${
-                      isCurrent
-                        ? 'border-[#2E37A4] bg-blue-50/70 ring-1 ring-[#2E37A4]/20'
-                        : 'border-slate-200/80 hover:border-[#2E37A4] hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img
-                        src={doc.avatar}
-                        alt={doc.name}
-                        className="w-11 h-11 rounded-xl object-cover shrink-0 border border-slate-200"
-                      />
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-slate-900 text-xs sm:text-sm truncate">
-                            {doc.name}
-                          </span>
-                          {isCurrent && (
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#2E37A4] text-white">
-                              Đang phụ trách
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-slate-600 truncate mt-0.5">{doc.hospital}</div>
-                        <div className="text-[10px] text-slate-400 truncate">{doc.spec}</div>
-                      </div>
-                    </div>
-
-                    <span
-                      className={`material-symbols-outlined text-[20px] ${
-                        isCurrent ? 'text-[#2E37A4]' : 'text-slate-300'
-                      }`}
-                    >
-                      {isCurrent ? 'check_circle' : 'radio_button_unchecked'}
-                    </span>
-                  </button>
-                );
-              })}
             </div>
           </div>
         </div>

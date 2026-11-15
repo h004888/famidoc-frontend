@@ -1,19 +1,31 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import type { ContractStatus } from '@/features/four-party-contract';
+import {
+  DocumensoSigningEmbed,
+  type ContractStatus,
+} from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
+import type {
+  BackendContractStatus,
+  BackendSignerRole,
+  MedicalContractDetailDto,
+} from '@/lib/api';
 
 export interface TrackedContract {
   id: string;
+  contractNumber?: string;
   packageName?: string;
   packagePrice?: string;
   facilityName?: string;
   doctorName?: string;
+  memberCount?: number;
   createdAt?: string;
   status: ContractStatus;
+  signedRoles?: BackendSignerRole[];
+  signedPdfUrl?: string | null;
   signatures?: {
     family?: { signedAt: string; signer: string };
     platform?: { signedAt?: string; signer?: string };
@@ -24,163 +36,311 @@ export interface TrackedContract {
 
 export interface ContractSigningTrackerViewProps {
   contract?: TrackedContract;
+  contractId?: string;
   onProceedPayment?: () => void;
   onRefresh?: () => void;
   pollingIntervalMs?: number;
 }
 
-const DEFAULT_CONTRACT: TrackedContract = {
-  id: 'FMD-2026-REGR821',
-  packageName: 'Gói Toàn Diện Gia Đình (12 Tháng)',
-  packagePrice: '9.600.000 đ',
-  facilityName: 'Bệnh viện Đại học Y Dược TP.HCM',
-  doctorName: 'BS. CKII Lê Hoàng Nam',
-  createdAt: '01/11/2026 09:15',
-  status: 'FAMILY_SIGNED',
-  signatures: {
-    family: { signedAt: '01/11/2026 09:15', signer: 'Nguyễn Văn An (Đại diện chủ hộ)' },
-  },
+const mapContractStatus = (
+  status: BackendContractStatus,
+  signedRoles: BackendSignerRole[]
+): ContractStatus => {
+  switch (status) {
+    case 'PENDING_PAYMENT':
+      return 'PENDING_PAYMENT';
+    case 'ACTIVE':
+      return 'ACTIVE';
+    case 'EXPIRED':
+    case 'TERMINATED':
+      return 'CANCELLED';
+    default:
+      return signedRoles.includes('FAMILY_REP') ? 'FAMILY_SIGNED' : 'DRAFT';
+  }
 };
 
-const STEP_DEFINITIONS = [
+const formatAmount = (value?: string | number): string | undefined => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const amount = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(amount)) return undefined;
+  return `${new Intl.NumberFormat('vi-VN').format(amount)} đ`;
+};
+
+const mapContractDetail = (dto: MedicalContractDetailDto): TrackedContract => {
+  const signedRoles: BackendSignerRole[] =
+    dto.signatures?.map((s) => s.signerRole) ??
+    (['PENDING_PAYMENT', 'ACTIVE'].includes(dto.contractStatus)
+      ? ['FAMILY_REP', 'HEALTHCARE_FACILITY', 'ASSIGNED_DOCTOR', 'ADMIN']
+      : []);
+
+  return {
+    id: dto.id,
+    contractNumber: dto.contractNumber,
+    packageName:
+      dto.billingSnapshot?.package?.name ?? dto.servicePackage?.packageName,
+    packagePrice: formatAmount(
+      dto.billingSnapshot?.pricing?.totalPriceVnd ?? dto.totalAmount
+    ),
+    facilityName: dto.facility?.facilityName,
+    doctorName: dto.doctor?.doctorName ?? dto.doctor?.user?.fullName,
+    memberCount: dto.memberCount,
+    createdAt: dto.createdAt,
+    status: mapContractStatus(dto.contractStatus, signedRoles),
+    signedRoles,
+    signedPdfUrl: dto.signedPdfUrl ?? null,
+  };
+};
+
+const describeLoadError = (error: unknown): string => {
+  const status = (error as { status?: number } | null)?.status;
+  if (status === 404) {
+    return 'Không tìm thấy hợp đồng này. Vui lòng kiểm tra lại đường dẫn trong email.';
+  }
+  if (status === 403) {
+    return 'Bạn không có quyền xem hợp đồng này. Vui lòng đăng nhập bằng tài khoản đại diện hộ gia đình.';
+  }
+  return 'Không thể tải hợp đồng. Vui lòng kiểm tra kết nối và thử lại.';
+};
+
+const PARALLEL_PARTIES: Array<{
+  role: BackendSignerRole;
+  partyCode: string;
+  title: string;
+  description: string;
+}> = [
   {
-    step: 1,
-    id: 'step-1',
-    title: '1. Gia đình ký số',
-    description: 'Xác thực eKYC/OTP & hoàn tất chữ ký điện tử chủ hộ.',
-    actor: 'Đại diện hộ gia đình',
-    method: 'Smart OTP & eKYC',
+    role: 'HEALTHCARE_FACILITY',
+    partyCode: 'Bên B',
+    title: 'Cơ sở Y tế phối hợp',
+    description: 'Xác nhận bảo trợ chuyên môn, cơ sở vật chất & phân công bác sĩ.',
   },
   {
-    step: 2,
-    id: 'step-2',
-    title: '2. Nền tảng ký duyệt',
-    description: 'Ban điều hành FamiDoc đối chiếu quyền lợi gói & ký số bảo chứng.',
-    actor: 'FamiDoc Platform Admin',
-    method: 'Dấu thời gian TSA & Chữ ký số hệ thống',
+    role: 'ASSIGNED_DOCTOR',
+    partyCode: 'Bên C',
+    title: 'Bác sĩ Gia đình phụ trách',
+    description: 'Chấp thuận tiếp nhận theo dõi hộ gia đình trong định biên <= 30 hộ.',
   },
   {
-    step: 3,
-    id: 'step-3',
-    title: '3. CSYT phân công & ký',
-    description: 'Cơ sở y tế điều phối chỉ định bác sĩ định biên (<30 hộ) & ký số xác nhận.',
-    actor: 'Cơ sở y tế phụ trách',
-    method: 'Chứng thư số VNPT-CA / Viettel-CA',
-  },
-  {
-    step: 4,
-    id: 'step-4',
-    title: '4. Bác sĩ ký chấp thuận',
-    description: 'Bác sĩ xem Care Needs Summary, cam kết chuyên môn & ký số y khoa.',
-    actor: 'Bác sĩ gia đình phụ trách',
-    method: 'Chữ ký số cá nhân bác sĩ',
-  },
-  {
-    step: 5,
-    id: 'step-5',
-    title: '5. Thanh toán & Kích hoạt',
-    description: 'Hoàn tất thanh toán VietQR để kích hoạt quyền lợi y tế 12 tháng.',
-    actor: 'Cổng thanh toán tự động VietQR SePay',
-    method: 'Chuyển khoản VietQR tức thì',
+    role: 'ADMIN',
+    partyCode: 'Bên D',
+    title: 'Nền tảng Công nghệ FamiDoc',
+    description: 'Kiểm soát hợp đồng điện tử, lưu trữ hồ sơ & điều phối VietQR.',
   },
 ];
 
-function getStepStatus(
-  stepNumber: number,
-  contractStatus: ContractStatus
-): 'completed' | 'current' | 'pending' {
-  switch (contractStatus) {
-    case 'DRAFT':
-      if (stepNumber === 1) return 'current';
-      return 'pending';
-    case 'FAMILY_SIGNED':
-      if (stepNumber === 1) return 'completed';
-      if (stepNumber === 2) return 'current';
-      return 'pending';
-    case 'PLATFORM_SIGNED':
-      if (stepNumber <= 2) return 'completed';
-      if (stepNumber === 3) return 'current';
-      return 'pending';
-    case 'FACILITY_ASSIGNED':
-      if (stepNumber <= 3) return 'completed';
-      if (stepNumber === 4) return 'current';
-      return 'pending';
-    case 'DOCTOR_ACCEPTED':
-    case 'PENDING_PAYMENT':
-      if (stepNumber <= 4) return 'completed';
-      if (stepNumber === 5) return 'current';
-      return 'pending';
-    case 'ACTIVE':
-      return 'completed';
-    case 'CANCELLED':
-      return 'pending';
-    default:
-      return 'pending';
+function deriveSignedRoles(contract: TrackedContract): BackendSignerRole[] {
+  if (contract.signedRoles && contract.signedRoles.length > 0) {
+    return contract.signedRoles;
   }
+  if (
+    contract.status === 'PENDING_PAYMENT' ||
+    contract.status === 'DOCTOR_ACCEPTED' ||
+    contract.status === 'ACTIVE'
+  ) {
+    return ['FAMILY_REP', 'HEALTHCARE_FACILITY', 'ASSIGNED_DOCTOR', 'ADMIN'];
+  }
+  if (contract.status === 'FAMILY_SIGNED') {
+    return ['FAMILY_REP'];
+  }
+  return [];
 }
 
 export function ContractSigningTrackerView({
-  contract = DEFAULT_CONTRACT,
+  contract,
+  contractId,
   onProceedPayment,
   onRefresh,
   pollingIntervalMs,
 }: ContractSigningTrackerViewProps) {
   const router = useRouter();
   const [prevContract, setPrevContract] = useState(contract);
-  const [currentContract, setCurrentContract] = useState<TrackedContract>(contract);
+  const [currentContract, setCurrentContract] = useState<TrackedContract | null>(
+    contract ?? null
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState<boolean>(
+    Boolean(contractId) && !contract
+  );
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   if (contract !== prevContract) {
     setPrevContract(contract);
-    setCurrentContract(contract);
+    setCurrentContract(contract ?? null);
   }
+
+  useEffect(() => {
+    if (!contractId) return;
+    const targetContractId = contractId;
+    let active = true;
+    async function loadContract() {
+      try {
+        const fetched = await contractsApi.getMedicalContractDetail(targetContractId);
+        if (!active) return;
+        setCurrentContract(mapContractDetail(fetched));
+        setLoadError(null);
+      } catch (error) {
+        if (!active) return;
+        setLoadError(describeLoadError(error));
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+    void loadContract();
+    return () => {
+      active = false;
+    };
+  }, [contractId, reloadTick]);
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
     if (onRefresh) {
       onRefresh();
     }
+    const targetId = contractId ?? currentContract?.id;
     try {
-      if (currentContract.id) {
-        const fetched = await contractsApi.getMedicalContractById(currentContract.id);
-        if (fetched) {
-          setCurrentContract((prev) => ({
-            ...prev,
-            status: fetched.status,
-            doctorName: fetched.doctorName || prev.doctorName,
-            facilityName: fetched.facilityName || prev.facilityName,
-          }));
-        }
+      if (!targetId) {
+        setLoadError('Chưa xác định được hợp đồng cần xem.');
+        return;
       }
-    } catch {
-      // offline / mock fallback
+      const fetched = await contractsApi.getMedicalContractDetail(targetId);
+      setCurrentContract(mapContractDetail(fetched));
+      setLoadError(null);
+    } catch (error) {
+      setLoadError(describeLoadError(error));
     } finally {
       setTimeout(() => {
         setIsRefreshing(false);
       }, 400);
     }
-  }, [currentContract.id, onRefresh]);
+  }, [contractId, currentContract?.id, onRefresh]);
 
   useEffect(() => {
     if (!pollingIntervalMs || pollingIntervalMs <= 0) return;
     const timer = setInterval(() => {
-      handleRefresh();
+      void handleRefresh();
     }, pollingIntervalMs);
     return () => clearInterval(timer);
   }, [pollingIntervalMs, handleRefresh]);
-
-  const currentStatus = currentContract.status;
-  const isPaymentReady =
-    currentStatus === 'DOCTOR_ACCEPTED' || currentStatus === 'PENDING_PAYMENT';
-  const isActive = currentStatus === 'ACTIVE';
 
   const handlePaymentClick = () => {
     if (onProceedPayment) {
       onProceedPayment();
     } else {
-      router.push('/family/billing');
+      const target = currentContract?.id
+        ? `/family/billing?contractId=${encodeURIComponent(currentContract.id)}`
+        : '/family/billing';
+      router.push(target);
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div
+          role="status"
+          aria-live="polite"
+          className="rounded-2xl border border-slate-200 bg-white p-10 text-center space-y-3"
+        >
+          <div className="w-8 h-8 mx-auto border-2 border-[#2E37A4]/20 border-t-[#2E37A4] rounded-full animate-spin" />
+          <p className="text-xs text-slate-500 font-medium">
+            Đang tải tiến trình ký hợp đồng...
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div
+          role="alert"
+          className="rounded-2xl border border-rose-200 bg-rose-50 p-6 sm:p-8 space-y-4"
+        >
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-rose-600 text-[22px] shrink-0">
+              error
+            </span>
+            <div className="space-y-1">
+              <h2 className="text-sm sm:text-base font-bold text-rose-900">
+                Không thể tải hợp đồng
+              </h2>
+              <p className="text-xs text-rose-800 leading-relaxed">{loadError}</p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setIsLoading(true);
+                setLoadError(null);
+                if (contractId) {
+                  setReloadTick((t) => t + 1);
+                } else {
+                  void handleRefresh();
+                }
+              }}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors cursor-pointer"
+            >
+              Thử lại
+            </button>
+            <Link
+              href="/family/subscription"
+              className="px-4 py-2 rounded-xl bg-white border border-rose-200 text-rose-800 text-xs font-semibold hover:bg-rose-100 transition-colors"
+            >
+              Về danh sách gói dịch vụ
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentContract) {
+    return (
+      <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8">
+        <div className="rounded-2xl border border-slate-200 bg-white p-8 sm:p-10 text-center space-y-3">
+          <span className="material-symbols-outlined text-slate-400 text-[32px]">
+            receipt_long
+          </span>
+          <h2 className="text-sm sm:text-base font-bold text-slate-800">
+            Chưa có hợp đồng để theo dõi
+          </h2>
+          <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
+            Đường dẫn này cần mã hợp đồng. Hãy mở lại đường dẫn trong email thông báo
+            thanh toán, hoặc chọn gói dịch vụ để bắt đầu.
+          </p>
+          <Link
+            href="/family/subscription"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2E37A4] hover:bg-[#232b85] text-white text-xs font-bold transition-colors"
+          >
+            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            Về danh sách gói dịch vụ
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const currentStatus = currentContract.status;
+  const signedRoles = deriveSignedRoles(currentContract);
+  const isFamilySigned = signedRoles.includes('FAMILY_REP');
+  const parallelSignedCount = PARALLEL_PARTIES.filter((p) =>
+    signedRoles.includes(p.role)
+  ).length;
+  const isAllSigned =
+    currentStatus === 'DOCTOR_ACCEPTED' ||
+    currentStatus === 'PENDING_PAYMENT' ||
+    currentStatus === 'ACTIVE' ||
+    (isFamilySigned && parallelSignedCount === PARALLEL_PARTIES.length);
+  const isPaymentReady =
+    currentStatus === 'DOCTOR_ACCEPTED' || currentStatus === 'PENDING_PAYMENT';
+  const isActive = currentStatus === 'ACTIVE';
+  const isAwaitingSignatures =
+    !isPaymentReady && !isActive && currentStatus !== 'CANCELLED';
 
   return (
     <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -192,10 +352,10 @@ export function ContractSigningTrackerView({
               href="/family/subscription"
               className="hover:text-slate-800 transition-colors"
             >
-              Gói dịch vụ & Hợp đồng
+              Gói dịch vụ &amp; Hợp đồng
             </Link>
             <span>/</span>
-            <span className="text-slate-800 font-semibold">Tiến độ ký kết 4 bên</span>
+            <span className="text-slate-800 font-semibold">Tiến độ ký kết Documenso 4 bên</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900 mt-1">
             Theo Dõi Tiến Trình Ký Hợp Đồng 4 Bên
@@ -204,7 +364,7 @@ export function ContractSigningTrackerView({
 
         <button
           type="button"
-          onClick={handleRefresh}
+          onClick={() => void handleRefresh()}
           disabled={isRefreshing}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-xs transition-colors cursor-pointer self-start sm:self-auto disabled:opacity-50"
         >
@@ -219,16 +379,24 @@ export function ContractSigningTrackerView({
         </button>
       </div>
 
-      {/* Contract Metadata Overview Card (Achromatic Ledger Style) */}
+      {/* Contract Metadata Overview Card */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div className="bg-slate-50/80 px-5 py-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <span className="px-2.5 py-1 rounded-md bg-[#2E37A4]/10 text-[#2E37A4] font-bold text-xs tabular-nums">
-              {currentContract.id}
+              {currentContract.contractNumber || currentContract.id}
             </span>
             <span className="text-xs text-slate-500 font-medium">
-              Khởi tạo: <strong className="text-slate-700 tabular-nums">{currentContract.createdAt || '01/11/2026'}</strong>
+              Khởi tạo:{' '}
+              <strong className="text-slate-700 tabular-nums">
+                {currentContract.createdAt || '—'}
+              </strong>
             </span>
+            {currentContract.memberCount && (
+              <span className="text-xs text-slate-600 font-medium tabular-nums">
+                • {currentContract.memberCount} thành viên
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2">
@@ -245,8 +413,10 @@ export function ContractSigningTrackerView({
               {isActive
                 ? 'Đang hiệu lực'
                 : isPaymentReady
-                ? 'Sẵn sàng thanh toán'
-                : 'Đang luân chuyển ký số'}
+                ? 'Sẵn sàng thanh toán VietQR'
+                : isFamilySigned
+                ? 'Đang chờ Bên B, C, D ký song song'
+                : 'Chờ Bên A ký Documenso'}
             </span>
           </div>
         </div>
@@ -255,32 +425,44 @@ export function ContractSigningTrackerView({
           <div className="space-y-1">
             <span className="text-slate-400 font-medium block">Gói chăm sóc</span>
             <p className="font-bold text-slate-800 text-sm">
-              {currentContract.packageName || 'Gói Toàn Diện Gia Đình (12 Tháng)'}
+              {currentContract.packageName || 'Gói Chăm Sóc Gia Đình'}
             </p>
           </div>
 
           <div className="space-y-1">
             <span className="text-slate-400 font-medium block">Giá trị gói khám</span>
             <p className="font-bold text-[#2E37A4] text-base tabular-nums">
-              {currentContract.packagePrice || '9.600.000 đ'}
+              {currentContract.packagePrice || '—'}
             </p>
           </div>
 
           <div className="space-y-1">
-            <span className="text-slate-400 font-medium block">Cơ sở y tế điều phối</span>
+            <span className="text-slate-400 font-medium block">Cơ sở y tế (Bên B)</span>
             <p className="font-semibold text-slate-700">
-              {currentContract.facilityName || 'Bệnh viện Đại học Y Dược TP.HCM'}
+              {currentContract.facilityName || 'Đang cập nhật'}
             </p>
           </div>
 
           <div className="space-y-1">
-            <span className="text-slate-400 font-medium block">Bác sĩ gia đình</span>
+            <span className="text-slate-400 font-medium block">Bác sĩ gia đình (Bên C)</span>
             <p className="font-semibold text-slate-700">
-              {currentContract.doctorName || 'Chờ CSYT phân công'}
+              {currentContract.doctorName || 'Chờ phân công bác sĩ'}
             </p>
           </div>
         </div>
       </div>
+
+      {/* Nhúng Documenso ngay cho Bên A ký khi đang chờ chữ ký */}
+      {contractId && isAwaitingSignatures && (
+        <div data-testid="family-documenso-signing-section">
+          <DocumensoSigningEmbed
+            contractId={currentContract.id}
+            onSyncCompleted={() => {
+              void handleRefresh();
+            }}
+          />
+        </div>
+      )}
 
       {/* Action Notice & Trigger Banners */}
       {isPaymentReady && (
@@ -289,12 +471,12 @@ export function ContractSigningTrackerView({
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-pulse" />
               <h2 className="text-sm sm:text-base font-bold text-blue-900">
-                Hợp đồng đã hoàn tất đủ 4 chữ ký số!
+                Hợp đồng đã hoàn tất đủ 4 chữ ký số trên Documenso!
               </h2>
             </div>
             <p className="text-xs text-blue-700 max-w-xl leading-relaxed">
-              Tất cả các bên (Gia đình, Nền tảng, CSYT, Bác sĩ) đã ký duyệt thành công. Vui lòng
-              tiến hành thanh toán VietQR để tự động kích hoạt quyền lợi chăm sóc sức khỏe.
+              Tất cả 4 bên (Gia đình, Cơ sở y tế, Bác sĩ, Nền tảng FamiDoc) đã ký kết hoàn tất. Vui
+              lòng thanh toán VietQR để kích hoạt gói và mở khóa trang Quản lý thành viên.
             </p>
           </div>
 
@@ -321,115 +503,236 @@ export function ContractSigningTrackerView({
               </h2>
             </div>
             <p className="text-xs text-emerald-700 max-w-xl leading-relaxed">
-              Hợp đồng 4 bên đã được thanh toán và kích hoạt thành công. Bạn có thể xem và tải bản
-              sao hợp đồng điện tử có đầy đủ chữ ký số và mã băm SHA-256.
+              Quyền quản trị gia đình đã được mở khóa. Bạn có thể thêm tối đa{' '}
+              <strong>{currentContract.memberCount ?? 1}</strong> hồ sơ thành viên và xem bản PDF
+              đã ký số 4 bên.
             </p>
           </div>
 
-          <Link
-            href="/family/subscription/contract"
-            className="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all inline-flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer shrink-0"
-          >
-            <span className="material-symbols-outlined text-[18px]">description</span>
-            <span>Xem bản sao hợp đồng</span>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <Link
+              href="/family/members"
+              className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all inline-flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-[18px]">group_add</span>
+              <span>Quản lý thành viên</span>
+            </Link>
+            <Link
+              href="/family/subscription/contract"
+              className="px-4 py-2.5 bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100 rounded-xl text-xs sm:text-sm font-bold transition-all inline-flex items-center justify-center gap-2 whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-[18px]">description</span>
+              <span>Xem bản sao hợp đồng</span>
+            </Link>
+          </div>
         </div>
       )}
 
-      {/* 5-Step Progress Stepper (Clinical Architecture) */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-6">
-        <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+      {/* Quy trình ký Documenso 2 Pha & Thanh toán */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-6 space-y-5">
+        <div className="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-sm sm:text-base font-bold text-slate-900 tracking-tight">
-            Tiến trình ký kết & Kích hoạt hợp đồng
+            Quy trình ký kết 2 pha trên Documenso &amp; Kích hoạt
           </h2>
-          <span className="text-xs text-slate-400 font-medium">
-            Quy trình chuẩn Nghị định 13/2023/NĐ-CP
+          <span className="text-xs text-slate-500 font-medium tabular-nums">
+            Đã ký: {signedRoles.length}/4 bên
           </span>
         </div>
 
-        <div className="space-y-4">
-          {STEP_DEFINITIONS.map((def) => {
-            const stepStatus = getStepStatus(def.step, currentStatus);
-            const isCompleted = stepStatus === 'completed';
-            const isCurrent = stepStatus === 'current';
-
-            return (
+        {/* Pha 1: Bên A ký trước */}
+        <div
+          data-testid="phase-1-family"
+          data-phase-status={isFamilySigned ? 'completed' : 'current'}
+          className={`p-4 sm:p-5 rounded-xl border transition-all ${
+            isFamilySigned
+              ? 'bg-slate-50/70 border-slate-200'
+              : 'bg-blue-50/50 border-blue-200 shadow-xs'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
               <div
-                key={def.id}
-                data-testid={def.id}
-                data-step-status={stepStatus}
-                className={`p-4 sm:p-5 rounded-xl border transition-all ${
-                  isCompleted
-                    ? 'bg-slate-50/70 border-slate-200/90 text-slate-700'
-                    : isCurrent
-                    ? 'bg-blue-50/40 border-blue-200 shadow-xs text-slate-900'
-                    : 'bg-white border-slate-100 text-slate-400 opacity-75'
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold tabular-nums ${
+                  isFamilySigned
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-[#2E37A4] text-white'
                 }`}
               >
-                <div className="flex items-start gap-4">
-                  {/* Step Badge Indicator */}
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 mt-0.5 tabular-nums ${
-                      isCompleted
-                        ? 'bg-emerald-600 text-white'
-                        : isCurrent
-                        ? 'bg-[#2E37A4] text-white ring-4 ring-blue-100'
-                        : 'bg-slate-100 text-slate-400 border border-slate-200'
-                    }`}
-                  >
-                    {isCompleted ? '✓' : def.step}
-                  </div>
-
-                  {/* Step Content */}
-                  <div className="flex-1 space-y-1.5 min-w-0">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <h3
-                        className={`text-sm font-bold leading-snug ${
-                          isCompleted
-                            ? 'text-slate-800'
-                            : isCurrent
-                            ? 'text-[#2E37A4]'
-                            : 'text-slate-500'
-                        }`}
-                      >
-                        {def.title}
-                      </h3>
-
-                      <span
-                        className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
-                          isCompleted
-                            ? 'bg-emerald-50 text-emerald-700'
-                            : isCurrent
-                            ? 'bg-blue-100/70 text-[#2E37A4]'
-                            : 'bg-slate-100 text-slate-400'
-                        }`}
-                      >
-                        {isCompleted
-                          ? 'Đã hoàn tất'
-                          : isCurrent
-                          ? 'Đang thực hiện'
-                          : 'Chờ đến lượt'}
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      {def.description}
-                    </p>
-
-                    <div className="pt-1 flex flex-wrap items-center gap-y-1 gap-x-4 text-[11px] text-slate-500 font-medium">
-                      <span>
-                        Chủ thể: <strong className="text-slate-700">{def.actor}</strong>
-                      </span>
-                      <span>•</span>
-                      <span>
-                        Phương thức: <strong className="text-slate-700">{def.method}</strong>
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                {isFamilySigned ? '✓' : '1'}
               </div>
-            );
-          })}
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Pha 1: Bên A (Đại diện Hộ gia đình) ký xác nhận trước trên Documenso
+                </h3>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Gia đình kiểm tra gói chăm sóc, số lượng thành viên và ký điện tử trực tiếp trên Documenso.
+                </p>
+              </div>
+            </div>
+            <span
+              className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
+                isFamilySigned
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : 'bg-blue-100 text-[#2E37A4]'
+              }`}
+            >
+              {isFamilySigned ? 'Đã hoàn tất' : 'Đang chờ Bên A ký'}
+            </span>
+          </div>
+        </div>
+
+        {/* Pha 2: 3 bên ký song song */}
+        <div
+          data-testid="phase-2-parallel"
+          data-phase-status={
+            isAllSigned
+              ? 'completed'
+              : isFamilySigned
+              ? 'current'
+              : 'pending'
+          }
+          className={`p-4 sm:p-5 rounded-xl border transition-all space-y-4 ${
+            isAllSigned
+              ? 'bg-slate-50/70 border-slate-200'
+              : isFamilySigned
+              ? 'bg-blue-50/40 border-blue-200 shadow-xs'
+              : 'bg-white border-slate-200 opacity-80'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold tabular-nums ${
+                  isAllSigned
+                    ? 'bg-emerald-600 text-white'
+                    : isFamilySigned
+                    ? 'bg-[#2E37A4] text-white'
+                    : 'bg-slate-100 text-slate-500 border border-slate-200'
+                }`}
+              >
+                {isAllSigned ? '✓' : '2'}
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Pha 2: Bên B, Bên C &amp; Bên D ký song song đồng thời trên Documenso
+                </h3>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Ngay sau khi Bên A ký xong, cả 3 bên còn lại được mở khóa cùng lúc và không phụ thuộc thứ tự ký giữa nhau.
+                </p>
+              </div>
+            </div>
+            <span
+              className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold tabular-nums ${
+                isAllSigned
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : isFamilySigned
+                  ? 'bg-blue-100 text-[#2E37A4]'
+                  : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {isAllSigned
+                ? 'Đã ký 3/3 bên'
+                : isFamilySigned
+                ? `Đang ký song song (${parallelSignedCount}/3)`
+                : 'Chờ Pha 1 hoàn tất'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {PARALLEL_PARTIES.map((party) => {
+              const partySigned = signedRoles.includes(party.role);
+              return (
+                <div
+                  key={party.role}
+                  data-testid={`party-status-${party.role}`}
+                  data-signed={partySigned ? 'true' : 'false'}
+                  className={`p-3.5 rounded-lg border text-xs space-y-1.5 ${
+                    partySigned
+                      ? 'bg-emerald-50/60 border-emerald-200'
+                      : 'bg-white border-slate-200'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-slate-900">
+                      {party.partyCode} · {party.title}
+                    </span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        partySigned
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : isFamilySigned
+                          ? 'bg-amber-50 text-amber-800'
+                          : 'bg-slate-100 text-slate-500'
+                      }`}
+                    >
+                      {partySigned
+                        ? 'Đã ký'
+                        : isFamilySigned
+                        ? 'Chờ ký'
+                        : 'Chờ Bên A'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    {party.description}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Pha 3: Thanh toán & Kích hoạt */}
+        <div
+          data-testid="phase-3-payment"
+          data-phase-status={
+            isActive ? 'completed' : isPaymentReady ? 'current' : 'pending'
+          }
+          className={`p-4 sm:p-5 rounded-xl border transition-all ${
+            isActive
+              ? 'bg-emerald-50/50 border-emerald-200'
+              : isPaymentReady
+              ? 'bg-blue-50/50 border-blue-200 shadow-xs'
+              : 'bg-white border-slate-200 opacity-80'
+          }`}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold tabular-nums ${
+                  isActive
+                    ? 'bg-emerald-600 text-white'
+                    : isPaymentReady
+                    ? 'bg-[#2E37A4] text-white'
+                    : 'bg-slate-100 text-slate-500 border border-slate-200'
+                }`}
+              >
+                {isActive ? '✓' : '3'}
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  Pha 3: Thanh toán VietQR &amp; Kích hoạt quyền quản trị hộ gia đình
+                </h3>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Khi hợp đồng chuyển sang ACTIVE, toàn bộ tính năng quản lý thành viên, đặt lịch &amp; Telehealth sẽ được mở khóa.
+                </p>
+              </div>
+            </div>
+            <span
+              className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
+                isActive
+                  ? 'bg-emerald-50 text-emerald-700'
+                  : isPaymentReady
+                  ? 'bg-blue-100 text-[#2E37A4]'
+                  : 'bg-slate-100 text-slate-500'
+              }`}
+            >
+              {isActive
+                ? 'Đã kích hoạt'
+                : isPaymentReady
+                ? 'Sẵn sàng thanh toán'
+                : 'Chờ đủ 4/4 chữ ký'}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -440,7 +743,7 @@ export function ContractSigningTrackerView({
             contact_support
           </span>
           <span>
-            Cần giải đáp thắc mắc về hợp đồng hoặc tiến độ phân công bác sĩ?
+            Cần giải đáp thắc mắc về hợp đồng hoặc tiến độ ký Documenso?
           </span>
         </div>
         <div className="flex items-center gap-3">

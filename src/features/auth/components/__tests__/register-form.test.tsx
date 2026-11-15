@@ -100,6 +100,7 @@ describe('UT-CMP-11..13: RegisterForm Accessibility & Real-time Validation', () 
           removeItem: vi.fn(),
         },
         writable: true,
+        configurable: true,
       });
     });
 
@@ -201,6 +202,40 @@ describe('UT-CMP-11..13: RegisterForm Accessibility & Real-time Validation', () 
       await act(async () => {});
 
       // Quan trọng nhất: KHÔNG redirect khi lỗi
+      expect(pushMock).not.toHaveBeenCalled();
+    });
+
+    it('displays global error banner, resets loading, and does NOT redirect on HTTP 503', async () => {
+      fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: false,
+        status: 503,
+        json: async () => ({
+          success: false,
+          code: 503,
+          error: { detail: 'Service unavailable, please try again later' },
+        }),
+      } as Response);
+
+      render(<RegisterForm />);
+
+      await userEvent.type(screen.getByLabelText(/Họ và tên người đại diện/i), 'Nguyễn Văn A');
+      await userEvent.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0912345678');
+      await userEvent.type(screen.getByLabelText(/Email/i), 'rep503@famidoc.vn');
+      await userEvent.type(screen.getByLabelText(/^Mật khẩu/i), 'Password@123');
+      await userEvent.type(screen.getByLabelText(/Xác nhận mật khẩu/i), 'Password@123');
+
+      const submitBtn = screen.getByRole('button', { name: /Đăng ký tài khoản/i });
+      await act(async () => {
+        submitBtn.click();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByRole('alert')).toHaveTextContent(
+          /Hệ thống gửi email xác thực đang tạm gián đoạn/i,
+        );
+      });
+
+      expect(screen.getByRole('button', { name: /Đăng ký tài khoản/i })).not.toBeDisabled();
       expect(pushMock).not.toHaveBeenCalled();
     });
   });

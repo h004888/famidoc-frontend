@@ -1,8 +1,14 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useContractWorkflow, updateContractStep } from '@/lib/contract-workflow-storage';
+import {
+  contractsApi,
+  type FamilyGateStatusDto,
+  type VietQRPaymentRequestDto,
+} from '@/lib/api/contracts.api';
 
 interface Invoice {
   id: string;
@@ -73,6 +79,7 @@ const INITIAL_INVOICES: Invoice[] = [
 ];
 
 export function FamilyBillingView() {
+  const router = useRouter();
   const workflow = useContractWorkflow();
   const [invoices, setInvoices] = useState<Invoice[]>(INITIAL_INVOICES);
   const [selectedOptionId, setSelectedOptionId] = useState<string>(PAYMENT_OPTIONS[0].id);
@@ -81,9 +88,59 @@ export function FamilyBillingView() {
   const [showQrModal, setShowQrModal] = useState(false);
   const [timeLeft, setTimeLeft] = useState(15 * 60);
   const [billingToast, setBillingToast] = useState<string | null>(null);
+  const [livePayment, setLivePayment] = useState<VietQRPaymentRequestDto | null>(null);
+  const [gateStatus, setGateStatus] = useState<FamilyGateStatusDto | null>(null);
+  const [liveError, setLiveError] = useState<string | null>(null);
 
-  const activeOptions: PaymentOption[] =
-    workflow?.step === 'PENDING_PAYMENT'
+  useEffect(() => {
+    let active = true;
+    async function loadLiveBilling() {
+      try {
+        const gate = await contractsApi.getFamilyGateStatus();
+        if (!active) return;
+        setGateStatus(gate);
+        const urlContractId =
+          typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('contractId')
+            : null;
+        const targetContractId =
+          urlContractId ||
+          (gate.pendingContract?.contractStatus === 'PENDING_PAYMENT'
+            ? gate.pendingContract.id
+            : null);
+        if (targetContractId && !gate.hasActiveContract) {
+          const payment = await contractsApi.createVietQRPayment(targetContractId);
+          if (!active) return;
+          setLivePayment(payment);
+          setSelectedOptionId('contract-4p-live');
+          setLiveError(null);
+        }
+      } catch (err) {
+        if (active && err instanceof Error) {
+          setLiveError(err.message);
+        }
+      }
+    }
+    void loadLiveBilling();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const activeOptions: PaymentOption[] = livePayment
+    ? [
+        {
+          id: 'contract-4p-live',
+          title: `Thanh toán kích hoạt Hợp đồng 4 bên (${gateStatus?.pendingContract?.contractNumber || livePayment.paymentCode})`,
+          badge: livePayment.status === 'PAID' ? 'Đã thanh toán' : 'Chờ thanh toán VietQR',
+          description: `Mã thanh toán ${livePayment.paymentCode} • Đủ 4/4 chữ ký Documenso`,
+          amountNumber: livePayment.amountVnd,
+          amountFormatted: `${livePayment.amountVnd.toLocaleString('vi-VN')} đ`,
+          transferMemo: livePayment.transferContent || livePayment.paymentCode,
+        },
+        ...PAYMENT_OPTIONS,
+      ]
+    : workflow?.step === 'PENDING_PAYMENT'
       ? [
           {
             id: 'contract-4p-activation',
@@ -126,8 +183,36 @@ export function FamilyBillingView() {
     setTimeout(() => setIsCopied(null), 2000);
   };
 
-  const handleVerifyPayment = () => {
+  const handleVerifyPayment = async () => {
     setIsVerifying(true);
+    setLiveError(null);
+    if (livePayment && selectedOption.id === 'contract-4p-live') {
+      try {
+        const latest = await contractsApi.getPaymentStatus(livePayment.id);
+        setLivePayment(latest);
+        const latestGate = await contractsApi.getFamilyGateStatus();
+        setGateStatus(latestGate);
+        if (latest.status === 'PAID' || latestGate.hasActiveContract) {
+          setShowQrModal(false);
+          setBillingToast(
+            `Đã xác nhận thanh toán ${selectedOption.amountFormatted} thành công! Hợp đồng đã kích hoạt ACTIVE.`
+          );
+          router.refresh();
+        } else {
+          setBillingToast(
+            `Chưa ghi nhận giao dịch cho mã ${latest.paymentCode}. Vui lòng chuyển khoản đúng nội dung "${latest.transferContent || latest.paymentCode}" rồi kiểm tra lại.`
+          );
+        }
+      } catch (err) {
+        setLiveError(
+          err instanceof Error ? err.message : 'Không thể kiểm tra trạng thái thanh toán.'
+        );
+      } finally {
+        setIsVerifying(false);
+      }
+      return;
+    }
+
     setTimeout(() => {
       const now = new Date();
       const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(
@@ -166,9 +251,21 @@ export function FamilyBillingView() {
     }, 1000);
   };
 
-  const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
-    `VIETQR|MBBANK|882190068688|${selectedOption.amountNumber}|${selectedOption.transferMemo}`
-  )}`;
+  const bankNameDisplay =
+    livePayment && selectedOption.id === 'contract-4p-live'
+      ? livePayment.expectedGateway
+      : 'MB Bank · CN TP.HCM';
+  const accountNumberDisplay =
+    livePayment && selectedOption.id === 'contract-4p-live'
+      ? livePayment.expectedAccountNumber
+      : '882190068688';
+
+  const qrImageUrl =
+    livePayment && selectedOption.id === 'contract-4p-live' && livePayment.qrUrl
+      ? livePayment.qrUrl
+      : `https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(
+          `VIETQR|MBBANK|882190068688|${selectedOption.amountNumber}|${selectedOption.transferMemo}`
+        )}`;
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
@@ -428,23 +525,41 @@ export function FamilyBillingView() {
                     </h3>
                   </div>
                   <span className="px-3 py-1 rounded-lg bg-white border border-slate-200/80 text-xs font-semibold text-slate-700 self-start sm:self-auto shadow-2xs">
-                    MB Bank · CN TP.HCM
+                    {bankNameDisplay}
                   </span>
                 </div>
+
+                {liveError && (
+                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700">
+                    {liveError}
+                  </div>
+                )}
+
+                {gateStatus?.hasActiveContract && (
+                  <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 flex items-center justify-between gap-2">
+                    <span className="font-semibold">Hợp đồng đã kích hoạt ACTIVE! Quyền Quản lý thành viên đã mở khóa.</span>
+                    <Link
+                      href="/family/members"
+                      className="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-semibold hover:bg-emerald-800 whitespace-nowrap"
+                    >
+                      Vào Quản lý thành viên →
+                    </Link>
+                  </div>
+                )}
 
                 {/* 3 Hàng thông tin chuyển khoản có nút sao chép */}
                 <div className="space-y-2.5 text-xs">
                   {/* Số tài khoản */}
                   <div className="p-3.5 rounded-xl bg-white border border-slate-200/70 flex items-center justify-between gap-2 shadow-2xs">
                     <div>
-                      <span className="text-[11px] text-slate-400 block font-medium">Số tài khoản MB Bank</span>
+                      <span className="text-[11px] text-slate-400 block font-medium">Số tài khoản ({bankNameDisplay})</span>
                       <strong className="font-bold tabular-nums text-base text-[#2E37A4]">
-                        8821 9006 8688
+                        {accountNumberDisplay}
                       </strong>
                     </div>
                     <button
                       type="button"
-                      onClick={() => copyToClipboard('882190068688', 'acc')}
+                      onClick={() => copyToClipboard(accountNumberDisplay, 'acc')}
                       className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-[#2E37A4] border border-slate-200/80 font-semibold text-xs cursor-pointer transition-colors shrink-0"
                     >
                       {isCopied === 'acc' ? 'Đã chép ✓' : 'Sao chép'}

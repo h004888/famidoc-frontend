@@ -363,10 +363,10 @@ export function ContractSigningWizard({
                   <strong>Bên A (Gia đình):</strong> Nguyễn Văn An (Chủ hộ) • Bảo vệ 04 thành viên.
                 </p>
                 <p>
-                  <strong>Bên B (Bác sĩ chuyên môn):</strong> {doctorName} (BV Đại học Y Dược TP.HCM).
+                  <strong>Bên B (Cơ sở y tế bảo trợ):</strong> Bệnh viện Đại học Y Dược TP.HCM.
                 </p>
                 <p>
-                  <strong>Bên C (Cơ sở y tế bảo trợ):</strong> Bệnh viện Đại học Y Dược TP.HCM.
+                  <strong>Bên C (Bác sĩ chuyên môn):</strong> {doctorName} (BV Đại học Y Dược TP.HCM).
                 </p>
                 <p>
                   <strong>Bên D (Vận hành nền tảng):</strong> FamiDoc Healthcare Corporation (Phí công nghệ 15% CFG-03).

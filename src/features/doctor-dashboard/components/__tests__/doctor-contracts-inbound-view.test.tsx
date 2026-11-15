@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { DoctorContractsInboundView } from '../doctor-contracts-inbound-view';
 import type { FourPartyContract } from '@/features/four-party-contract';
 
@@ -108,18 +108,33 @@ describe('Màn hình Bác sĩ: DoctorContractsInboundView (/doctor/contracts)', 
 
   it('renders status badges distinguishing pending medical review vs active care', () => {
     render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
-    expect(screen.getByText(/Chờ tiếp nhận y tế/i)).toBeInTheDocument();
+    expect(screen.getByText(/Chờ bác sĩ ký Documenso/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Đang phụ trách/i).length).toBeGreaterThan(0);
   });
 
   it('provides action link directing to contract review and care needs summary screen', () => {
     render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
-    const reviewLink = screen.getByRole('link', { name: /Thẩm định & Ký số/i });
+    const reviewLink = screen.getByRole('link', { name: /Thẩm định & Ký Documenso/i });
     expect(reviewLink).toHaveAttribute('href', '/doctor/contracts/ct-doc-001/review');
   });
 
   it('renders an empty state container when no contracts are assigned to doctor', () => {
     render(<DoctorContractsInboundView initialContracts={[]} />);
     expect(screen.getByText(/Chưa có hợp đồng nào được phân công/i)).toBeInTheDocument();
+  });
+
+  it('loads contracts from contractsApi.getMedicalContracts when initialContracts is omitted', async () => {
+    const { contractsApi } = await import('@/lib/api');
+    const getSpy = vi
+      .spyOn(contractsApi, 'getMedicalContracts')
+      .mockResolvedValueOnce(MOCK_DOCTOR_CONTRACTS);
+
+    render(<DoctorContractsInboundView />);
+
+    await waitFor(() => {
+      expect(getSpy).toHaveBeenCalledWith({ limit: 50 });
+      expect(screen.getByText('HĐ-4B-2026-0088')).toBeInTheDocument();
+    });
+    getSpy.mockRestore();
   });
 });

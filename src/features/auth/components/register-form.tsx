@@ -311,7 +311,7 @@ export function RegisterForm() {
                 <img
                   src="/images/logo.png"
                   alt="FamiDoc Logo"
-                  className="h-8 sm:h-9 w-auto object-contain"
+                  className="h-8 sm:h-9 w-auto object-contain lg:hidden"
                 />
               </div>
 
@@ -730,16 +730,6 @@ export function RegisterForm() {
                   ) : (
                     <>
                       <span>Đăng ký tài khoản FamiDoc</span>
-                      <svg
-                        className="w-4 h-4 transition-transform group-hover:translate-x-1"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2.2"
-                        viewBox="0 0 24 24"
-                      >
-                        <line x1="5" x2="19" y1="12" y2="12" />
-                        <polyline points="12 5 19 12 12 19" />
-                      </svg>
                     </>
                   )}
                 </button>
@@ -751,20 +741,6 @@ export function RegisterForm() {
               className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs gap-3"
               data-purpose="card-footer"
             >
-              {/* Compliance Badge */}
-              <div className="flex items-center space-x-1.5 text-slate-600 font-medium">
-                <svg
-                  className="w-4 h-4 text-emerald-600 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  <polyline points="9 12 11 14 15 10" />
-                </svg>
-                <span>Bảo mật theo Nghị định 13/2023/NĐ-CP</span>
-              </div>
               {/* Sign-in Link */}
               <div className="text-slate-500">
                 Đã có tài khoản?{' '}

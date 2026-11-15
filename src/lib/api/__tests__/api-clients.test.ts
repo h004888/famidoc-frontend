@@ -76,6 +76,41 @@ describe('Task 3: Typed API Client Services (Patients, Contracts, Auth)', () => 
       );
       fetchSpy.mockRestore();
     });
+
+    it('unwraps StandardApiResponse envelope for getFamilyMembers and calls DELETE on detachFamilyMember', async () => {
+      const envelopedList = {
+        success: true,
+        statusCode: 200,
+        data: [{ id: 'p-env-1', fullName: 'Nguyễn Minh Tâm' }],
+      };
+      const fetchGet = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => envelopedList,
+      } as Response);
+
+      const list = await patientsApi.getFamilyMembers();
+      expect(list).toEqual([{ id: 'p-env-1', fullName: 'Nguyễn Minh Tâm' }]);
+      fetchGet.mockRestore();
+
+      const fetchDel = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          success: true,
+          statusCode: 200,
+          data: { id: 'p-env-1', status: 'INACTIVE' },
+        }),
+      } as Response);
+
+      const detached = await patientsApi.detachFamilyMember('p-env-1');
+      expect(detached.status).toBe('INACTIVE');
+      expect(fetchDel).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/patients/p-env-1'),
+        expect.objectContaining({ method: 'DELETE' })
+      );
+      fetchDel.mockRestore();
+    });
   });
 
   describe('contractsApi endpoints', () => {
@@ -89,7 +124,7 @@ describe('Task 3: Typed API Client Services (Patients, Contracts, Auth)', () => 
       const res = await contractsApi.getMedicalContracts({ role: 'DOCTOR' });
       expect(res).toHaveLength(1);
       expect(fetchSpy).toHaveBeenCalledWith(
-        expect.stringContaining('/api/v1/contracts/medical?role=DOCTOR'),
+        expect.stringMatching(/\/api\/v1\/contracts\/medical$/),
         expect.objectContaining({ method: 'GET' })
       );
       fetchSpy.mockRestore();
@@ -108,6 +143,57 @@ describe('Task 3: Typed API Client Services (Patients, Contracts, Auth)', () => 
         expect.stringContaining('/api/v1/contracts/medical/ctr-1/care-summary'),
         expect.objectContaining({ method: 'GET' })
       );
+      fetchSpy.mockRestore();
+    });
+
+    it('bóc envelope khi lấy chi tiết hợp đồng cho trang theo dõi', async () => {
+      const detail = {
+        id: 'ctr-1',
+        contractNumber: 'MC2026TEST01',
+        contractStatus: 'PENDING_PAYMENT',
+        totalAmount: '9600000.00',
+        startDate: '2026-01-01T00:00:00.000Z',
+        endDate: '2026-12-31T00:00:00.000Z',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        facility: { facilityName: 'Bệnh viện Đại học Y Dược' },
+        doctor: { user: { fullName: 'BS. Trần Thanh Mai' } },
+        servicePackage: { packageName: 'Gói Toàn Diện Gia Đình' },
+      };
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, code: 200, data: detail }),
+      } as Response);
+
+      const res = await contractsApi.getMedicalContractDetail('ctr-1');
+
+      expect(res).toEqual(detail);
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/api/v1/contracts/medical/ctr-1'),
+        expect.objectContaining({ method: 'GET' })
+      );
+      fetchSpy.mockRestore();
+    });
+
+    it('giữ nguyên payload khi backend không bọc envelope', async () => {
+      const detail = {
+        id: 'ctr-2',
+        contractNumber: 'MC2026TEST02',
+        contractStatus: 'ACTIVE',
+        totalAmount: 12000000,
+        startDate: '2026-01-01T00:00:00.000Z',
+        endDate: '2027-01-01T00:00:00.000Z',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      };
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => detail,
+      } as Response);
+
+      const res = await contractsApi.getMedicalContractDetail('ctr-2');
+
+      expect(res).toEqual(detail);
       fetchSpy.mockRestore();
     });
 

@@ -71,11 +71,11 @@ describe('ContractDocumentSheet Component', () => {
     expect(screen.getByText(/HỢP ĐỒNG DỊCH VỤ CHĂM SÓC SỨC KHỎE BAN ĐẦU/i)).toBeInTheDocument();
     expect(screen.getByText(/Gói Chăm Sóc Toàn Diện Gia Đình/i)).toBeInTheDocument();
 
-    // 4 Parties
+    // 4 Parties matching openspec/specs/contracts/party-designation/spec.md
     expect(screen.getByText(/Bên A: Đại diện Hộ gia đình/i)).toBeInTheDocument();
-    expect(screen.getByText(/Bên B: Nền tảng Famidoc/i)).toBeInTheDocument();
-    expect(screen.getByText(/Bên C: Cơ sở Y tế/i)).toBeInTheDocument();
-    expect(screen.getByText(/Bên D: Bác sĩ Gia đình/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bên B: Cơ sở Y tế/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bên C: Bác sĩ Gia đình/i)).toBeInTheDocument();
+    expect(screen.getByText(/Bên D: Nền tảng Famidoc/i)).toBeInTheDocument();
 
     // Legal articles
     expect(screen.getByText(/Điều 1: Đối tượng và phạm vi dịch vụ/i)).toBeInTheDocument();

@@ -8,7 +8,18 @@ export const metadata: Metadata = {
     'Theo dõi tiến trình luân chuyển và ký số điện tử của hợp đồng chăm sóc bác sĩ gia đình 4 bên.',
 };
 
-export default function ContractTrackingPage() {
+export default async function ContractTrackingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
+  const rawContractId = params.contractId;
+  const contractId =
+    typeof rawContractId === 'string' && rawContractId.trim().length > 0
+      ? rawContractId.trim()
+      : undefined;
+
   return (
     <Suspense
       fallback={
@@ -17,7 +28,7 @@ export default function ContractTrackingPage() {
         </div>
       }
     >
-      <ContractSigningTrackerView />
+      <ContractSigningTrackerView contractId={contractId} />
     </Suspense>
   );
 }

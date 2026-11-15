@@ -113,6 +113,29 @@ class HttpClient {
     return this.request<T>(path, { ...options, method: 'GET' }, params);
   }
 
+  async getBlob(path: string, options: RequestInit = {}): Promise<Blob> {
+    const url = this.buildUrl(path);
+    const headers: Record<string, string> = {
+      ...((options.headers as Record<string, string>) || {}),
+    };
+    const token = this.getToken();
+    if (token && !headers['Authorization']) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const res = await fetch(url, {
+      ...options,
+      method: 'GET',
+      headers,
+    });
+
+    if (!res.ok) {
+      throw new ApiError(`API error (${res.status})`, res.status);
+    }
+
+    return res.blob();
+  }
+
   post<T>(path: string, body?: unknown, options?: RequestInit): Promise<T> {
     return this.request<T>(path, {
       ...options,

@@ -1,203 +1,203 @@
-import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
 import { DoctorDetailView } from '../doctor-detail-view';
-import { publicApi, type PublicDoctorDetailDto } from '@/lib/api';
-
-vi.mock('@/lib/api', () => ({
-  publicApi: {
-    getDoctors: vi.fn(),
-    getFacilities: vi.fn(),
-    getDoctorDetail: vi.fn(),
-    getDoctorReviews: vi.fn(),
-    submitConsultationRequest: vi.fn(),
-  },
-}));
+import type { PublicDoctorDetailDto } from '@/lib/api';
 
 vi.mock('@/features/landing', () => ({
   LandingHeader: () => <div data-testid="landing-header" />,
   LandingFooter: () => <div data-testid="landing-footer" />,
 }));
 
-describe('DoctorDetailView Component', () => {
-  const mockDoctor: PublicDoctorDetailDto = {
-    id: 'doc-real-100',
-    doctorName: 'BS. Lê Minh Trí',
-    academicTitle: 'TS. Bác sĩ',
-    specialty: 'Y học Gia đình & Lão khoa',
-    hospital: 'Bệnh viện Thống Nhất',
-    location: 'TP. Hồ Chí Minh',
+const mockDoctor: PublicDoctorDetailDto = {
+  id: 'doc-real-100',
+  doctorName: 'Lê Minh Trí',
+  academicTitle: 'TS. Bác sĩ',
+  specialty: 'Y học Gia đình & Lão khoa',
+  specialtyKey: 'geriatric',
+  avatarUrl: '/images/doctor-100.jpg',
+  bio: 'Bác sĩ chuyên sâu về quản lý đa bệnh lý ở người cao tuổi.',
+  isVerified: true,
+  isAvailable: true,
+  panel: { activeCount: 18, maxCapacity: 30 },
+  stats: {
     experienceYears: 18,
     ratingAvg: 4.95,
     totalReviews: 120,
-    consultationCount: 1500,
-    bio: 'Bác sĩ chuyên khoa sâu về quản lý đa bệnh lý ở người cao tuổi và phục hồi sau phẫu thuật tại nhà.',
-    education: [
-      'Tiến sĩ Y khoa - Đại học Y Dược TP.HCM (2015)',
-      'Chứng chỉ Lão khoa Lâm sàng - Bệnh viện Thống Nhất',
-    ],
-    carePackages: [
+    completedEncounters: 1500,
+  },
+  facility: {
+    id: 'fac-1',
+    facilityName: 'Bệnh viện Thống Nhất',
+    address: '1 Nguyễn Thông, Quận 3',
+    verificationStatus: 'ACTIVE',
+  },
+  credentials: [
+    {
+      id: 'cred-1',
+      type: 'DEGREE',
+      typeLabel: 'Bằng cấp chuyên môn',
+      issuingAuthority: 'Đại học Y Dược TP.HCM',
+      issueYear: 2015,
+      verified: true,
+    },
+  ],
+  treatedCases: [
+    {
+      id: 'case-1',
+      summary: 'Quản lý tăng huyết áp kháng trị cho bệnh nhân 72 tuổi.',
+    },
+  ],
+  careModel: {
+    serviceModes: [
       {
-        id: 'PKG-CUSTOM-1',
-        name: 'Gói Chăm Sóc Người Cao Tuổi Pro',
-        badge: '6 Tháng',
-        price: '5.200.000đ',
-        monthlyPrice: '866.000đ/tháng',
-        popular: true,
-        highlight: 'Theo dõi chỉ số sinh hiệu và tim mạch tại nhà 24/7',
-        features: ['Đo điện tim tại nhà', 'Bác sĩ thăm khám 2 lần/tháng'],
-      },
-      {
-        id: 'PKG-CUSTOM-2',
-        name: 'Gói Khám Cơ Bản',
-        badge: '1 Tháng',
-        price: '1.200.000đ',
-        features: ['1 lượt bác sĩ khám tại nhà'],
+        id: 'mode-1',
+        category: 'SERVICE_MODE',
+        title: 'Khám tận nhà',
+        description: 'Khám lâm sàng tại nhà, đo điện tim ECG.',
+        icon: 'home',
+        sortOrder: 1,
       },
     ],
-    reviews: [
+    commitments: [
+      {
+        id: 'commit-1',
+        category: 'COMMITMENT',
+        title: 'Hồ sơ bệnh án điện tử trọn đời',
+        description: 'Lưu trữ điện tử toàn bộ kết quả khám.',
+        icon: 'folder_shared',
+        sortOrder: 1,
+      },
+    ],
+  },
+  carePackages: [
+    {
+      id: 'pkg-1',
+      packageCode: 'PKG-FAMILY-01',
+      packageName: 'Gói Đồng Hành',
+      durationMonths: 3,
+      basePrice: 2850000,
+      formattedPrice: '2.850.000đ',
+      monthlyPrice: '950.000đ/tháng',
+      periodicVisitsQuota: 3,
+      telehealthQuota: 4,
+      includedMembers: 3,
+      maxMembers: 6,
+      additionalMemberMonthlyPrice: 75000,
+      highlight: 'Phù hợp gia đình 3-6 người',
+      features: ['Bác sĩ phụ trách chính & lập phác đồ gia đình'],
+    },
+  ],
+  reviews: {
+    ratingAvg: 4.95,
+    totalReviews: 120,
+    items: [
       {
         id: 'rev-1',
-        authorName: 'Trần Văn Hùng',
-        rating: 5,
+        patientDisplayName: 'Nguyễn V. A.',
+        ratingStars: 5,
         comment: 'Bác sĩ Trí rất tận tâm và giải thích cặn kẽ tình trạng bệnh.',
-        badge: 'Hội viên Gói An Tâm',
+        packageName: 'Gói Đồng Hành',
+        district: 'Quận 7',
+        reviewedAt: '2026-11-01T08:30:00.000Z',
       },
     ],
-  };
+  },
+};
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    vi.mocked(publicApi.getDoctorReviews).mockResolvedValue({
-      items: [],
-      pagination: { page: 1, pageSize: 5, totalRecords: 0, totalPages: 1 },
-    });
-  });
+const emptyDoctor: PublicDoctorDetailDto = {
+  ...mockDoctor,
+  bio: null,
+  facility: null,
+  credentials: [],
+  treatedCases: [],
+  careModel: { serviceModes: [], commitments: [] },
+  carePackages: [],
+  reviews: { ratingAvg: null, totalReviews: 0, items: [] },
+  stats: {
+    experienceYears: 3,
+    ratingAvg: null,
+    totalReviews: 0,
+    completedEncounters: 0,
+  },
+};
 
-  it('renders doctor details, academic title, care packages, and bio from initialDoctor prop', () => {
+describe('DoctorDetailView (API-only rendering)', () => {
+  it('renders identity, statistics, bio, credentials, treated cases, care model and reviews from the API payload', () => {
     render(<DoctorDetailView initialDoctor={mockDoctor} />);
 
-    // Name and academic title / degree
-    expect(screen.getAllByText(/BS\. Lê Minh Trí/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/TS\. Bác sĩ/i).length).toBeGreaterThan(0);
-
-    // Specialty & Hospital
-    expect(screen.getByText(/Y học Gia đình & Lão khoa/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Bệnh viện Thống Nhất/i).length).toBeGreaterThan(0);
-
-    // Bio
     expect(
-      screen.getByText(/Bác sĩ chuyên khoa sâu về quản lý đa bệnh lý ở người cao tuổi/i)
+      screen.getByRole('heading', { level: 1, name: /TS\. Bác sĩ Lê Minh Trí/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Y học Gia đình & Lão khoa')).toBeInTheDocument();
+    expect(screen.getAllByText('Bệnh viện Thống Nhất').length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText('1 Nguyễn Thông, Quận 3').length
+    ).toBeGreaterThan(0);
+
+    expect(screen.getByText('18 năm')).toBeInTheDocument();
+    expect(screen.getByText('1.500')).toBeInTheDocument();
+    expect(screen.getByText('18/30')).toBeInTheDocument();
+    expect(screen.getAllByText('120 đánh giá').length).toBeGreaterThan(0);
+
+    expect(screen.getByText(/Bác sĩ chuyên sâu về quản lý đa bệnh lý/i)).toBeInTheDocument();
+    expect(screen.getByText('Bằng cấp chuyên môn')).toBeInTheDocument();
+    expect(screen.getByText('Đại học Y Dược TP.HCM (2015)')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Quản lý tăng huyết áp kháng trị cho bệnh nhân 72 tuổi/i)
     ).toBeInTheDocument();
 
-    // Care packages
-    expect(screen.getByText('Gói Chăm Sóc Người Cao Tuổi Pro')).toBeInTheDocument();
-    expect(screen.getByText('5.200.000đ')).toBeInTheDocument();
-    expect(screen.getByText('Gói Khám Cơ Bản')).toBeInTheDocument();
+    expect(screen.getByText('Khám tận nhà')).toBeInTheDocument();
+    expect(screen.getByText('Hồ sơ bệnh án điện tử trọn đời')).toBeInTheDocument();
+
+    expect(screen.getByText('Nguyễn V. A.')).toBeInTheDocument();
+    expect(screen.getAllByText('Gói Đồng Hành').length).toBeGreaterThan(0);
+    expect(screen.getByText('Quận 7')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Bác sĩ Trí rất tận tâm và giải thích cặn kẽ/i)
+    ).toBeInTheDocument();
+
+    expect(screen.getAllByText('2.850.000đ').length).toBeGreaterThan(0);
+    expect(screen.getByText('3 lượt khám tại nhà')).toBeInTheDocument();
+    expect(screen.getByText('4 lượt telehealth')).toBeInTheDocument();
+    expect(screen.getByText(/Bao gồm 3 người · Tối đa 6 người/i)).toBeInTheDocument();
+    expect(screen.queryByText('Cơ Sở Y Tế Phụ Trách')).not.toBeInTheDocument();
+    expect(screen.getByText('Bệnh viện Thống Nhất')).toBeInTheDocument();
   });
 
-  it('submits consultation request with user input and displays real ticket ID on success screen', async () => {
-    vi.mocked(publicApi.submitConsultationRequest).mockResolvedValue({
-      data: {
-        ticketId: 'CRQ-8899-TEST',
-        status: 'RECEIVED',
-        message: 'Thành công',
-      },
-    });
-
+  it('does not render mock content, free-form consultation form or working schedule', () => {
     render(<DoctorDetailView initialDoctor={mockDoctor} />);
 
-    // Select package PKG-CUSTOM-2
-    const pkgOption = screen.getByText('Gói Khám Cơ Bản');
-    fireEvent.click(pkgOption);
-
-    // Fill form
-    const nameInput = screen.getByPlaceholderText(/Họ và tên người đại diện gia đình/i);
-    const phoneInput = screen.getByPlaceholderText(/Số điện thoại liên hệ nhận tư vấn/i);
-    const noteInput = screen.getByPlaceholderText(/Ghi chú/i);
-
-    fireEvent.change(nameInput, { target: { value: 'Nguyễn Thị Hoa' } });
-    fireEvent.change(phoneInput, { target: { value: '0912345678' } });
-    fireEvent.change(noteInput, { target: { value: 'Cần khám cho mẹ lớn tuổi khó đi lại' } });
-
-    // Submit form
-    const submitBtn = screen.getByRole('button', { name: /Đăng Ký Gói Chăm Sóc Ngay/i });
-    fireEvent.click(submitBtn);
-
-    // Check API called
-    await waitFor(() => {
-      expect(publicApi.submitConsultationRequest).toHaveBeenCalledWith({
-        fullName: 'Nguyễn Thị Hoa',
-        phone: '0912345678',
-        preferredPackageId: 'PKG-CUSTOM-2',
-        familyMemberCount: 3,
-        healthNeeds: 'Cần khám cho mẹ lớn tuổi khó đi lại',
-      });
-    });
-
-    // Check success screen displays actual ticket ID
-    await waitFor(() => {
-      expect(screen.getByText(/Đăng Ký Gói Thành Công!/i)).toBeInTheDocument();
-      expect(screen.getByText(/#CRQ-8899-TEST/i)).toBeInTheDocument();
-    });
-  });
-
-  it('falls back safely to default mock doctor when initialDoctor is not provided', async () => {
-    render(<DoctorDetailView id="doc-01" />);
-
-    await waitFor(() => {
-      expect(screen.getByRole('heading', { level: 1, name: /Nguyễn Văn Hoài/i })).toBeInTheDocument();
-      expect(screen.getAllByText(/PGS\. TS\. Bác sĩ/i).length).toBeGreaterThan(0);
-    });
-  });
-
-  it('displays friendly error message when submitConsultationRequest fails', async () => {
-    vi.mocked(publicApi.submitConsultationRequest).mockRejectedValueOnce(
-      new Error('Hệ thống đang bảo trì, vui lòng thử lại sau.')
+    expect(screen.queryByText(/bác sĩ Hoài/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Chị Mai Lan/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Anh Quốc Bảo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Thứ 2 - Thứ 7/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Đăng Ký Gói Chăm Sóc Ngay/i)).not.toBeInTheDocument();
+    expect(document.querySelector('form')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: /Đăng ký dịch vụ với bác sĩ/i })
+    ).toHaveAttribute(
+      'href',
+      '/family/subscription?packageId=pkg-1&doctorId=doc-real-100&facilityId=fac-1&members=3'
     );
-
-    render(<DoctorDetailView initialDoctor={mockDoctor} />);
-
-    const nameInput = screen.getByPlaceholderText(/Họ và tên người đại diện gia đình/i);
-    const phoneInput = screen.getByPlaceholderText(/Số điện thoại liên hệ nhận tư vấn/i);
-
-    fireEvent.change(nameInput, { target: { value: 'Nguyễn Thị Hoa' } });
-    fireEvent.change(phoneInput, { target: { value: '0912345678' } });
-
-    const submitBtn = screen.getByRole('button', { name: /Đăng Ký Gói Chăm Sóc Ngay/i });
-    fireEvent.click(submitBtn);
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/Hệ thống đang bảo trì, vui lòng thử lại sau\./i)
-      ).toBeInTheDocument();
-    });
   });
 
-  it('fetches reviews via publicApi.getDoctorReviews when doctor has no reviews in initialDoctor', async () => {
-    const doctorWithoutReviews = { ...mockDoctor, reviews: [] };
-    vi.mocked(publicApi.getDoctorReviews).mockResolvedValueOnce({
-      items: [
-        {
-          id: 'rev-fetched-1',
-          authorName: 'Vũ Minh Tuấn',
-          rating: 5,
-          comment: 'Bác sĩ phản hồi nhanh và nhiệt tình.',
-          badge: 'Gói Đồng Hành',
-        },
-      ],
-      pagination: { page: 1, pageSize: 5, totalRecords: 1, totalPages: 1 },
-    });
+  it('renders empty states instead of fallback mock data when the API returns nothing', () => {
+    render(<DoctorDetailView initialDoctor={emptyDoctor} />);
 
-    render(<DoctorDetailView initialDoctor={doctorWithoutReviews} />);
-
-    await waitFor(() => {
-      expect(publicApi.getDoctorReviews).toHaveBeenCalledWith('doc-real-100', {
-        page: 1,
-        limit: 5,
-      });
-      expect(screen.getByText(/Vũ Minh Tuấn/i)).toBeInTheDocument();
-      expect(screen.getByText(/Bác sĩ phản hồi nhanh và nhiệt tình\./i)).toBeInTheDocument();
-    });
+    expect(screen.getByText('Chưa có thông tin giới thiệu.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Chưa có chứng chỉ được công bố.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Chưa có ca bệnh tiêu biểu được công bố.')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Chưa có thông tin phạm vi chăm sóc.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Bác sĩ chưa có đánh giá nào.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Chưa có gói chăm sóc đang hoạt động.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Chưa có đánh giá')).toBeInTheDocument();
   });
 });
