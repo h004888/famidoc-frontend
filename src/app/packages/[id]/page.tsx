@@ -34,7 +34,7 @@ export default function PackageDetailPage({
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
-          <div className="w-8 h-8 border-3 border-[#2563eb]/20 border-t-[#2563eb] rounded-full animate-spin" />
+          <div className="w-8 h-8 border-3 border-[#0046c0]/20 border-t-[#0046c0] rounded-full animate-spin" />
         </div>
       }
     >

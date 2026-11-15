@@ -2,6 +2,27 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts';
+import { KpiStatCard, DashboardChartCard } from '@/components/dashboard';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
+import { Progress } from '@/components/ui/progress';
+
+const channelChartData = [
+  { channel: 'Tại nhà', visits: 824, share: '58%', fill: 'var(--chart-1)' },
+  { channel: 'Telehealth', visits: 370, share: '26%', fill: 'var(--chart-2)' },
+  { channel: 'Tại BV', visits: 226, share: '16%', fill: 'var(--chart-3)' },
+];
+
+const channelChartConfig = {
+  visits: {
+    label: 'Lượt khám',
+    color: 'var(--chart-1)',
+  },
+} satisfies ChartConfig;
 
 export function FacilityDashboardView() {
   const stats = [
@@ -10,17 +31,15 @@ export function FacilityDashboardView() {
       value: '48',
       subtitle: '42 đang trực chiến • 6 nghỉ phép',
       change: '+4 BS',
-      period: 'tháng này',
       icon: 'badge',
-      iconBg: 'bg-[#2E37A4]/10 text-[#2E37A4]',
-      badgeBg: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      iconBg: 'bg-primary/10 text-primary',
+      badgeBg: 'bg-blue-50 text-primary border-blue-200',
     },
     {
       title: 'Lượt khám tháng này',
       value: '1.420',
       subtitle: '100% bệnh án điện tử đồng bộ',
       change: '+14.2%',
-      period: 'so với tháng trước',
       icon: 'medical_services',
       iconBg: 'bg-emerald-50 text-emerald-600',
       badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -30,7 +49,6 @@ export function FacilityDashboardView() {
       value: '98.4%',
       subtitle: 'Thời gian phản hồi TB 12 phút',
       change: 'Đạt chuẩn',
-      period: 'Mục tiêu >= 95%',
       icon: 'verified',
       iconBg: 'bg-sky-50 text-sky-600',
       badgeBg: 'bg-sky-50 text-sky-700 border-sky-200',
@@ -40,7 +58,6 @@ export function FacilityDashboardView() {
       value: '416.256.900 đ',
       subtitle: 'Tỷ lệ 85% CSYT (15% Phí nền tảng CFG-03)',
       change: '+18.5%',
-      period: 'Đối soát ngày 05 hàng tháng',
       icon: 'payments',
       iconBg: 'bg-amber-50 text-amber-600',
       badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -84,237 +101,258 @@ export function FacilityDashboardView() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Facility Header Banner phong cách Preclinic */}
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] flex flex-col md:flex-row items-start md:items-center justify-between gap-5">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] flex items-center justify-center text-white shadow-md ring-4 ring-[#2E37A4]/10 shrink-0">
-              <span className="material-symbols-outlined text-[30px]">local_hospital</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2.5 flex-wrap">
-                <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                  Bệnh viện Đại học Y Dược TP.HCM
-                </h1>
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  Đối tác Y tế Cấp 1
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                Mã định danh BYT: <span className="tabular-nums font-bold text-slate-700">BV-79012</span> • Phụ trách mạng lưới Bác sĩ Gia đình FamiDoc khu vực TP.HCM &amp; Miền Nam
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 w-full md:w-auto">
-            <Link
-              href="/facility/staff"
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white font-bold text-xs sm:text-sm rounded-xl transition-all shadow-xs"
-            >
-              <span className="material-symbols-outlined text-[18px]">person_add</span>
-              <span>Tiếp nhận Bác sĩ</span>
-            </Link>
-            <Link
-              href="/facility/coordination"
-              className="flex-1 md:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold text-xs sm:text-sm rounded-xl border border-slate-200 transition-all shadow-2xs"
-            >
-              <span className="material-symbols-outlined text-[18px] text-[#2E37A4]">rule_settings</span>
-              <span>Điều phối viện</span>
-            </Link>
-          </div>
-        </div>
-
-        {/* 4 Stats Grid phong cách Preclinic */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          {stats.map((s, idx) => (
-            <div
-              key={idx}
-              className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center justify-between mb-3">
-                <span className={`w-11 h-11 rounded-full flex items-center justify-center ${s.iconBg}`}>
-                  <span className="material-symbols-outlined text-[22px]">{s.icon}</span>
-                </span>
-                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full border ${s.badgeBg}`}>
-                  {s.change}
-                </span>
+    <div className="min-h-screen bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+        {/* Facility Header Banner */}
+        <Card className="rounded-2xl border-slate-200/80 bg-white py-6 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+          <CardContent className="flex flex-col items-start justify-between gap-5 px-6 md:flex-row md:items-center">
+            <div className="flex items-center gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-white shadow-md ring-4 ring-primary/10">
+                <span className="material-symbols-outlined text-[30px]">local_hospital</span>
               </div>
               <div>
-                <p className="text-xs font-medium text-slate-500">{s.title}</p>
-                <h3 className="text-2xl font-bold text-slate-900 tracking-tight mt-0.5">{s.value}</h3>
-                <p className="text-[11px] text-slate-400 mt-1">{s.subtitle}</p>
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
+                    Bệnh viện Đại học Y Dược TP.HCM
+                  </h1>
+                  <Badge
+                    variant="outline"
+                    className="rounded-full border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700"
+                  >
+                    Đối tác Y tế Cấp 1
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  Mã định danh BYT: <span className="font-bold text-slate-700 tabular-nums">BV-79012</span> •
+                  Phụ trách mạng lưới Bác sĩ Gia đình FamiDoc khu vực TP.HCM &amp; Miền Nam
+                </p>
               </div>
             </div>
+
+            <div className="flex w-full items-center gap-2.5 md:w-auto">
+              <Button asChild className="flex-1 rounded-xl px-4 py-2.5 text-xs font-bold sm:text-sm md:flex-none">
+                <Link href="/facility/staff">
+                  <span className="material-symbols-outlined text-[18px]">person_add</span>
+                  <span>Tiếp nhận Bác sĩ</span>
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="outline"
+                className="flex-1 rounded-xl border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm md:flex-none"
+              >
+                <Link href="/facility/coordination">
+                  <span className="material-symbols-outlined text-[18px] text-primary">rule_settings</span>
+                  <span>Điều phối viện</span>
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 4 Stats Grid */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
+          {stats.map((s, idx) => (
+            <KpiStatCard
+              key={idx}
+              title={s.title}
+              value={s.value}
+              badgeText={s.change}
+              badgeClassName={s.badgeBg}
+              subtitle={s.subtitle}
+              icon={s.icon}
+              iconClassName={s.iconBg}
+            />
           ))}
         </div>
 
         {/* Priority Referrals & Coordination Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
           {/* Incoming Fast-track Referrals (8 cols) */}
-          <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] overflow-hidden">
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between">
+          <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200/80 bg-white py-0 shadow-[0_2px_8px_rgba(0,0,0,0.03)] lg:col-span-8">
+            <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 p-5">
               <div>
-                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-rose-500 text-[20px]">emergency</span>
+                <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                  <span className="material-symbols-outlined text-[20px] text-rose-500">emergency</span>
                   <span>Luồng Tiếp Nhận Fast-Track Chuyển Viện</span>
-                </h2>
-                <p className="text-xs text-slate-400 mt-0.5">
+                </CardTitle>
+                <CardDescription className="mt-0.5 text-xs text-slate-500">
                   Ca bệnh vượt tuyến hoặc can thiệp kỹ thuật cao được bác sĩ gia đình giới thiệu
-                </p>
+                </CardDescription>
               </div>
               <Link
                 href="/facility/coordination"
-                className="text-xs font-bold text-[#2E37A4] hover:underline flex items-center gap-1"
+                className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
               >
                 <span>Xem tất cả</span>
                 <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
               </Link>
-            </div>
+            </CardHeader>
 
-            <div className="divide-y divide-slate-100">
+            <CardContent className="divide-y divide-slate-100 p-0">
               {incomingReferrals.map((ref) => (
-                <div key={ref.id} className="p-5 hover:bg-slate-50/70 transition-colors">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-[#2E37A4]/10 text-[#2E37A4] font-bold text-xs flex items-center justify-center shrink-0">
-                        {ref.avatarText}
-                      </div>
+                <div key={ref.id} className="p-5 transition-colors hover:bg-slate-50/70">
+                  <div className="mb-2 flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback className="bg-primary/10 text-xs font-bold text-primary">
+                          {ref.avatarText}
+                        </AvatarFallback>
+                      </Avatar>
                       <div>
-                        <span className="font-bold text-sm text-slate-900">{ref.patientName}</span>
-                        <span className="tabular-nums text-xs text-slate-400 ml-2">#{ref.id}</span>
+                        <span className="text-sm font-bold text-slate-900">{ref.patientName}</span>
+                        <span className="ml-2 text-xs text-slate-500 tabular-nums">#{ref.id}</span>
                       </div>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      <Badge
+                        variant="outline"
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${
                           ref.urgency === 'Khẩn cấp'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            ? 'border-rose-200 bg-rose-50 text-rose-700'
                             : ref.urgency === 'Ưu tiên'
-                            ? 'bg-amber-50 text-amber-700 border-amber-200'
-                            : 'bg-blue-50 text-blue-700 border-blue-200'
+                            ? 'border-amber-200 bg-amber-50 text-amber-700'
+                            : 'border-blue-200 bg-blue-50 text-blue-700'
                         }`}
                       >
                         {ref.urgency}
-                      </span>
+                      </Badge>
                     </div>
-                    <span className="text-xs text-slate-400 font-medium">{ref.time}</span>
+                    <span className="text-xs font-medium text-slate-500">{ref.time}</span>
                   </div>
 
-                  <p className="text-xs text-slate-600 font-medium mb-3 pl-10.5">
-                    <span className="text-slate-400">Chỉ định:</span> {ref.reason}
+                  <p className="mb-3 pl-10.5 text-xs font-medium text-slate-600">
+                    <span className="text-slate-500">Chỉ định:</span> {ref.reason}
                   </p>
 
-                  <div className="flex flex-wrap items-center justify-between gap-3 text-xs border-t border-slate-100 pt-3 pl-10.5">
-                    <div className="flex items-center gap-4 text-slate-500">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 pl-10.5 text-xs">
+                    <div className="flex flex-wrap items-center gap-4 text-slate-500">
                       <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[16px] text-[#2E37A4]">stethoscope</span>
+                        <span className="material-symbols-outlined text-[16px] text-primary">stethoscope</span>
                         <span>{ref.fromDoctor}</span>
                       </span>
                       <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-[16px] text-slate-400">domain</span>
+                        <span className="material-symbols-outlined text-[16px] text-slate-500">domain</span>
                         <span>{ref.department}</span>
                       </span>
                     </div>
-                    <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                    <Badge
+                      variant="outline"
+                      className="rounded-full border-emerald-200 bg-emerald-50 px-2.5 py-0.5 font-bold text-emerald-700"
+                    >
                       {ref.status}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          {/* SLA Capacity & Quick Links (4 cols) */}
-          <div className="lg:col-span-4 space-y-6">
-            {/* SLA Progress Card */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-4">
-              <h2 className="text-base font-bold text-slate-900 flex items-center justify-between">
-                <span>Cam Kết Chất Lượng (SLA)</span>
+          {/* SLA Capacity, Channel Chart & B2B Banner (4 cols) */}
+          <div className="space-y-6 lg:col-span-4">
+            <Card className="gap-4 rounded-2xl border-slate-200/80 bg-white py-5 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
+              <CardHeader className="flex flex-row items-center justify-between px-5 pb-0">
+                <CardTitle className="text-base font-bold text-slate-900">
+                  Cam Kết Chất Lượng (SLA)
+                </CardTitle>
                 <span className="text-xs font-bold text-emerald-600">Đạt Chuẩn A+</span>
-              </h2>
+              </CardHeader>
 
-              <div className="space-y-4 text-xs">
+              <CardContent className="space-y-4 px-5 text-xs">
                 <div>
-                  <div className="flex justify-between font-semibold mb-1">
+                  <div className="mb-1.5 flex justify-between font-semibold">
                     <span className="text-slate-600">Đáp ứng lịch khám Bác sĩ Gia đình</span>
-                    <span className="text-[#2E37A4] font-bold">98.4% / 95% SLA</span>
+                    <span className="font-bold text-primary tabular-nums">98.4% / 95% SLA</span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                    <div className="bg-[#2E37A4] h-2 rounded-full" style={{ width: '98.4%' }}></div>
-                  </div>
+                  <Progress
+                    value={98.4}
+                    aria-label="Tỷ lệ đáp ứng lịch khám"
+                    className="h-2 bg-slate-100 [&_[data-slot=progress-indicator]]:bg-primary"
+                  />
                 </div>
 
                 <div>
-                  <div className="flex justify-between font-semibold mb-1">
+                  <div className="mb-1.5 flex justify-between font-semibold">
                     <span className="text-slate-600">Công suất Panel Cap (Bác sĩ/Hộ)</span>
-                    <span className="text-emerald-600 font-bold">82% (Ngưỡng an toàn)</span>
+                    <span className="font-bold text-emerald-600 tabular-nums">82% (Ngưỡng an toàn)</span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                    <div className="bg-emerald-500 h-2 rounded-full" style={{ width: '82%' }}></div>
-                  </div>
+                  <Progress
+                    value={82}
+                    aria-label="Công suất Panel Cap"
+                    className="h-2 bg-slate-100 [&_[data-slot=progress-indicator]]:bg-emerald-500"
+                  />
                 </div>
 
                 <div>
-                  <div className="flex justify-between font-semibold mb-1">
+                  <div className="mb-1.5 flex justify-between font-semibold">
                     <span className="text-slate-600">Thời gian phản hồi cấp cứu Fast-Track</span>
-                    <span className="text-indigo-600 font-bold">&lt; 15 phút (100%)</span>
+                    <span className="font-bold text-indigo-600 tabular-nums">&lt; 15 phút (100%)</span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                    <div className="bg-indigo-600 h-2 rounded-full" style={{ width: '100%' }}></div>
+                  <Progress
+                    value={100}
+                    aria-label="Thời gian phản hồi cấp cứu Fast-Track"
+                    className="h-2 bg-slate-100 [&_[data-slot=progress-indicator]]:bg-indigo-600"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <DashboardChartCard
+              title="Phân Bổ Kênh Dịch Vụ Y Tế"
+              description="Tỷ lệ các kênh tiếp nhận bệnh nhân tháng này"
+              config={channelChartConfig}
+              chartClassName="h-[170px]"
+              footer={
+                <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-2">
+                    <span className="flex items-center gap-2 font-medium text-slate-700">
+                      <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                      Thăm khám tại nhà
+                    </span>
+                    <span className="font-bold text-slate-900 tabular-nums">58% (824 ca)</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-2">
+                    <span className="flex items-center gap-2 font-medium text-slate-700">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#00D3C7]" />
+                      Tư vấn Telehealth HD
+                    </span>
+                    <span className="font-bold text-slate-900 tabular-nums">26% (370 ca)</span>
+                  </div>
+                  <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 p-2">
+                    <span className="flex items-center gap-2 font-medium text-slate-700">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#fe8f1a]" />
+                      Đến khám trực tiếp tại BV
+                    </span>
+                    <span className="font-bold text-slate-900 tabular-nums">16% (226 ca)</span>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Channel Distribution Card (như receptionist-channel trên Preclinic) */}
-            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.03)] space-y-3">
-              <h3 className="font-bold text-base text-slate-900 tracking-tight">
-                Phân Bổ Kênh Dịch Vụ Y Tế
-              </h3>
-              <p className="text-xs text-slate-400">Tỷ lệ các kênh tiếp nhận bệnh nhân tháng này</p>
-
-              <div className="space-y-2.5 pt-2 text-xs">
-                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="flex items-center gap-2 text-slate-700 font-medium">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#2E37A4]"></span>
-                    Thăm khám tại nhà
-                  </span>
-                  <span className="font-bold text-slate-900">58% (824 ca)</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="flex items-center gap-2 text-slate-700 font-medium">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#00D3C7]"></span>
-                    Tư vấn Telehealth HD
-                  </span>
-                  <span className="font-bold text-slate-900">26% (370 ca)</span>
-                </div>
-                <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100">
-                  <span className="flex items-center gap-2 text-slate-700 font-medium">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-                    Đến khám trực tiếp tại BV
-                  </span>
-                  <span className="font-bold text-slate-900">16% (226 ca)</span>
-                </div>
-              </div>
-            </div>
+              }
+            >
+              <BarChart data={channelChartData} margin={{ top: 8, right: 8, left: -16, bottom: 0 }}>
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                <XAxis dataKey="channel" tickLine={false} axisLine={false} tickMargin={6} />
+                <YAxis tickLine={false} axisLine={false} width={40} />
+                <ChartTooltip cursor={false} content={<ChartTooltipContent hideLabel />} />
+                <Bar dataKey="visits" radius={[8, 8, 0, 0]}>
+                  {channelChartData.map((entry) => (
+                    <Cell key={entry.channel} fill={entry.fill} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </DashboardChartCard>
 
             {/* Platform Partnership Info */}
-            <div className="bg-gradient-to-br from-[#111827] to-[#1e1b4b] text-white p-5 rounded-2xl shadow-sm border border-slate-800">
-              <div className="flex items-center gap-2 mb-2">
+            <div className="rounded-2xl border border-slate-800 bg-gradient-to-br from-[#111827] to-[#1e1b4b] p-5 text-white shadow-sm">
+              <div className="mb-2 flex items-center gap-2">
                 <span className="material-symbols-outlined text-[20px] text-[#00D3C7]">verified</span>
                 <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
                   Đối Soát Doanh Thu B2B Ký Số
                 </span>
               </div>
-              <p className="text-xs text-slate-300 leading-relaxed">
+              <p className="text-xs leading-relaxed text-slate-300">
                 Hợp đồng chia sẻ doanh thu 70/30 đã được đối soát tự động kỳ 10/2026. Quỹ Escrow đã sẵn sàng giải ngân cho cơ sở y tế.
               </p>
-              <div className="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
-                <span className="tabular-nums text-slate-400">B2B-YDUOC-2026</span>
-                <Link
-                  href="/facility/revenue"
-                  className="font-bold text-[#00D3C7] hover:underline"
-                >
+              <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
+                <span className="text-slate-400 tabular-nums">B2B-YDUOC-2026</span>
+                <Link href="/facility/revenue" className="font-bold text-[#00D3C7] hover:underline">
                   Kiểm tra sao kê
                 </Link>
               </div>

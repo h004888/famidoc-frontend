@@ -3,6 +3,24 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { useContractWorkflow, updateContractStep } from '@/lib/contract-workflow-storage';
 import {
   contractsApi,
@@ -87,7 +105,6 @@ export function FamilyBillingView() {
   const [isVerifying, setIsVerifying] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
   const [timeLeft, setTimeLeft] = useState(15 * 60);
-  const [billingToast, setBillingToast] = useState<string | null>(null);
   const [livePayment, setLivePayment] = useState<VietQRPaymentRequestDto | null>(null);
   const [gateStatus, setGateStatus] = useState<FamilyGateStatusDto | null>(null);
   const [liveError, setLiveError] = useState<string | null>(null);
@@ -194,12 +211,12 @@ export function FamilyBillingView() {
         setGateStatus(latestGate);
         if (latest.status === 'PAID' || latestGate.hasActiveContract) {
           setShowQrModal(false);
-          setBillingToast(
+          toast.success(
             `Đã xác nhận thanh toán ${selectedOption.amountFormatted} thành công! Hợp đồng đã kích hoạt ACTIVE.`
           );
           router.refresh();
         } else {
-          setBillingToast(
+          toast.info(
             `Chưa ghi nhận giao dịch cho mã ${latest.paymentCode}. Vui lòng chuyển khoản đúng nội dung "${latest.transferContent || latest.paymentCode}" rồi kiểm tra lại.`
           );
         }
@@ -244,10 +261,9 @@ export function FamilyBillingView() {
       setInvoices((prev) => [newInvoice, ...prev]);
       setIsVerifying(false);
       setShowQrModal(false);
-      setBillingToast(
+      toast.success(
         `Đã xác nhận thanh toán ${selectedOption.amountFormatted} thành công! Hợp đồng đã kích hoạt ACTIVE.`
       );
-      setTimeout(() => setBillingToast(null), 4500);
     }, 1000);
   };
 
@@ -268,14 +284,14 @@ export function FamilyBillingView() {
         )}`;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* 1. HEADER CANVAS THOÁNG ĐÃNG ĐỒNG BỘ VỚI /family */}
         <header className="space-y-4">
           <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
             <Link
               href="/family"
-              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-[#2E37A4] transition-colors"
+              className="inline-flex items-center gap-1.5 text-slate-500 hover:text-primary transition-colors"
             >
               <span className="material-symbols-outlined text-[16px]">arrow_back</span>
               <span>Bảng Sức Khỏe Gia Đình</span>
@@ -287,17 +303,17 @@ export function FamilyBillingView() {
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-primary bg-primary/10 border-primary/20">
                   Hộ #FAM-88219
-                </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/60">
+                </Badge>
+                <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border-emerald-200/60">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                   <span>NAPAS 24/7 Tự động</span>
-                </span>
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
+                </Badge>
+                <Badge variant="secondary" className="gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
                   <span className="material-symbols-outlined text-[14px] text-slate-500">receipt</span>
                   <span>Hóa đơn điện tử VAT có chữ ký số</span>
-                </span>
+                </Badge>
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
@@ -311,22 +327,25 @@ export function FamilyBillingView() {
 
             {/* Cụm nút hành động tinh gọn & phân cấp chuẩn */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <button
+              <Button
                 type="button"
                 onClick={handleOpenQrModal}
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all whitespace-nowrap outline-hidden cursor-pointer"
+                className="min-h-11 rounded-xl text-sm font-semibold gap-2"
               >
                 <span className="material-symbols-outlined text-[20px]">qr_code_scanner</span>
                 <span>Mở mã VietQR</span>
-              </button>
+              </Button>
 
-              <Link
-                href="/family/subscription"
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all whitespace-nowrap outline-hidden"
+              <Button
+                asChild
+                variant="outline"
+                className="min-h-11 rounded-xl text-sm font-medium gap-2"
               >
-                <span className="material-symbols-outlined text-[19px] text-[#2E37A4]">verified_user</span>
-                <span>Hợp đồng 4 bên</span>
-              </Link>
+                <Link href="/family/subscription">
+                  <span className="material-symbols-outlined text-[19px] text-primary">verified_user</span>
+                  <span>Hợp đồng 4 bên</span>
+                </Link>
+              </Button>
             </div>
           </div>
         </header>
@@ -337,7 +356,7 @@ export function FamilyBillingView() {
           className="bg-white rounded-2xl border border-slate-200/70 p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs sm:text-sm"
         >
           <div className="flex items-center gap-3 text-slate-700">
-            <span className="w-10 h-10 rounded-xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0 border border-blue-100">
+            <span className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
               <span className="material-symbols-outlined text-[20px]">workspace_premium</span>
             </span>
             <span>
@@ -359,7 +378,7 @@ export function FamilyBillingView() {
           className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6"
         >
           {/* Thẻ 1: Tổng đã thanh toán */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex items-center justify-between gap-4">
+          <Card className="bg-white p-6 rounded-2xl border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-row items-center justify-between gap-4">
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
                 Tổng đã thanh toán (2026)
@@ -372,34 +391,34 @@ export function FamilyBillingView() {
                 <span>Đã phát hành {invoices.length} biên lai VAT</span>
               </span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0 border border-blue-100">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
               <span className="material-symbols-outlined text-[24px]">account_balance_wallet</span>
             </div>
-          </div>
+          </Card>
 
           {/* Thẻ 2: Kỳ gia hạn tiếp theo */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex items-center justify-between gap-4">
+          <Card className="bg-white p-6 rounded-2xl border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-row items-center justify-between gap-4">
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
                 Kỳ gia hạn tiếp theo
               </span>
-              <div className="text-2xl sm:text-3xl font-bold tabular-nums text-[#2E37A4]">
+              <div className="text-2xl sm:text-3xl font-bold tabular-nums text-primary">
                 31/12/2026
               </div>
               <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500">
-                <span className="material-symbols-outlined text-[15px] text-[#2E37A4]">
+                <span className="material-symbols-outlined text-[15px] text-primary">
                   schedule
                 </span>
                 <span>Còn 65 ngày hiệu lực</span>
               </span>
             </div>
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-[#2E37A4] flex items-center justify-center shrink-0 border border-indigo-100">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
               <span className="material-symbols-outlined text-[24px]">event_repeat</span>
             </div>
-          </div>
+          </Card>
 
           {/* Thẻ 3: Dư nợ phát sinh */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex items-center justify-between gap-4">
+          <Card className="bg-white p-6 rounded-2xl border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-row items-center justify-between gap-4">
             <div className="space-y-1.5">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider block">
                 Dư nợ phát sinh
@@ -415,7 +434,7 @@ export function FamilyBillingView() {
             <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-100">
               <span className="material-symbols-outlined text-[24px]">shield</span>
             </div>
-          </div>
+          </Card>
         </section>
 
         {/* 4. KHU VỰC THANH TOÁN NHANH VIETQR & CHUYỂN KHOẢN NGÂN HÀNG */}
@@ -423,7 +442,7 @@ export function FamilyBillingView() {
           {/* Header khu vực VietQR */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3.5">
-              <div className="w-11 h-11 rounded-2xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0 border border-blue-100 shadow-2xs">
+              <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20 shadow-2xs">
                 <span className="material-symbols-outlined text-[24px]">qr_code_2</span>
               </div>
               <div>
@@ -436,9 +455,9 @@ export function FamilyBillingView() {
               </div>
             </div>
 
-            <span className="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-semibold bg-blue-50/80 text-[#2E37A4] border border-blue-200/70">
+            <Badge variant="outline" className="self-start sm:self-auto px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border-primary/20">
               Hỗ trợ 45+ Ngân hàng Việt Nam
-            </span>
+            </Badge>
           </div>
 
           {/* Bước 1: Chọn dịch vụ muốn thanh toán */}
@@ -452,7 +471,7 @@ export function FamilyBillingView() {
                   onClick={() => setSelectedOptionId(option.id)}
                   className={`p-5 rounded-2xl border text-left transition-all cursor-pointer flex items-start justify-between gap-4 outline-hidden ${
                     isSelected
-                      ? 'bg-blue-50/40 border-[#2E37A4] ring-2 ring-[#2E37A4]/15 shadow-xs'
+                      ? 'bg-primary/5 border-primary ring-2 ring-primary/15 shadow-xs'
                       : 'bg-white hover:bg-slate-50/70 border-slate-200/70'
                   }`}
                 >
@@ -469,7 +488,7 @@ export function FamilyBillingView() {
                   </div>
 
                   <div className="text-right shrink-0">
-                    <div className="font-bold tabular-nums text-base sm:text-lg text-[#2E37A4]">
+                    <div className="font-bold tabular-nums text-base sm:text-lg text-primary">
                       {option.amountFormatted}
                     </div>
                     <span className="text-[11px] font-semibold text-slate-400">
@@ -502,14 +521,15 @@ export function FamilyBillingView() {
                 </p>
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleOpenQrModal}
-                className="w-full py-2.5 px-3 rounded-xl bg-white hover:bg-slate-100 text-[#2E37A4] border border-slate-200/80 text-xs font-semibold inline-flex items-center justify-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                className="w-full rounded-xl text-primary text-xs font-semibold gap-1.5"
               >
                 <span className="material-symbols-outlined text-[16px]">zoom_in</span>
                 <span>Phóng to mã QR</span>
-              </button>
+              </Button>
             </div>
 
             {/* Cột phải: Thông tin chuyển khoản thụ hưởng */}
@@ -517,7 +537,7 @@ export function FamilyBillingView() {
               <div className="space-y-3.5">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/70 pb-3">
                   <div>
-                    <span className="text-[11px] font-semibold text-[#2E37A4] uppercase tracking-wider block">
+                    <span className="text-[11px] font-semibold text-primary uppercase tracking-wider block">
                       Tài khoản thụ hưởng chính thức
                     </span>
                     <h3 className="text-sm sm:text-base font-bold text-slate-900 mt-0.5">
@@ -553,17 +573,19 @@ export function FamilyBillingView() {
                   <div className="p-3.5 rounded-xl bg-white border border-slate-200/70 flex items-center justify-between gap-2 shadow-2xs">
                     <div>
                       <span className="text-[11px] text-slate-400 block font-medium">Số tài khoản ({bankNameDisplay})</span>
-                      <strong className="font-bold tabular-nums text-base text-[#2E37A4]">
+                      <strong className="font-bold tabular-nums text-base text-primary">
                         {accountNumberDisplay}
                       </strong>
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => copyToClipboard(accountNumberDisplay, 'acc')}
-                      className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-[#2E37A4] border border-slate-200/80 font-semibold text-xs cursor-pointer transition-colors shrink-0"
+                      className="rounded-lg text-xs font-semibold shrink-0"
                     >
                       {isCopied === 'acc' ? 'Đã chép ✓' : 'Sao chép'}
-                    </button>
+                    </Button>
                   </div>
 
                   {/* Số tiền */}
@@ -574,13 +596,15 @@ export function FamilyBillingView() {
                         {selectedOption.amountFormatted}
                       </strong>
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => copyToClipboard(String(selectedOption.amountNumber), 'amt')}
-                      className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-[#2E37A4] border border-slate-200/80 font-semibold text-xs cursor-pointer transition-colors shrink-0"
+                      className="rounded-lg text-xs font-semibold shrink-0"
                     >
                       {isCopied === 'amt' ? 'Đã chép ✓' : 'Sao chép'}
-                    </button>
+                    </Button>
                   </div>
 
                   {/* Nội dung chuyển khoản */}
@@ -593,24 +617,26 @@ export function FamilyBillingView() {
                         {selectedOption.transferMemo}
                       </strong>
                     </div>
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
+                      size="sm"
                       onClick={() => copyToClipboard(selectedOption.transferMemo, 'memo')}
-                      className="px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-blue-50 text-slate-700 hover:text-[#2E37A4] border border-slate-200/80 font-semibold text-xs cursor-pointer transition-colors shrink-0"
+                      className="rounded-lg text-xs font-semibold shrink-0"
                     >
                       {isCopied === 'memo' ? 'Đã chép ✓' : 'Sao chép'}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               </div>
 
               {/* Nút xác nhận đã chuyển khoản */}
               <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <button
+                <Button
                   type="button"
                   onClick={handleVerifyPayment}
                   disabled={isVerifying}
-                  className="min-h-11 w-full sm:w-auto px-6 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs sm:text-sm font-semibold shadow-xs hover:shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-70"
+                  className="min-h-11 w-full sm:w-auto px-6 rounded-xl text-xs sm:text-sm font-semibold gap-2"
                 >
                   {isVerifying ? (
                     <>
@@ -623,7 +649,7 @@ export function FamilyBillingView() {
                       <span>Xác nhận tôi đã chuyển khoản</span>
                     </>
                   )}
-                </button>
+                </Button>
 
                 <span className="text-xs text-slate-500">
                   Hệ thống tự động cấp biên lai điện tử trong 60 giây.
@@ -657,16 +683,16 @@ export function FamilyBillingView() {
               <div key={inv.id} className="p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <span className="text-[11px] font-bold tabular-nums text-[#2E37A4] bg-blue-50 px-2.5 py-0.5 rounded-md border border-blue-200/70">
+                    <Badge variant="outline" className="text-[11px] font-bold tabular-nums text-primary bg-primary/10 px-2.5 py-0.5 rounded-md border-primary/20">
                       {inv.orderCode}
-                    </span>
+                    </Badge>
                     <h3 className="font-bold text-sm text-slate-900 mt-1.5">{inv.title}</h3>
                     <p className="text-xs text-slate-500 mt-0.5">{inv.subtitle}</p>
                   </div>
 
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 shrink-0">
+                  <Badge variant="outline" className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border-emerald-200/80 shrink-0">
                     Thành công
-                  </span>
+                  </Badge>
                 </div>
 
                 <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -677,17 +703,16 @@ export function FamilyBillingView() {
                     <div className="text-[11px] tabular-nums text-slate-400">{inv.date}</div>
                   </div>
 
-                  <button
+                  <Button
                     type="button"
-                    onClick={() => {
-                      setBillingToast(`Đang tải biên lai điện tử: ${inv.receiptUrl}`);
-                      setTimeout(() => setBillingToast(null), 3000);
-                    }}
-                    className="min-h-9 px-3 py-1.5 rounded-xl bg-blue-50/80 text-[#2E37A4] font-semibold text-xs inline-flex items-center gap-1.5 cursor-pointer hover:bg-blue-100 transition-colors shadow-2xs"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => toast.info(`Đang tải biên lai điện tử: ${inv.receiptUrl}`)}
+                    className="min-h-9 rounded-xl bg-primary/10 text-primary border-primary/20 font-semibold text-xs gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[16px]">download</span>
                     <span>Tải PDF</span>
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -695,180 +720,144 @@ export function FamilyBillingView() {
 
           {/* Giao diện Desktop: Bảng chuẩn lâm sàng thoáng & đẹp */}
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider text-[11px]">
-                <tr>
-                  <th className="py-3.5 px-6">Mã giao dịch</th>
-                  <th className="py-3.5 px-6">Nội dung thanh toán</th>
-                  <th className="py-3.5 px-6">Số tiền</th>
-                  <th className="py-3.5 px-6">Phương thức &amp; Thời gian</th>
-                  <th className="py-3.5 px-6">Trạng thái</th>
-                  <th className="py-3.5 px-6 text-right">Biên lai PDF</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-800">
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow className="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-semibold uppercase tracking-wider text-[11px] hover:bg-slate-50/80">
+                  <TableHead className="py-3.5 px-6 text-slate-500">Mã giao dịch</TableHead>
+                  <TableHead className="py-3.5 px-6 text-slate-500">Nội dung thanh toán</TableHead>
+                  <TableHead className="py-3.5 px-6 text-slate-500">Số tiền</TableHead>
+                  <TableHead className="py-3.5 px-6 text-slate-500">Phương thức &amp; Thời gian</TableHead>
+                  <TableHead className="py-3.5 px-6 text-slate-500">Trạng thái</TableHead>
+                  <TableHead className="py-3.5 px-6 text-right text-slate-500">Biên lai PDF</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-slate-100 text-slate-800">
                 {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-4 px-6 tabular-nums font-bold text-[#2E37A4] whitespace-nowrap">
+                  <TableRow key={inv.id} className="hover:bg-slate-50/60 transition-colors">
+                    <TableCell className="py-4 px-6 tabular-nums font-bold text-primary whitespace-nowrap">
                       {inv.orderCode}
-                    </td>
-                    <td className="py-4 px-6">
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
                       <div className="font-semibold text-slate-900">{inv.title}</div>
                       <div className="text-[11px] text-slate-500 mt-0.5">{inv.subtitle}</div>
-                    </td>
-                    <td className="py-4 px-6 tabular-nums font-bold text-sm text-slate-900 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="py-4 px-6 tabular-nums font-bold text-sm text-slate-900 whitespace-nowrap">
                       {inv.amount}
-                    </td>
-                    <td className="py-4 px-6 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="py-4 px-6 whitespace-nowrap">
                       <div className="font-semibold text-slate-700">{inv.method}</div>
                       <div className="text-[11px] tabular-nums text-slate-400">{inv.date}</div>
-                    </td>
-                    <td className="py-4 px-6 whitespace-nowrap">
+                    </TableCell>
+                    <TableCell className="py-4 px-6 whitespace-nowrap">
                       <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                         Thành công
                       </span>
-                    </td>
-                    <td className="py-4 px-6 text-right whitespace-nowrap">
-                      <button
+                    </TableCell>
+                    <TableCell className="py-4 px-6 text-right whitespace-nowrap">
+                      <Button
                         type="button"
-                        onClick={() => {
-                          setBillingToast(`Đang tải biên lai điện tử: ${inv.receiptUrl}`);
-                          setTimeout(() => setBillingToast(null), 3000);
-                        }}
-                        className="min-h-9 px-3.5 py-1.5 rounded-xl bg-blue-50/80 hover:bg-[#2E37A4] text-[#2E37A4] hover:text-white border border-blue-200/80 font-semibold text-xs inline-flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => toast.info(`Đang tải biên lai điện tử: ${inv.receiptUrl}`)}
+                        className="min-h-9 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border-primary/20 font-semibold text-xs gap-1.5"
                       >
                         <span className="material-symbols-outlined text-[15px]">download</span>
                         <span>Tải biên lai</span>
-                      </button>
-                    </td>
-                  </tr>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         </section>
       </main>
 
       {/* MODAL PHÓNG TO MÃ VIETQR */}
-      {showQrModal && (
-        <div
-          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="bg-white rounded-2xl max-w-sm w-full overflow-hidden shadow-2xl border border-slate-200/80 text-center animate-in fade-in zoom-in-95 my-auto">
-            <div className="bg-[#2E37A4] text-white p-5 flex items-center justify-between">
-              <div className="text-left">
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-200 block">
-                  Cổng thanh toán NAPAS 24/7
-                </span>
-                <h3 className="font-bold text-base text-white">
-                  Quét Mã VietQR Ngân Hàng
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowQrModal(false)}
-                aria-label="Đóng cửa sổ"
-                className="w-8 h-8 rounded-xl bg-white/15 hover:bg-white/25 flex items-center justify-center text-white cursor-pointer transition-colors"
-              >
-                <span className="material-symbols-outlined text-[18px]">close</span>
-              </button>
-            </div>
+      <Dialog open={showQrModal} onOpenChange={setShowQrModal}>
+        <DialogContent className="sm:max-w-sm rounded-2xl p-0 overflow-hidden border-slate-200/80 text-center gap-0">
+          <DialogHeader className="bg-primary text-primary-foreground p-5 text-left">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-blue-100 block">
+              Cổng thanh toán NAPAS 24/7
+            </span>
+            <DialogTitle className="font-bold text-base text-white">
+              Quét Mã VietQR Ngân Hàng
+            </DialogTitle>
+          </DialogHeader>
 
-            <div className="p-6 space-y-4">
-              {/* Đồng hồ đếm ngược 15 phút */}
-              <div
-                className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
-                  timeLeft > 120
-                    ? 'bg-amber-50 text-amber-800 border-amber-200/80'
-                    : timeLeft > 0
-                    ? 'bg-rose-50 text-rose-800 border-rose-200/80'
-                    : 'bg-slate-100 text-slate-600 border-slate-300'
-                }`}
-              >
-                <div className="flex items-center gap-1.5 font-semibold">
-                  <span className="material-symbols-outlined text-[16px]">
-                    {timeLeft > 0 ? 'schedule' : 'error'}
-                  </span>
-                  <span>
-                    {timeLeft > 0 ? 'Thời gian hiệu lực mã QR:' : 'Mã QR đã hết hiệu lực:'}
-                  </span>
-                </div>
-                <span className="tabular-nums font-bold text-sm">
-                  {formatCountdown(timeLeft)}
+          <div className="p-6 space-y-4">
+            {/* Đồng hồ đếm ngược 15 phút */}
+            <div
+              className={`p-2.5 rounded-xl border text-xs flex items-center justify-between ${
+                timeLeft > 120
+                  ? 'bg-amber-50 text-amber-800 border-amber-200/80'
+                  : timeLeft > 0
+                  ? 'bg-rose-50 text-rose-800 border-rose-200/80'
+                  : 'bg-slate-100 text-slate-600 border-slate-300'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 font-semibold">
+                <span className="material-symbols-outlined text-[16px]">
+                  {timeLeft > 0 ? 'schedule' : 'error'}
+                </span>
+                <span>
+                  {timeLeft > 0 ? 'Thời gian hiệu lực mã QR:' : 'Mã QR đã hết hiệu lực:'}
                 </span>
               </div>
-
-              {timeLeft > 0 ? (
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/70">
-                  <img
-                    src={qrImageUrl}
-                    alt="QR Modal"
-                    className="w-52 h-52 mx-auto object-contain bg-white p-2 rounded-xl"
-                  />
-                </div>
-              ) : (
-                <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-rose-300 text-center space-y-2">
-                  <span className="material-symbols-outlined text-rose-500 text-3xl">
-                    timer_off
-                  </span>
-                  <p className="text-xs text-rose-600 font-semibold">
-                    Phiên quét mã 15 phút đã kết thúc. Vui lòng làm mới mã QR.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setTimeLeft(15 * 60)}
-                    className="px-4 py-1.5 bg-[#2E37A4] text-white rounded-xl text-xs font-semibold hover:bg-[#222982] cursor-pointer"
-                  >
-                    Tạo mã QR mới
-                  </button>
-                </div>
-              )}
-
-              <div className="text-xs space-y-1 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/70">
-                <div className="text-slate-500 truncate">{selectedOption.title}</div>
-                <div className="font-bold tabular-nums text-base text-[#2E37A4]">
-                  {selectedOption.amountFormatted}
-                </div>
-                <div className="text-slate-500">
-                  Nội dung: <strong className="font-bold tabular-nums text-slate-800">{selectedOption.transferMemo}</strong>
-                </div>
-              </div>
-
-              <button
-                type="button"
-                disabled={timeLeft === 0 || isVerifying}
-                onClick={handleVerifyPayment}
-                className="min-h-11 w-full py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-semibold shadow-xs transition-colors disabled:opacity-50 cursor-pointer"
-              >
-                {isVerifying ? 'Đang kiểm tra...' : 'Xác nhận đã chuyển khoản'}
-              </button>
+              <span className="tabular-nums font-bold text-sm">
+                {formatCountdown(timeLeft)}
+              </span>
             </div>
+
+            {timeLeft > 0 ? (
+              <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/70">
+                <img
+                  src={qrImageUrl}
+                  alt="QR Modal"
+                  className="w-52 h-52 mx-auto object-contain bg-white p-2 rounded-xl"
+                />
+              </div>
+            ) : (
+              <div className="p-6 bg-slate-50 rounded-2xl border border-dashed border-rose-300 text-center space-y-2">
+                <span className="material-symbols-outlined text-rose-500 text-3xl">
+                  timer_off
+                </span>
+                <p className="text-xs text-rose-600 font-semibold">
+                  Phiên quét mã 15 phút đã kết thúc. Vui lòng làm mới mã QR.
+                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setTimeLeft(15 * 60)}
+                  className="rounded-xl text-xs font-semibold"
+                >
+                  Tạo mã QR mới
+                </Button>
+              </div>
+            )}
+
+            <div className="text-xs space-y-1 bg-slate-50/80 p-3.5 rounded-xl border border-slate-200/70">
+              <div className="text-slate-500 truncate">{selectedOption.title}</div>
+              <div className="font-bold tabular-nums text-base text-primary">
+                {selectedOption.amountFormatted}
+              </div>
+              <div className="text-slate-500">
+                Nội dung: <strong className="font-bold tabular-nums text-slate-800">{selectedOption.transferMemo}</strong>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              disabled={timeLeft === 0 || isVerifying}
+              onClick={handleVerifyPayment}
+              className="min-h-11 w-full rounded-xl text-xs font-semibold"
+            >
+              {isVerifying ? 'Đang kiểm tra...' : 'Xác nhận đã chuyển khoản'}
+            </Button>
           </div>
-        </div>
-      )}
-
-      {/* Toast thông báo */}
-      {billingToast && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400">verified</span>
-          <span className="font-medium">{billingToast}</span>
-          <button
-            type="button"
-            onClick={() => setBillingToast(null)}
-            className="ml-2 text-slate-400 hover:text-white"
-            aria-label="Đóng thông báo"
-          >
-            <span className="material-symbols-outlined text-[16px]">close</span>
-          </button>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

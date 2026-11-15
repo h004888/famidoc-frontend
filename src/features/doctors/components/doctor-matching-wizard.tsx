@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import { ContractSigningWizard } from '@/features/subscription-contract';
 
@@ -165,7 +167,7 @@ export function DoctorMatchingWizard() {
           <div className="bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-slate-100 p-6 sm:p-7">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-100">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-[#2E37A4]/10 text-[#2E37A4] flex items-center justify-center shrink-0">
+                <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-[26px]">home_health</span>
                 </div>
                 <div>
@@ -460,7 +462,7 @@ export function DoctorMatchingWizard() {
                   >
                     {/* Top 1 Badge */}
                     {isTop1 && (
-                      <div className="absolute top-0 right-8 -translate-y-1/2 bg-gradient-to-r from-[#2E37A4] to-[#00D3C7] text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
+                      <div className="absolute top-0 right-8 -translate-y-1/2 bg-gradient-to-r from-[#0037c1] to-[#00D3C7] text-white text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm flex items-center gap-1">
                         <span className="material-symbols-outlined text-[14px]">military_tech</span>
                         <span>Đề xuất tối ưu nhất (Top 1)</span>
                       </div>
@@ -486,9 +488,9 @@ export function DoctorMatchingWizard() {
 
                         <div className="space-y-2 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-[#0046c0] to-[#2E37A4] text-white shadow-2xs">
+                            <Badge className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary text-primary-foreground shadow-2xs">
                               ★ {doc.matchScore}% PHÙ HỢP
-                            </span>
+                            </Badge>
                             <h3 className="font-bold text-base sm:text-lg text-slate-900">
                               {doc.title} {doc.name}
                             </h3>
@@ -543,7 +545,7 @@ export function DoctorMatchingWizard() {
 
                       {/* Right Action Buttons */}
                       <div className="flex flex-col sm:flex-row lg:flex-col items-stretch gap-2.5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-                        <button
+                        <Button
                           type="button"
                           onClick={() =>
                             setSelectedDoctorForContract({
@@ -551,13 +553,13 @@ export function DoctorMatchingWizard() {
                               specialty: doc.specialty,
                             })
                           }
-                          className="px-6 py-3.5 bg-gradient-to-r from-[#2E37A4] to-[#0046c0] hover:from-[#1e2575] hover:to-[#003796] text-white font-bold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center justify-center gap-2 group"
+                          className="h-auto px-6 py-3.5 font-bold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all gap-2 group"
                         >
                           <span className="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">
                             assignment_turned_in
                           </span>
                           <span>Chọn Bác Sĩ &amp; Ký Hợp Đồng (SCR-15)</span>
-                        </button>
+                        </Button>
 
                         <Link
                           href={`/doctors/${doc.id}`}

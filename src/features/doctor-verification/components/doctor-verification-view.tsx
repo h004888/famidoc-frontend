@@ -1,6 +1,19 @@
 'use client';
 
 import React, { useState } from 'react';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function DoctorVerificationView() {
   const cchnNumber = '004128/BYT-CCHN';
@@ -9,37 +22,37 @@ export function DoctorVerificationView() {
   const scopeOfPractice = 'Khám bệnh, chữa bệnh Nội khoa & Y học gia đình';
   const selectedHospital = 'BV Đại học Y Dược TP.HCM';
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-[#0f172a] font-sans antialiased">
 
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+        <Card className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border-slate-200 shadow-xs">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a]">
                 Hồ Sơ Y Khoa &amp; Xác Thực Chứng Chỉ Hành Nghề (CCHN)
               </h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f6ffed] text-[#03864b] border border-[#b7eb8f]">
+              <Badge variant="outline" className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f6ffed] text-[#03864b] border-[#b7eb8f]">
                 Xác thực định danh Bộ Y Tế
-              </span>
+              </Badge>
             </div>
             <p className="text-xs text-[#475569] mt-1">
               Thẩm định năng lực chuyên môn, văn bằng y khoa và phân quyền điều phối thăm khám tại gia theo quy định của Luật Khám bệnh, chữa bệnh.
             </p>
           </div>
 
-          <button
+          <Button
             type="button"
+            size="sm"
             onClick={() => setShowUpdateModal(true)}
-            className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer self-start md:self-auto"
+            className="rounded-xl text-xs font-bold gap-1.5 self-start md:self-auto"
           >
             <span className="material-symbols-outlined text-[16px]">upload_file</span>
             <span>Nộp bổ sung văn bằng mới</span>
-          </button>
-        </div>
+          </Button>
+        </Card>
 
         {/* Verification Status Banner (3-step pipeline) */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
@@ -106,7 +119,7 @@ export function DoctorVerificationView() {
           {/* Left: Credential Fields (7 cols) */}
           <div className="lg:col-span-7 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-5">
             <h3 className="font-bold text-base text-[#0f172a] flex items-center gap-2 border-b border-slate-100 pb-3">
-              <span className="material-symbols-outlined text-[#2563eb]">badge</span>
+              <span className="material-symbols-outlined text-primary">badge</span>
               Thông Tin Chứng Chỉ Hành Nghề Bộ Y Tế
             </h3>
 
@@ -114,7 +127,7 @@ export function DoctorVerificationView() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <span className="text-slate-400 text-[11px] block mb-1">Số CCHN Bộ Y Tế:</span>
-                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 tabular-nums font-bold text-sm text-[#2563eb]">
+                  <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 tabular-nums font-bold text-sm text-primary">
                     {cchnNumber}
                   </div>
                 </div>
@@ -142,7 +155,7 @@ export function DoctorVerificationView() {
 
               <div>
                 <span className="text-slate-400 text-[11px] block mb-1">Cơ sở khám chữa bệnh công tác chính:</span>
-                <div className="p-2.5 rounded-lg bg-blue-50/50 border border-blue-100 font-bold text-[#2563eb] flex items-center justify-between">
+                <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/20 font-bold text-primary flex items-center justify-between">
                   <span>{selectedHospital}</span>
                   <span className="text-[10px] text-slate-500 font-normal">Bệnh viện Tuyến 1</span>
                 </div>
@@ -153,7 +166,7 @@ export function DoctorVerificationView() {
           {/* Right: Attached Certificates (5 cols) */}
           <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
             <h3 className="font-bold text-base text-[#0f172a] flex items-center gap-2 border-b border-slate-100 pb-3">
-              <span className="material-symbols-outlined text-[#2563eb]">folder_special</span>
+              <span className="material-symbols-outlined text-primary">folder_special</span>
               Văn Bằng &amp; Hồ Sơ Đã Nộp (4)
             </h3>
 
@@ -215,92 +228,67 @@ export function DoctorVerificationView() {
       </main>
 
       {/* Upload Additional Document Modal */}
-      {showUpdateModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-              <h3 className="font-bold text-sm text-[#0f172a]">Nộp Bổ Sung Văn Bằng / Chứng Chỉ Y Khoa</h3>
-              <button
-                type="button"
-                onClick={() => setShowUpdateModal(false)}
-                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center text-slate-500"
-              >
-                ✕
-              </button>
+      <Dialog open={showUpdateModal} onOpenChange={setShowUpdateModal}>
+        <DialogContent className="sm:max-w-md rounded-2xl p-6 space-y-4">
+          <DialogHeader className="border-b border-slate-100 pb-2">
+            <DialogTitle className="font-bold text-sm text-[#0f172a]">
+              Nộp Bổ Sung Văn Bằng / Chứng Chỉ Y Khoa
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 text-xs">
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-[#475569]">Loại chứng chỉ / Văn bằng *</Label>
+              <select className="w-full h-9 px-3 rounded-lg border border-input bg-background text-xs focus:outline-none focus:ring-2 focus:ring-ring">
+                <option>Chứng chỉ đào tạo liên tục (CME)</option>
+                <option>Chứng chỉ Chuyên khoa II</option>
+                <option>Chứng chỉ Siêu âm / Chẩn đoán hình ảnh</option>
+                <option>Văn bằng khác</option>
+              </select>
             </div>
 
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">Loại chứng chỉ / Văn bằng *</label>
-                <select className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#2563eb]">
-                  <option>Chứng chỉ đào tạo liên tục (CME)</option>
-                  <option>Chứng chỉ Chuyên khoa II</option>
-                  <option>Chứng chỉ Siêu âm / Chẩn đoán hình ảnh</option>
-                  <option>Văn bằng khác</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">Cơ quan / Bệnh viện cấp *</label>
-                <input
-                  type="text"
-                  placeholder="Ví dụ: Đại học Y Dược TP.HCM"
-                  className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#2563eb]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">Tải file PDF hoặc ảnh chụp scan *</label>
-                <input
-                  type="file"
-                  className="w-full p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50"
-                />
-              </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-[#475569]">Cơ quan / Bệnh viện cấp *</Label>
+              <Input
+                type="text"
+                placeholder="Ví dụ: Đại học Y Dược TP.HCM"
+                className="rounded-lg text-xs"
+              />
             </div>
 
-            <div className="flex gap-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowUpdateModal(false)}
-                className="flex-1 py-2 text-xs font-semibold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setToastMessage('Đã tải lên văn bằng thành công! Hội đồng chuyên môn cơ sở y tế sẽ thẩm định trong vòng 24 giờ.');
-                  setShowUpdateModal(false);
-                  setTimeout(() => setToastMessage(null), 4000);
-                }}
-                className="flex-1 py-2 text-xs font-semibold text-white bg-[#2563eb] hover:bg-[#1d4ed8] rounded-lg shadow-xs"
-              >
-                Gửi phê duyệt
-              </button>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold text-[#475569]">Tải file PDF hoặc ảnh chụp scan *</Label>
+              <Input
+                type="file"
+                className="p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 text-xs"
+              />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Accessible Feedback Toast */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-in fade-in slide-in-from-bottom-3 duration-200"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
-          <span className="font-medium">{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-2 text-slate-400 hover:text-white"
-            aria-label="Đóng thông báo"
-          >
-            <span className="material-symbols-outlined text-[16px]">close</span>
-          </button>
-        </div>
-      )}
+          <DialogFooter className="pt-2 border-t border-slate-100">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setShowUpdateModal(false)}
+              className="flex-1 rounded-lg text-xs font-semibold"
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                toast.success('Đã tải lên văn bằng thành công! Hội đồng chuyên môn cơ sở y tế sẽ thẩm định trong vòng 24 giờ.');
+                setShowUpdateModal(false);
+              }}
+              className="flex-1 rounded-lg text-xs font-semibold"
+            >
+              Gửi phê duyệt
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

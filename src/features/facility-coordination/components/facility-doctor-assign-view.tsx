@@ -9,6 +9,10 @@ import {
   DocumensoSigningEmbed,
 } from '@/features/four-party-contract';
 import { contractsApi, publicApi } from '@/lib/api';
+import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export interface AvailableDoctor {
   id: string;
@@ -199,9 +203,9 @@ export function FacilityDoctorAssignView({
         doctorTitle: selectedDoctor.title,
       };
       setCurrentContract(updated);
-      setSuccessMessage(
-        `Đã phân công ${selectedDoctor.name} phụ trách hợp đồng ${currentContract.contractNumber}. Đại diện CSYT vui lòng ký xác nhận trên Documenso.`
-      );
+      const msg = `Đã phân công ${selectedDoctor.name} phụ trách hợp đồng ${currentContract.contractNumber}. Đại diện CSYT vui lòng ký xác nhận trên Documenso.`;
+      setSuccessMessage(msg);
+      toast.success(msg);
       onAssignSuccess?.(updated);
     } catch (err) {
       setErrorMessage(
@@ -228,7 +232,7 @@ export function FacilityDoctorAssignView({
           <div className="flex items-center gap-2 mb-1">
             <Link
               href="/facility/contracts"
-              className="text-xs font-medium text-slate-500 hover:text-blue-600 transition-colors inline-flex items-center gap-1"
+              className="text-xs font-medium text-slate-500 hover:text-primary transition-colors inline-flex items-center gap-1"
             >
               <span>&larr;</span> Quay lại danh sách tiếp nhận
             </Link>
@@ -248,45 +252,39 @@ export function FacilityDoctorAssignView({
 
         <div className="flex items-center gap-2">
           {isFacilitySigned ? (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
+            <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border-emerald-200">
               Đã ký Documenso CSYT (Bên B)
-            </span>
+            </Badge>
           ) : (
-            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
+            <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border-amber-200">
               Chờ CSYT ký Documenso
-            </span>
+            </Badge>
           )}
         </div>
       </div>
 
       {/* Success Notification */}
       {successMessage && (
-        <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 shadow-xs">
-          <div className="flex items-start justify-between gap-3">
+        <Alert className="rounded-lg bg-emerald-50 border-emerald-200 text-emerald-900 shadow-xs">
+          <AlertDescription className="flex items-start justify-between gap-3 text-emerald-900">
             <div>
               <div className="font-semibold text-emerald-900">
                 Cập nhật hợp đồng thành công!
               </div>
               <p className="text-sm text-emerald-800 mt-1">{successMessage}</p>
             </div>
-            <Link
-              href="/facility/contracts"
-              className="px-3 py-1.5 text-xs font-medium rounded-md bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shrink-0"
-            >
-              Về danh sách
-            </Link>
-          </div>
-        </div>
+            <Button asChild size="xs" className="bg-emerald-600 text-white hover:bg-emerald-700 shrink-0 rounded-md">
+              <Link href="/facility/contracts">Về danh sách</Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Error Alert */}
       {errorMessage && (
-        <div
-          role="alert"
-          className="p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-sm"
-        >
-          {errorMessage}
-        </div>
+        <Alert variant="destructive" className="rounded-lg bg-rose-50 border-rose-200 text-rose-800">
+          <AlertDescription className="text-sm text-rose-800">{errorMessage}</AlertDescription>
+        </Alert>
       )}
 
       {/* Two Column Layout */}
@@ -550,25 +548,21 @@ export function FacilityDoctorAssignView({
                         </div>
 
                         <div className="sm:self-center shrink-0">
-                          <button
+                          <Button
                             type="button"
+                            size="sm"
+                            variant={isSelected ? 'default' : isCapped ? 'secondary' : 'outline'}
                             data-testid={`select-doctor-${doctor.id}`}
                             disabled={isCapped}
                             onClick={() => handleSelectDoctor(doctor)}
-                            className={`w-full sm:w-auto px-4 py-2 text-xs font-medium rounded-md transition-colors cursor-pointer ${
-                              isSelected
-                                ? 'bg-blue-600 text-white shadow-xs'
-                                : isCapped
-                                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                                : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:text-slate-900'
-                            }`}
+                            className="w-full sm:w-auto px-4 text-xs font-medium rounded-md cursor-pointer"
                           >
                             {isSelected
                               ? 'Đang chọn'
                               : isCapped
                               ? 'Đã đạt định biên tối đa'
                               : 'Chỉ định bác sĩ'}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -581,14 +575,15 @@ export function FacilityDoctorAssignView({
                   <div className="text-xs text-slate-600">
                     Bác sĩ được chọn: <strong className="text-slate-900">{selectedDoctor.name}</strong>
                   </div>
-                  <button
+                  <Button
                     type="button"
+                    size="sm"
                     disabled={isAssigning}
                     onClick={() => void handleSubmitAssignment()}
-                    className="px-4 py-2 rounded-md text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 cursor-pointer"
+                    className="px-4 rounded-md text-xs font-semibold cursor-pointer"
                   >
                     {isAssigning ? 'Đang phân công...' : 'Lưu phân công bác sĩ'}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>

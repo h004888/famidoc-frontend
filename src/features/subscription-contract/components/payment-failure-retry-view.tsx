@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import { formatCurrencyVND } from '@/lib/utils';
 
 export type PaymentFailureReasonCode =
@@ -235,14 +236,14 @@ export function PaymentFailureRetryView({
           </button>
 
           <div className="flex items-center gap-3 w-full sm:w-auto">
-            <button
+            <Button
               type="button"
               onClick={handleRetry}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-[#2E37A4] hover:bg-[#232B85] text-white text-xs sm:text-sm font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs"
+              className="w-full sm:w-auto rounded-lg text-xs sm:text-sm font-semibold gap-2"
             >
               <span className="material-symbols-outlined text-[18px]">autorenew</span>
               <span>Tạo lại mã VietQR mới</span>
-            </button>
+            </Button>
           </div>
         </div>
       </div>

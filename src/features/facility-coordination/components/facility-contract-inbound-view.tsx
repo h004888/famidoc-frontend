@@ -7,6 +7,27 @@ import {
   type FourPartyContract,
 } from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 export interface FacilityContractInboundViewProps {
   initialContracts?: FourPartyContract[];
@@ -121,7 +142,7 @@ export function FacilityContractInboundView({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
@@ -134,97 +155,106 @@ export function FacilityContractInboundView({
         </div>
         <div className="flex items-center gap-2">
           {!isControlledByProps && (
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={triggerReload}
               disabled={isLoading}
-              className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 cursor-pointer disabled:opacity-50"
+              className="rounded-lg bg-white text-xs font-semibold cursor-pointer"
             >
               Làm mới
-            </button>
+            </Button>
           )}
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200">
+          <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-accent text-primary border-primary/20">
             Hệ thống Điều phối CSYT
-          </span>
+          </Badge>
         </div>
       </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="p-4 rounded-lg bg-white border border-slate-200 shadow-xs">
-          <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-            Tổng hợp đồng tiếp nhận
-          </div>
-          <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
-            {totalContracts}
-          </div>
-          <div className="text-xs text-slate-500 mt-1">Hồ sơ hợp đồng 4 bên</div>
-        </div>
+        <Card className="rounded-xl bg-white border-slate-200 py-4 shadow-xs">
+          <CardContent className="px-4">
+            <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Tổng hợp đồng tiếp nhận
+            </div>
+            <div className="text-2xl font-bold text-slate-900 mt-1 tabular-nums">
+              {totalContracts}
+            </div>
+            <div className="text-xs text-slate-500 mt-1">Hồ sơ hợp đồng 4 bên</div>
+          </CardContent>
+        </Card>
 
-        <div className="p-4 rounded-lg border border-amber-200 bg-amber-50/20 shadow-xs">
-          <div className="text-xs font-medium text-amber-700 uppercase tracking-wider">
-            Chờ CSYT ký / phân công
-          </div>
-          <div className="text-2xl font-bold text-amber-900 mt-1 tabular-nums">
-            {pendingSignature}
-          </div>
-          <div className="text-xs text-amber-600 mt-1">Cần ký xác nhận trên Documenso</div>
-        </div>
+        <Card className="rounded-xl border-amber-200 bg-amber-50/20 py-4 shadow-xs">
+          <CardContent className="px-4">
+            <div className="text-xs font-medium text-amber-700 uppercase tracking-wider">
+              Chờ CSYT ký / phân công
+            </div>
+            <div className="text-2xl font-bold text-amber-900 mt-1 tabular-nums">
+              {pendingSignature}
+            </div>
+            <div className="text-xs text-amber-600 mt-1">Cần ký xác nhận trên Documenso</div>
+          </CardContent>
+        </Card>
 
-        <div className="p-4 rounded-lg border border-emerald-200 bg-emerald-50/20 shadow-xs">
-          <div className="text-xs font-medium text-emerald-700 uppercase tracking-wider">
-            Đã ký số CSYT
-          </div>
-          <div className="text-2xl font-bold text-emerald-900 mt-1 tabular-nums">
-            {signedCount}
-          </div>
-          <div className="text-xs text-emerald-600 mt-1">Đã hoàn tất chữ ký Bên B</div>
-        </div>
+        <Card className="rounded-xl border-emerald-200 bg-emerald-50/20 py-4 shadow-xs">
+          <CardContent className="px-4">
+            <div className="text-xs font-medium text-emerald-700 uppercase tracking-wider">
+              Đã ký số CSYT
+            </div>
+            <div className="text-2xl font-bold text-emerald-900 mt-1 tabular-nums">
+              {signedCount}
+            </div>
+            <div className="text-xs text-emerald-600 mt-1">Đã hoàn tất chữ ký Bên B</div>
+          </CardContent>
+        </Card>
       </div>
 
       {loadError && (
-        <div
-          role="alert"
-          className="p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center justify-between gap-2"
-        >
-          <span>{loadError}</span>
-          <button
-            type="button"
-            onClick={triggerReload}
-            className="px-3 py-1.5 rounded-md bg-rose-600 text-white font-semibold cursor-pointer"
-          >
-            Thử lại
-          </button>
-        </div>
+        <Alert variant="destructive" className="rounded-lg bg-rose-50 border-rose-200 text-rose-800">
+          <AlertDescription className="flex items-center justify-between gap-2 text-xs text-rose-800">
+            <span>{loadError}</span>
+            <Button
+              type="button"
+              size="xs"
+              variant="destructive"
+              onClick={triggerReload}
+              className="rounded-md font-semibold cursor-pointer"
+            >
+              Thử lại
+            </Button>
+          </AlertDescription>
+        </Alert>
       )}
 
       {/* Filters and Controls */}
-      <div className="p-4 rounded-lg bg-white border border-slate-200 shadow-xs space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label htmlFor="search-input" className="block text-xs font-medium text-slate-700 mb-1">
+      <Card className="rounded-xl bg-white border-slate-200 py-4 shadow-xs">
+        <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 px-4">
+          <div className="space-y-1">
+            <Label htmlFor="search-input" className="text-xs font-medium text-slate-700">
               Tìm kiếm hồ sơ
-            </label>
-            <input
+            </Label>
+            <Input
               id="search-input"
               type="text"
               placeholder="Tìm theo số HĐ, tên người đại diện..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="rounded-md text-sm bg-white"
             />
           </div>
 
-          <div>
-            <label htmlFor="package-select" className="block text-xs font-medium text-slate-700 mb-1">
+          <div className="space-y-1">
+            <Label htmlFor="package-select" className="text-xs font-medium text-slate-700">
               Lọc theo gói chăm sóc
-            </label>
+            </Label>
             <select
               id="package-select"
               aria-label="Lọc theo gói"
               value={packageFilter}
               onChange={(e) => setPackageFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="h-9 w-full px-3 text-sm rounded-md border border-input focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring bg-white"
             >
               <option value="ALL">Tất cả các gói</option>
               {packageOptions.map((pkg) => (
@@ -235,16 +265,16 @@ export function FacilityContractInboundView({
             </select>
           </div>
 
-          <div>
-            <label htmlFor="status-select" className="block text-xs font-medium text-slate-700 mb-1">
+          <div className="space-y-1">
+            <Label htmlFor="status-select" className="text-xs font-medium text-slate-700">
               Lọc theo trạng thái hợp đồng
-            </label>
+            </Label>
             <select
               id="status-select"
               aria-label="Lọc theo trạng thái"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 text-sm rounded-md border border-slate-300 focus:outline-hidden focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="h-9 w-full px-3 text-sm rounded-md border border-input focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring bg-white"
             >
               <option value="ALL">Tất cả trạng thái</option>
               <option value="DRAFT">Chờ Bên A ký Documenso</option>
@@ -255,182 +285,172 @@ export function FacilityContractInboundView({
               <option value="ACTIVE">Đang hiệu lực</option>
             </select>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {/* Contracts Table */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold text-xs tracking-wider">
-                <th className="py-3 px-4 text-left">Mã Hợp Đồng</th>
-                <th className="py-3 px-4 text-left">Đại diện Gia đình</th>
-                <th className="py-3 px-4 text-left">Gói Dịch Vụ</th>
-                <th className="py-3 px-4 text-right">Phí dịch vụ</th>
-                <th className="py-3 px-4 text-left">Bác sĩ phụ trách</th>
-                <th className="py-3 px-4 text-center">Trạng thái</th>
-                <th className="py-3 px-4 text-right">Thao tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
-                    Đang tải danh sách hợp đồng...
-                  </td>
-                </tr>
-              ) : filteredContracts.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-500">
-                    Không tìm thấy hợp đồng nào phù hợp với bộ lọc hiện tại.
-                  </td>
-                </tr>
-              ) : (
-                filteredContracts.map((contract) => {
-                  const familySigned = Boolean(contract.signatures?.family) || contract.status !== 'DRAFT';
-                  const facilitySigned =
-                    Boolean(contract.signatures?.facility) ||
-                    contract.status === 'FACILITY_ASSIGNED' ||
-                    contract.status === 'PENDING_PAYMENT' ||
-                    contract.status === 'ACTIVE';
-                  const isPending = !facilitySigned;
+      <Card className="bg-white rounded-xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+        <Table className="text-sm">
+          <TableHeader>
+            <TableRow className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold text-xs tracking-wider hover:bg-slate-50">
+              <TableHead className="py-3 px-4 text-left text-slate-600">Mã Hợp Đồng</TableHead>
+              <TableHead className="py-3 px-4 text-left text-slate-600">Đại diện Gia đình</TableHead>
+              <TableHead className="py-3 px-4 text-left text-slate-600">Gói Dịch Vụ</TableHead>
+              <TableHead className="py-3 px-4 text-right text-slate-600">Phí dịch vụ</TableHead>
+              <TableHead className="py-3 px-4 text-left text-slate-600">Bác sĩ phụ trách</TableHead>
+              <TableHead className="py-3 px-4 text-center text-slate-600">Trạng thái</TableHead>
+              <TableHead className="py-3 px-4 text-right text-slate-600">Thao tác</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-slate-100">
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={7} className="py-8 text-center text-slate-500 text-xs">
+                  Đang tải danh sách hợp đồng...
+                </TableCell>
+              </TableRow>
+            ) : filteredContracts.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="py-8 text-center text-slate-500">
+                  Không tìm thấy hợp đồng nào phù hợp với bộ lọc hiện tại.
+                </TableCell>
+              </TableRow>
+            ) : (
+              filteredContracts.map((contract) => {
+                const familySigned = Boolean(contract.signatures?.family) || contract.status !== 'DRAFT';
+                const facilitySigned =
+                  Boolean(contract.signatures?.facility) ||
+                  contract.status === 'FACILITY_ASSIGNED' ||
+                  contract.status === 'PENDING_PAYMENT' ||
+                  contract.status === 'ACTIVE';
+                const isPending = !facilitySigned;
 
-                  return (
-                    <tr
-                      key={contract.id}
-                      className="hover:bg-slate-50/70 transition-colors"
-                    >
-                      <td className="py-3.5 px-4 text-left">
-                        <div className="font-semibold text-slate-900 tabular-nums">
-                          {contract.contractNumber}
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5 tabular-nums">
-                          Tạo ngày {formatDate(contract.createdAt)}
-                        </div>
-                      </td>
+                return (
+                  <TableRow key={contract.id} className="hover:bg-slate-50/70">
+                    <TableCell className="py-3.5 px-4 text-left">
+                      <div className="font-semibold text-slate-900 tabular-nums">
+                        {contract.contractNumber}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5 tabular-nums">
+                        Tạo ngày {formatDate(contract.createdAt)}
+                      </div>
+                    </TableCell>
 
-                      <td className="py-3.5 px-4 text-left">
-                        <div className="font-medium text-slate-900">
-                          {contract.familyRepresentativeName}
+                    <TableCell className="py-3.5 px-4 text-left">
+                      <div className="font-medium text-slate-900">
+                        {contract.familyRepresentativeName}
+                      </div>
+                      <div className="text-xs text-slate-500 tabular-nums">
+                        {contract.familyRepresentativePhone} • {contract.membersCount || 1} suất thành viên
+                      </div>
+                      {contract.familyAddress && (
+                        <div className="text-xs text-slate-400 truncate max-w-[200px]" title={contract.familyAddress}>
+                          {contract.familyAddress}
                         </div>
-                        <div className="text-xs text-slate-500 tabular-nums">
-                          {contract.familyRepresentativePhone} • {contract.membersCount || 1} suất thành viên
-                        </div>
-                        {contract.familyAddress && (
-                          <div className="text-xs text-slate-400 truncate max-w-[200px]" title={contract.familyAddress}>
-                            {contract.familyAddress}
-                          </div>
-                        )}
-                      </td>
+                      )}
+                    </TableCell>
 
-                      <td className="py-3.5 px-4 text-left">
-                        <div className="font-medium text-slate-800">
-                          {contract.packageName}
-                        </div>
-                        <div className="text-xs text-slate-500 tabular-nums">
-                          Thời hạn: {contract.durationMonths || 12} tháng
-                        </div>
-                      </td>
+                    <TableCell className="py-3.5 px-4 text-left">
+                      <div className="font-medium text-slate-800">
+                        {contract.packageName}
+                      </div>
+                      <div className="text-xs text-slate-500 tabular-nums">
+                        Thời hạn: {contract.durationMonths || 12} tháng
+                      </div>
+                    </TableCell>
 
-                      <td className="py-3.5 px-4 text-right font-medium text-slate-800 tabular-nums">
-                        {formatPrice(contract.packagePrice)}
-                      </td>
+                    <TableCell className="py-3.5 px-4 text-right font-medium text-slate-800 tabular-nums">
+                      {formatPrice(contract.packagePrice)}
+                    </TableCell>
 
-                      <td className="py-3.5 px-4 text-left">
-                        {contract.doctorName ? (
-                          <div>
-                            <span className="font-medium text-slate-800">
-                              {contract.doctorName}
-                            </span>
-                            {contract.doctorTitle && (
-                              <div className="text-xs text-slate-500">
-                                {contract.doctorTitle}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                            Chưa phân công
+                    <TableCell className="py-3.5 px-4 text-left">
+                      {contract.doctorName ? (
+                        <div>
+                          <span className="font-medium text-slate-800">
+                            {contract.doctorName}
                           </span>
-                        )}
-                      </td>
+                          {contract.doctorTitle && (
+                            <div className="text-xs text-slate-500">
+                              {contract.doctorTitle}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-amber-700 bg-amber-50 rounded border-amber-200">
+                          Chưa phân công
+                        </Badge>
+                      )}
+                    </TableCell>
 
-                      <td className="py-3.5 px-4 text-center">
-                        {!familySigned ? (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                            Chờ Bên A ký trước
-                          </span>
-                        ) : isPending ? (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">
-                            Chờ phân công &amp; ký
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            Đã ký số CSYT
-                          </span>
-                        )}
-                      </td>
+                    <TableCell className="py-3.5 px-4 text-center">
+                      {!familySigned ? (
+                        <Badge variant="secondary" className="rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                          Chờ Bên A ký trước
+                        </Badge>
+                      ) : isPending ? (
+                        <Badge variant="outline" className="rounded-full text-xs font-medium bg-amber-50 text-amber-800 border-amber-200">
+                          Chờ phân công &amp; ký
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border-emerald-200">
+                          Đã ký số CSYT
+                        </Badge>
+                      )}
+                    </TableCell>
 
-                      <td className="py-3.5 px-4 text-right">
-                        <div className="inline-flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSigningContract(contract)}
-                            className="inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors cursor-pointer"
-                          >
-                            Ký Documenso
-                          </button>
-                          <Link
-                            href={`/facility/contracts/${contract.id}/assign`}
-                            className={
-                              isPending
-                                ? 'inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 shadow-xs transition-colors'
-                                : 'inline-flex items-center justify-center px-3 py-1.5 text-xs font-medium rounded-md text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-colors'
-                            }
-                          >
+                    <TableCell className="py-3.5 px-4 text-right">
+                      <div className="inline-flex items-center gap-2">
+                        <Button
+                          type="button"
+                          size="xs"
+                          variant="outline"
+                          onClick={() => setSigningContract(contract)}
+                          className="text-xs font-medium rounded-md text-teal-800 bg-teal-50 hover:bg-teal-100 border-teal-200 cursor-pointer"
+                        >
+                          Ký Documenso
+                        </Button>
+                        <Button
+                          asChild
+                          size="xs"
+                          variant={isPending ? 'default' : 'secondary'}
+                          className="text-xs font-medium rounded-md"
+                        >
+                          <Link href={`/facility/contracts/${contract.id}/assign`}>
                             {isPending ? 'Phân công & Ký số' : 'Xem phân công'}
                           </Link>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </Card>
 
-      {/* Modal ký Documenso trực tiếp cho CSYT (Bên B) */}
-      {signingContract && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">
+      {/* Dialog ký Documenso trực tiếp cho CSYT (Bên B) */}
+      <Dialog open={Boolean(signingContract)} onOpenChange={(open) => !open && setSigningContract(null)}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 sm:max-w-3xl">
+          {signingContract && (
+            <>
+              <DialogHeader className="border-b border-slate-100 pb-3">
+                <DialogTitle className="text-base font-bold text-slate-900">
                   Ký Hợp Đồng Documenso — Bên B (Cơ sở Y tế)
-                </h2>
-                <p className="text-xs text-slate-500 tabular-nums">
+                </DialogTitle>
+                <DialogDescription className="text-xs text-slate-500 tabular-nums">
                   {signingContract.contractNumber} • Gia đình: {signingContract.familyRepresentativeName}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSigningContract(null)}
-                className="text-slate-400 hover:text-slate-600 cursor-pointer text-xs font-semibold px-2 py-1"
-              >
-                Đóng
-              </button>
-            </div>
+                </DialogDescription>
+              </DialogHeader>
 
-            <DocumensoSigningEmbed
-              contractId={signingContract.id}
-              onSyncCompleted={triggerReload}
-            />
-          </div>
-        </div>
-      )}
+              <DocumensoSigningEmbed
+                contractId={signingContract.id}
+                onSyncCompleted={triggerReload}
+              />
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

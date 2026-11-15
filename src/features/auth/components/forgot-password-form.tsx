@@ -3,6 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { forgotPasswordSchema } from '../schemas/auth.schema';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function ForgotPasswordForm() {
   const [contact, setContact] = useState('');
@@ -38,7 +43,8 @@ export function ForgotPasswordForm() {
   };
 
   return (
-    <div className="w-full max-w-md bg-surface-container-lowest p-8 rounded-2xl border border-outline-variant shadow-lg space-y-6">
+    <Card className="w-full max-w-md rounded-2xl border-outline-variant bg-surface-container-lowest py-0 shadow-lg">
+      <CardContent className="space-y-6 p-8">
       <div className="text-center space-y-2">
         <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-secondary-container/20 text-[#fa8c16] mb-2 shadow-sm">
           <span className="material-symbols-outlined text-2xl">lock_reset</span>
@@ -50,49 +56,50 @@ export function ForgotPasswordForm() {
       </div>
 
       {submitted ? (
-        <div className="p-4 rounded-xl bg-[#f6ffed] border border-[#b7eb8f] space-y-3 text-center">
-          <span className="material-symbols-outlined text-3xl text-[#039855]">mark_email_read</span>
-          <h4 className="font-bold text-sm text-[#039855]">Mã OTP đã được gửi thành công!</h4>
-          <p className="text-xs text-on-surface-variant">
-            Vui lòng kiểm tra tin nhắn SMS hoặc hộp thư đến tại <span className="font-semibold text-on-surface">{contact}</span>.
-          </p>
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
-            <button
-              type="button"
-              disabled={countdown > 0}
-              onClick={() => {
-                setCountdown(60);
-              }}
-              className="w-full sm:w-auto px-4 py-2 border border-slate-200 text-xs font-semibold rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {countdown > 0 ? `Gửi lại mã (${countdown}s)` : 'Gửi lại mã OTP'}
-            </button>
-            <Link
-              href="/login"
-              className="w-full sm:w-auto inline-block px-4 py-2 bg-primary-container text-white text-xs font-semibold rounded-lg hover:bg-primary transition-colors text-center"
-            >
-              Quay lại Đăng nhập
-            </Link>
-          </div>
-        </div>
+        <Alert className="rounded-xl border-[#b7eb8f] bg-[#f6ffed] p-4 text-center">
+          <AlertDescription className="space-y-3 text-center">
+            <span className="material-symbols-outlined text-3xl text-[#039855]">mark_email_read</span>
+            <h4 className="font-bold text-sm text-[#039855]">Mã OTP đã được gửi thành công!</h4>
+            <p className="text-xs text-on-surface-variant">
+              Vui lòng kiểm tra tin nhắn SMS hoặc hộp thư đến tại <span className="font-semibold text-on-surface">{contact}</span>.
+            </p>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={countdown > 0}
+                onClick={() => {
+                  setCountdown(60);
+                }}
+                className="w-full sm:w-auto rounded-lg text-xs font-semibold text-slate-700"
+              >
+                {countdown > 0 ? `Gửi lại mã (${countdown}s)` : 'Gửi lại mã OTP'}
+              </Button>
+              <Button asChild size="sm" className="w-full sm:w-auto rounded-lg text-xs font-semibold">
+                <Link href="/login">Quay lại Đăng nhập</Link>
+              </Button>
+            </div>
+          </AlertDescription>
+        </Alert>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-on-surface mb-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="forgot-contact" className="text-xs font-semibold text-on-surface">
               Số điện thoại hoặc Email
-            </label>
+            </Label>
             <div className="relative">
               <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-outline">
                 <span className="material-symbols-outlined text-[18px]">contact_mail</span>
               </span>
-              <input
+              <Input
+                id="forgot-contact"
                 type="text"
                 value={contact}
                 onChange={(e) => setContact(e.target.value)}
                 placeholder="0912 345 678 hoặc user@famidoc.vn"
-                className={`w-full pl-10 pr-3 py-2.5 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-primary-fixed bg-surface-container-low ${
-                  error ? 'border-error ring-1 ring-error' : 'border-outline-variant focus:border-primary'
-                }`}
+                aria-invalid={Boolean(error)}
+                className="h-10.5 rounded-lg bg-surface-container-low pl-10 pr-3 text-sm"
               />
             </div>
             {error && (
@@ -103,10 +110,10 @@ export function ForgotPasswordForm() {
             )}
           </div>
 
-          <button
+          <Button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-primary-container hover:bg-primary text-white rounded-lg font-semibold text-sm shadow-md transition-all duration-150 flex items-center justify-center gap-2"
+            className="w-full h-11 rounded-lg font-semibold text-sm shadow-md"
           >
             {loading ? (
               <>
@@ -119,7 +126,7 @@ export function ForgotPasswordForm() {
                 <span className="material-symbols-outlined text-[18px]">send</span>
               </>
             )}
-          </button>
+          </Button>
 
           <div className="text-center pt-2">
             <Link href="/login" className="text-xs font-semibold text-primary hover:underline flex items-center justify-center gap-1">
@@ -129,6 +136,7 @@ export function ForgotPasswordForm() {
           </div>
         </form>
       )}
-    </div>
+      </CardContent>
+    </Card>
   );
 }

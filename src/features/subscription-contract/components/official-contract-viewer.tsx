@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
 import {
   ContractDocumentSheet,
   type FourPartyContract,
@@ -179,14 +180,15 @@ export function OfficialContractViewer({
               <span className="material-symbols-outlined text-[18px]">print</span>
               <span className="hidden sm:inline">In văn bản</span>
             </button>
-            <button
+            <Button
               type="button"
+              size="sm"
               onClick={handleDownload}
-              className="px-3 py-1.5 rounded-lg bg-[#2E37A4] hover:bg-[#232B85] text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="rounded-lg text-xs font-semibold gap-1.5"
             >
               <span className="material-symbols-outlined text-[18px]">download</span>
               <span>Tải file PDF</span>
-            </button>
+            </Button>
           </div>
         </div>
       </header>
@@ -219,7 +221,7 @@ export function OfficialContractViewer({
                 href={verifyUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="text-[#2E37A4] font-semibold hover:underline break-all tabular-nums text-xs"
+                className="text-primary font-semibold hover:underline break-all tabular-nums text-xs"
               >
                 {verifyUrl}
               </a>

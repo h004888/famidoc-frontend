@@ -27,8 +27,8 @@ export default function FamilyMemberCarePage({
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
-          <div className="w-8 h-8 border-3 border-[#2E37A4]/20 border-t-[#2E37A4] rounded-full animate-spin" />
+        <div className="min-h-screen bg-[#f5f6f8] flex items-center justify-center">
+          <div className="w-8 h-8 border-3 border-primary/20 border-t-primary rounded-full animate-spin" />
         </div>
       }
     >

@@ -2,6 +2,22 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 interface PrescriptionItem {
   id: string;
@@ -128,64 +144,65 @@ export function DoctorEncountersView() {
     setTimeout(() => {
       setIsSigning(false);
       setIsSigned(true);
-      setSignSuccessMessage('Đã khóa mã hóa bệnh án EMR và hoàn tất Ký số điện tử HSM Viettel-CA!');
+      const message = 'Đã khóa mã hóa bệnh án EMR và hoàn tất Ký số điện tử HSM Viettel-CA!';
+      setSignSuccessMessage(message);
+      toast.success(message);
       setTimeout(() => setSignSuccessMessage(null), 6000);
     }, 1200);
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6 sm:space-y-8">
         {/* Sign Success Notification */}
         {signSuccessMessage && (
-          <div
-            role="status"
-            className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold flex items-center justify-between shadow-xs animate-in fade-in slide-in-from-top-2"
-          >
-            <div className="flex items-center gap-2.5">
+          <Alert role="status" className="rounded-2xl bg-emerald-50 border-emerald-200 text-emerald-800 flex items-center justify-between shadow-xs">
+            <AlertDescription className="flex items-center gap-2.5 text-sm font-semibold text-emerald-800">
               <span className="material-symbols-outlined text-[22px] text-emerald-600">verified</span>
               <span>{signSuccessMessage}</span>
-            </div>
-            <button
+            </AlertDescription>
+            <Button
               type="button"
+              variant="ghost"
+              size="icon-xs"
               onClick={() => setSignSuccessMessage(null)}
-              className="text-emerald-700 hover:text-emerald-900 p-1 cursor-pointer"
+              className="text-emerald-700 hover:text-emerald-900"
               aria-label="Đóng thông báo"
             >
               <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-          </div>
+            </Button>
+          </Alert>
         )}
 
         {/* Top Breadcrumb & Quick Actions Header */}
         <header className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-50 text-[#2E37A4] border border-indigo-100">
+              <Badge variant="outline" className="gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary border-primary/20">
                 <span className="material-symbols-outlined text-[15px]">clinical_notes</span>
                 Hồ Sơ Bệnh Án Điện Tử (EMR)
-              </span>
+              </Badge>
               <span>/</span>
               <span className="text-slate-700">Phiếu Khám Lâm Sàng Chuẩn SOAP</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border-emerald-200 shadow-2xs">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 Phiên Khám Trực Tuyến &amp; Đồng Bộ IoT
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-[#2E37A4] border border-indigo-200 shadow-2xs">
+              </Badge>
+              <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border-primary/20 shadow-2xs">
                 <span className="material-symbols-outlined text-[15px]">verified_user</span>
                 Chữ Ký Số HSM Viettel-CA
-              </span>
+              </Badge>
             </div>
           </div>
 
           {/* Patient Profile Card (Airy, Clinical Prestige) */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <Card className="bg-white p-6 rounded-2xl border-slate-200/80 shadow-xs hover:shadow-md transition-all flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex items-start sm:items-center gap-4.5">
               <div className="relative shrink-0">
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#2E37A4] to-[#00D3C7] text-white flex items-center justify-center font-bold text-xl shadow-md ring-4 ring-[#2E37A4]/10">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-white flex items-center justify-center font-bold text-xl shadow-md ring-4 ring-primary/10">
                   VP
                 </div>
                 <span
@@ -199,12 +216,12 @@ export function DoctorEncountersView() {
                   <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                     Nguyễn Văn Phúc
                   </h1>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                  <Badge variant="secondary" className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                     78 tuổi • Nam
-                  </span>
-                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-indigo-50 text-[#2E37A4] border border-indigo-200">
+                  </Badge>
+                  <Badge variant="outline" className="px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-primary/10 text-primary border-primary/20">
                     Mã ca: ENC-88219-01
-                  </span>
+                  </Badge>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
@@ -219,22 +236,25 @@ export function DoctorEncountersView() {
 
             {/* Header Action Buttons */}
             <div className="flex items-center gap-3 self-start lg:self-center shrink-0">
-              <Link
-                href="/doctor/telemedicine"
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs sm:text-sm font-bold transition-colors cursor-pointer shadow-xs"
+              <Button
+                asChild
+                variant="outline"
+                className="bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200 rounded-xl text-xs sm:text-sm font-bold gap-2"
               >
-                <span className="material-symbols-outlined text-[18px]">videocam</span>
-                <span>Phòng Gọi Telehealth</span>
-              </Link>
+                <Link href="/doctor/telemedicine">
+                  <span className="material-symbols-outlined text-[18px]">videocam</span>
+                  <span>Phòng Gọi Telehealth</span>
+                </Link>
+              </Button>
 
-              <button
+              <Button
                 type="button"
                 onClick={handleDigitalSign}
                 disabled={isSigned || isSigning}
-                className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all cursor-pointer disabled:cursor-not-allowed ${
+                className={`rounded-xl text-xs sm:text-sm font-bold gap-2 ${
                   isSigned
-                    ? 'bg-emerald-600 text-white shadow-emerald-600/20'
-                    : 'bg-[#2E37A4] hover:bg-indigo-800 text-white'
+                    ? 'bg-emerald-600 hover:bg-emerald-600 text-white shadow-emerald-600/20'
+                    : ''
                 }`}
               >
                 {isSigning ? (
@@ -250,9 +270,9 @@ export function DoctorEncountersView() {
                     <span>Khóa EMR &amp; Ký Số HSM</span>
                   </>
                 )}
-              </button>
+              </Button>
             </div>
-          </div>
+          </Card>
         </header>
 
         {/* Allergy Danger Alert Strip (Clinical Safety Shield) */}
@@ -293,7 +313,7 @@ export function DoctorEncountersView() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-200 flex items-center justify-center text-xs font-bold shrink-0">
+                  <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-bold shrink-0">
                     S
                   </span>
                   <div>
@@ -332,11 +352,11 @@ export function DoctorEncountersView() {
                 ))}
               </div>
 
-              <textarea
+              <Textarea
                 rows={4}
                 value={subjectiveNote}
                 onChange={(e) => setSubjectiveNote(e.target.value)}
-                className="w-full p-4 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50/60 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] transition-all"
+                className="w-full p-4 rounded-xl border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50/60 focus:bg-white transition-all"
               />
             </div>
 
@@ -344,7 +364,7 @@ export function DoctorEncountersView() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-200 flex items-center justify-center text-xs font-bold shrink-0">
+                  <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-bold shrink-0">
                     O
                   </span>
                   <div>
@@ -417,11 +437,11 @@ export function DoctorEncountersView() {
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
                   Ghi nhận khám tuần hoàn, hô hấp &amp; cơ xương khớp:
                 </label>
-                <textarea
+                <Textarea
                   rows={3}
                   value={objectiveExam}
                   onChange={(e) => setObjectiveExam(e.target.value)}
-                  className="w-full p-4 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50/60 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] transition-all"
+                  className="w-full p-4 rounded-xl border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50/60 focus:bg-white transition-all"
                 />
               </div>
             </div>
@@ -430,7 +450,7 @@ export function DoctorEncountersView() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-200 flex items-center justify-center text-xs font-bold shrink-0">
+                  <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-bold shrink-0">
                     A
                   </span>
                   <div>
@@ -441,21 +461,21 @@ export function DoctorEncountersView() {
                   </div>
                 </div>
 
-                <span className="text-[11px] font-semibold text-[#2E37A4] bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-200">
+                <Badge variant="outline" className="text-[11px] font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full border-primary/20">
                   Chuẩn hóa BHYT
-                </span>
+                </Badge>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Chẩn đoán chính:</span>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-[#2E37A4]">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
                       Ưu tiên 1
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 font-bold text-xs text-[#2E37A4] tabular-nums">
+                    <span className="px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 font-bold text-xs text-primary tabular-nums">
                       I10
                     </span>
                     <span className="text-xs sm:text-sm font-bold text-slate-900 leading-snug">
@@ -491,7 +511,7 @@ export function DoctorEncountersView() {
             <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="w-7 h-7 rounded-xl bg-indigo-50 text-[#2E37A4] border border-indigo-200 flex items-center justify-center text-xs font-bold shrink-0">
+                  <span className="w-7 h-7 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center text-xs font-bold shrink-0">
                     P
                   </span>
                   <div>
@@ -539,7 +559,7 @@ export function DoctorEncountersView() {
                         <div className="font-bold text-slate-900 text-xs sm:text-sm">
                           {rx.name} <span className="font-semibold text-slate-500">({rx.dosage})</span>
                         </div>
-                        <div className="text-[11px] text-[#2E37A4] font-semibold tabular-nums mt-0.5">
+                        <div className="text-[11px] text-primary font-semibold tabular-nums mt-0.5">
                           Số lượng: {rx.quantity} {rx.unit} • {rx.route}
                         </div>
                       </div>
@@ -553,9 +573,9 @@ export function DoctorEncountersView() {
               </div>
 
               {/* Add Drug Mini-Form */}
-              <form onSubmit={handleAddDrug} className="p-4 bg-indigo-50/30 rounded-2xl border border-indigo-100 space-y-3 text-xs">
+              <form onSubmit={handleAddDrug} className="p-4 bg-primary/5 rounded-2xl border border-primary/15 space-y-3 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="font-bold text-[#2E37A4] text-xs flex items-center gap-1">
+                  <span className="font-bold text-primary text-xs flex items-center gap-1">
                     <span className="material-symbols-outlined text-[16px]">add_circle</span>
                     Thêm thuốc từ Dược thư Quốc gia
                   </span>
@@ -587,64 +607,65 @@ export function DoctorEncountersView() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                       Tên biệt dược / Hoạt chất:
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       type="text"
                       required
                       value={drugName}
                       onChange={(e) => setDrugName(e.target.value)}
                       placeholder="vd: Amlodipine, Panadol..."
-                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4]"
+                      className="w-full rounded-xl bg-white text-xs"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                    <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                       Hàm lượng:
-                    </label>
-                    <input
+                    </Label>
+                    <Input
                       type="text"
                       value={drugDosage}
                       onChange={(e) => setDrugDosage(e.target.value)}
                       placeholder="vd: 5mg, 500mg..."
-                      className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4]"
+                      className="w-full rounded-xl bg-white text-xs"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                  <Label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">
                     Hướng dẫn sử dụng &amp; Liều dùng:
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     type="text"
                     value={drugInstructions}
                     onChange={(e) => setDrugInstructions(e.target.value)}
                     placeholder="vd: Uống 1 viên vào 08:00 sáng sau ăn..."
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4]"
+                    className="w-full rounded-xl bg-white text-xs"
                   />
                 </div>
 
-                <button
+                <Button
                   type="submit"
-                  className="w-full py-2 bg-[#2E37A4] hover:bg-indigo-800 text-white rounded-xl font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  size="sm"
+                  className="w-full rounded-xl font-bold text-xs gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">add</span>
                   Thêm vào đơn thuốc 1NF
-                </button>
+                </Button>
               </form>
 
               {/* Clinical Care Advice */}
               <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
+                <Label className="text-xs font-bold text-slate-900 uppercase tracking-wider block">
                   Lời dặn dò chế độ dinh dưỡng &amp; Vận động:
-                </label>
-                <textarea
+                </Label>
+                <Textarea
                   rows={3}
                   value={adviceNote}
                   onChange={(e) => setAdviceNote(e.target.value)}
-                  className="w-full p-3.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50/70 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#2E37A4]/20 focus:border-[#2E37A4] transition-all"
+                  className="w-full p-3.5 rounded-xl border-slate-200 text-xs sm:text-sm text-slate-700 leading-relaxed bg-slate-50/70 focus:bg-white transition-all"
                 />
               </div>
 
@@ -656,7 +677,7 @@ export function DoctorEncountersView() {
                     className={`font-bold px-2 py-0.5 rounded-full text-[11px] ${
                       isSigned
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-indigo-50 text-[#2E37A4] border border-indigo-200'
+                        : 'bg-primary/10 text-primary border border-primary/20'
                     }`}
                   >
                     {isSigned ? '✓ Đã khóa mã hóa (Read-only)' : 'Bản nháp đang mở'}
@@ -674,80 +695,94 @@ export function DoctorEncountersView() {
         </div>
 
         {/* MODAL CẢNH BÁO AN TOÀN DƯỢC LÂM SÀNG (MSG22 / GB-10) */}
-        {pendingAllergyDrug && (
-          <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-rose-200 space-y-5 animate-in zoom-in-95 duration-200">
-              <div className="flex items-start gap-3.5">
-                <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-[24px]">emergency</span>
-                </div>
-                <div>
-                  <h3 className="font-bold text-base text-rose-800">
-                    [CẢNH BÁO AN TOÀN DƯỢC MSG22 / GB-10]
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Xung đột dị ứng nghiêm trọng nhóm kháng sinh Penicillin
+        <Dialog
+          open={Boolean(pendingAllergyDrug)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPendingAllergyDrug(null);
+              setAllergyOverrideError(null);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-lg rounded-3xl p-6 border-rose-200 space-y-4">
+            {pendingAllergyDrug && (
+              <>
+                <DialogHeader>
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                      <span className="material-symbols-outlined text-[24px]">emergency</span>
+                    </div>
+                    <div>
+                      <DialogTitle className="font-bold text-base text-rose-800">
+                        [CẢNH BÁO AN TOÀN DƯỢC MSG22 / GB-10]
+                      </DialogTitle>
+                      <DialogDescription className="text-xs text-slate-500 mt-0.5">
+                        Xung đột dị ứng nghiêm trọng nhóm kháng sinh Penicillin
+                      </DialogDescription>
+                    </div>
+                  </div>
+                </DialogHeader>
+
+                <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-2 leading-relaxed">
+                  <p>
+                    Thuốc <strong>&quot;{pendingAllergyDrug.drug.name}&quot;</strong> thuộc nhóm dị ứng đã được ghi nhận trong hồ sơ tiền sử của bệnh nhân <strong>Nguyễn Văn Phúc</strong>!
+                  </p>
+                  <p className="text-[11px] text-rose-700 bg-white/70 p-2.5 rounded-xl border border-rose-200/60 font-medium">
+                    Khuyến nghị Dược lâm sàng: Nên lựa chọn nhóm kháng sinh thay thế an toàn hơn (như Macrolide, Quinolone...) trừ khi có chỉ định hồi sức bắt buộc.
                   </p>
                 </div>
-              </div>
 
-              <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-2 leading-relaxed">
-                <p>
-                  Thuốc <strong>&quot;{pendingAllergyDrug.drug.name}&quot;</strong> thuộc nhóm dị ứng đã được ghi nhận trong hồ sơ tiền sử của bệnh nhân <strong>Nguyễn Văn Phúc</strong>!
-                </p>
-                <p className="text-[11px] text-rose-700 bg-white/70 p-2.5 rounded-xl border border-rose-200/60 font-medium">
-                  Khuyến nghị Dược lâm sàng: Nên lựa chọn nhóm kháng sinh thay thế an toàn hơn (như Macrolide, Quinolone...) trừ khi có chỉ định hồi sức bắt buộc.
-                </p>
-              </div>
+                <div className="space-y-2 text-xs">
+                  <Label className="block font-bold text-slate-800 uppercase tracking-wider text-[11px]">
+                    Lý do ghi đè lâm sàng bắt buộc (Clinical Override Reason):
+                  </Label>
+                  <Textarea
+                    rows={2}
+                    value={pendingAllergyDrug.reason}
+                    onChange={(e) => {
+                      setPendingAllergyDrug({
+                        ...pendingAllergyDrug,
+                        reason: e.target.value,
+                      });
+                      if (allergyOverrideError) setAllergyOverrideError(null);
+                    }}
+                    placeholder="Ghi rõ cơ sở lâm sàng, chỉ định đặc biệt hoặc kết quả test lẩy da âm tính..."
+                    className="w-full p-3 rounded-xl border-slate-200 text-xs bg-slate-50 focus:bg-white focus-visible:ring-rose-500"
+                  />
+                  {allergyOverrideError && (
+                    <p role="alert" className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
+                      <span className="material-symbols-outlined text-[14px]">error</span>
+                      {allergyOverrideError}
+                    </p>
+                  )}
+                </div>
 
-              <div className="space-y-2 text-xs">
-                <label className="block font-bold text-slate-800 uppercase tracking-wider text-[11px]">
-                  Lý do ghi đè lâm sàng bắt buộc (Clinical Override Reason):
-                </label>
-                <textarea
-                  rows={2}
-                  value={pendingAllergyDrug.reason}
-                  onChange={(e) => {
-                    setPendingAllergyDrug({
-                      ...pendingAllergyDrug,
-                      reason: e.target.value,
-                    });
-                    if (allergyOverrideError) setAllergyOverrideError(null);
-                  }}
-                  placeholder="Ghi rõ cơ sở lâm sàng, chỉ định đặc biệt hoặc kết quả test lẩy da âm tính..."
-                  className="w-full p-3 rounded-xl border border-slate-200 text-xs bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-500"
-                />
-                {allergyOverrideError && (
-                  <p role="alert" className="text-[11px] font-semibold text-rose-600 flex items-center gap-1 mt-1">
-                    <span className="material-symbols-outlined text-[14px]">error</span>
-                    {allergyOverrideError}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex gap-3 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPendingAllergyDrug(null);
-                    setAllergyOverrideError(null);
-                  }}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 font-bold text-xs text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer"
-                >
-                  Hủy chỉ định (Khuyên dùng)
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirmAllergyOverride}
-                  className="flex-1 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">verified</span>
-                  Xác nhận ghi đè lâm sàng
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                <DialogFooter className="pt-2 border-t border-slate-100 sm:justify-stretch gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setPendingAllergyDrug(null);
+                      setAllergyOverrideError(null);
+                    }}
+                    className="flex-1 rounded-xl font-bold text-xs"
+                  >
+                    Hủy chỉ định (Khuyên dùng)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={handleConfirmAllergyOverride}
+                    className="flex-1 rounded-xl font-bold text-xs gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">verified</span>
+                    Xác nhận ghi đè lâm sàng
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

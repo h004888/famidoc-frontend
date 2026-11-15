@@ -1,9 +1,18 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { toast } from 'sonner';
 import { DoctorDashboardView } from '../doctor-dashboard-view';
+
+vi.mock('sonner', () => ({
+  toast: {
+    success: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -98,6 +107,52 @@ describe('UT-CMP-QueuePagination: Patient queue pagination on Doctor Dashboard',
     );
     expect(nextBtn.className.includes('min-h-[40px]') || nextBtn.className.includes('py-2')).toBe(
       true,
+    );
+  });
+});
+
+describe('DoctorDashboardView Queue Tabs & HSM Signing Dialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('switches clinical queue Tabs between pending, in_progress, and signed', async () => {
+    const user = userEvent.setup();
+    render(<DoctorDashboardView />);
+
+    expect(screen.getByText('3 ca chờ')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Đang khám' }));
+    expect(screen.getByText('1 ca chờ')).toBeInTheDocument();
+    expect(screen.getAllByText('Trần Thị Bích (66 tuổi)').length).toBeGreaterThan(0);
+
+    await user.click(screen.getByRole('tab', { name: 'Đã ký số' }));
+    expect(screen.getByText('1 ca chờ')).toBeInTheDocument();
+    expect(screen.getAllByText('Phạm Minh Khôi (9 tuổi)').length).toBeGreaterThan(0);
+  });
+
+  it('opens HSM signing Dialog, dismisses on Escape, and fires toast.success on confirm', async () => {
+    const user = userEvent.setup();
+    render(<DoctorDashboardView />);
+
+    await user.click(screen.getByRole('button', { name: /Ký số HSM & Hoàn tất/i }));
+    expect(await screen.findByText('Xác Thực Ký Số Viettel-CA Cloud HSM')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => {
+      expect(screen.queryByText('Xác Thực Ký Số Viettel-CA Cloud HSM')).not.toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /Ký số HSM & Hoàn tất/i }));
+    await user.click(await screen.findByRole('button', { name: /Xác nhận Ký số/i }));
+
+    await waitFor(
+      () => {
+        expect(toast.success).toHaveBeenCalledWith(
+          expect.stringContaining('Đã ký số HSM Viettel-CA'),
+        );
+      },
+      { timeout: 1500 },
     );
   });
 });

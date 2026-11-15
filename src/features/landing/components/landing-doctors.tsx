@@ -2,6 +2,16 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 interface DoctorItem {
   id: string;
@@ -196,116 +206,113 @@ export function LandingDoctors() {
       </div>
 
       {/* Interactive Quick Booking Modal Popup */}
-      {selectedDoctorForModal && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setSelectedDoctorForModal(null);
-          }}
-        >
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-slide-up">
-            {/* Modal Header */}
-            <div className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <img
-                  src={selectedDoctorForModal.avatar}
-                  alt={selectedDoctorForModal.name}
-                  className="w-12 h-12 rounded-full object-cover border border-blue-200"
-                />
-                <div>
-                  <div className="text-xs text-slate-500">{selectedDoctorForModal.cchn}</div>
-                  <h4 className="text-base font-bold text-slate-900">{selectedDoctorForModal.name}</h4>
-                  <div className="text-xs text-[#0046c0] font-medium">{selectedDoctorForModal.role}</div>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedDoctorForModal(null)}
-                className="w-8 h-8 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center cursor-pointer transition-colors"
-              >
-                <span className="material-symbols-outlined text-lg">close</span>
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            {modalSuccess ? (
-              <div className="p-8 text-center space-y-3">
-                <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                  <span className="material-symbols-outlined text-3xl">check</span>
-                </div>
-                <h5 className="text-base font-bold text-slate-900">Đặt Lịch Hẹn Thành Công!</h5>
-                <p className="text-xs text-slate-600 max-w-xs mx-auto">
-                  Yêu cầu khám cùng <strong>{selectedDoctorForModal.name}</strong> vào khung giờ{' '}
-                  <strong>{selectedSlot}</strong> đã được lưu. Trợ lý y tế sẽ liên hệ số {phone || 'của bạn'} để hoàn tất hồ sơ.
-                </p>
-                <div className="pt-2">
-                  <span className="inline-block text-[11px] text-slate-400 tabular-nums">Mã cuộc hẹn: #{bookingCode}</span>
-                </div>
-              </div>
-            ) : (
-              <form onSubmit={handleConfirmModalBooking} className="p-5 space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                    Chọn Khung Giờ Khám Trống Hôm Nay
-                  </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {TIME_SLOTS.map((slot) => (
-                      <button
-                        key={slot}
-                        type="button"
-                        onClick={() => setSelectedSlot(slot)}
-                        className={`p-2 rounded text-xs text-left transition-all cursor-pointer ${selectedSlot === slot
-                            ? 'bg-[#0046c0] text-white font-medium shadow-xs'
-                            : 'bg-slate-50 text-slate-700 border border-slate-200 hover:border-blue-300'
-                          }`}
-                      >
-                        {slot}
-                      </button>
-                    ))}
+      <Dialog
+        open={Boolean(selectedDoctorForModal)}
+        onOpenChange={(open) => !open && setSelectedDoctorForModal(null)}
+      >
+        <DialogContent className="sm:max-w-lg rounded-xl p-0 overflow-hidden gap-0">
+          {selectedDoctorForModal && (
+            <>
+              {/* Modal Header */}
+              <DialogHeader className="p-4 sm:p-5 bg-slate-50 border-b border-slate-200 text-left">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={selectedDoctorForModal.avatar}
+                    alt={selectedDoctorForModal.name}
+                    className="w-12 h-12 rounded-full object-cover border border-blue-200"
+                  />
+                  <div>
+                    <div className="text-xs text-slate-500">{selectedDoctorForModal.cchn}</div>
+                    <DialogTitle className="text-base font-bold text-slate-900">
+                      {selectedDoctorForModal.name}
+                    </DialogTitle>
+                    <DialogDescription className="text-xs text-primary font-medium">
+                      {selectedDoctorForModal.role}
+                    </DialogDescription>
                   </div>
                 </div>
+              </DialogHeader>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Số Điện Thoại Nhận Xác Nhận (SMS &amp; Call)
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="Ví dụ: 0912 345 678"
-                    className="w-full h-10 px-3 text-xs border border-slate-300 rounded-md focus:border-[#0046c0] focus:ring-1 focus:ring-[#0046c0] outline-none"
-                  />
+              {/* Modal Body */}
+              {modalSuccess ? (
+                <div className="p-8 text-center space-y-3">
+                  <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                    <span className="material-symbols-outlined text-3xl">check</span>
+                  </div>
+                  <h5 className="text-base font-bold text-slate-900">Đặt Lịch Hẹn Thành Công!</h5>
+                  <p className="text-xs text-slate-600 max-w-xs mx-auto">
+                    Yêu cầu khám cùng <strong>{selectedDoctorForModal.name}</strong> vào khung giờ{' '}
+                    <strong>{selectedSlot}</strong> đã được lưu. Trợ lý y tế sẽ liên hệ số {phone || 'của bạn'} để hoàn tất hồ sơ.
+                  </p>
+                  <div className="pt-2">
+                    <span className="inline-block text-[11px] text-slate-400 tabular-nums">Mã cuộc hẹn: #{bookingCode}</span>
+                  </div>
                 </div>
+              ) : (
+                <form onSubmit={handleConfirmModalBooking} className="p-5 space-y-4">
+                  <div>
+                    <Label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                      Chọn Khung Giờ Khám Trống Hôm Nay
+                    </Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {TIME_SLOTS.map((slot) => (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setSelectedSlot(slot)}
+                          className={`p-2 rounded text-xs text-left transition-all cursor-pointer ${
+                            selectedSlot === slot
+                              ? 'bg-primary text-primary-foreground font-medium shadow-xs'
+                              : 'bg-slate-50 text-slate-700 border border-slate-200 hover:border-primary/40'
+                          }`}
+                        >
+                          {slot}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-                <div className="p-3 rounded bg-blue-50/60 border border-blue-100 flex items-center justify-between text-xs">
-                  <span className="text-slate-600">Phí khám dự kiến:</span>
-                  <span className="font-bold text-[#0046c0] text-sm">{selectedDoctorForModal.fee}</span>
-                </div>
+                  <div>
+                    <Label className="block text-xs font-semibold text-slate-700 mb-1">
+                      Số Điện Thoại Nhận Xác Nhận (SMS &amp; Call)
+                    </Label>
+                    <Input
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Ví dụ: 0912 345 678"
+                      className="h-10 text-xs"
+                    />
+                  </div>
 
-                <div className="flex items-center gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDoctorForModal(null)}
-                    className="flex-1 h-10 rounded border border-slate-300 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
-                  >
-                    Hủy bỏ
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 h-10 rounded bg-[#0046c0] hover:bg-[#003899] text-xs font-semibold text-white transition-colors cursor-pointer shadow-xs"
-                  >
-                    Xác Nhận Hẹn Khám
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+                  <div className="p-3 rounded bg-primary/10 border border-primary/20 flex items-center justify-between text-xs">
+                    <span className="text-slate-600">Phí khám dự kiến:</span>
+                    <span className="font-bold text-primary text-sm">{selectedDoctorForModal.fee}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSelectedDoctorForModal(null)}
+                      className="flex-1 h-10 text-xs font-semibold"
+                    >
+                      Hủy bỏ
+                    </Button>
+                    <Button
+                      type="submit"
+                      className="flex-1 h-10 text-xs font-semibold"
+                    >
+                      Xác Nhận Hẹn Khám
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

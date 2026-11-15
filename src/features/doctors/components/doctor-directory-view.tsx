@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
 import { publicApi } from '@/lib/api';
+import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
 
 // Types
@@ -532,13 +533,12 @@ export function DoctorDirectoryView() {
 
               {/* City Quick Filter & Smart Matching Wizard Button: stacked full width on mobile, inline flex on sm+ */}
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-xs w-full lg:w-auto">
-                <Link
-                  href="/doctors/matching"
-                  className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 rounded-lg bg-linear-to-r from-[#2563eb] to-[#0046c0] hover:from-[#1d4ed8] hover:to-[#003899] text-white font-bold inline-flex items-center gap-2 shadow-xs transition-all whitespace-nowrap shrink-0 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[18px] shrink-0">auto_awesome</span>
-                  <span className="whitespace-nowrap">Gợi ý Bác sĩ Phù hợp</span>
-                </Link>
+                <Button asChild size="sm" className="w-full sm:w-auto rounded-lg font-bold gap-2 whitespace-nowrap shrink-0">
+                  <Link href="/doctors/matching">
+                    <span className="material-symbols-outlined text-[18px] shrink-0">auto_awesome</span>
+                    <span className="whitespace-nowrap">Gợi ý Bác sĩ Phù hợp</span>
+                  </Link>
+                </Button>
                 <div className="flex items-center justify-between sm:justify-start gap-2 bg-slate-50 sm:bg-transparent p-2 sm:p-0 rounded-lg border border-slate-200 sm:border-transparent">
                   <span className="text-slate-500 font-medium whitespace-nowrap">Khu vực:</span>
                   <select

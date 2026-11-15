@@ -8,6 +8,28 @@ import {
   type FourPartyContract,
 } from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
+import { toast } from 'sonner';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 type AdminStatusFilter = 'ALL' | 'READY_FOR_ADMIN' | 'WAITING_FAMILY' | 'PENDING_PAYMENT' | 'ACTIVE';
 
@@ -23,7 +45,6 @@ export function AdminContractsView() {
   const [filterStatus, setFilterStatus] = useState<AdminStatusFilter>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContract, setSelectedContract] = useState<FourPartyContract | null>(null);
-  const [notification, setNotification] = useState('');
   const [reloadTick, setReloadTick] = useState(0);
 
   const triggerReload = () => {
@@ -93,12 +114,12 @@ export function AdminContractsView() {
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-xs font-semibold text-[#0052cc] uppercase tracking-wider">
+            <div className="flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wider">
               <span className="material-symbols-outlined text-[17px]">gavel</span>
               <span>Ban Quản Trị Hệ Thống • Phê Duyệt Pháp Lý &amp; Documenso 4 Bên</span>
             </div>
@@ -111,271 +132,251 @@ export function AdminContractsView() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={triggerReload}
               disabled={isLoading}
-              className="px-3.5 py-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="rounded-xl bg-white text-xs font-semibold cursor-pointer"
             >
               <span className={`material-symbols-outlined text-[16px] text-slate-500 ${isLoading ? 'animate-spin' : ''}`}>
                 refresh
               </span>
               <span>Làm mới</span>
-            </button>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold tabular-nums">
+            </Button>
+            <Badge className="gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold tabular-nums">
               <span className="material-symbols-outlined text-[16px] text-amber-400">verified</span>
               <span>Tổng cộng: {contracts.length} hợp đồng</span>
-            </div>
+            </Badge>
           </div>
         </div>
 
-        {/* Feedback Alert */}
-        {notification && (
-          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2 shadow-2xs">
-            <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-            <span>{notification}</span>
-          </div>
-        )}
-
         {loadError && (
-          <div
-            role="alert"
-            className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-center justify-between gap-3"
-          >
-            <span>{loadError}</span>
-            <button
-              type="button"
-              onClick={triggerReload}
-              className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold cursor-pointer"
-            >
-              Thử lại
-            </button>
-          </div>
+          <Alert variant="destructive" className="rounded-xl bg-rose-50 border-rose-200 text-rose-800">
+            <AlertDescription className="flex items-center justify-between gap-3 text-xs sm:text-sm text-rose-800">
+              <span>{loadError}</span>
+              <Button
+                type="button"
+                size="xs"
+                variant="destructive"
+                onClick={triggerReload}
+                className="rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                Thử lại
+              </Button>
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Filter and Search Bar */}
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          <div className="relative flex-1">
-            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
-              search
-            </span>
-            <input
-              type="text"
-              placeholder="Tìm theo mã hợp đồng, đại diện hộ gia đình, cơ sở y tế, bác sĩ..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-[#0052cc]/20"
-            />
-          </div>
+        <Card className="rounded-2xl border-slate-200 py-4 shadow-xs">
+          <CardContent className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4">
+            <div className="relative flex-1">
+              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+                search
+              </span>
+              <Input
+                type="text"
+                placeholder="Tìm theo mã hợp đồng, đại diện hộ gia đình, cơ sở y tế, bác sĩ..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 bg-slate-50 rounded-xl text-xs sm:text-sm"
+              />
+            </div>
 
-          <div className="flex flex-wrap items-center gap-2">
-            {(
-              [
-                ['ALL', 'Tất cả'],
-                ['READY_FOR_ADMIN', 'Chờ Admin ký (Bên D)'],
-                ['WAITING_FAMILY', 'Chờ Bên A ký'],
-                ['PENDING_PAYMENT', 'Chờ thanh toán'],
-                ['ACTIVE', 'Đang hiệu lực'],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setFilterStatus(key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                  filterStatus === key
-                    ? 'bg-slate-900 text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  ['ALL', 'Tất cả'],
+                  ['READY_FOR_ADMIN', 'Chờ Admin ký (Bên D)'],
+                  ['WAITING_FAMILY', 'Chờ Bên A ký'],
+                  ['PENDING_PAYMENT', 'Chờ thanh toán'],
+                  ['ACTIVE', 'Đang hiệu lực'],
+                ] as const
+              ).map(([key, label]) => (
+                <Button
+                  key={key}
+                  type="button"
+                  size="sm"
+                  variant={filterStatus === key ? 'default' : 'secondary'}
+                  onClick={() => setFilterStatus(key)}
+                  className="rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer"
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Contracts Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider">
-                <tr>
-                  <th className="py-3.5 px-4">Mã Hợp đồng &amp; Gói</th>
-                  <th className="py-3.5 px-4">Hộ gia đình (Bên A)</th>
-                  <th className="py-3.5 px-4">CSYT (Bên B) &amp; Bác sĩ (Bên C)</th>
-                  <th className="py-3.5 px-4 text-right">Giá trị</th>
-                  <th className="py-3.5 px-4 text-center">Tiến độ Documenso</th>
-                  <th className="py-3.5 px-4 text-right">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {isLoading ? (
-                  <tr>
-                    <td colSpan={6} className="py-10 text-center text-slate-500 text-xs">
-                      Đang tải danh sách hợp đồng từ hệ thống...
-                    </td>
-                  </tr>
-                ) : filteredContracts.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="py-10 text-center text-slate-500 text-xs">
-                      Không có hợp đồng nào phù hợp với bộ lọc hiện tại.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredContracts.map((c) => {
-                    const sigCount = countSignatures(c);
-                    const familySigned = Boolean(c.signatures?.family);
-                    const adminSigned = Boolean(c.signatures?.platform);
+        <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+          <Table className="text-xs sm:text-sm">
+            <TableHeader>
+              <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
+                <TableHead className="py-3.5 px-4 text-slate-600">Mã Hợp đồng &amp; Gói</TableHead>
+                <TableHead className="py-3.5 px-4 text-slate-600">Hộ gia đình (Bên A)</TableHead>
+                <TableHead className="py-3.5 px-4 text-slate-600">CSYT (Bên B) &amp; Bác sĩ (Bên C)</TableHead>
+                <TableHead className="py-3.5 px-4 text-right text-slate-600">Giá trị</TableHead>
+                <TableHead className="py-3.5 px-4 text-center text-slate-600">Tiến độ Documenso</TableHead>
+                <TableHead className="py-3.5 px-4 text-right text-slate-600">Thao tác</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-slate-100">
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-slate-500 text-xs">
+                    Đang tải danh sách hợp đồng từ hệ thống...
+                  </TableCell>
+                </TableRow>
+              ) : filteredContracts.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="py-10 text-center text-slate-500 text-xs">
+                    Không có hợp đồng nào phù hợp với bộ lọc hiện tại.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredContracts.map((c) => {
+                  const sigCount = countSignatures(c);
+                  const familySigned = Boolean(c.signatures?.family);
+                  const adminSigned = Boolean(c.signatures?.platform);
 
-                    return (
-                      <tr key={c.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3.5 px-4">
-                          <div className="font-bold text-slate-900">{c.packageName}</div>
-                          <div className="tabular-nums text-[11px] text-slate-500 mt-0.5">
-                            {c.contractNumber} • {c.membersCount ?? 1} thành viên
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4">
-                          <div className="font-semibold text-slate-800">
-                            {c.familyRepresentativeName}
-                          </div>
-                          <div className="text-[11px] text-slate-500 tabular-nums">
-                            {c.familyRepresentativePhone}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-xs text-slate-700">
-                          <div className="font-medium">{c.facilityName || '—'}</div>
-                          <div className="text-[11px] text-slate-500">
-                            {c.doctorName || 'Chưa phân công BS'}
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-right font-semibold text-[#0052cc] tabular-nums">
-                          {formatPrice(c.packagePrice)}
-                        </td>
-                        <td className="py-3.5 px-4 text-center space-y-1">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
-                              c.status === 'ACTIVE'
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                : familySigned
-                                ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}
+                  return (
+                    <TableRow key={c.id} className="hover:bg-slate-50/70">
+                      <TableCell className="py-3.5 px-4">
+                        <div className="font-bold text-slate-900">{c.packageName}</div>
+                        <div className="tabular-nums text-[11px] text-slate-500 mt-0.5">
+                          {c.contractNumber} • {c.membersCount ?? 1} thành viên
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4">
+                        <div className="font-semibold text-slate-800">
+                          {c.familyRepresentativeName}
+                        </div>
+                        <div className="text-[11px] text-slate-500 tabular-nums">
+                          {c.familyRepresentativePhone}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-xs text-slate-700">
+                        <div className="font-medium">{c.facilityName || '—'}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {c.doctorName || 'Chưa phân công BS'}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-right font-semibold text-primary tabular-nums">
+                        {formatPrice(c.packagePrice)}
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-center space-y-1">
+                        <Badge
+                          variant="outline"
+                          className={`rounded-full text-[11px] font-semibold ${
+                            c.status === 'ACTIVE'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : familySigned
+                              ? 'bg-blue-50 text-primary border-blue-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          {c.status === 'ACTIVE'
+                            ? 'Đang hiệu lực'
+                            : c.status === 'PENDING_PAYMENT'
+                            ? 'Chờ thanh toán VietQR'
+                            : !familySigned
+                            ? 'Chờ Bên A ký trước'
+                            : adminSigned
+                            ? 'Admin đã ký — chờ bên khác'
+                            : CONTRACT_STATUS_LABELS[c.status] || 'Bên A đã ký'}
+                        </Badge>
+                        <div className="text-[11px] text-slate-500 tabular-nums">
+                          {sigCount}/4 chữ ký Documenso
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button asChild size="xs" variant="secondary" className="rounded-lg bg-accent text-primary hover:bg-accent/80 font-semibold">
+                            <Link href={`/admin/contracts/${c.id}/review`}>Thẩm định 4 Bên</Link>
+                          </Button>
+                          <Button
+                            type="button"
+                            size="xs"
+                            variant={familySigned && !adminSigned ? 'default' : 'secondary'}
+                            onClick={() => setSelectedContract(c)}
+                            className="rounded-lg font-semibold cursor-pointer"
                           >
-                            {c.status === 'ACTIVE'
-                              ? 'Đang hiệu lực'
-                              : c.status === 'PENDING_PAYMENT'
-                              ? 'Chờ thanh toán VietQR'
-                              : !familySigned
-                              ? 'Chờ Bên A ký trước'
-                              : adminSigned
-                              ? 'Admin đã ký — chờ bên khác'
-                              : CONTRACT_STATUS_LABELS[c.status] || 'Bên A đã ký'}
-                          </span>
-                          <div className="text-[11px] text-slate-500 tabular-nums">
-                            {sigCount}/4 chữ ký Documenso
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <Link
-                              href={`/admin/contracts/${c.id}/review`}
-                              className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-colors"
-                            >
-                              Thẩm định 4 Bên
-                            </Link>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedContract(c)}
-                              className={`px-3 py-1.5 rounded-lg font-semibold text-xs transition-colors cursor-pointer ${
-                                familySigned && !adminSigned
-                                  ? 'bg-[#0052cc] hover:bg-[#003da6] text-white shadow-xs'
-                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                              }`}
-                            >
-                              {familySigned && !adminSigned
-                                ? 'Ký trên Documenso'
-                                : 'Chi tiết & Documenso'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                            {familySigned && !adminSigned
+                              ? 'Ký trên Documenso'
+                              : 'Chi tiết & Documenso'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </Card>
 
-        {/* Modal: Ký trực tiếp trên Documenso & Chi tiết 4 bên */}
-        {selectedContract && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs overflow-y-auto">
-            <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 my-8">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#0052cc] text-[22px]">
-                    description
-                  </span>
-                  <div>
-                    <h3 className="font-bold text-slate-900 text-base">
-                      Ký Hợp Đồng 4 Bên Trên Documenso — Bên D (Nền tảng)
-                    </h3>
-                    <p className="text-xs text-slate-500 tabular-nums">
-                      Mã HĐ: {selectedContract.contractNumber} • Chủ hộ: {selectedContract.familyRepresentativeName}
-                    </p>
+        {/* Dialog: Ký trực tiếp trên Documenso & Chi tiết 4 bên */}
+        <Dialog open={Boolean(selectedContract)} onOpenChange={(open) => !open && setSelectedContract(null)}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 sm:max-w-3xl">
+            {selectedContract && (
+              <>
+                <DialogHeader className="border-b border-slate-100 pb-3">
+                  <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                    <span className="material-symbols-outlined text-primary text-[22px]">
+                      description
+                    </span>
+                    <span>Ký Hợp Đồng 4 Bên Trên Documenso — Bên D (Nền tảng)</span>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500 tabular-nums">
+                    Mã HĐ: {selectedContract.contractNumber} • Chủ hộ: {selectedContract.familyRepresentativeName}
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div className={`p-2 rounded-lg border ${selectedContract.signatures?.family ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+                    <strong>Bên A (Gia đình)</strong>
+                    <div>{selectedContract.signatures?.family ? 'Đã ký ✓' : 'Chưa ký'}</div>
+                  </div>
+                  <div className={`p-2 rounded-lg border ${selectedContract.signatures?.facility ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                    <strong>Bên B (CSYT)</strong>
+                    <div>{selectedContract.signatures?.facility ? 'Đã ký ✓' : 'Chờ ký'}</div>
+                  </div>
+                  <div className={`p-2 rounded-lg border ${selectedContract.signatures?.doctor ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                    <strong>Bên C (Bác sĩ)</strong>
+                    <div>{selectedContract.signatures?.doctor ? 'Đã ký ✓' : 'Chờ ký'}</div>
+                  </div>
+                  <div className={`p-2 rounded-lg border ${selectedContract.signatures?.platform ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-blue-50 border-blue-200 text-blue-900'}`}>
+                    <strong>Bên D (Admin)</strong>
+                    <div>{selectedContract.signatures?.platform ? 'Đã ký ✓' : 'Chờ ký'}</div>
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedContract(null)}
-                  className="text-slate-400 hover:text-slate-600 cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[20px]">close</span>
-                </button>
-              </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                <div className={`p-2 rounded-lg border ${selectedContract.signatures?.family ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
-                  <strong>Bên A (Gia đình)</strong>
-                  <div>{selectedContract.signatures?.family ? 'Đã ký ✓' : 'Chưa ký'}</div>
-                </div>
-                <div className={`p-2 rounded-lg border ${selectedContract.signatures?.facility ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                  <strong>Bên B (CSYT)</strong>
-                  <div>{selectedContract.signatures?.facility ? 'Đã ký ✓' : 'Chờ ký'}</div>
-                </div>
-                <div className={`p-2 rounded-lg border ${selectedContract.signatures?.doctor ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-                  <strong>Bên C (Bác sĩ)</strong>
-                  <div>{selectedContract.signatures?.doctor ? 'Đã ký ✓' : 'Chờ ký'}</div>
-                </div>
-                <div className={`p-2 rounded-lg border ${selectedContract.signatures?.platform ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-blue-50 border-blue-200 text-blue-900'}`}>
-                  <strong>Bên D (Admin)</strong>
-                  <div>{selectedContract.signatures?.platform ? 'Đã ký ✓' : 'Chờ ký'}</div>
-                </div>
-              </div>
+                <DocumensoSigningEmbed
+                  contractId={selectedContract.id}
+                  onSyncCompleted={(res) => {
+                    const msg = `Đã đồng bộ chữ ký Documenso cho ${selectedContract.contractNumber} (${res.signedRoles.length}/4 bên).`;
+                    toast.success(msg);
+                    triggerReload();
+                  }}
+                />
 
-              <DocumensoSigningEmbed
-                contractId={selectedContract.id}
-                onSyncCompleted={(res) => {
-                  setNotification(
-                    `Đã đồng bộ chữ ký Documenso cho ${selectedContract.contractNumber} (${res.signedRoles.length}/4 bên).`
-                  );
-                  triggerReload();
-                }}
-              />
-
-              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setSelectedContract(null)}
-                  className="px-4 py-2 rounded-lg text-xs font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+                <DialogFooter className="border-t border-slate-100 pt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSelectedContract(null)}
+                    className="rounded-lg text-xs font-semibold cursor-pointer"
+                  >
+                    Đóng
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   );

@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { ContractSigningWizard } from './contract-signing-wizard';
 import { DoctorContractInitiationPanel } from './doctor-contract-initiation-panel';
 import {
@@ -32,8 +35,8 @@ const PACKAGE_QUOTAS: QuotaItem[] = [
     title: 'Bác Sĩ Thăm Khám Tại Nhà',
     subtitle: 'Mang theo máy đo ECG, siêu âm xách tay & lấy mẫu xét nghiệm tận nơi',
     icon: 'home_health',
-    iconBg: 'bg-blue-50 text-[#2E37A4] border-blue-200/80',
-    barColor: 'bg-[#2E37A4]',
+    iconBg: 'bg-primary/10 text-primary border-primary/20',
+    barColor: 'bg-primary',
     used: 2,
     total: 5,
     remainingLabel: 'Còn 3 / 5 lượt',
@@ -138,15 +141,16 @@ export function SubscriptionContractView() {
   const [isSigningWizardOpen, setIsSigningWizardOpen] = useState(
     Boolean(activePackageInfo)
   );
-  const [toastMessage, setToastMessage] = useState<string | null>(
-    activePackageInfo
-      ? `Đã chọn ${activePackageInfo.name}. Mời quý khách xem điều khoản và ký hợp đồng 4 bên.`
-      : null
-  );
+
+  useEffect(() => {
+    if (activePackageInfo) {
+      toast.info(`Đã chọn ${activePackageInfo.name}. Mời quý khách xem điều khoản và ký hợp đồng 4 bên.`);
+    }
+  }, [activePackageInfo]);
 
   if (hasDoctorBookingContext && packageParam && doctorParam && facilityParam) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+      <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
         <main className="w-full max-w-4xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
           <DoctorContractInitiationPanel
             packageId={packageParam}
@@ -160,8 +164,7 @@ export function SubscriptionContractView() {
   }
 
   const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
+    toast.success(msg);
   };
 
   const handleSimulatePaymentWebhook = () => {
@@ -180,7 +183,7 @@ export function SubscriptionContractView() {
   const fourPartiesList = [
     {
       code: 'BÊN A · ĐẠI DIỆN HỘ GIA ĐÌNH',
-      badgeClass: 'bg-blue-50 text-[#2E37A4] border-blue-200/80',
+      badgeClass: 'bg-primary/10 text-primary border-primary/20',
       name: workflow?.familyHeadName || 'Nguyễn Văn An',
       identifier: `Mã hộ #${workflow?.familyId || 'FAM-88219'} · SĐT: ${workflow?.familyPhone || '0912345678'}`,
       roleDesc: 'Đại diện Hộ Gia Đình ký kết gói chăm sóc',
@@ -225,16 +228,16 @@ export function SubscriptionContractView() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* 1. HEADER HỢP ĐỒNG THOÁNG ĐÃNG TRỰC TIẾP TRÊN NỀN CANVAS (GIẢI PHÓNG HỘP CỨNG) */}
         <header className="space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-[#2E37A4] bg-blue-50/80 border border-blue-200/60">
+                <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-primary bg-primary/10 border-primary/20">
                   #{workflow?.contractCode || 'CTR-4P-2026-88219'}
-                </span>
+                </Badge>
                 <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
                   workflow?.step === 'ACTIVE'
                     ? 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
@@ -253,54 +256,59 @@ export function SubscriptionContractView() {
 
               <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
                 Hiệu lực từ <strong className="text-slate-800">01/01/2026 – 31/12/2026</strong> · Phí thường niên trọn gói:{' '}
-                <strong className="text-[#2E37A4] tabular-nums font-bold">9.600.000 đ/năm</strong> (Bảo lãnh 100% quyền lợi)
+                <strong className="text-primary tabular-nums font-bold">9.600.000 đ/năm</strong> (Bảo lãnh 100% quyền lợi)
               </p>
             </div>
 
             {/* Cụm nút hành động chuẩn phân cấp */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
-              <button
+              <Button
                 type="button"
                 onClick={() => setIsSigningWizardOpen(true)}
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-sm font-semibold shadow-xs hover:shadow-md transition-all cursor-pointer whitespace-nowrap outline-hidden"
+                className="min-h-11 rounded-xl text-sm font-semibold gap-2"
               >
                 <span className="material-symbols-outlined text-[19px]">edit_document</span>
                 <span>Gia hạn hợp đồng</span>
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleResetDemo}
-                className="min-h-11 inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-white hover:bg-slate-50 text-slate-600 border border-slate-200/90 rounded-xl text-xs font-semibold shadow-xs hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap outline-hidden"
+                className="min-h-11 rounded-xl text-xs font-semibold gap-1.5"
                 title="Đặt lại trạng thái mẫu để test lại toàn bộ luồng 4 bên từ đầu"
               >
                 <span className="material-symbols-outlined text-[17px] text-slate-500">restart_alt</span>
                 <span>Reset Demo</span>
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => showToast('Đang tải file Hợp đồng PDF có chứng thư ký số 4 bên...')}
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 rounded-xl text-sm font-medium shadow-xs hover:border-slate-300 transition-all cursor-pointer whitespace-nowrap outline-hidden"
+                className="min-h-11 rounded-xl text-sm font-medium gap-2"
               >
                 <span className="material-symbols-outlined text-[19px] text-rose-500">picture_as_pdf</span>
                 <span>Tải bản PDF</span>
-              </button>
+              </Button>
 
-              <Link
-                href="/family/billing"
-                className="min-h-11 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-50/80 hover:bg-blue-100/80 text-[#2E37A4] border border-blue-200/80 rounded-xl text-sm font-semibold transition-all whitespace-nowrap outline-hidden"
+              <Button
+                asChild
+                variant="outline"
+                className="min-h-11 bg-primary/10 hover:bg-primary/15 text-primary border-primary/20 rounded-xl text-sm font-semibold gap-2"
               >
-                <span className="material-symbols-outlined text-[19px]">receipt_long</span>
-                <span>Xem biên lai</span>
-              </Link>
+                <Link href="/family/billing">
+                  <span className="material-symbols-outlined text-[19px]">receipt_long</span>
+                  <span>Xem biên lai</span>
+                </Link>
+              </Button>
             </div>
           </div>
 
           {/* Dải thông tin Bác sĩ phụ trách & Người thụ hưởng */}
           <div className="pt-3 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs text-slate-600">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-blue-50 text-[#2E37A4] font-bold text-xs flex items-center justify-center border border-blue-200/80 shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary font-bold text-xs flex items-center justify-center border border-primary/20 shrink-0">
                 TN
               </div>
               <div>
@@ -314,25 +322,25 @@ export function SubscriptionContractView() {
               <span className="text-slate-500 font-medium mr-1">Thành viên thụ hưởng (4/4):</span>
               <Link
                 href="/family/members/mem-01"
-                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-primary hover:text-primary transition-colors"
               >
                 Ông Phúc (78t)
               </Link>
               <Link
                 href="/family/members/mem-02"
-                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-primary hover:text-primary transition-colors"
               >
                 Anh An (42t)
               </Link>
               <Link
                 href="/family/members/mem-03"
-                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-primary hover:text-primary transition-colors"
               >
                 Chị Hà (38t)
               </Link>
               <Link
                 href="/family/members"
-                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-[#2E37A4] hover:text-[#2E37A4] transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-white border border-slate-200/80 font-medium text-slate-700 hover:border-primary hover:text-primary transition-colors"
               >
                 Bé Minh An (6t)
               </Link>
@@ -358,40 +366,36 @@ export function SubscriptionContractView() {
             </div>
 
             <div className="flex items-center gap-2.5 shrink-0">
-              <button
+              <Button
                 type="button"
                 onClick={handleSimulatePaymentWebhook}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1.5"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold gap-1.5"
                 title="Giả lập nhận Webhook từ cổng thanh toán tự động kích hoạt hợp đồng"
               >
                 <span className="material-symbols-outlined text-[16px]">bolt</span>
                 <span>Giả Lập Webhook VietQR (Kích hoạt ngay)</span>
-              </button>
-              <Link
-                href="/family/billing"
-                className="px-4 py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold shadow-xs flex items-center gap-1.5"
-              >
-                <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
-                <span>Xem Mã VietQR</span>
-              </Link>
+              </Button>
+              <Button asChild className="rounded-xl text-xs font-bold gap-1.5">
+                <Link href="/family/billing">
+                  <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
+                  <span>Xem Mã VietQR</span>
+                </Link>
+              </Button>
             </div>
           </div>
         )}
 
         {workflow?.step === 'PENDING_ADMIN_SIGN' && (
-          <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
             <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-[#0052cc]">pending</span>
+              <span className="material-symbols-outlined text-[20px] text-primary">pending</span>
               <span>
-                <strong>Hợp đồng đang chờ Quản trị viên FamiDoc ký số (Bên B):</strong> Đăng nhập email <code>admin.super@famidoc.pro</code> tại trang <code>/admin/contracts</code> để phê duyệt.
+                <strong>Hợp đồng đang chờ Quản trị viên FamiDoc ký số (Bên B):</strong> Đăng nhập email <code className="font-sans font-semibold">admin.super@famidoc.pro</code> tại trang <code className="font-sans font-semibold">/admin/contracts</code> để phê duyệt.
               </span>
             </div>
-            <Link
-              href="/admin/contracts"
-              className="px-3 py-1.5 bg-[#0052cc] text-white font-bold rounded-lg shrink-0 hover:bg-[#003da6]"
-            >
-              Sang Admin Ký Duyệt →
-            </Link>
+            <Button asChild size="xs" className="rounded-lg font-bold shrink-0">
+              <Link href="/admin/contracts">Sang Admin Ký Duyệt →</Link>
+            </Button>
           </div>
         )}
 
@@ -494,7 +498,7 @@ export function SubscriptionContractView() {
                   <div className="pt-3 border-t border-slate-100">
                     <Link
                       href={q.actionHref}
-                      className="w-full py-2.5 px-3.5 rounded-xl bg-slate-50 hover:bg-blue-50/80 text-[#2E37A4] font-semibold text-xs sm:text-sm flex items-center justify-between transition-colors"
+                      className="w-full py-2.5 px-3.5 rounded-xl bg-slate-50 hover:bg-primary/10 text-primary font-semibold text-xs sm:text-sm flex items-center justify-between transition-colors"
                     >
                       <span>{q.actionLabel}</span>
                       <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
@@ -518,7 +522,7 @@ export function SubscriptionContractView() {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <span className="material-symbols-outlined text-[17px] text-[#2E37A4]">verified</span>
+              <span className="material-symbols-outlined text-[17px] text-primary">verified</span>
               <span>Hợp đồng &amp; Chữ ký 4 bên</span>
             </button>
 
@@ -614,7 +618,7 @@ export function SubscriptionContractView() {
               {/* Header văn bản */}
               <div className="p-5 sm:px-6 bg-slate-50/80 border-b border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                     <span className="material-symbols-outlined text-[20px]">description</span>
                   </div>
                   <div>
@@ -628,22 +632,25 @@ export function SubscriptionContractView() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
+                    size="sm"
                     onClick={() => showToast('Đang chuẩn bị bản in hợp đồng điện tử...')}
-                    className="px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+                    className="rounded-xl text-xs font-semibold gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[16px]">print</span>
                     <span>In văn bản</span>
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    size="sm"
                     onClick={() => showToast('Đang tải file hợp đồng PDF có chứng thư ký số TSA...')}
-                    className="px-3.5 py-2 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
+                    className="rounded-xl text-xs font-semibold gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[16px]">download</span>
                     <span>Tải bản PDF</span>
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -659,14 +666,14 @@ export function SubscriptionContractView() {
                   <h4 className="text-base sm:text-xl font-bold text-slate-900 pt-2">
                     HỢP ĐỒNG CUNG CẤP DỊCH VỤ BÁC SĨ GIA ĐÌNH &amp; CHĂM SÓC SỨC KHỎE
                   </h4>
-                  <p className="text-xs font-bold tabular-nums text-[#2E37A4]">
+                  <p className="text-xs font-bold tabular-nums text-primary">
                     Số hợp đồng: FMD-HD-88219/2026 · Ngày ký: 01/01/2026
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs sm:text-sm text-slate-600 leading-relaxed">
                   <div className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200/70 space-y-2.5">
-                    <div className="flex items-center gap-2 text-[#2E37A4] font-bold text-xs uppercase">
+                    <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase">
                       <span className="material-symbols-outlined text-[18px]">medical_services</span>
                       <span>Điều 1: Phạm vi chăm sóc</span>
                     </div>
@@ -679,7 +686,7 @@ export function SubscriptionContractView() {
                   </div>
 
                   <div className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200/70 space-y-2.5">
-                    <div className="flex items-center gap-2 text-[#2E37A4] font-bold text-xs uppercase">
+                    <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase">
                       <span className="material-symbols-outlined text-[18px]">local_hospital</span>
                       <span>Điều 2: Chuyển tuyến ưu tiên</span>
                     </div>
@@ -692,7 +699,7 @@ export function SubscriptionContractView() {
                   </div>
 
                   <div className="p-5 rounded-2xl bg-slate-50/70 border border-slate-200/70 space-y-2.5">
-                    <div className="flex items-center gap-2 text-[#2E37A4] font-bold text-xs uppercase">
+                    <div className="flex items-center gap-2 text-primary font-bold text-xs uppercase">
                       <span className="material-symbols-outlined text-[18px]">verified_user</span>
                       <span>Điều 3: Bảo mật bệnh án</span>
                     </div>
@@ -713,7 +720,7 @@ export function SubscriptionContractView() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
             <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-4">
               <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2E37A4] flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
                   <span className="material-symbols-outlined text-[20px]">home_health</span>
                 </div>
                 <div>
@@ -728,7 +735,7 @@ export function SubscriptionContractView() {
 
               <ul className="text-xs sm:text-sm text-slate-600 space-y-3 leading-relaxed">
                 <li className="flex items-start gap-2.5">
-                  <span className="material-symbols-outlined text-[18px] text-[#2E37A4] shrink-0 mt-0.5">
+                  <span className="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">
                     check_circle
                   </span>
                   <span>
@@ -737,7 +744,7 @@ export function SubscriptionContractView() {
                   </span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <span className="material-symbols-outlined text-[18px] text-[#2E37A4] shrink-0 mt-0.5">
+                  <span className="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">
                     check_circle
                   </span>
                   <span>
@@ -747,7 +754,7 @@ export function SubscriptionContractView() {
                   </span>
                 </li>
                 <li className="flex items-start gap-2.5">
-                  <span className="material-symbols-outlined text-[18px] text-[#2E37A4] shrink-0 mt-0.5">
+                  <span className="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">
                     check_circle
                   </span>
                   <span>
@@ -817,28 +824,6 @@ export function SubscriptionContractView() {
           doctorName={workflow?.assignedDoctorName || "PGS.TS Nguyễn Trọng Nghĩa"}
           onClose={() => setIsSigningWizardOpen(false)}
         />
-      )}
-
-      {/* Toast phản hồi */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-fade-in"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400">
-            check_circle
-          </span>
-          <span className="font-medium">{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-2 text-slate-400 hover:text-white cursor-pointer"
-            aria-label="Đóng thông báo"
-          >
-            <span className="material-symbols-outlined text-[16px]">close</span>
-          </button>
-        </div>
       )}
     </div>
   );

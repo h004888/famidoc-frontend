@@ -2,6 +2,18 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { updateContractStep } from '@/lib/contract-workflow-storage';
 
 interface MemberItem {
@@ -87,38 +99,34 @@ export function ContractSigningWizard({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 overflow-hidden my-auto max-h-[95vh] flex flex-col text-slate-900 font-sans">
+    <Dialog open onOpenChange={(open) => !open && onClose?.()}>
+      <DialogContent
+        showCloseButton={Boolean(onClose)}
+        className="sm:max-w-4xl rounded-3xl p-0 overflow-hidden max-h-[95vh] flex flex-col text-slate-900 font-sans gap-0"
+      >
         {/* Wizard Header */}
-        <div className="bg-gradient-to-r from-[#2E37A4] to-[#3d47c2] text-white p-5 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-blue-200 font-semibold tracking-wide uppercase">
-              <span className="material-symbols-outlined text-[16px] text-[#00D3C7]">verified</span>
-              <span>Hợp Đồng Y Tế Điện Tử 4 Bên • Chuẩn Bộ Y Tế</span>
+        <DialogHeader className="bg-gradient-to-r from-[#0037c1] to-[#1d4ed8] text-white p-5 sm:p-6 text-left">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2 text-xs text-blue-200 font-semibold tracking-wide uppercase">
+                <span className="material-symbols-outlined text-[16px] text-[#00D3C7]">verified</span>
+                <span>Hợp Đồng Y Tế Điện Tử 4 Bên • Chuẩn Bộ Y Tế</span>
+              </div>
+              <DialogTitle className="text-lg sm:text-xl font-bold mt-1 tracking-tight text-white">
+                Gia Hạn &amp; Ký Hợp Đồng Chăm Sóc Bác Sĩ Gia Đình
+              </DialogTitle>
+              <DialogDescription className="text-xs text-blue-100 mt-0.5">
+                Gói dịch vụ: <span className="font-semibold text-white">{packageName}</span> • Mã hộ: <span className="font-bold tabular-nums text-white">#FAM-88219</span>
+              </DialogDescription>
             </div>
-            <h2 className="text-lg sm:text-xl font-bold mt-1 tracking-tight text-white">
-              Gia Hạn &amp; Ký Hợp Đồng Chăm Sóc Bác Sĩ Gia Đình
-            </h2>
-            <p className="text-xs text-blue-100 mt-0.5">
-              Gói dịch vụ: <span className="font-semibold text-white">{packageName}</span> • Mã hộ: <span className="font-bold tabular-nums text-white">#FAM-88219</span>
-            </p>
-          </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto">
-            <span className="px-3 py-1 rounded-full text-xs font-bold bg-white/15 text-white border border-white/20">
-              Ký số bảo mật
-            </span>
-            {onClose && (
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white cursor-pointer transition-colors"
-              >
-                ✕
-              </button>
-            )}
+            <div className="flex items-center gap-2 self-end sm:self-auto">
+              <Badge className="px-3 py-1 rounded-full text-xs font-bold bg-white/15 text-white border border-white/20">
+                Ký số bảo mật
+              </Badge>
+            </div>
           </div>
-        </div>
+        </DialogHeader>
 
         {/* 4-Step Progress Indicator */}
         <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-8 py-3.5">
@@ -135,7 +143,7 @@ export function ContractSigningWizard({
                 onClick={() => setStep(s.num)}
                 className={`flex flex-col sm:flex-row items-center justify-center gap-1.5 py-1 px-2 rounded-xl transition-all cursor-pointer ${
                   step === s.num
-                    ? 'font-bold text-[#2563eb] bg-blue-50/80 border border-blue-200'
+                    ? 'font-bold text-primary bg-primary/10 border border-primary/20'
                     : step > s.num
                     ? 'font-semibold text-emerald-700'
                     : 'text-slate-400'
@@ -144,7 +152,7 @@ export function ContractSigningWizard({
                 <span
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
                     step === s.num
-                      ? 'bg-[#2563eb] text-white'
+                      ? 'bg-primary text-primary-foreground'
                       : step > s.num
                       ? 'bg-emerald-600 text-white'
                       : 'bg-slate-200 text-slate-600'
@@ -172,9 +180,9 @@ export function ContractSigningWizard({
                     Hồ sơ sức khỏe của từng thành viên sẽ được khởi tạo EHR độc lập và kết nối bảo trợ y tế liên tục.
                   </p>
                 </div>
-                <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-[#2563eb] border border-blue-200">
+                <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-bold bg-primary/10 text-primary border-primary/20">
                   Đã chọn: {selectedMembersCount} người
-                </span>
+                </Badge>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -184,7 +192,7 @@ export function ContractSigningWizard({
                     onClick={() => toggleMember(m.id)}
                     className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-start justify-between gap-3 ${
                       m.selected
-                        ? 'border-[#2563eb] bg-blue-50/40 shadow-xs ring-1 ring-[#2563eb]/20'
+                        ? 'border-primary bg-primary/5 shadow-xs ring-1 ring-primary/20'
                         : 'border-slate-200 bg-white hover:bg-slate-50'
                     }`}
                   >
@@ -202,26 +210,26 @@ export function ContractSigningWizard({
                         </div>
                       )}
                     </div>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={m.selected}
-                      onChange={() => {}}
-                      className="mt-1 w-4 h-4 text-[#2563eb] rounded"
+                      onCheckedChange={() => toggleMember(m.id)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-1"
                     />
                   </div>
                 ))}
               </div>
 
               <div className="flex justify-end pt-4 border-t border-slate-100">
-                <button
+                <Button
                   type="button"
                   onClick={() => setStep(2)}
                   disabled={selectedMembersCount === 0}
-                  className="px-6 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="rounded-xl text-xs sm:text-sm font-bold gap-1.5"
                 >
                   <span>Tiếp tục chọn Bác sĩ</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -238,10 +246,10 @@ export function ContractSigningWizard({
                 </p>
               </div>
 
-              <div className="bg-white border-2 border-[#2563eb] p-5 rounded-2xl shadow-xs space-y-3">
+              <div className="bg-white border-2 border-primary p-5 rounded-2xl shadow-xs space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 text-[#2563eb] font-bold text-base flex items-center justify-center">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-bold text-base flex items-center justify-center">
                       LN
                     </div>
                     <div>
@@ -250,7 +258,7 @@ export function ContractSigningWizard({
                         <span className="material-symbols-outlined text-emerald-600 text-[18px]">verified</span>
                       </h4>
                       <p className="text-xs text-slate-500">Chuyên khoa Tim mạch &amp; Y học Gia đình</p>
-                      <p className="text-[11px] text-blue-700 font-semibold">Bệnh viện Đại học Y Dược TP.HCM</p>
+                      <p className="text-[11px] text-primary font-semibold">Bệnh viện Đại học Y Dược TP.HCM</p>
                     </div>
                   </div>
                   <div className="text-left sm:text-right">
@@ -263,21 +271,22 @@ export function ContractSigningWizard({
               </div>
 
               <div className="flex justify-between pt-4 border-t border-slate-100">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setStep(1)}
-                  className="px-5 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  className="rounded-xl text-xs font-semibold"
                 >
                   Quay lại
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => setStep(3)}
-                  className="px-6 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors flex items-center gap-1.5"
+                  className="rounded-xl text-xs sm:text-sm font-bold gap-1.5"
                 >
                   <span>Xem Quyền lợi &amp; Định mức</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -295,8 +304,8 @@ export function ContractSigningWizard({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-                <div className="p-4 bg-blue-50/50 border border-blue-200 rounded-2xl space-y-1">
-                  <span className="font-bold text-blue-800 uppercase block">12 Lượt Khám Tại Nhà</span>
+                <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl space-y-1">
+                  <span className="font-bold text-primary uppercase block">12 Lượt Khám Tại Nhà</span>
                   <p className="text-slate-600">Bác sĩ mang máy đo ECG, sinh hiệu và xét nghiệm tận giường bệnh.</p>
                 </div>
                 <div className="p-4 bg-emerald-50/50 border border-emerald-200 rounded-2xl space-y-1">
@@ -320,21 +329,22 @@ export function ContractSigningWizard({
               </div>
 
               <div className="flex justify-between pt-4 border-t border-slate-100">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   onClick={() => setStep(2)}
-                  className="px-5 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  className="rounded-xl text-xs font-semibold"
                 >
                   Quay lại
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
                   onClick={() => setStep(4)}
-                  className="px-6 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors flex items-center gap-1.5"
+                  className="rounded-xl text-xs sm:text-sm font-bold gap-1.5"
                 >
                   <span>Chuyển sang Ký số &amp; Ký quỹ</span>
                   <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                </button>
+                </Button>
               </div>
             </div>
           )}
@@ -356,7 +366,7 @@ export function ContractSigningWizard({
                 <div className="font-bold text-slate-900 text-center uppercase">
                   CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM — ĐỘC LẬP TỰ DO HẠNH PHÚC
                 </div>
-                <div className="font-bold text-center text-[#2563eb]">
+                <div className="font-bold text-center text-primary">
                   HỢP ĐỒNG ĐIỆN TỬ DỊCH VỤ BÁC SĨ GIA ĐÌNH BẢO CHỨNG 4 BÊN #FMD-2026-REGR821
                 </div>
                 <p>
@@ -377,7 +387,7 @@ export function ContractSigningWizard({
               </div>
 
               {/* OTP & Signature Area */}
-              <div className="p-4 rounded-2xl border border-blue-200 bg-blue-50/40 space-y-3">
+              <div className="p-4 rounded-2xl border border-primary/20 bg-primary/5 space-y-3">
                 <span className="font-bold text-xs text-slate-800 uppercase block">
                   Khu vực Ký điện tử (E-Signature &amp; Smart OTP)
                 </span>
@@ -387,37 +397,37 @@ export function ContractSigningWizard({
                     <div className="text-[11px] text-slate-400">Khóa ký số điện tử SHA-256 / Viettel-CA OTP Token</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <input
+                    <Input
                       type="text"
                       maxLength={6}
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value)}
                       placeholder="Mã OTP"
-                      className="w-24 px-2 py-1 text-center tabular-nums font-bold border rounded-lg bg-slate-50 text-xs"
+                      className="w-24 h-8 px-2 py-1 text-center tabular-nums font-bold rounded-lg bg-slate-50 text-xs"
                     />
-                    <button
+                    <Button
                       type="button"
+                      size="xs"
                       onClick={handleVerifyOtp}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer ${
+                      className={
                         isOtpVerified
-                          ? 'bg-emerald-600 text-white'
-                          : 'bg-[#2563eb] text-white hover:bg-[#1d4ed8]'
-                      }`}
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white font-bold'
+                          : 'font-bold'
+                      }
                     >
                       {isOtpVerified ? 'Đã xác thực OTP ✓' : 'Xác thực'}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
                 <label className="flex items-start gap-2 cursor-pointer text-xs text-slate-700">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={agreedTerms}
-                    onChange={(e) => {
-                      setAgreedTerms(e.target.checked);
+                    onCheckedChange={(checked) => {
+                      setAgreedTerms(checked === true);
                       if (formError) setFormError(null);
                     }}
-                    className="mt-0.5 rounded text-[#2563eb]"
+                    className="mt-0.5"
                   />
                   <span>
                     Tôi xác nhận là đại diện hợp pháp của các thành viên trên, đã đọc, hiểu rõ toàn bộ Điều khoản Hợp đồng 4 Bên và đồng ý ký kết bằng phương thức điện tử có giá trị pháp lý tương đương văn bản.
@@ -426,31 +436,34 @@ export function ContractSigningWizard({
               </div>
 
               {formError && (
-                <div role="alert" className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[16px] shrink-0 text-red-500">error</span>
-                  <span>{formError}</span>
-                </div>
+                <Alert role="alert" variant="destructive" className="rounded-xl bg-red-50 border-red-200 text-xs text-red-700">
+                  <AlertDescription className="flex items-center gap-2 text-red-700">
+                    <span className="material-symbols-outlined text-[16px] shrink-0 text-red-500">error</span>
+                    <span>{formError}</span>
+                  </AlertDescription>
+                </Alert>
               )}
 
               {/* Pricing & Submit */}
               <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
                 <div>
                   <span className="text-[10px] text-slate-400 block uppercase font-bold">Tổng thanh toán ({packageName}):</span>
-                  <div className="text-xl sm:text-2xl font-bold tabular-nums text-[#2563eb]">{packagePrice}</div>
+                  <div className="text-xl sm:text-2xl font-bold tabular-nums text-primary">{packagePrice}</div>
                 </div>
 
                 <div className="flex gap-2 w-full sm:w-auto">
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={() => setStep(3)}
-                    className="px-4 py-2.5 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                    className="rounded-xl text-xs font-semibold"
                   >
                     Quay lại
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
                     disabled={isSigning || !isOtpVerified || !agreedTerms}
-                    className="flex-1 sm:flex-none px-6 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 sm:flex-none rounded-xl text-xs sm:text-sm font-bold gap-2"
                   >
                     {isSigning ? (
                       <>
@@ -463,7 +476,7 @@ export function ContractSigningWizard({
                         <span>Ký Hợp Đồng &amp; Mở Cổng VietQR</span>
                       </>
                     )}
-                  </button>
+                  </Button>
                 </div>
               </div>
             </form>
@@ -486,27 +499,25 @@ export function ContractSigningWizard({
 
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 max-w-sm mx-auto space-y-2.5">
                 <div className="text-xs text-slate-500">Mã hóa đơn: <strong>INV-FMD-REGR821</strong></div>
-                <div className="text-lg font-bold tabular-nums text-[#2563eb]">{packagePrice}</div>
+                <div className="text-lg font-bold tabular-nums text-primary">{packagePrice}</div>
                 <div className="flex flex-col gap-2 pt-1">
-                  <Link
-                    href="/family/subscription/tracking"
-                    className="block w-full py-2.5 bg-[#2E37A4] hover:bg-[#222982] text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
-                  >
-                    Theo dõi tiến độ ký kết 4 bên
-                  </Link>
-                  <Link
-                    href="/family/billing"
-                    className="block w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
-                  >
-                    Mở Mã VietQR Thanh Toán Ngay
-                  </Link>
+                  <Button asChild className="w-full rounded-xl text-xs font-bold">
+                    <Link href="/family/subscription/tracking">
+                      Theo dõi tiến độ ký kết 4 bên
+                    </Link>
+                  </Button>
+                  <Button asChild variant="secondary" className="w-full rounded-xl text-xs font-bold">
+                    <Link href="/family/billing">
+                      Mở Mã VietQR Thanh Toán Ngay
+                    </Link>
+                  </Button>
                 </div>
               </div>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 

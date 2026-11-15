@@ -7,6 +7,12 @@ import { registerFamilySchema } from '../schemas/auth.schema';
 import { useAuth } from '../context/auth-context';
 import { authApi, mapRegistrationErrorToFields } from '@/lib/api/auth.api';
 import { ApiError } from '@/lib/http/errors';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export function RegisterForm() {
   const router = useRouter();
@@ -296,7 +302,8 @@ export function RegisterForm() {
         {/* RIGHT COLUMN: REGISTRATION FORM CARD                                      */}
         {/* ========================================================================= */}
         <section className="lg:col-span-6 xl:col-span-6 flex justify-center" data-purpose="form-section">
-          <div className="w-full max-w-[620px] bg-white rounded-[32px] p-6 sm:p-9 lg:p-10 shadow-[0_20px_50px_rgba(26,86,219,0.08)] border border-blue-100/60 relative">
+          <Card className="w-full max-w-[620px] rounded-[32px] border-blue-100/60 bg-white py-0 shadow-[0_20px_50px_rgba(0,55,193,0.08)] relative">
+            <CardContent className="p-6 sm:p-9 lg:p-10">
             {/* Subtle cross decorative icon top right of card */}
             <div className="absolute top-8 right-8 text-blue-200 pointer-events-none select-none opacity-80">
               <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
@@ -306,7 +313,6 @@ export function RegisterForm() {
 
             {/* Form Header */}
             <div className="mb-6 sm:mb-7" data-purpose="card-header">
-              {/* Brand Logo in form header matching Image 2 */}
               <div className="flex items-center gap-2 mb-4">
                 <img
                   src="/images/logo.png"
@@ -315,7 +321,6 @@ export function RegisterForm() {
                 />
               </div>
 
-              {/* Form Title (h1 with font-bold for UT compliance) */}
               <h1 className="text-2xl sm:text-[26px] font-bold text-slate-900 tracking-tight">
                 Đăng ký tài khoản đại diện gia đình
               </h1>
@@ -326,7 +331,7 @@ export function RegisterForm() {
 
             {/* Gói đăng ký đính kèm (nếu có từ URL ?packageId=...) */}
             {preselectedPackage && (
-              <div className="mb-4 py-2 px-3.5 rounded-xl bg-blue-50 text-blue-700 text-xs font-semibold flex items-center justify-between border border-blue-100">
+              <div className="mb-4 py-2 px-3.5 rounded-xl bg-blue-50 text-primary text-xs font-semibold flex items-center justify-between border border-blue-100">
                 <div className="flex items-center gap-2">
                   <span className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]">
                     ✓
@@ -335,7 +340,7 @@ export function RegisterForm() {
                     Đang đăng ký cho gói: <strong className="uppercase">{preselectedPackage}</strong>
                   </span>
                 </div>
-                <Link href="/packages" className="text-xs text-blue-600 underline hover:text-blue-800">
+                <Link href="/packages" className="text-xs text-primary underline hover:text-primary/80">
                   Đổi gói
                 </Link>
               </div>
@@ -343,40 +348,33 @@ export function RegisterForm() {
 
             {/* Global error banner (from authApi errors) */}
             {errors.global && (
-              <div
-                role="alert"
-                className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-center gap-2"
-              >
-                <svg className="w-4 h-4 shrink-0 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" x2="12" y1="8" y2="12" />
-                  <line x1="12" x2="12.01" y1="16" y2="16" />
-                </svg>
-                <span className="font-medium">{errors.global}</span>
-              </div>
+              <Alert variant="destructive" className="mb-4 rounded-xl border-rose-200 bg-rose-50 text-rose-700">
+                <AlertDescription className="flex items-center gap-2 text-xs text-rose-700">
+                  <svg className="w-4 h-4 shrink-0 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" x2="12" y1="8" y2="12" />
+                    <line x1="12" x2="12.01" y1="16" y2="16" />
+                  </svg>
+                  <span className="font-medium">{errors.global}</span>
+                </AlertDescription>
+              </Alert>
             )}
 
             {/* Registration Form */}
             <form onSubmit={handleSubmit} className="space-y-4" data-purpose="signup-form">
               {/* Full Name Field */}
               <div className="space-y-1.5" data-purpose="field-fullname">
-                <label htmlFor="register-fullname" className="block text-xs font-semibold text-slate-700">
+                <Label htmlFor="register-fullname" className="text-xs font-semibold text-slate-700">
                   Họ và tên người đại diện <span className="text-red-500">*</span>
-                </label>
-                <div
-                  className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
-                    errors.fullName
-                      ? 'border-red-500 ring-1 ring-red-500'
-                      : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
-                  }`}
-                >
+                </Label>
+                <div className="relative">
                   <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                       <circle cx="12" cy="7" r="4" />
                     </svg>
                   </span>
-                  <input
+                  <Input
                     id="register-fullname"
                     type="text"
                     name="fullName"
@@ -385,7 +383,8 @@ export function RegisterForm() {
                     onBlur={() => handleBlur('fullName')}
                     placeholder="Ví dụ: Nguyễn Văn An"
                     required
-                    className="w-full pl-10 pr-4 py-2.5 bg-transparent border-none text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                    aria-invalid={Boolean(errors.fullName)}
+                    className="h-10.5 rounded-xl bg-slate-50/30 pl-10 pr-4 text-sm"
                   />
                 </div>
                 {errors.fullName && (
@@ -397,25 +396,18 @@ export function RegisterForm() {
 
               {/* Email & Phone Number Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5" data-purpose="field-contacts">
-                {/* Email Field */}
                 <div className="space-y-1.5">
-                  <label htmlFor="register-email" className="block text-xs font-semibold text-slate-700">
+                  <Label htmlFor="register-email" className="text-xs font-semibold text-slate-700">
                     Email đăng nhập <span className="text-red-500">*</span>
-                  </label>
-                  <div
-                    className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
-                      errors.email
-                        ? 'border-red-500 ring-1 ring-red-500'
-                        : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
-                    }`}
-                  >
+                  </Label>
+                  <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <rect height="16" rx="2" width="20" x="2" y="4" />
                         <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
                       </svg>
                     </span>
-                    <input
+                    <Input
                       id="register-email"
                       type="email"
                       name="email"
@@ -424,7 +416,8 @@ export function RegisterForm() {
                       onBlur={() => handleBlur('email')}
                       placeholder="example@famidoc.vn"
                       required
-                      className="w-full pl-10 pr-3 py-2.5 bg-transparent border-none text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                      aria-invalid={Boolean(errors.email)}
+                      className="h-10.5 rounded-xl bg-slate-50/30 pl-10 pr-3 text-sm"
                     />
                   </div>
                   {errors.email && (
@@ -436,17 +429,16 @@ export function RegisterForm() {
 
                 {/* Phone Number Field with Country Code */}
                 <div className="space-y-1.5">
-                  <label htmlFor="register-phone" className="block text-xs font-semibold text-slate-700">
+                  <Label htmlFor="register-phone" className="text-xs font-semibold text-slate-700">
                     Số điện thoại liên hệ <span className="text-red-500">*</span>
-                  </label>
+                  </Label>
                   <div
                     className={`relative flex rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
                       errors.phone
-                        ? 'border-red-500 ring-1 ring-red-500'
-                        : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
+                        ? 'border-destructive ring-1 ring-destructive'
+                        : 'border-input focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50'
                     }`}
                   >
-                    {/* Country Prefix */}
                     <div className="flex items-center pl-3 pr-2 border-r border-slate-200 text-slate-600 bg-slate-50/60 text-xs font-medium space-x-1 select-none shrink-0">
                       <svg className="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" />
@@ -478,25 +470,18 @@ export function RegisterForm() {
 
               {/* Password & Confirm Password Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5" data-purpose="field-passwords">
-                {/* Password Field */}
                 <div className="space-y-1.5">
-                  <label htmlFor="register-password" className="block text-xs font-semibold text-slate-700">
+                  <Label htmlFor="register-password" className="text-xs font-semibold text-slate-700">
                     Mật khẩu mới <span className="text-red-500">*</span>
-                  </label>
-                  <div
-                    className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
-                      errors.password
-                        ? 'border-red-500 ring-1 ring-red-500'
-                        : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
-                    }`}
-                  >
+                  </Label>
+                  <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <rect height="11" rx="2" ry="2" width="18" x="3" y="11" />
                         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                       </svg>
                     </span>
-                    <input
+                    <Input
                       id="register-password"
                       type={showPassword ? 'text' : 'password'}
                       name="password"
@@ -505,7 +490,8 @@ export function RegisterForm() {
                       onBlur={() => handleBlur('password')}
                       placeholder="Tối thiểu 8 ký tự"
                       required
-                      className="w-full pl-10 pr-9 py-2.5 bg-transparent border-none text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                      aria-invalid={Boolean(errors.password)}
+                      className="h-10.5 rounded-xl bg-slate-50/30 pl-10 pr-9 text-sm"
                     />
                     <button
                       type="button"
@@ -526,25 +512,18 @@ export function RegisterForm() {
                   )}
                 </div>
 
-                {/* Confirm Password Field */}
                 <div className="space-y-1.5">
-                  <label htmlFor="register-confirmpassword" className="block text-xs font-semibold text-slate-700">
+                  <Label htmlFor="register-confirmpassword" className="text-xs font-semibold text-slate-700">
                     Xác nhận mật khẩu <span className="text-red-500">*</span>
-                  </label>
-                  <div
-                    className={`relative rounded-xl border transition-all bg-slate-50/30 overflow-hidden ${
-                      errors.confirmPassword
-                        ? 'border-red-500 ring-1 ring-red-500'
-                        : 'border-slate-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100'
-                    }`}
-                  >
+                  </Label>
+                  <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <rect height="11" rx="2" ry="2" width="18" x="3" y="11" />
                         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                       </svg>
                     </span>
-                    <input
+                    <Input
                       id="register-confirmpassword"
                       type={showConfirmPassword ? 'text' : 'password'}
                       name="confirmPassword"
@@ -553,7 +532,8 @@ export function RegisterForm() {
                       onBlur={() => handleBlur('confirmPassword')}
                       placeholder="Nhập lại mật khẩu"
                       required
-                      className="w-full pl-10 pr-9 py-2.5 bg-transparent border-none text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-0"
+                      aria-invalid={Boolean(errors.confirmPassword)}
+                      className="h-10.5 rounded-xl bg-slate-50/30 pl-10 pr-9 text-sm"
                     />
                     <button
                       type="button"
@@ -675,42 +655,40 @@ export function RegisterForm() {
 
               {/* Terms Checkboxes */}
               <div className="pt-2 space-y-2.5" data-purpose="terms-checkboxes">
-                {/* errors.acceptTerms */}
                 {errors.acceptTerms && (
                   <p role="alert" className="text-xs text-red-600 font-medium">
                     {errors.acceptTerms}
                   </p>
                 )}
 
-                {/* Term 1 */}
                 <label className="flex items-start space-x-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="acceptTerms"
+                  <Checkbox
                     checked={formData.acceptTerms}
-                    onChange={handleChange}
-                    className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 w-4 h-4 cursor-pointer"
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, acceptTerms: Boolean(checked) }))
+                    }
+                    className="mt-0.5"
                   />
                   <span className="text-xs text-slate-600 leading-normal">
                     Tôi đồng ý với{' '}
-                    <Link href="/privacy" className="text-blue-600 font-medium hover:underline">
+                    <Link href="/privacy" className="text-primary font-medium hover:underline">
                       Chính sách bảo mật y tế
                     </Link>{' '}
                     &amp;{' '}
-                    <Link href="/terms" className="text-blue-600 font-medium hover:underline">
+                    <Link href="/terms" className="text-primary font-medium hover:underline">
                       Điều khoản dịch vụ Khám bệnh từ xa
                     </Link>
                     .
                   </span>
                 </label>
-                {/* Term 2 */}
+
                 <label className="flex items-start space-x-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="acceptNotifications"
+                  <Checkbox
                     checked={formData.acceptNotifications}
-                    onChange={handleChange}
-                    className="mt-0.5 rounded text-blue-600 focus:ring-blue-500 border-slate-300 w-4 h-4 cursor-pointer"
+                    onCheckedChange={(checked) =>
+                      setFormData((prev) => ({ ...prev, acceptNotifications: Boolean(checked) }))
+                    }
+                    className="mt-0.5"
                   />
                   <span className="text-xs text-slate-600 leading-normal">
                     Tôi đồng ý tiếp nhận thông báo lịch tiêm chủng, cập nhật dịch vụ và nhắc lịch tái khám tự động.
@@ -720,19 +698,17 @@ export function RegisterForm() {
 
               {/* Main CTA Button */}
               <div className="pt-3" data-purpose="submit-button">
-                <button
+                <Button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-semibold py-3 px-6 rounded-xl shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2 transition-all group disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+                  className="w-full h-12 rounded-xl font-semibold text-sm shadow-lg shadow-primary/25 cursor-pointer"
                 >
                   {loading ? (
                     <span>Đang khởi tạo tài khoản...</span>
                   ) : (
-                    <>
-                      <span>Đăng ký tài khoản FamiDoc</span>
-                    </>
+                    <span>Đăng ký tài khoản FamiDoc</span>
                   )}
-                </button>
+                </Button>
               </div>
             </form>
 
@@ -741,15 +717,15 @@ export function RegisterForm() {
               className="mt-6 pt-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-xs gap-3"
               data-purpose="card-footer"
             >
-              {/* Sign-in Link */}
               <div className="text-slate-500">
                 Đã có tài khoản?{' '}
-                <Link href="/login" className="font-semibold text-blue-600 hover:underline">
+                <Link href="/login" className="font-semibold text-primary hover:underline">
                   Đăng nhập ngay
                 </Link>
               </div>
             </div>
-          </div>
+            </CardContent>
+          </Card>
         </section>
       </main>
     </div>
