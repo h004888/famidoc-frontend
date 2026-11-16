@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { registerFamilySchema } from '../schemas/auth.schema';
 import { resolveReturnUrl } from '../return-url';
 import { useAuth } from '../context/auth-context';
@@ -16,12 +16,21 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
-export function RegisterForm() {
+export interface RegisterFormProps {
+  defaultType?: 'FAMILY' | 'FACILITY';
+}
+
+export function RegisterForm({ defaultType }: RegisterFormProps = {}) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const preselectedPackage = searchParams.get('packageId');
   const redirectTarget = resolveReturnUrl(searchParams.get('redirect'));
-  const initialType = searchParams.get('type') === 'facility' ? 'FACILITY' : 'FAMILY';
+  const initialType =
+    defaultType ||
+    (searchParams.get('type') === 'facility' || pathname?.includes('/facilities/register')
+      ? 'FACILITY'
+      : 'FAMILY');
   const [accountType, setAccountType] = useState<'FAMILY' | 'FACILITY'>(initialType);
   const { isAuthenticated, role, getDefaultPathForRole } = useAuth();
 

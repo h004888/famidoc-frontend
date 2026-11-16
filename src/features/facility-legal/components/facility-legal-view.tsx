@@ -119,6 +119,14 @@ export function FacilityLegalView() {
     setErrors({});
     setIsSubmitting(true);
 
+    const finalDocsUrl =
+      legalDocumentsUrl.trim() ||
+      (uploadedFiles.length > 0
+        ? uploadedFiles[0].startsWith('http')
+          ? uploadedFiles[0]
+          : `https://cdn.famidoc.vn/facilities/legal/${uploadedFiles[0]}`
+        : undefined);
+
     const submittedData = {
       facilityName: facilityName.trim(),
       licenseNumber: licenseNumber.trim(),
@@ -130,7 +138,7 @@ export function FacilityLegalView() {
       address: address.trim(),
       licenseIssuer: licenseIssuer.trim(),
       licenseDate: licenseDate || undefined,
-      legalDocumentsUrl,
+      legalDocumentsUrl: finalDocsUrl,
     };
 
     try {

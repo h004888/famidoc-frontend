@@ -94,13 +94,32 @@ export function DoctorVerificationView() {
 
   const handleSubmitCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formCchn.trim()) {
+      setToastMessage('Vui lòng nhập Số chứng chỉ hành nghề (CCHN).');
+      return;
+    }
+    if (!formIssuer.trim()) {
+      setToastMessage('Vui lòng nhập Cơ quan cấp phép CCHN.');
+      return;
+    }
+    if (!formDate.trim()) {
+      setToastMessage('Vui lòng chọn Ngày cấp CCHN.');
+      return;
+    }
+    const issueDateObj = new Date(formDate);
+    if (!isNaN(issueDateObj.getTime()) && issueDateObj > new Date()) {
+      setToastMessage('Ngày cấp chứng chỉ không thể là ngày trong tương lai.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await doctorsApi.submitMyCredentials({
-        cchnNumber: formCchn,
-        scopeOfPractice: formScope,
-        issuedBy: formIssuer,
-        issuedDate: formDate,
+        cchnNumber: formCchn.trim(),
+        scopeOfPractice: formScope.trim(),
+        issuedBy: formIssuer.trim(),
+        issuedDate: formDate.trim(),
         certificateFiles: formFiles,
       });
 
