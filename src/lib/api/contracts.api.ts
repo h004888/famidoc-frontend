@@ -378,10 +378,12 @@ export const contractsApi = {
    * Giữ `getMedicalContractById` cho các view cũ để không đổi hành vi của chúng.
    */
   getMedicalContractDetail: async (
-    id: string
+    id: string,
+    options?: { forceSync?: boolean }
   ): Promise<MedicalContractDetailDto> => {
     const payload = await httpClient.get<unknown>(
-      `/api/v1/contracts/medical/${id}`
+      `/api/v1/contracts/medical/${id}`,
+      options?.forceSync ? { forceSync: '1' } : undefined
     );
     return unwrapEnvelope<MedicalContractDetailDto>(payload);
   },

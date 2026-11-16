@@ -110,7 +110,11 @@ function BookingOnboardingFrame({ children }: { children: React.ReactNode }) {
 
       <div className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between gap-3">
+          {/* Chỉ màn hình hẹp (< md): desktop đã có stepper 1 hàng bấm lùi trực tiếp. */}
+          <div
+            data-testid="booking-compact-back-row"
+            className="flex items-center justify-between gap-3 md:hidden"
+          >
             {backTarget ? (
               <Link
                 href={backTarget.href}

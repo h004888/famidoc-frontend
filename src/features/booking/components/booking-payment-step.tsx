@@ -91,8 +91,65 @@ function PaymentCountdown({
 type PaymentLoadOutcome =
   | { kind: 'paid'; payment: VietQRPaymentRequestDto | null }
   | { kind: 'pending'; payment: VietQRPaymentRequestDto }
-  | { kind: 'needs_signing'; message: string }
-  | { kind: 'error'; message: string };
+  | { kind: 'needs_signing'; message: string; blockingReasons: string[] }
+  | { kind: 'error'; message: string; blockingReasons: string[] };
+
+/**
+ * Diễn giải mã lý do chặn thanh toán do backend trả trong `error.blockingReasons`
+ * (RFC 9457 extension) thành thông báo tiếng Việt dễ hiểu cho hộ gia đình.
+ */
+const BLOCKING_REASON_LABELS: Record<string, string> = {
+  FAMILY_SIGNATURE_REQUIRED:
+    'Đại diện hộ gia đình chưa hoàn tất chữ ký số trên hợp đồng 4 bên.',
+  ADMIN_SIGNATURE_REQUIRED:
+    'Ban quản trị FamiDoc chưa hoàn tất chữ ký số trên hợp đồng 4 bên.',
+  FACILITY_SIGNATURE_REQUIRED:
+    'Cơ sở y tế chưa hoàn tất chữ ký số trên hợp đồng 4 bên.',
+  DOCTOR_SIGNATURE_REQUIRED:
+    'Bác sĩ phụ trách chưa hoàn tất chữ ký số trên hợp đồng 4 bên.',
+  FACILITY_ASSIGNMENT_REQUIRED:
+    'Hợp đồng chưa được gán cơ sở y tế phụ trách.',
+  DOCTOR_ASSIGNMENT_REQUIRED:
+    'Hợp đồng chưa có bác sĩ gia đình phụ trách.',
+  DOCTOR_VERIFICATION_REQUIRED:
+    'Cơ sở y tế hoặc bác sĩ phụ trách chưa hoàn tất điều kiện kích hoạt: cơ sở cần có hợp đồng cung ứng nhân lực B2B còn hiệu lực và hồ sơ bác sĩ phải được xác minh.',
+  PANEL_CAPACITY_UNAVAILABLE:
+    'Bác sĩ phụ trách đã đạt giới hạn số hộ gia đình nhận chăm sóc. Vui lòng chọn bác sĩ khác.',
+  CONTRACT_TERM_NOT_CURRENT:
+    'Thời hạn hợp đồng chưa bắt đầu hoặc đã hết hiệu lực tại thời điểm thanh toán.',
+  ADDITIONAL_FAMILY_MEMBERS_PAYMENT_REQUIRED:
+    'Số thành viên đang hoạt động của hộ gia đình vượt quá số suất trên hợp đồng. Vui lòng thanh toán bổ sung cho các thành viên tăng thêm.',
+  CONTRACT_CANCELLED:
+    'Hợp đồng đã bị hủy nên không thể tiếp tục thanh toán.',
+  VERIFIED_PAYMENT_REQUIRED:
+    'Chưa ghi nhận giao dịch chuyển khoản được xác minh cho hợp đồng này.',
+  FAMILY_ALREADY_HAS_ACTIVE_CONTRACT:
+    'Hộ gia đình đang có một hợp đồng khác còn hiệu lực.',
+};
+
+const GENERIC_BLOCKING_MESSAGE =
+  'Hợp đồng chưa đủ điều kiện để thanh toán VietQR. Vui lòng xem chi tiết bên dưới.';
+
+function readBlockingReasonsFromError(error: unknown): string[] {
+  const details = (error as { details?: unknown } | null)?.details as
+    | { error?: { blockingReasons?: unknown } }
+    | undefined;
+  const raw = details?.error?.blockingReasons;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((reason): reason is string => typeof reason === 'string');
+}
+
+function describeBlockingReasons(codes: string[]): string[] {
+  const seen = new Set<string>();
+  const messages: string[] = [];
+  for (const code of codes) {
+    const label = BLOCKING_REASON_LABELS[code] ?? `Lý do chưa xác định (${code}).`;
+    if (seen.has(label)) continue;
+    seen.add(label);
+    messages.push(label);
+  }
+  return messages;
+}
 
 async function resolvePaymentOrContractState(
   contractId: string
@@ -104,6 +161,7 @@ async function resolvePaymentOrContractState(
     }
     return { kind: 'pending', payment: request };
   } catch (error) {
+    const blockingReasons = readBlockingReasonsFromError(error);
     try {
       const detail = await contractsApi.getMedicalContractDetail(contractId);
       if (detail?.contractStatus === 'ACTIVE') {
@@ -114,6 +172,7 @@ async function resolvePaymentOrContractState(
           kind: 'needs_signing',
           message:
             'Hợp đồng chưa hoàn tất đủ 4 chữ ký số trên Documenso để mở thanh toán VietQR.',
+          blockingReasons,
         };
       }
     } catch {
@@ -122,9 +181,12 @@ async function resolvePaymentOrContractState(
     return {
       kind: 'error',
       message:
-        error instanceof Error
-          ? error.message
-          : 'Không thể khởi tạo yêu cầu thanh toán VietQR.',
+        blockingReasons.length > 0
+          ? GENERIC_BLOCKING_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : 'Không thể khởi tạo yêu cầu thanh toán VietQR.',
+      blockingReasons,
     };
   }
 }
@@ -143,6 +205,7 @@ export function BookingPaymentStep({
   const [isActivated, setIsActivated] = useState(false);
   const [needsSigning, setNeedsSigning] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [blockingReasons, setBlockingReasons] = useState<string[]>([]);
   const [isCopied, setIsCopied] = useState<string | null>(null);
   const [isExpired, setIsExpired] = useState(false);
   const [isReissuing, setIsReissuing] = useState(false);
@@ -169,6 +232,7 @@ export function BookingPaymentStep({
         setPayment(outcome.payment);
         setErrorMessage(null);
         setNeedsSigning(false);
+        setBlockingReasons([]);
         activate();
         return;
       }
@@ -176,16 +240,19 @@ export function BookingPaymentStep({
         setPayment(outcome.payment);
         setErrorMessage(null);
         setNeedsSigning(false);
+        setBlockingReasons([]);
         setIsExpired(outcome.payment.status === 'EXPIRED');
         return;
       }
       if (outcome.kind === 'needs_signing') {
         setNeedsSigning(true);
         setErrorMessage(outcome.message);
+        setBlockingReasons(describeBlockingReasons(outcome.blockingReasons));
         return;
       }
       setNeedsSigning(false);
       setErrorMessage(outcome.message);
+      setBlockingReasons(describeBlockingReasons(outcome.blockingReasons));
     },
     [activate]
   );
@@ -207,6 +274,7 @@ export function BookingPaymentStep({
     setIsLoading(true);
     setErrorMessage(null);
     setNeedsSigning(false);
+    setBlockingReasons([]);
     void loadPayment();
   };
 
@@ -303,6 +371,7 @@ export function BookingPaymentStep({
     if (!contractId || isReissuing) return;
     setIsReissuing(true);
     setErrorMessage(null);
+    setBlockingReasons([]);
     try {
       // Máy chủ tự đóng mã quá hạn và cấp mã mới với attempt + 1.
       const fresh = await contractsApi.createVietQRPayment(contractId);
@@ -315,10 +384,14 @@ export function BookingPaymentStep({
       setIsExpired(fresh.status === 'EXPIRED');
       toast.success('Đã tạo mã thanh toán mới.');
     } catch (error) {
+      const reasons = readBlockingReasonsFromError(error);
+      setBlockingReasons(describeBlockingReasons(reasons));
       setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : 'Không thể tạo mã thanh toán mới. Vui lòng thử lại.'
+        reasons.length > 0
+          ? GENERIC_BLOCKING_MESSAGE
+          : error instanceof Error
+            ? error.message
+            : 'Không thể tạo mã thanh toán mới. Vui lòng thử lại.'
       );
     } finally {
       if (isMountedRef.current) setIsReissuing(false);
@@ -429,6 +502,16 @@ export function BookingPaymentStep({
             </p>
           </div>
         </div>
+        {blockingReasons.length > 0 && (
+          <ul
+            data-testid="booking-payment-blocking-reasons"
+            className="list-disc space-y-1.5 rounded-xl border border-rose-200 bg-white/70 p-3 pl-7 text-xs leading-relaxed text-rose-900"
+          >
+            {blockingReasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        )}
         <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
@@ -461,15 +544,6 @@ export function BookingPaymentStep({
       className="space-y-5"
       aria-label="Thanh toán VietQR kích hoạt gói"
     >
-      <Link
-        href={`/booking/tracking?contractId=${encodeURIComponent(contractId)}`}
-        data-testid="booking-back-to-step-2"
-        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-      >
-        <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-        <span>Quay lại theo dõi ký hợp đồng</span>
-      </Link>
-
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1.5">
           <h1 className="text-xl font-bold text-slate-900">
@@ -484,8 +558,18 @@ export function BookingPaymentStep({
       </header>
 
       {errorMessage && (
-        <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-          {errorMessage}
+        <div role="alert" className="space-y-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          <p>{errorMessage}</p>
+          {blockingReasons.length > 0 && (
+            <ul
+              data-testid="booking-payment-blocking-reasons"
+              className="list-disc space-y-1 pl-5 text-xs leading-relaxed"
+            >
+              {blockingReasons.map((reason) => (
+                <li key={reason}>{reason}</li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 
