@@ -24,7 +24,7 @@ export function VerifyEmailOtpView({
   expectedOtp,
   cooldownSeconds = 60,
   onSuccess,
-  redirectUrl = '/family/subscription/tracking',
+  redirectUrl = '/doctors',
 }: VerifyEmailOtpViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -271,7 +271,7 @@ export function VerifyEmailOtpView({
                 terminal
               </span>
               <span className="font-medium">Mã OTP môi trường dev:</span>
-              <code className="ml-auto font-bold text-amber-900 tabular-nums">{devOtpDisplay}</code>
+              <code className="font-sans ml-auto font-bold text-amber-900 tabular-nums">{devOtpDisplay}</code>
             </div>
           )}
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,15 @@ const NAV_LINKS = [
   { href: '/contact', label: 'Liên hệ & Tư vấn' },
 ];
 
-export function LandingHeader() {
+export interface LandingHeaderProps {
+  /**
+   * Ẩn thanh điều hướng di động ở chân trang. Dùng trong luồng `/booking` để
+   * không đè lên thanh hành động thanh toán dính đáy của Bước 1.
+   */
+  hideMobileBottomNav?: boolean;
+}
+
+export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProps = {}) {
   const pathname = usePathname() || '/';
   const { isAuthenticated, user, role, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -324,42 +332,44 @@ export function LandingHeader() {
       </header>
 
       {/* 2. App-like Bottom Navigation Bar (Phương án B - Mobile Only) */}
-      <nav
-        aria-label="Thanh điều hướng di động chân trang"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] px-2 py-1"
-      >
-        <div className="grid grid-cols-4 items-center h-14 max-w-md mx-auto">
-          {bottomNavItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-label={item.ariaLabel}
-              aria-current={item.isActive ? 'page' : undefined}
-              className={`flex flex-col items-center justify-center py-1 rounded-lg transition-colors cursor-pointer ${
-                item.isActive
-                  ? 'text-[#0046c0] font-semibold'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <div className="relative flex items-center justify-center">
-                <span
-                  className={`material-symbols-outlined text-[22px] transition-transform ${
-                    item.isActive ? 'scale-110' : ''
-                  }`}
-                >
-                  {item.icon}
+      {!hideMobileBottomNav && (
+        <nav
+          aria-label="Thanh điều hướng di động chân trang"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] px-2 py-1"
+        >
+          <div className="grid grid-cols-4 items-center h-14 max-w-md mx-auto">
+            {bottomNavItems.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-label={item.ariaLabel}
+                aria-current={item.isActive ? 'page' : undefined}
+                className={`flex flex-col items-center justify-center py-1 rounded-lg transition-colors cursor-pointer ${
+                  item.isActive
+                    ? 'text-[#0046c0] font-semibold'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <div className="relative flex items-center justify-center">
+                  <span
+                    className={`material-symbols-outlined text-[22px] transition-transform ${
+                      item.isActive ? 'scale-110' : ''
+                    }`}
+                  >
+                    {item.icon}
+                  </span>
+                  {item.isActive && (
+                    <span className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-[#0046c0]" />
+                  )}
+                </div>
+                <span className="text-[10px] mt-0.5 tracking-tight" aria-hidden="true">
+                  {item.label}
                 </span>
-                {item.isActive && (
-                  <span className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-[#0046c0]" />
-                )}
-              </div>
-              <span className="text-[10px] mt-0.5 tracking-tight" aria-hidden="true">
-                {item.label}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </nav>
+              </Link>
+            ))}
+          </div>
+        </nav>
+      )}
     </>
   );
 }

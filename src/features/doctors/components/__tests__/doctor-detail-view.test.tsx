@@ -200,7 +200,7 @@ describe('DoctorDetailView (API-only rendering)', () => {
       screen.getByRole('link', { name: /Đăng ký dịch vụ với bác sĩ/i })
     ).toHaveAttribute(
       'href',
-      '/family/subscription?packageId=pkg-1&doctorId=doc-real-100&facilityId=fac-1&members=3'
+      '/booking?packageId=pkg-1&doctorId=doc-real-100&facilityId=fac-1&members=3'
     );
   });
 

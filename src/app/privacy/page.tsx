@@ -101,7 +101,7 @@ export default function PrivacyPage() {
               <span>Nhật Ký Truy Cập Kiểm Toán (Audit Logs)</span>
             </h2>
             <p>
-              Mọi hành vi mở xem hồ sơ bệnh án (READ_EHR), kê đơn thuốc hoặc trích xuất tài liệu đều được hệ thống tự động ghi nhật ký kiểm toán không thể can thiệp (bảng <code className="px-1.5 py-0.5 rounded bg-slate-100 text-xs text-slate-800">audit_logs</code>) bao gồm: ID người truy cập, thời gian chính xác, địa chỉ IP và lý do chuyên môn.
+              Mọi hành vi mở xem hồ sơ bệnh án (READ_EHR), kê đơn thuốc hoặc trích xuất tài liệu đều được hệ thống tự động ghi nhật ký kiểm toán không thể can thiệp (bảng <code className="font-sans px-1.5 py-0.5 rounded bg-slate-100 text-xs text-slate-800">audit_logs</code>) bao gồm: ID người truy cập, thời gian chính xác, địa chỉ IP và lý do chuyên môn.
             </p>
           </section>
         </div>

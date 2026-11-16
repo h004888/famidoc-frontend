@@ -191,10 +191,13 @@ The palette is engineered around high-contrast medical usability and systematic 
 
 ## Typography
 
-Be Vietnam Pro serves as the single universal typeface across all functional surfaces, chosen for its neutral precision, tall x-height, and superior distinction of critical numeric and clinical data.
+Be Vietnam Pro serves as the single universal typeface across all functional surfaces, chosen for its neutral precision, tall x-height, and superior Vietnamese diacritic rendering — its tone marks stay balanced and legible at every size, including dense clinical data tables.
+
+The typeface is self-hosted through `next/font/google` (subsets `vietnamese` + `latin`, weights `300`–`700`, normal and italic) so the `.woff2` files ship inside the production build instead of being fetched from an external font CDN at runtime.
 
 ### Typographic Principles
 - **Numerical Distinction:** Tabular figures (`font-variant-numeric: tabular-nums`) must be activated for vitals, appointment timestamps, and medical dosage metrics.
+- **Weight Ceiling:** The heaviest permitted weight is `700` (`font-bold`); `font-black` (900) and `font-extrabold` (800) are not used. Monospace classes (`font-mono`) are also forbidden — inline `<code>`, `<pre>`, `<kbd>` and `<samp>` render in Be Vietnam Pro with `tabular-nums`.
 - **Micro-Scale Legibility:** Compact labels (`label-sm`, `body-sm`) employ slight letter-spacing adjustments to preserve legibility on low-resolution clinical displays and mobile screens.
 - **Hierarchy Mapping:**
   - `display-lg` / `headline-lg`: Reserved for medical landing pages, dashboard summaries, and high-level health milestones.

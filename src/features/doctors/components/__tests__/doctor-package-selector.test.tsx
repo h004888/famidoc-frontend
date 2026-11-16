@@ -111,7 +111,7 @@ describe('DoctorPackageSelector', () => {
     const ctaLink = screen.getByRole('link', { name: /Đăng ký dịch vụ với bác sĩ/i });
     expect(ctaLink).toHaveAttribute(
       'href',
-      '/family/subscription?packageId=pkg-3m&doctorId=doc-1&facilityId=fac-1&members=4'
+      '/booking?packageId=pkg-3m&doctorId=doc-1&facilityId=fac-1&members=4'
     );
   });
 

@@ -404,7 +404,7 @@ export function SubscriptionContractView() {
             <div className="flex items-center gap-2.5">
               <span className="material-symbols-outlined text-[20px] text-indigo-600">local_hospital</span>
               <span>
-                <strong>Hợp đồng đang chờ Cơ sở y tế phân công Bác sĩ (Bên C - SCR-22):</strong> Đăng nhập email <code>cooperation@umc.edu.vn</code> để phân công bác sĩ.
+                <strong>Hợp đồng đang chờ Cơ sở y tế phân công Bác sĩ (Bên C - SCR-22):</strong> Đăng nhập email <code className="font-sans font-semibold">cooperation@umc.edu.vn</code> để phân công bác sĩ.
               </span>
             </div>
             <Link
@@ -421,7 +421,7 @@ export function SubscriptionContractView() {
             <div className="flex items-center gap-2.5">
               <span className="material-symbols-outlined text-[20px] text-teal-700">stethoscope</span>
               <span>
-                <strong>Hợp đồng đang chờ Bác sĩ xác nhận cam kết chuyên môn (Bên D - SCR-16):</strong> Đăng nhập email <code>mai.tt@famidoc.pro</code> để ký cam kết.
+                <strong>Hợp đồng đang chờ Bác sĩ xác nhận cam kết chuyên môn (Bên D - SCR-16):</strong> Đăng nhập email <code className="font-sans font-semibold">mai.tt@famidoc.pro</code> để ký cam kết.
               </span>
             </div>
             <Link

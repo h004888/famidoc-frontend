@@ -182,7 +182,7 @@ export function LandingPackages() {
                   <Link
                     href={
                       isAuthenticated
-                        ? `/family/subscription?packageId=${pkg.id}`
+                        ? `/doctors?packageId=${pkg.id}`
                         : `/register?packageId=${pkg.id}`
                     }
                   >
