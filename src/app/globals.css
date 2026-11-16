@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 @theme {
+
   /* Primary Medical Cobalt (#0037c1) + Clinical Prestige Palette */
   --color-primary: #0037c1;
   --color-primary-hover: #002c9a;

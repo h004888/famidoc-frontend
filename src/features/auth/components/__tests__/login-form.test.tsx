@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';

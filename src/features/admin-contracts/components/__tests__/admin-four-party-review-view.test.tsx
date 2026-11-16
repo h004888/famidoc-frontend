@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdminFourPartyReviewView } from '../admin-four-party-review-view';
@@ -206,7 +206,7 @@ describe('AdminFourPartyReviewView (Documenso Platform Review & Sign)', () => {
     });
   });
 
-  it('complies with typography design system (no font-mono, font-black, or font-extrabold)', async () => {
+  it('complies with typography design system (no tracking-wide, font-black, or font-extrabold)', async () => {
     const { container } = render(<AdminFourPartyReviewView contract={mockContract} />);
     await waitFor(() => {
       expect(contractsApi.getSigningSession).toHaveBeenCalled();

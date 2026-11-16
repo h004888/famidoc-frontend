@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -142,19 +142,32 @@ export function FacilityContractInboundView({
   };
 
   return (
-    <div className="space-y-6 p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-      {/* Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Hợp đồng 4 bên tiếp nhận (Bên B — Cơ sở Y tế)
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Danh sách hợp đồng dịch vụ bác sĩ gia đình cần phân công và ký số trên Documenso khi Bên A đã ký xác nhận.
-          </p>
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased p-4 sm:p-6 lg:p-8">
+      <main className="max-w-7xl mx-auto space-y-6">
+        {/* Breadcrumb matching project style */}
+        <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+          <Link href="/" className="hover:text-primary transition-colors">
+            Trang chủ
+          </Link>
+          <span className="text-slate-300">/</span>
+          <Link href="/facility" className="hover:text-primary transition-colors">
+            Cơ sở Y tế
+          </Link>
+          <span className="text-slate-300">/</span>
+          <span className="text-primary font-semibold">Điều phối HĐ 4 bên</span>
         </div>
-        <div className="flex items-center gap-2">
-          {!isControlledByProps && (
+
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              Hợp đồng 4 bên tiếp nhận (Bên B — Cơ sở Y tế)
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Danh sách hợp đồng dịch vụ bác sĩ gia đình cần phân công và ký số trên Documenso khi Bên A đã ký xác nhận.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -165,12 +178,11 @@ export function FacilityContractInboundView({
             >
               Làm mới
             </Button>
-          )}
-          <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-accent text-primary border-primary/20">
-            Hệ thống Điều phối CSYT
-          </Badge>
+            <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-accent text-primary border-primary/20">
+              Hệ thống Điều phối CSYT
+            </Badge>
+          </div>
         </div>
-      </div>
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -451,6 +463,7 @@ export function FacilityContractInboundView({
           )}
         </DialogContent>
       </Dialog>
+      </main>
     </div>
   );
 }

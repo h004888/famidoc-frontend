@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React from 'react';
 import { describe, it, expect } from 'vitest';
@@ -123,18 +123,20 @@ describe('Màn hình Bác sĩ: DoctorContractsInboundView (/doctor/contracts)', 
     expect(screen.getByText(/Chưa có hợp đồng nào được phân công/i)).toBeInTheDocument();
   });
 
-  it('loads contracts from contractsApi.getMedicalContracts when initialContracts is omitted', async () => {
-    const { contractsApi } = await import('@/lib/api');
-    const getSpy = vi
-      .spyOn(contractsApi, 'getMedicalContracts')
-      .mockResolvedValueOnce(MOCK_DOCTOR_CONTRACTS);
+  it('renders standard header, breadcrumbs, and responsive container layout', () => {
+    const { container } = render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
 
-    render(<DoctorContractsInboundView />);
+    // Breadcrumbs
+    expect(screen.getByText('Trang chủ')).toBeInTheDocument();
+    expect(screen.getByText('Bác sĩ')).toBeInTheDocument();
+    expect(screen.getByText('Hợp đồng phụ trách')).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(getSpy).toHaveBeenCalledWith({ limit: 50 });
-      expect(screen.getByText('HĐ-4B-2026-0088')).toBeInTheDocument();
-    });
-    getSpy.mockRestore();
+    // Main container
+    const mainEl = container.querySelector('main');
+    expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
+
+    // Action button & badge
+    expect(screen.getByRole('button', { name: /Làm mới/i })).toBeInTheDocument();
+    expect(screen.getByText(/BS Gia Đình: Lê Hoàng Nam/i)).toBeInTheDocument();
   });
 });

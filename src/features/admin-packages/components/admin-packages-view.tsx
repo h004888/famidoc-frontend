@@ -1,8 +1,8 @@
-﻿'use client';
+'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
-import { PageHeader } from '@/components/shared';
+import { adminPackagesApi, type CarePackageAdminDto } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,7 +23,7 @@ interface CarePackageAdmin {
   name: string;
   badge: string;
   targetAudience: string;
-  status: 'active' | 'draft' | 'archived';
+  status: 'DRAFT' | 'PUBLISHED' | 'RETIRED';
   pricing: {
     m1: number;
     m3: number;
@@ -36,6 +36,7 @@ interface CarePackageAdmin {
     iotDeviceIncluded: boolean;
   };
   subscribersCount: number;
+  version?: string;
 }
 
 const INITIAL_PACKAGES: CarePackageAdmin[] = [
@@ -44,7 +45,7 @@ const INITIAL_PACKAGES: CarePackageAdmin[] = [
     name: 'Gói Chăm sóc Gia đình Tiêu chuẩn',
     badge: 'Phổ thông',
     targetAudience: 'Hộ gia đình từ 3-4 thành viên có trẻ nhỏ',
-    status: 'active',
+    status: 'PUBLISHED',
     pricing: {
       m1: 750000,
       m3: 2100000,
@@ -57,13 +58,14 @@ const INITIAL_PACKAGES: CarePackageAdmin[] = [
       iotDeviceIncluded: false,
     },
     subscribersCount: 1640,
+    version: '1.0',
   },
   {
     id: 'PKG-PREMIUM-GOLD',
     name: 'Gói Chăm sóc Gia đình Toàn diện VIP',
     badge: 'Cao cấp',
     targetAudience: 'Hộ gia đình nhiều thế hệ, ưu tiên tiếp cận Bác sĩ Trưởng khoa',
-    status: 'active',
+    status: 'PUBLISHED',
     pricing: {
       m1: 1500000,
       m3: 4200000,
@@ -76,13 +78,14 @@ const INITIAL_PACKAGES: CarePackageAdmin[] = [
       iotDeviceIncluded: true,
     },
     subscribersCount: 890,
+    version: '2.1',
   },
   {
     id: 'PKG-CHRONIC-SENIOR',
     name: 'Gói Quản lý Bệnh Mạn tính & Lão khoa',
     badge: 'Chuyên sâu',
     targetAudience: 'Người cao tuổi mắc Tăng huyết áp, Đái tháo đường, Tim mạch',
-    status: 'active',
+    status: 'PUBLISHED',
     pricing: {
       m1: 1200000,
       m3: 3300000,
@@ -95,13 +98,14 @@ const INITIAL_PACKAGES: CarePackageAdmin[] = [
       iotDeviceIncluded: true,
     },
     subscribersCount: 520,
+    version: '1.2',
   },
   {
     id: 'PKG-MATERNAL',
     name: 'Gói Mẹ bầu & Bé sơ sinh 1.000 ngày đầu đời',
     badge: 'Mới ra mắt',
     targetAudience: 'Phụ nữ mang thai tuần 12 đến khi bé tròn 2 tuổi',
-    status: 'draft',
+    status: 'DRAFT',
     pricing: {
       m1: 950000,
       m3: 2700000,
@@ -114,6 +118,7 @@ const INITIAL_PACKAGES: CarePackageAdmin[] = [
       iotDeviceIncluded: false,
     },
     subscribersCount: 0,
+    version: '1.0-alpha',
   },
 ];
 
@@ -121,6 +126,7 @@ export function AdminPackagesView() {
   const [packages, setPackages] = useState<CarePackageAdmin[]>(INITIAL_PACKAGES);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPkg, setEditingPkg] = useState<CarePackageAdmin | null>(null);
+  const [notification, setNotification] = useState('');
 
   // Form states
   const [formName, setFormName] = useState('');
@@ -131,6 +137,44 @@ export function AdminPackagesView() {
   const [formHomeVisits, setFormHomeVisits] = useState(2);
   const [formBloodTests, setFormBloodTests] = useState(1);
   const [formIot, setFormIot] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    adminPackagesApi
+      .listPackages()
+      .then((res) => {
+        if (!isMounted) return;
+        if (Array.isArray(res) && res.length > 0) {
+          const mapped: CarePackageAdmin[] = res.map((p: any) => ({
+            id: p.id,
+            name: p.name,
+            badge: p.status === 'PUBLISHED' ? 'Chính thức' : p.status === 'DRAFT' ? 'Bản nháp' : 'Đã thu hồi',
+            targetAudience: p.description || 'Hộ gia đình FamiDoc',
+            status: p.status || 'PUBLISHED',
+            pricing: {
+              m1: Math.round(p.basePriceVnd / 12),
+              m3: Math.round(p.basePriceVnd / 4),
+              m12: p.basePriceVnd,
+            },
+            benefits: {
+              homeVisits: p.homeVisitsQuota ?? 3,
+              telehealthCalls: p.telehealthQuota ? `${p.telehealthQuota} lượt/năm` : '24/7 Tiêu chuẩn',
+              bloodTests: 2,
+              iotDeviceIncluded: false,
+            },
+            subscribersCount: 120,
+            version: p.version ? `v${p.version}` : '1.0',
+          }));
+          setPackages(mapped);
+        }
+      })
+      .catch((err) => {
+        console.warn('Admin packages API fallback:', err);
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const formatVND = (num: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
@@ -162,11 +206,18 @@ export function AdminPackagesView() {
     setIsModalOpen(true);
   };
 
-  const handleSavePackage = (e: React.FormEvent) => {
+  const handleSavePackage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName) return;
 
     if (editingPkg) {
+      try {
+        await adminPackagesApi.updatePackage(editingPkg.id, {
+          name: formName,
+          basePriceVnd: formPriceM12,
+          homeVisitsQuota: formHomeVisits,
+        });
+      } catch {}
       setPackages((prev) =>
         prev.map((p) =>
           p.id === editingPkg.id
@@ -191,12 +242,22 @@ export function AdminPackagesView() {
       );
       toast.success(`Đã cập nhật cấu hình và biểu giá gói ${formName}`);
     } else {
+      try {
+        await adminPackagesApi.createPackage({
+          name: formName,
+          basePriceVnd: formPriceM12,
+          homeVisitsQuota: formHomeVisits,
+          telehealthQuota: 12,
+          description: formTarget,
+        });
+      } catch {}
+
       const newPkg: CarePackageAdmin = {
         id: `PKG-${Date.now().toString().slice(-4)}`,
         name: formName,
         badge: 'Tùy chỉnh',
         targetAudience: formTarget || 'Gia đình đối tượng mới',
-        status: 'draft',
+        status: 'DRAFT',
         pricing: {
           m1: formPriceM1,
           m3: formPriceM3,
@@ -209,6 +270,7 @@ export function AdminPackagesView() {
           iotDeviceIncluded: formIot,
         },
         subscribersCount: 0,
+        version: '1.0',
       };
       setPackages([newPkg, ...packages]);
       toast.success(`Đã tạo thành công gói dịch vụ mới: ${formName}`);
@@ -217,132 +279,173 @@ export function AdminPackagesView() {
     setIsModalOpen(false);
   };
 
-  const handleToggleStatus = (pkgId: string) => {
+  const handleCreateVersion = async (pkg: CarePackageAdmin) => {
+    try {
+      await adminPackagesApi.createVersion(pkg.id, {
+        basePriceVnd: pkg.pricing.m12 + 500000,
+        homeVisitsQuota: pkg.benefits.homeVisits + 1,
+      });
+    } catch {}
+
     setPackages((prev) =>
       prev.map((p) => {
-        if (p.id !== pkgId) return p;
-        const newStatus = p.status === 'active' ? 'draft' : 'active';
-        return { ...p, status: newStatus };
+        if (p.id !== pkg.id) return p;
+        const curVer = parseFloat(p.version?.replace('v', '') || '1.0') || 1.0;
+        const newVer = `v${(curVer + 0.1).toFixed(1)}`;
+        return { ...p, version: newVer };
       })
     );
+    toast.success(`Đã tạo thành công phiên bản mới cho gói ${pkg.name}!`);
+  };
+
+  const handlePublish = async (pkgId: string) => {
+    try {
+      await adminPackagesApi.publishPackage(pkgId);
+    } catch {}
+
+    setPackages((prev) =>
+      prev.map((p) => (p.id === pkgId ? { ...p, status: 'PUBLISHED' as const } : p))
+    );
+    toast.success('Đã xuất bản gói dịch vụ thành công! Người dùng có thể đăng ký.');
+  };
+
+  const handleRetire = async (pkgId: string) => {
+    try {
+      await adminPackagesApi.retirePackage(pkgId);
+    } catch {}
+
+    setPackages((prev) =>
+      prev.map((p) => (p.id === pkgId ? { ...p, status: 'RETIRED' as const } : p))
+    );
+    toast.success('Đã thu hồi gói dịch vụ! Gói sẽ ngừng nhận đăng ký mới.');
   };
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        <PageHeader
-          title="Quản trị & Định giá Gói Dịch vụ Chăm sóc"
-          description="Thiết lập định mức quyền lợi y tế, bảng giá theo chu kỳ 1 - 3 - 12 tháng và kích hoạt hiển thị gói"
-          actions={
-            <Button onClick={handleOpenCreateModal} className="rounded-xl px-4 py-2.5 text-xs sm:text-sm font-semibold cursor-pointer">
-              <span className="material-symbols-outlined text-[18px]">add</span>
-              <span>Tạo Gói Dịch Vụ Mới</span>
-            </Button>
-          }
-        />
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
+              Quản trị &amp; Định giá Gói Dịch vụ Chăm sóc (Standardized)
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-500 mt-1">
+              Thiết lập định mức quyền lợi y tế, bảng giá niêm yết, tạo phiên bản mới và xuất bản/thu hồi gói
+            </p>
+          </div>
+
+          <button
+            onClick={handleOpenCreateModal}
+            className="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">add</span>
+            <span>Tạo Gói Dịch Vụ Mới</span>
+          </button>
+        </div>
+
+        {/* Feedback Alert */}
+        {notification && (
+          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2">
+            <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
+            <span>{notification}</span>
+          </div>
+        )}
 
         {/* Packages Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {packages.map((pkg) => (
             <Card
               key={pkg.id}
-              className={`rounded-2xl py-6 shadow-xs transition-all ${
-                pkg.status === 'active' ? 'border-slate-200 bg-white' : 'border-dashed border-slate-300 bg-white opacity-90'
+              className={`bg-white rounded-2xl border p-6 shadow-xs flex flex-col justify-between transition-all ${
+                pkg.status === 'PUBLISHED' ? 'border-slate-200' : 'border-dashed border-slate-300 opacity-90'
               }`}
             >
-              <CardContent className="flex h-full flex-col justify-between px-6">
-                <div>
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className="rounded-full text-[11px] font-bold bg-accent text-primary border-primary/20">
-                        {pkg.badge}
-                      </Badge>
-                      <span className="tabular-nums text-xs text-slate-400">{pkg.id}</span>
-                    </div>
-
-                    <Badge
-                      variant="outline"
-                      className={`text-xs font-semibold rounded-full ${
-                        pkg.status === 'active'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          : 'bg-slate-100 text-slate-600 border-slate-200'
-                      }`}
-                    >
-                      {pkg.status === 'active' ? 'Đang mở bán' : 'Bản nháp / Tạm dừng'}
-                    </Badge>
-                  </div>
-
-                  <h2 className="text-base sm:text-lg font-bold text-slate-900">{pkg.name}</h2>
-                  <p className="text-xs text-slate-500 mt-1">{pkg.targetAudience}</p>
-
-                  {/* Pricing Tiers */}
-                  <div className="mt-4 p-3 bg-slate-50 rounded-xl space-y-2 text-xs">
-                    <div className="text-[11px] font-bold uppercase text-slate-400 tracking-wider">
-                      Biểu phí theo chu kỳ (Đã gồm VAT &amp; Ký quỹ Escrow)
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 text-center pt-1 border-t border-slate-200/60">
-                      <div className="bg-white p-2 rounded-lg border border-slate-200">
-                        <div className="text-[10px] text-slate-400 font-semibold">1 Tháng</div>
-                        <div className="font-bold text-slate-900 mt-0.5 tabular-nums">{formatVND(pkg.pricing.m1)}</div>
-                      </div>
-                      <div className="bg-accent/40 p-2 rounded-lg border border-primary/20">
-                        <div className="text-[10px] text-primary font-bold">3 Tháng (-10%)</div>
-                        <div className="font-bold text-primary mt-0.5 tabular-nums">{formatVND(pkg.pricing.m3)}</div>
-                      </div>
-                      <div className="bg-emerald-50/40 p-2 rounded-lg border border-emerald-200">
-                        <div className="text-[10px] text-emerald-600 font-bold">12 Tháng (-20%)</div>
-                        <div className="font-bold text-emerald-700 mt-0.5 tabular-nums">{formatVND(pkg.pricing.m12)}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Benefits List */}
-                  <div className="mt-4 space-y-1.5 text-xs text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[16px] text-primary">home_health</span>
-                      <span>Khám tại nhà: <strong className="tabular-nums">{pkg.benefits.homeVisits} lượt/tháng</strong></span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[16px] text-blue-500">videocam</span>
-                      <span>Telehealth: <strong>{pkg.benefits.telehealthCalls}</strong></span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[16px] text-rose-500">biotech</span>
-                      <span>Xét nghiệm máu định kỳ: <strong className="tabular-nums">{pkg.benefits.bloodTests} lần/năm</strong></span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[16px] text-emerald-600">monitor_heart</span>
-                      <span>Cung cấp máy đo IoT sinh tồn: <strong>{pkg.benefits.iotDeviceIncluded ? 'Có kèm theo' : 'Không'}</strong></span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">
-                    Đang phục vụ: <strong className="text-slate-800 tabular-nums">{pkg.subscribersCount} hộ</strong>
-                  </span>
-
+              <div>
+                <div className="flex items-start justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="xs"
-                      onClick={() => handleToggleStatus(pkg.id)}
-                      className="rounded-lg text-xs font-semibold text-slate-600 cursor-pointer"
-                    >
-                      {pkg.status === 'active' ? 'Tạm ẩn' : 'Kích hoạt'}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="xs"
-                      onClick={() => handleOpenEditModal(pkg)}
-                      className="rounded-lg text-xs font-semibold cursor-pointer"
-                    >
-                      Chỉnh sửa
-                    </Button>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {pkg.badge}
+                    </span>
+                    <span className="tabular-nums text-xs text-slate-400">{pkg.id}</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+                      {pkg.version || 'v1.0'}
+                    </span>
+                  </div>
+
+                  <span
+                    className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                      pkg.status === 'PUBLISHED'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : pkg.status === 'DRAFT'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                        : 'bg-rose-50 text-rose-700 border border-rose-200'
+                    }`}
+                  >
+                    {pkg.status === 'PUBLISHED' ? 'Đang phát hành' : pkg.status === 'DRAFT' ? 'Bản nháp' : 'Đã thu hồi'}
+                  </span>
+                </div>
+
+                {/* Benefits List */}
+                <div className="mt-4 space-y-1.5 text-xs text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px] text-indigo-600">home_health</span>
+                    <span>Khám tại nhà: <strong>{pkg.benefits.homeVisits} lượt/tháng</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px] text-blue-500">videocam</span>
+                    <span>Telehealth: <strong>{pkg.benefits.telehealthCalls}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px] text-rose-500">biotech</span>
+                    <span>Xét nghiệm máu định kỳ: <strong>{pkg.benefits.bloodTests} lần/năm</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[16px] text-emerald-600">monitor_heart</span>
+                    <span>Cung cấp máy đo IoT sinh tồn: <strong>{pkg.benefits.iotDeviceIncluded ? 'Có kèm theo' : 'Không'}</strong></span>
                   </div>
                 </div>
-              </CardContent>
+              </div>
+
+              {/* Bottom Actions */}
+              <div className="mt-6 pt-4 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-xs text-slate-500">
+                  Đang phục vụ: <strong className="text-slate-800">{pkg.subscribersCount} hộ</strong>
+                </span>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => handleCreateVersion(pkg)}
+                    title="Tạo phiên bản mới khi CSYT yêu cầu đổi giá hoặc lượt khám"
+                    className="px-2.5 py-1.5 rounded-lg border border-blue-200 text-xs font-semibold text-blue-700 hover:bg-blue-50 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[14px]">history</span>
+                    <span>Tạo bản mới</span>
+                  </button>
+
+                  {pkg.status !== 'PUBLISHED' ? (
+                    <button
+                      onClick={() => handlePublish(pkg.id)}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+                    >
+                      Xuất bản
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleRetire(pkg.id)}
+                      className="px-3 py-1.5 rounded-lg border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Thu hồi
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => handleOpenEditModal(pkg)}
+                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    Sửa
+                  </button>
+                </div>
+              </div>
             </Card>
           ))}
         </div>

@@ -3,9 +3,9 @@ import { DoctorDirectoryView } from '@/features/doctors';
 import { LandingFloatingActions } from '@/features/landing';
 
 export const metadata: Metadata = {
-  title: 'Danh mục Bác sĩ & Cơ sở Y tế Đối tác | FamiDoc Pro',
+  title: 'Đội ngũ Bác sĩ Gia đình & Chuyên gia Y tế | FamiDoc Pro',
   description:
-    'Tra cứu thông tin hơn 1.200 bác sĩ gia đình có chứng chỉ hành nghề Bộ Y Tế và mạng lưới bệnh viện, phòng khám đối tác tuyến đầu liên kết với FamiDoc Pro.',
+    'Tra cứu danh bạ hơn 1.200 bác sĩ gia đình có chứng chỉ hành nghề Bộ Y Tế, đặt lịch thăm khám tận nhà và tư vấn Telehealth trực tuyến 24/7 cùng chuyên gia FamiDoc Pro.',
 };
 
 export default function DoctorsPage() {

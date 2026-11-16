@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
@@ -319,7 +319,7 @@ export function ContractSigningTrackerView({
             Đường dẫn này cần mã hợp đồng. Hãy mở lại đường dẫn trong email thông báo
             thanh toán, hoặc chọn gói dịch vụ để bắt đầu.
           </p>
-          <Button asChild size="sm" className="rounded-xl text-xs font-bold gap-2">
+          <Button asChild size="sm" className="rounded-xl text-xs font-bold gap-2 tabular-nums">
             <Link href={backHref}>
               <span className="material-symbols-outlined text-[16px]">arrow_back</span>
               Về danh sách gói dịch vụ

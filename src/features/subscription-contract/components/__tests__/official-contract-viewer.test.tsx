@@ -135,7 +135,7 @@ describe('Màn 9: OfficialContractViewer (Xem & Tải bản sao Hợp đồng đ
     expect(screen.getAllByText(/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/i).length).toBeGreaterThanOrEqual(1);
   });
 
-  it('conforms to anti-slop rules: no font-mono/black/extrabold, has tabular-nums and print styles', () => {
+  it('conforms to anti-slop rules: no tracking-wide/black/extrabold, has tabular-nums and print styles', () => {
     const { container } = render(<OfficialContractViewer contract={MOCK_ACTIVE_CONTRACT} />);
 
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);

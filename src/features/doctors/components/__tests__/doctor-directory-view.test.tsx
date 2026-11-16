@@ -126,4 +126,33 @@ describe('DoctorDirectoryView Component', () => {
       expect(screen.getByText('BS. Triệu Tuấn Anh')).toBeInTheDocument();
     });
   });
+
+  it('does NOT render the removed top tabs and matching wizard link (Design Feedback Items 1, 2, 3)', async () => {
+    vi.mocked(publicApi.getDoctors).mockResolvedValue({
+      items: [],
+      pagination: { page: 1, pageSize: 9, totalRecords: 0, totalPages: 1 },
+    });
+
+    render(<DoctorDirectoryView />);
+
+    await waitFor(() => {
+      // Item 1: Button "Đội ngũ Bác sĩ" should not be rendered
+      const doctorTabBtn = screen.queryByRole('button', { name: /Đội ngũ Bác sĩ/i });
+      expect(doctorTabBtn).toBeNull();
+
+      // Item 2: Link "Mạng lưới Cơ sở Y tế" should not be rendered
+      const facilitiesLink = screen.queryByRole('link', { name: /Mạng lưới Cơ sở Y tế/i });
+      expect(facilitiesLink).toBeNull();
+
+      // Item 3: Link "Gợi ý Bác sĩ Phù hợp" should not be rendered
+      const matchingWizardLink = screen.queryByRole('link', { name: /Gợi ý Bác sĩ Phù hợp/i });
+      expect(matchingWizardLink).toBeNull();
+
+      // Verify 3 search fields are present and integrated into form
+      expect(screen.getByPlaceholderText(/Nhập tên bác sĩ hoặc bệnh viện/i)).toBeInTheDocument();
+      expect(screen.getAllByRole('combobox').length).toBe(2);
+      expect(screen.getByText('Tất cả chuyên khoa')).toBeInTheDocument();
+      expect(screen.getByText('Tất cả tỉnh thành')).toBeInTheDocument();
+    });
+  });
 });

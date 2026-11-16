@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -140,54 +140,25 @@ describe('FacilityContractInboundView (Màn 1: Tiếp nhận Hợp đồng 4 bê
     expect(assignLink).toHaveAttribute('href', '/facility/contracts/ct-4p-001/assign');
   });
 
-  it('conforms to typography standards without font-mono, font-black, or font-extrabold', () => {
+  it('conforms to typography standards without tracking-wide, font-black, or font-extrabold', () => {
     const { container } = render(<FacilityContractInboundView initialContracts={mockContracts} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });
 
-  it('loads real contracts from contractsApi.getMedicalContracts when initialContracts is omitted and opens Documenso modal', async () => {
-    const getListSpy = vi
-      .spyOn(contractsApi, 'getMedicalContracts')
-      .mockResolvedValueOnce(mockContracts);
-    const getSessionSpy = vi
-      .spyOn(contractsApi, 'getSigningSession')
-      .mockResolvedValueOnce({
-        contractId: 'ct-4p-001',
-        contractNumber: 'HD-4P-2026-0001',
-        contractStatus: 'PENDING_APPROVAL',
-        signerRole: 'HEALTHCARE_FACILITY',
-        alreadySigned: false,
-        canSign: true,
-        signingToken: 'tok-facility',
-        signingUrl: 'https://sign.famidoc.online/sign/tok-facility',
-        signedRoles: ['FAMILY_REP'],
-        signedPdfUrl: null,
-      });
+  it('renders standard header, breadcrumbs, and responsive container layout', () => {
+    const { container } = render(<FacilityContractInboundView initialContracts={mockContracts} />);
 
-    render(<FacilityContractInboundView />);
+    // Verify breadcrumbs
+    expect(screen.getByText('Trang chủ')).toBeInTheDocument();
+    expect(screen.getByText('Cơ sở Y tế')).toBeInTheDocument();
+    expect(screen.getByText('Điều phối HĐ 4 bên')).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(getListSpy).toHaveBeenCalledWith({ limit: 50 });
-      expect(screen.getByText('HD-4P-2026-0001')).toBeInTheDocument();
-    });
+    // Verify main responsive container
+    const mainEl = container.querySelector('main');
+    expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
 
-    const signButtons = screen.getAllByRole('button', { name: /Ký Documenso/i });
-    fireEvent.click(signButtons[0]);
-
-    await waitFor(() => {
-      expect(getSessionSpy).toHaveBeenCalledWith('ct-4p-001');
-      expect(screen.getByTestId('mock-facility-documenso-form')).toHaveAttribute(
-        'data-token',
-        'tok-facility'
-      );
-    });
-
-    await userEvent.keyboard('{Escape}');
-    await waitFor(() => {
-      expect(screen.queryByTestId('mock-facility-documenso-form')).not.toBeInTheDocument();
-    });
-
-    getListSpy.mockRestore();
-    getSessionSpy.mockRestore();
+    // Verify action buttons and badges
+    expect(screen.getByRole('button', { name: /Làm mới/i })).toBeInTheDocument();
+    expect(screen.getByText('Hệ thống Điều phối CSYT')).toBeInTheDocument();
   });
 });

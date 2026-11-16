@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -46,6 +46,30 @@ export function AdminContractsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContract, setSelectedContract] = useState<FourPartyContract | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
+
+  // B2B Staffing Contract Draft Modal (Flow 2.1)
+  const [showCreateB2BModal, setShowCreateB2BModal] = useState(false);
+  const [newFacilityName, setNewFacilityName] = useState('');
+  const [newFacilityShare, setNewFacilityShare] = useState(85);
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+
+  const handleCreateB2BDraft = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingDraft(true);
+    try {
+      await contractsApi.createStaffingContract({
+        platformCommissionRate: 100 - newFacilityShare,
+        facilityRevenueRate: newFacilityShare,
+      });
+      toast.success('Đã khởi tạo dự thảo hợp đồng B2B thành công trên hệ thống!');
+      setShowCreateB2BModal(false);
+      triggerReload();
+    } catch (err: any) {
+      toast.error(err?.message || 'Không thể tạo hợp đồng B2B trên máy chủ.');
+    } finally {
+      setIsCreatingDraft(false);
+    }
+  };
 
   const triggerReload = () => {
     setIsLoading(true);
@@ -132,6 +156,15 @@ export function AdminContractsView() {
           </div>
 
           <div className="flex items-center gap-2.5">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setShowCreateB2BModal(true)}
+              className="rounded-xl bg-primary text-white text-xs font-semibold cursor-pointer gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[16px]">add_circle</span>
+              <span>Thiết Lập Dự Thảo HĐ B2B</span>
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -375,6 +408,68 @@ export function AdminContractsView() {
                 </DialogFooter>
               </>
             )}
+          </DialogContent>
+        </Dialog>
+        {/* Modal tạo dự thảo hợp đồng B2B nhân lực y tế (Flow 2.1) */}
+        <Dialog open={showCreateB2BModal} onOpenChange={setShowCreateB2BModal}>
+          <DialogContent className="max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                <span className="material-symbols-outlined text-primary text-[20px]">handshake</span>
+                Thiết Lập Dự Thảo HĐ B2B Nhân Lực Y Tế
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                Flow 2.1 - Admin thiết lập dự thảo hợp đồng cung ứng nhân lực y tế với Cơ sở y tế đối tác.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateB2BDraft} className="space-y-4 pt-2">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Cơ sở y tế đối tác
+                </label>
+                <Input
+                  value={newFacilityName}
+                  onChange={(e) => setNewFacilityName(e.target.value)}
+                  placeholder="VD: Bệnh viện Đa khoa An Sinh"
+                  className="text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Tỷ lệ chia sẻ doanh thu CSYT (%)
+                </label>
+                <Input
+                  type="number"
+                  min={50}
+                  max={95}
+                  value={newFacilityShare}
+                  onChange={(e) => setNewFacilityShare(Number(e.target.value))}
+                  className="text-xs font-bold"
+                />
+                <p className="text-[11px] text-slate-500 mt-1">
+                  CSYT: {newFacilityShare}% • Nền tảng FamiDoc: {100 - newFacilityShare}%
+                </p>
+              </div>
+              <DialogFooter className="gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowCreateB2BModal(false)}
+                  className="text-xs"
+                >
+                  Hủy bỏ
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isCreatingDraft}
+                  className="text-xs font-semibold"
+                >
+                  {isCreatingDraft ? 'Đang tạo...' : 'Lưu & Gửi Dự Thảo'}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </main>

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { ContractSigningTrackerView } from '../contract-signing-tracker-view';
@@ -234,12 +234,8 @@ describe('ContractSigningTrackerView (Luồng Documenso 2 pha & Thanh toán)', (
     );
   });
 
-  it('tuân thủ chuẩn typography không dùng font-mono/black/extrabold và có tabular-nums', () => {
-    const { container } = render(
-      <ContractSigningTrackerView
-        contract={{ id: 'FMD-2026-REGR821', status: 'FAMILY_SIGNED' }}
-      />
-    );
+  it('standardizes typography without tracking-wide, font-black, or font-extrabold and has tabular-nums', () => {
+    const { container } = render(<ContractSigningTrackerView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');
   });

@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DoctorContractReviewView } from '../doctor-contract-review-view';
@@ -223,7 +223,7 @@ describe('DoctorContractReviewView (Documenso 4-Party Contract Review)', () => {
     });
   });
 
-  it('complies with medical design system (zero font-mono, font-black, font-extrabold)', async () => {
+  it('complies with typography design system (no tracking-wide, font-black, or font-extrabold)', async () => {
     const { container } = render(<DoctorContractReviewView contract={mockContract} />);
     await waitFor(() => {
       expect(contractsApi.getSigningSession).toHaveBeenCalled();

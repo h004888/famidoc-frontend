@@ -11,10 +11,10 @@ import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <FamilySubscriptionGateProvider>
-      <SidebarProvider defaultOpen={false} className="min-h-screen bg-[#f5f6f8] font-sans text-slate-900 antialiased">
-        <div className="flex min-h-screen w-full flex-col lg:flex-row">
-          {/* Sidenav - Thanh điều hướng dọc chuẩn shadcn + Preclinic */}
-          <Suspense fallback={<div className="hidden w-20 shrink-0 border-r border-slate-200/90 bg-white lg:block" />}>
+      <SidebarProvider defaultOpen={true}>
+        <div className="flex min-h-screen w-full bg-[#f5f6f8] text-slate-900 antialiased font-sans">
+          {/* Sidenav - Thanh điều hướng dọc chuẩn Preclinic */}
+          <Suspense fallback={<div className="hidden lg:block w-64 bg-white border-r border-slate-200/90 shrink-0" />}>
             <DashboardSidebar />
           </Suspense>
 

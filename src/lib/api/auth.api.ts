@@ -57,9 +57,7 @@ export function mapBackendRoleToFrontendRole(
   const normalized = (backendRole || '').toUpperCase();
   if (normalized === 'FAMILY_REP' || normalized === 'FAMILY') return 'FAMILY';
   if (normalized === 'DOCTOR') return 'DOCTOR';
-  if (normalized === 'FACILITY' || normalized === 'HEALTHCARE_FACILITY') {
-    return 'FACILITY';
-  }
+  if (normalized === 'HEALTHCARE_FACILITY' || normalized === 'FACILITY') return 'FACILITY';
   if (normalized === 'ADMIN') return 'ADMIN';
   if (normalized === 'PATIENT') return 'PATIENT';
   return 'FAMILY';
@@ -179,5 +177,13 @@ export const authApi = {
       return res.data;
     }
     return res as LoginResponseData;
+  },
+
+  // Đổi mật khẩu khởi tạo / đổi mật khẩu định kỳ (Flow 2.1 - API 15)
+  changePassword: async (dto: {
+    oldPassword?: string;
+    newPassword?: string;
+  }): Promise<{ message: string }> => {
+    return httpClient.patch<{ message: string }>('/api/v1/auth/change-password', dto);
   },
 };

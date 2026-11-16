@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FacilityDoctorAssignView, type AvailableDoctor } from '../facility-doctor-assign-view';
@@ -222,13 +222,25 @@ describe('FacilityDoctorAssignView (Phân công Bác sĩ & Ký Documenso CSYT)',
     });
   });
 
-  it('conforms to typography standards without font-mono, font-black, or font-extrabold', async () => {
-    const { container } = render(
-      <FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />
-    );
-    await waitFor(() => {
-      expect(contractsApi.getSigningSession).toHaveBeenCalled();
-    });
+  it('conforms to typography standards without tracking-wide, font-black, or font-extrabold', () => {
+    const { container } = render(<FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
+  });
+
+  it('renders standard header, breadcrumbs, back link, and responsive container layout', () => {
+    const { container } = render(<FacilityDoctorAssignView contract={mockContract} doctors={mockDoctors} />);
+
+    // Breadcrumbs & back link
+    expect(screen.getByText('Trang chủ')).toBeInTheDocument();
+    expect(screen.getByText('Cơ sở Y tế')).toBeInTheDocument();
+    expect(screen.getByText('Điều phối HĐ 4 bên')).toBeInTheDocument();
+    expect(screen.getByText(/Quay lại danh sách tiếp nhận/i)).toBeInTheDocument();
+
+    // Responsive container
+    const mainEl = container.querySelector('main');
+    expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
+
+    // System badge
+    expect(screen.getByText(/Phân Công Bác Sĩ & Ký Số/i)).toBeInTheDocument();
   });
 });

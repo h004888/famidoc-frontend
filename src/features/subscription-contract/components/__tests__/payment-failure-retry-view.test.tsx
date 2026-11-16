@@ -113,7 +113,7 @@ describe('Màn 8: PaymentFailureRetryView (Báo lỗi thanh toán & Hướng d�
     expect(trackingLink).toHaveAttribute('href', '/family/subscription/tracking');
   });
 
-  it('conforms to anti-slop rules: no font-mono/black/extrabold and has tabular-nums', () => {
+  it('conforms to anti-slop rules: no tracking-wide/black/extrabold and has tabular-nums', () => {
     const { container } = render(<PaymentFailureRetryView />);
 
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);

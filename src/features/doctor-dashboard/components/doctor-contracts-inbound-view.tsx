@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -78,10 +78,23 @@ export function DoctorContractsInboundView({
   });
 
   return (
-    <div className="space-y-6">
-      {/* Header Profile / Quota status */}
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased">
+      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Header Profile / Quota status */}
       <Card className="bg-white border-slate-200 rounded-xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
+          {/* Breadcrumb matching project style */}
+          <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
+            <Link href="/" className="hover:text-primary transition-colors">
+              Trang chủ
+            </Link>
+            <span className="text-slate-300">/</span>
+            <Link href="/doctor" className="hover:text-primary transition-colors">
+              Bác sĩ
+            </Link>
+            <span className="text-slate-300">/</span>
+            <span className="text-primary font-semibold">Hợp đồng phụ trách</span>
+          </div>
           <Badge variant="outline" className="rounded-full text-xs font-semibold bg-primary/10 text-primary border-primary/20 mb-2">
             <span>Bên C • Bác sĩ gia đình phụ trách</span>
           </Badge>
@@ -94,18 +107,20 @@ export function DoctorContractsInboundView({
         </div>
 
         <div className="flex items-center gap-3">
-          {!isControlledByProps && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={triggerReload}
-              disabled={isLoading}
-              className="rounded-lg text-xs font-semibold"
-            >
-              Làm mới
-            </Button>
-          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={triggerReload}
+            disabled={isLoading}
+            className="rounded-lg text-xs font-semibold"
+          >
+            Làm mới
+          </Button>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold shadow-2xs">
+            <span className="material-symbols-outlined text-[16px] text-amber-400">medical_services</span>
+            <span>BS Gia Đình: Lê Hoàng Nam</span>
+          </div>
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-right">
             <span className="block text-[11px] text-slate-500 font-medium">Panel Cap / Định biên</span>
             <span className="text-base font-bold text-slate-900 tabular-nums">
@@ -248,6 +263,7 @@ export function DoctorContractsInboundView({
           })}
         </div>
       )}
+      </main>
     </div>
   );
 }
