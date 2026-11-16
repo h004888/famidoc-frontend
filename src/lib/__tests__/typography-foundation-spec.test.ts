@@ -24,26 +24,26 @@ function collectTsxFiles(dirPath: string): string[] {
 }
 
 describe('Medsev Typography Foundation Specification', () => {
-  it('ensures globals.css applies Poppins font-family only on root and form controls to preserve CSS inheritance', () => {
+  it('ensures globals.css applies Be Vietnam Pro font-family only on root and form controls to preserve CSS inheritance', () => {
     const globalsCssPath = path.join(ROOT_DIR, 'src/app/globals.css');
     const globalsCss = fs.readFileSync(globalsCssPath, 'utf-8');
 
     expect(globalsCss).toMatch(
-      /html,\s*body,\s*button,\s*input,\s*select,\s*textarea\s*\{\s*font-family:\s*'Poppins',\s*var\(--font-sans\),\s*sans-serif;\s*\}/,
+      /html,\s*body,\s*button,\s*input,\s*select,\s*textarea\s*\{\s*font-family:\s*'Be Vietnam Pro',\s*var\(--font-sans\),\s*sans-serif;\s*\}/,
     );
     expect(globalsCss).not.toMatch(
       /html,\s*body,\s*button,\s*input,\s*select,\s*textarea,\s*h1,\s*h2,\s*h3,\s*h4,\s*h5,\s*h6,\s*p,\s*a,\s*span,\s*label,\s*td,\s*th,\s*li/,
     );
   });
 
-  it('ensures DESIGN.md declares Poppins as the single universal fontFamily instead of Inter', () => {
+  it('ensures DESIGN.md declares Be Vietnam Pro as the single universal fontFamily instead of Inter', () => {
     const designMdPath = path.join(ROOT_DIR, 'DESIGN.md');
     const designMd = fs.readFileSync(designMdPath, 'utf-8');
 
     expect(designMd).not.toContain('fontFamily: Inter');
-    expect(designMd).toContain('fontFamily: Poppins');
+    expect(designMd).toContain('fontFamily: Be Vietnam Pro');
     expect(designMd).toContain(
-      'Poppins serves as the single universal typeface across all functional surfaces',
+      'Be Vietnam Pro serves as the single universal typeface across all functional surfaces',
     );
   });
 

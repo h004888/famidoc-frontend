@@ -121,8 +121,17 @@ function normalizeFacility(item: any): AdminFacilityItem {
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
     taxCode: isPendingTax ? '' : (rawTax || undefined),
     operatingLicense: isPendingLicense ? '' : (rawLicense || undefined),
-    licenseIssuer: item.licenseIssuer || (rawLicense && !isPendingLicense ? 'Bộ Y Tế - Cục Quản lý Khám chữa bệnh' : undefined),
-    licenseDate: item.licenseDate || undefined,
+    licenseIssuer:
+      item.licenseIssuer ||
+      item.license_issuer ||
+      item.issuingAuthority ||
+      item.issuing_authority ||
+      (rawLicense && !isPendingLicense
+        ? rawLicense.includes('SYT')
+          ? 'Sở Y Tế địa phương'
+          : 'Bộ Y Tế - Cục Quản lý Khám chữa bệnh'
+        : undefined),
+    licenseDate: item.licenseDate || item.license_date || item.issueDate || item.issue_date || undefined,
     bankName: rawBankName && rawBankName !== 'CHƯA_CẬP_NHẬT' ? rawBankName : undefined,
     bankAccount: item.bankAccount || (item.bankAccountNumber && item.bankAccountNumber !== 'CHƯA_CẬP_NHẬT' ? item.bankAccountNumber : undefined) || (item.bank_account_number && item.bank_account_number !== 'CHƯA_CẬP_NHẬT' ? item.bank_account_number : undefined),
     bankAccountHolder: item.bankAccountHolder && item.bankAccountHolder !== 'CHƯA_CẬP_NHẬT' ? item.bankAccountHolder : (item.bank_account_holder && item.bank_account_holder !== 'CHƯA_CẬP_NHẬT' ? item.bank_account_holder : undefined),
@@ -272,6 +281,8 @@ export const facilitiesApi = {
     bankAccountHolder: string;
     address?: string;
     legalDocumentsUrl?: string;
+    licenseIssuer?: string;
+    licenseDate?: string;
   }): Promise<any> => {
     return httpClient.put('/api/v1/facilities/me/legal-profile', payload);
   },

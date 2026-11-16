@@ -50,74 +50,74 @@ colors:
   surface-variant: '#dae2fe'
 typography:
   display-lg:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 48px
     fontWeight: '700'
     lineHeight: 56px
     letterSpacing: -0.02em
   display-lg-mobile:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 32px
     fontWeight: '700'
     lineHeight: 40px
     letterSpacing: -0.015em
   headline-lg:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 36px
     fontWeight: '600'
     lineHeight: 44px
     letterSpacing: -0.02em
   headline-lg-mobile:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 26px
     fontWeight: '600'
     lineHeight: 34px
     letterSpacing: -0.01em
   headline-md:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 24px
     fontWeight: '600'
     lineHeight: 32px
     letterSpacing: -0.01em
   headline-sm:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 20px
     fontWeight: '600'
     lineHeight: 28px
   title-md:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 18px
     fontWeight: '500'
     lineHeight: 24px
   body-lg:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 16px
     fontWeight: '400'
     lineHeight: 24px
   body-md:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 14px
     fontWeight: '400'
     lineHeight: 20px
   body-sm:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 12px
     fontWeight: '400'
     lineHeight: 18px
   label-lg:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 14px
     fontWeight: '600'
     lineHeight: 20px
     letterSpacing: 0.01em
   label-md:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 12px
     fontWeight: '600'
     lineHeight: 16px
     letterSpacing: 0.02em
   label-sm:
-    fontFamily: Poppins
+    fontFamily: Be Vietnam Pro
     fontSize: 11px
     fontWeight: '500'
     lineHeight: 14px
@@ -191,7 +191,7 @@ The palette is engineered around high-contrast medical usability and systematic 
 
 ## Typography
 
-Poppins serves as the single universal typeface across all functional surfaces, chosen for its neutral precision, tall x-height, and superior distinction of critical numeric and clinical data.
+Be Vietnam Pro serves as the single universal typeface across all functional surfaces, chosen for its neutral precision, tall x-height, and superior distinction of critical numeric and clinical data.
 
 ### Typographic Principles
 - **Numerical Distinction:** Tabular figures (`font-variant-numeric: tabular-nums`) must be activated for vitals, appointment timestamps, and medical dosage metrics.

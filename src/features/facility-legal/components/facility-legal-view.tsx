@@ -17,6 +17,8 @@ export function FacilityLegalView() {
   const [bankName, setBankName] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountHolder, setBankAccountHolder] = useState('');
+  const [licenseIssuer, setLicenseIssuer] = useState('');
+  const [licenseDate, setLicenseDate] = useState('');
   const [legalDocumentsUrl, setLegalDocumentsUrl] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
 
@@ -39,6 +41,14 @@ export function FacilityLegalView() {
           setBankName(data.bankName || '');
           setBankAccountNumber(data.bankAccount || '');
           setBankAccountHolder(data.bankAccountHolder || '');
+          if (data.licenseIssuer) setLicenseIssuer(data.licenseIssuer);
+          if (data.licenseDate) {
+            try {
+              setLicenseDate(new Date(data.licenseDate).toISOString().slice(0, 10));
+            } catch {
+              setLicenseDate(data.licenseDate);
+            }
+          }
           if (data.phone) setHotline(data.phone);
           if (data.licenseFiles && data.licenseFiles.length > 0) setUploadedFiles(data.licenseFiles);
         }
@@ -118,6 +128,8 @@ export function FacilityLegalView() {
       bankAccountNumber: bankAccountNumber.trim(),
       bankAccountHolder: bankAccountHolder.trim().toUpperCase(),
       address: address.trim(),
+      licenseIssuer: licenseIssuer.trim(),
+      licenseDate: licenseDate || undefined,
       legalDocumentsUrl,
     };
 
@@ -136,6 +148,12 @@ export function FacilityLegalView() {
         status: 'PENDING',
         taxCode: submittedData.taxCode,
         operatingLicense: submittedData.licenseNumber,
+        licenseIssuer:
+          submittedData.licenseIssuer ||
+          (submittedData.licenseNumber.includes('SYT')
+            ? 'Sở Y Tế địa phương'
+            : 'Bộ Y Tế - Cục Quản lý Khám chữa bệnh'),
+        licenseDate: submittedData.licenseDate,
         bankName: submittedData.bankName,
         bankAccount: submittedData.bankAccountNumber,
         bankAccountHolder: submittedData.bankAccountHolder,
@@ -328,6 +346,33 @@ export function FacilityLegalView() {
                   placeholder="Ví dụ: 08921/BYT-GPHĐ hoặc 01293/SYT-GPHĐ"
                 />
                 {errors.licenseNumber && <p className="text-xs text-rose-600 font-medium">{errors.licenseNumber}</p>}
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Cơ Quan Cấp Phép GPHĐ
+                </label>
+                <input
+                  type="text"
+                  disabled={isVerifiedActive}
+                  value={licenseIssuer}
+                  onChange={(e) => setLicenseIssuer(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  placeholder="Ví dụ: Bộ Y Tế - Cục Quản lý Khám chữa bệnh"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-slate-700">
+                  Ngày Cấp Phép GPHĐ
+                </label>
+                <input
+                  type="date"
+                  disabled={isVerifiedActive}
+                  value={licenseDate}
+                  onChange={(e) => setLicenseDate(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                />
               </div>
 
               <div className="space-y-1.5">
