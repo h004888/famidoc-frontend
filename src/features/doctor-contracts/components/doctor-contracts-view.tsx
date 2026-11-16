@@ -259,7 +259,7 @@ export function DoctorContractsView() {
                         <span className="font-bold text-slate-900 block truncate text-sm">
                           Hộ {c.familyRepresentativeName || 'Gia đình'}
                         </span>
-                        <span className="text-[11px] text-slate-500 font-mono">
+                        <span className="text-[11px] text-slate-500 tabular-nums">
                           {c.contractNumber}
                         </span>
                       </div>
@@ -300,7 +300,7 @@ export function DoctorContractsView() {
                       Tiến trình Ký số 4 Bên
                     </span>
                     <h3 className="text-base font-bold text-slate-900 mt-0.5">
-                      Hợp đồng số: <span className="font-mono text-primary">{selectedContract.contractNumber}</span>
+                      Hợp đồng số: <span className="font-bold text-primary tabular-nums">{selectedContract.contractNumber}</span>
                     </h3>
                   </div>
 

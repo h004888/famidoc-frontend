@@ -1178,7 +1178,7 @@ export function AdminContractsView() {
                     <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
                       Điều khoản pháp lý hợp tác:
                     </label>
-                    <div className="p-3 bg-white border border-slate-200 rounded-xl text-[11px] leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap text-slate-600 font-mono">
+                    <div className="p-3 bg-white border border-slate-200 rounded-xl text-[11px] leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap text-slate-600">
                       {selectedStaffing.contractTerms || 'Điều khoản chuẩn theo Nghị định 130/2018/NĐ-CP và Thông tư 04/2022/TT-BYT.'}
                     </div>
                   </div>
