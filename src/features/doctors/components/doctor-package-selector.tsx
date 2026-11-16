@@ -122,7 +122,7 @@ export function DoctorPackageSelector({
 
   const canBook = isAvailable && Boolean(facilityId);
   const bookingHref = facilityId
-    ? `/family/subscription?packageId=${encodeURIComponent(
+    ? `/booking?packageId=${encodeURIComponent(
         selectedPackage.id
       )}&doctorId=${encodeURIComponent(doctorId)}&facilityId=${encodeURIComponent(
         facilityId

@@ -45,6 +45,59 @@ describe('proxy - giữ URL đích khi chuyển sang đăng nhập', () => {
       loginRedirectTarget(proxy(makeRequest('/facility/coordination?tab=inbox')))
     ).toBe('/facility/coordination?tab=inbox');
   });
+
+  it('giữ nguyên ngữ cảnh đặt gói khi chưa đăng nhập mở /booking', () => {
+    const response = proxy(
+      makeRequest('/booking?packageId=p1&doctorId=d1&facilityId=f1&members=3')
+    );
+
+    expect(response.status).toBe(307);
+    expect(loginRedirectTarget(response)).toBe(
+      '/booking?packageId=p1&doctorId=d1&facilityId=f1&members=3'
+    );
+  });
+
+  it('giữ nguyên contractId khi chưa đăng nhập mở /booking/tracking', () => {
+    const response = proxy(makeRequest('/booking/tracking?contractId=ctr-1'));
+
+    expect(response.status).toBe(307);
+    expect(loginRedirectTarget(response)).toBe('/booking/tracking?contractId=ctr-1');
+  });
+});
+
+describe('proxy - bảo vệ luồng /booking theo vai trò hộ gia đình', () => {
+  it.each(['FAMILY', 'FAMILY_REP', 'PATIENT'])(
+    'cho phép vai trò %s vào /booking',
+    (role) => {
+      const response = proxy(
+        makeRequest('/booking?packageId=p1&doctorId=d1&facilityId=f1&members=2', {
+          famidoc_token: 'jwt',
+          famidoc_role: role,
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get('location')).toBeNull();
+    }
+  );
+
+  it.each([
+    ['DOCTOR', '/doctor'],
+    ['FACILITY', '/facility'],
+    ['ADMIN', '/admin'],
+  ])('đẩy vai trò %s về trang mặc định khi vào /booking', (role, homePath) => {
+    const response = proxy(
+      makeRequest('/booking/tracking?contractId=ctr-1', {
+        famidoc_token: 'jwt',
+        famidoc_role: role,
+      })
+    );
+
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get('location')!, 'http://localhost:3000').pathname).toBe(
+      homePath
+    );
+  });
 });
 
 describe('proxy - không đổi hành vi cũ', () => {

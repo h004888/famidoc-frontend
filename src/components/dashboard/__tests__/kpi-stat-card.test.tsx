@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { KpiStatCard } from '../kpi-stat-card';
 
 describe('KpiStatCard', () => {
-  it('renders KPI title, tabular value, badge, and complies with Poppins typography rules', () => {
+  it('renders KPI title, tabular value, badge, and complies with Be Vietnam Pro typography rules', () => {
     const { container } = render(
       <KpiStatCard
         title="Hợp đồng Hiệu lực"

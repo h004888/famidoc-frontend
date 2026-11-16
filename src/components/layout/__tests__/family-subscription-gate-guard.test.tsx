@@ -10,6 +10,7 @@ import { contractsApi } from '@/lib/api/contracts.api';
 
 const mockReplace = vi.fn();
 let mockPathname = '/family/members';
+let mockSearchParams = new URLSearchParams();
 let mockAuthState: {
   role: string;
   isAuthenticated: boolean;
@@ -26,6 +27,7 @@ let mockAuthState: {
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
+  useSearchParams: () => mockSearchParams,
   useRouter: () => ({ replace: mockReplace, push: vi.fn() }),
 }));
 
@@ -60,6 +62,7 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPathname = '/family/members';
+    mockSearchParams = new URLSearchParams();
     mockAuthState = {
       role: 'FAMILY',
       isAuthenticated: true,
@@ -103,7 +106,7 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     },
   );
 
-  it('redirects to /family/subscription/tracking?contractId=<id> when pendingContract exists', async () => {
+  it('redirects to /booking/tracking?contractId=<id> when pendingContract is awaiting signatures', async () => {
     mockPathname = '/family/members';
     vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
       hasActiveContract: false,
@@ -126,9 +129,36 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     );
 
     await waitFor(() => {
-      expect(mockReplace).toHaveBeenCalledWith('/family/subscription/tracking?contractId=mc-pending-42');
+      expect(mockReplace).toHaveBeenCalledWith('/booking/tracking?contractId=mc-pending-42');
     });
     expect(screen.queryByTestId('protected-content')).toBeNull();
+  });
+
+  it('redirects to /booking/payment?contractId=<id> when pendingContract is PENDING_PAYMENT', async () => {
+    mockPathname = '/family/members';
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: {
+        id: 'mc-pending-99',
+        contractNumber: 'HD-4P-2026-0099',
+        contractStatus: 'PENDING_PAYMENT',
+        memberCount: 2,
+      },
+      patientCount: 0,
+    });
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="protected-content">Nội dung bị khóa</div>
+        </FamilySubscriptionGateGuard>
+      </FamilySubscriptionGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/booking/payment?contractId=mc-pending-99');
+    });
   });
 
   it.each([
@@ -136,8 +166,8 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     '/family/subscription/tracking',
     '/family/subscription/contract',
     '/family/billing',
-  ])('allows %s even when hasActiveContract is false', async (allowedPath) => {
-    mockPathname = allowedPath;
+  ])('blocks legacy route %s when hasActiveContract is false', async (legacyPath) => {
+    mockPathname = legacyPath;
     vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
       hasActiveContract: false,
       activeContract: null,
@@ -148,16 +178,89 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     render(
       <FamilySubscriptionGateProvider>
         <FamilySubscriptionGateGuard>
-          <div data-testid="allowed-content">Trang cho phép</div>
+          <div data-testid="legacy-content">Trang kế thừa</div>
         </FamilySubscriptionGateGuard>
       </FamilySubscriptionGateProvider>,
     );
 
-    expect(screen.getByTestId('allowed-content')).toBeTruthy();
     await waitFor(() => {
-      expect(contractsApi.getFamilyGateStatus).toHaveBeenCalledTimes(1);
+      expect(mockReplace).toHaveBeenCalledWith('/doctors');
     });
-    expect(mockReplace).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('legacy-content')).toBeNull();
+    expect(screen.getByTestId('family-gate-blocked')).toBeTruthy();
+  });
+
+  it('chuyển link đặt gói cũ /family/subscription?packageId&doctorId&facilityId sang /booking giữ nguyên query', async () => {
+    mockPathname = '/family/subscription';
+    mockSearchParams = new URLSearchParams(
+      'packageId=p1&doctorId=d1&facilityId=f1&members=2',
+    );
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 0,
+    });
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="legacy-content">Trang kế thừa</div>
+        </FamilySubscriptionGateGuard>
+      </FamilySubscriptionGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith(
+        '/booking?packageId=p1&doctorId=d1&facilityId=f1&members=2',
+      );
+    });
+  });
+
+  it('chuyển link theo dõi cũ /family/subscription/tracking?contractId=<id> sang /booking/tracking', async () => {
+    mockPathname = '/family/subscription/tracking';
+    mockSearchParams = new URLSearchParams('contractId=ctr-legacy');
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 0,
+    });
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="legacy-content">Trang kế thừa</div>
+        </FamilySubscriptionGateGuard>
+      </FamilySubscriptionGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/booking/tracking?contractId=ctr-legacy');
+    });
+  });
+
+  it('chuyển link thanh toán cũ /family/billing?contractId=<id> sang /booking/payment', async () => {
+    mockPathname = '/family/billing';
+    mockSearchParams = new URLSearchParams('contractId=ctr-billing');
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 0,
+    });
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="legacy-content">Trang kế thừa</div>
+        </FamilySubscriptionGateGuard>
+      </FamilySubscriptionGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/booking/payment?contractId=ctr-billing');
+    });
   });
 
   it('unlocks all restricted routes when hasActiveContract is true', async () => {
@@ -250,11 +353,18 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     expect(lockedMembersBtns[0]).toHaveAttribute('aria-disabled', 'true');
     expect(lockedMembersBtns[0]).toBeDisabled();
 
-    // Allowed subscription & billing items remain active links
-    const billingLinks = screen.getAllByRole('link', { name: /Thanh toán VietQR & Biên lai/i });
-    expect(billingLinks[0]).toHaveAttribute('href', '/family/billing');
-    const subscriptionLinks = screen.getAllByRole('link', { name: /Gói Chăm sóc & Tiến trình ký/i });
-    expect(subscriptionLinks[0]).toHaveAttribute('href', '/family/subscription');
+    // Khi chưa ACTIVE, toàn bộ menu /family/* (kể cả gói & thanh toán) đều bị khóa
+    expect(
+      screen.queryAllByRole('link', { name: /Thanh toán VietQR & Biên lai/i })
+    ).toHaveLength(0);
+    expect(
+      screen.queryAllByRole('link', { name: /Gói Chăm sóc & Tiến trình ký/i })
+    ).toHaveLength(0);
+    const lockedBillingBtns = screen.getAllByRole('button', {
+      name: /Thanh toán VietQR & Biên lai \(Đã khóa/i,
+    });
+    expect(lockedBillingBtns.length).toBeGreaterThan(0);
+    expect(lockedBillingBtns[0]).toBeDisabled();
 
     // Now simulate unlocked state (ACTIVE) on a fresh mount
     vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValueOnce({
@@ -278,11 +388,33 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getAllByRole('link', { name: /Quản lý Thành viên/i })[0]).toHaveAttribute(
+      expect(screen.getByRole('link', { name: /Quản lý Thành viên/i })).toHaveAttribute(
         'href',
         '/family/members',
       );
     });
     expect(screen.queryByTestId('sidebar-family-gate-notice')).toBeNull();
+  });
+
+  it('hiển thị nút dự phòng trỏ tới /doctors (không về /family/subscription) khi kiểm tra gate bị lỗi', async () => {
+    mockPathname = '/family/members';
+    vi.mocked(contractsApi.getFamilyGateStatus).mockRejectedValue(
+      new Error('Mất kết nối máy chủ'),
+    );
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="protected-content">Nội dung được bảo vệ</div>
+        </FamilySubscriptionGateGuard>
+      </FamilySubscriptionGateProvider>,
+    );
+
+    expect(
+      await screen.findByText(/Không thể xác minh trạng thái gói gia đình/i),
+    ).toBeTruthy();
+    const fallbackLink = screen.getByRole('link', { name: /Tìm bác sĩ/i });
+    expect(fallbackLink).toHaveAttribute('href', '/doctors');
+    expect(screen.queryByRole('link', { name: /Xem tiến trình hợp đồng/i })).toBeNull();
   });
 });

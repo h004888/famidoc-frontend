@@ -2,16 +2,9 @@
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/features/auth/context/auth-context';
 import { contractsApi, type FamilyGateStatusDto } from '@/lib/api/contracts.api';
-
-const RESTRICTED_FAMILY_PREFIXES = [
-  '/family/members',
-  '/family/appointments',
-  '/family/telemedicine',
-  '/family/vitals',
-];
 
 export const FAMILY_GATE_REFRESH_EVENT = 'famidoc:family-gate-refresh';
 
@@ -19,20 +12,76 @@ export function isFamilyRole(role: string | null | undefined): boolean {
   return role === 'FAMILY' || role === 'PATIENT' || role === 'FAMILY_REP';
 }
 
-export function isRestrictedFamilyPath(pathname: string | null | undefined): boolean {
-  if (!pathname) return false;
-  const normalized = pathname.split('?')[0].replace(/\/+$/, '') || '/';
-  if (normalized === '/family') return true;
-  return RESTRICTED_FAMILY_PREFIXES.some(
-    (prefix) => normalized === prefix || normalized.startsWith(`${prefix}/`),
-  );
+function normalizePath(pathname: string | null | undefined): string {
+  return (pathname ?? '').split('?')[0].replace(/\/+$/, '') || '/';
 }
 
-export function resolveBlockedFamilyRedirect(gateStatus: FamilyGateStatusDto | null): string {
-  const pendingContractId = gateStatus?.pendingContract?.id;
-  if (pendingContractId) {
-    return `/family/subscription/tracking?contractId=${encodeURIComponent(pendingContractId)}`;
+/**
+ * Toàn bộ không gian `/family` và `/family/*` bị khóa khi tài khoản chưa có hợp đồng `ACTIVE`.
+ */
+export function isRestrictedFamilyPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  const normalized = normalizePath(pathname);
+  return normalized === '/family' || normalized.startsWith('/family/');
+}
+
+export interface BlockedFamilyLocation {
+  pathname?: string | null;
+  search?: string | null;
+}
+
+function toSearchParams(search: string | null | undefined): URLSearchParams {
+  const raw = (search ?? '').trim();
+  return new URLSearchParams(raw.startsWith('?') ? raw.slice(1) : raw);
+}
+
+/**
+ * Xác định đích chuyển hướng ra luồng `/booking` khi tài khoản chưa có hợp đồng `ACTIVE`:
+ * 1. Link đặt gói cũ `/family/subscription?packageId&doctorId&facilityId` -> `/booking` giữ nguyên query.
+ * 2. Link kế thừa có `contractId` trên `/family/subscription/tracking` hoặc `/family/billing`.
+ * 3. Hợp đồng chờ thanh toán (`PENDING_PAYMENT`) -> `/booking/payment`.
+ * 4. Hợp đồng đang chờ ký -> `/booking/tracking`.
+ * 5. Chưa có hợp đồng nào -> `/doctors`.
+ */
+export function resolveBlockedFamilyRedirect(
+  gateStatus: FamilyGateStatusDto | null,
+  location?: BlockedFamilyLocation,
+): string {
+  const pathname = location?.pathname ? normalizePath(location.pathname) : null;
+  const params = toSearchParams(location?.search);
+  const contractIdParam = params.get('contractId');
+
+  if (pathname === '/family/subscription') {
+    const hasBookingContext = Boolean(
+      params.get('packageId') && params.get('doctorId') && params.get('facilityId'),
+    );
+    if (hasBookingContext) {
+      return `/booking?${params.toString()}`;
+    }
   }
+
+  if (contractIdParam) {
+    const encodedContractId = encodeURIComponent(contractIdParam);
+    if (pathname === '/family/subscription/tracking') {
+      return `/booking/tracking?contractId=${encodedContractId}`;
+    }
+    if (pathname === '/family/billing') {
+      return `/booking/payment?contractId=${encodedContractId}`;
+    }
+    if (pathname === '/family/subscription' || pathname === '/family/subscription/contract') {
+      return `/booking/tracking?contractId=${encodedContractId}`;
+    }
+  }
+
+  const pendingContract = gateStatus?.pendingContract;
+  if (pendingContract?.id) {
+    const encodedContractId = encodeURIComponent(pendingContract.id);
+    if (pendingContract.contractStatus === 'PENDING_PAYMENT') {
+      return `/booking/payment?contractId=${encodedContractId}`;
+    }
+    return `/booking/tracking?contractId=${encodedContractId}`;
+  }
+
   return '/doctors';
 }
 
@@ -168,6 +217,7 @@ export function FamilySubscriptionGateProvider({ children }: { children: React.R
 
 export function FamilySubscriptionGateGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { role, isAuthenticated, isLoading: authLoading } = useAuth();
   const { gateStatus, isLoadingGate, gateError, refreshGateStatus } = useFamilySubscriptionGateState();
@@ -175,7 +225,11 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
   const isFamily = isAuthenticated && isFamilyRole(role);
   const isRestricted = isFamily && isRestrictedFamilyPath(pathname);
   const shouldBlock = isRestricted && !authLoading && !isLoadingGate && gateStatus !== null && !gateStatus.hasActiveContract;
-  const redirectTarget = resolveBlockedFamilyRedirect(gateStatus);
+  const currentSearch = searchParams?.toString() ?? '';
+  const redirectTarget = resolveBlockedFamilyRedirect(gateStatus, {
+    pathname,
+    search: currentSearch,
+  });
   const lastPathnameRef = React.useRef<string | null>(pathname ?? null);
 
   useEffect(() => {
@@ -236,10 +290,10 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
               Thử kiểm tra lại
             </button>
             <Link
-              href="/family/subscription"
+              href="/doctors"
               className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition-colors"
             >
-              Xem tiến trình hợp đồng
+              Tìm bác sĩ &amp; đăng ký gói
             </Link>
           </div>
         </div>
