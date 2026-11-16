@@ -3,6 +3,7 @@ import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { DoctorDetailView } from '@/features/doctors';
 import { publicApi, type PublicDoctorDetailDto } from '@/lib/api/public.api';
+import { ApiError } from '@/lib/http/errors';
 
 export const getDoctorDetail = cache(
   (() => {
@@ -59,7 +60,11 @@ export async function DoctorDetailPageContent({
 
   try {
     doctor = await getDoctorDetail(id);
-  } catch {
+  } catch (error) {
+    console.error('[DoctorDetailPageContent] Failed to load doctor detail:', id, error);
+    if (error instanceof ApiError && error.status >= 500) {
+      throw error;
+    }
     notFound();
   }
 

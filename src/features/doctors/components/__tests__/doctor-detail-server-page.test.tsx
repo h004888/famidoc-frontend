@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { notFound } from 'next/navigation';
 import { publicApi } from '@/lib/api/public.api';
 import type { PublicDoctorDetailDto } from '@/lib/api/public.api';
+import { ApiError } from '@/lib/http/errors';
 import {
   DoctorDetailPageContent,
   generateMetadata,
@@ -145,6 +146,22 @@ describe('Doctor Detail Server Page', () => {
       ).rejects.toThrow('NEXT_NOT_FOUND');
 
       expect(notFound).toHaveBeenCalled();
+    });
+
+    it('rethrows server/network ApiError (>= 500) instead of masking it as 404', async () => {
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.mocked(publicApi.getDoctorDetail).mockRejectedValueOnce(
+        new ApiError('fetch failed', 500)
+      );
+
+      await expect(
+        DoctorDetailPageContent({
+          params: Promise.resolve({ id: 'page-500' }),
+        })
+      ).rejects.toThrow('fetch failed');
+
+      expect(notFound).not.toHaveBeenCalled();
+      errorSpy.mockRestore();
     });
   });
 
