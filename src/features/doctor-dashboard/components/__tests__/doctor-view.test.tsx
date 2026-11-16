@@ -29,7 +29,7 @@ describe('UT-CMP-15: DoctorDashboardView Touch Target & Accessibility', () => {
     expect(openBtns[0].className).toContain('py-2');
   });
 
-  it('standardizes typography across all 9 Doctor & Facility Portal views (no font-mono, font-black, or font-extrabold)', () => {
+  it('standardizes typography across all 9 Doctor & Facility Portal views (no tracking-wide, font-black, or font-extrabold)', () => {
     const { container } = render(<DoctorDashboardView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
 

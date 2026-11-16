@@ -1,7 +1,9 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { facilitiesApi } from '@/lib/api/facilities.api';
+import { contractsApi, type StaffingContractItem } from '@/lib/api/contracts.api';
 import { Bar, BarChart, CartesianGrid, Cell, XAxis, YAxis } from 'recharts';
 import { KpiStatCard, DashboardChartCard } from '@/components/dashboard';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -25,6 +27,37 @@ const channelChartConfig = {
 } satisfies ChartConfig;
 
 export function FacilityDashboardView() {
+  const [facilityName, setFacilityName] = useState<string>('Cơ sở Y tế Đối tác');
+  const [facilityCode, setFacilityCode] = useState<string>('CSYT-VN');
+  const [pendingContract, setPendingContract] = useState<StaffingContractItem | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    facilitiesApi
+      .getMyFacilityProfile()
+      .then((data) => {
+        if (!isMounted) return;
+        if (data?.facilityName) setFacilityName(data.facilityName);
+        if (data?.id) setFacilityCode(data.id);
+      })
+      .catch(() => {});
+
+    contractsApi
+      .getStaffingContracts()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && Array.isArray(res.data)) {
+          const draft = res.data.find((c) => c.status === 'DRAFT');
+          setPendingContract(draft || null);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const stats = [
     {
       title: 'Bác sĩ trực thuộc',
@@ -113,7 +146,7 @@ export function FacilityDashboardView() {
               <div>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                    Bệnh viện Đại học Y Dược TP.HCM
+                    {facilityName}
                   </h1>
                   <Badge
                     variant="outline"
@@ -123,8 +156,8 @@ export function FacilityDashboardView() {
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  Mã định danh BYT: <span className="font-bold text-slate-700 tabular-nums">BV-79012</span> •
-                  Phụ trách mạng lưới Bác sĩ Gia đình FamiDoc khu vực TP.HCM &amp; Miền Nam
+                  Mã định danh BYT: <span className="font-bold text-slate-700 tabular-nums">{facilityCode}</span> •
+                  Phụ trách mạng lưới Bác sĩ Gia đình FamiDoc
                 </p>
               </div>
             </div>
@@ -149,6 +182,35 @@ export function FacilityDashboardView() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Action Banner: Hợp đồng B2B chờ ký kết (Flow 2.1) - CHỈ HIỂN THỊ KHI CÓ DỰ THẢO THỰC SỰ */}
+        {pendingContract && (
+          <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-md flex flex-col md:flex-row md:items-center justify-between gap-4 border border-slate-800">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
+                  Hợp đồng Hợp tác B2B cần hoàn tất ký số
+                </span>
+              </div>
+              <h3 className="text-sm sm:text-base font-bold text-white">
+                {pendingContract.contractNumber} (85% Doanh thu CSYT)
+              </h3>
+              <p className="text-xs text-slate-300">
+                Admin FamiDoc đã ký duyệt dự thảo. Cơ sở y tế chỉ cần 1 cú click ký số để mở khóa quyền khởi tạo Bác sĩ.
+              </p>
+            </div>
+
+            <Link
+              href={`/facility/contracts/${pendingContract.id}`}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all shrink-0 self-start md:self-auto"
+            >
+              <span className="material-symbols-outlined text-base">draw</span>
+              <span>Xem &amp; Ký số ngay</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </Link>
+          </div>
+        )}
 
         {/* 4 Stats Grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">

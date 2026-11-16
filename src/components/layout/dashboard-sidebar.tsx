@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
@@ -71,6 +71,20 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         badge: 'Live',
         badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
       },
+      {
+        href: '/admin/facilities',
+        label: 'Quản trị Cơ sở Y tế',
+        shortLabel: 'CSYT',
+        icon: 'local_hospital',
+        badge: 'Duyệt 2 cấp',
+        badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200',
+      },
+      {
+        href: '/admin/doctors',
+        label: 'Thẩm định Bác sĩ CCHN',
+        shortLabel: 'Bác sĩ',
+        icon: 'stethoscope',
+      },
       { href: '/admin/packages', label: 'Quản trị Gói dịch vụ', shortLabel: 'Gói DV', icon: 'inventory_2' },
       { href: '/admin/contracts', label: 'Hợp đồng & Pháp lý', shortLabel: 'Hợp đồng', icon: 'handshake' },
       { href: '/admin/reconciliation', label: 'Đối soát SePay', shortLabel: 'Đối soát', icon: 'payments' },
@@ -101,17 +115,25 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
       },
       {
-        href: '/facility/contracts',
-        label: 'Hợp đồng 4 Bên & Gán BS',
-        shortLabel: 'Hợp đồng',
-        icon: 'history_edu',
-        badge: 'SCR-22',
-        badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200',
+        href: '/facility/legal-profile',
+        label: 'Hồ sơ Pháp lý & GPHĐ',
+        shortLabel: 'Pháp lý',
+        icon: 'policy',
+        badge: 'Cấp 2',
+        badgeColor: 'bg-indigo-50 text-indigo-800 border border-indigo-200',
       },
-      { href: '/facility/staff', label: 'Quản lý Nhân sự Y tế', shortLabel: 'Nhân sự', icon: 'badge' },
+      {
+        href: '/facility/contracts',
+        label: 'Hợp đồng Hợp tác B2B',
+        shortLabel: 'HĐ B2B',
+        icon: 'history_edu',
+        badge: '85% CSYT',
+        badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
+      },
+      { href: '/facility/doctors', label: 'Quản lý Bác sĩ & CCHN', shortLabel: 'Bác sĩ', icon: 'badge' },
       {
         href: '/facility/coordination',
-        label: 'Điều phối & Chuyển viện',
+        label: 'Hợp đồng 4 Bên & Điều phối',
         shortLabel: 'Điều phối',
         icon: 'support_agent',
         badge: 'Hot',
@@ -154,6 +176,7 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
       },
       { href: '/doctor/verification', label: 'Xác thực CCHN Y tế', shortLabel: 'CCHN', icon: 'verified_user' },
+      { href: '/doctor/profile', label: 'Hồ sơ Chuyên môn', shortLabel: 'Hồ sơ', icon: 'account_circle' },
     ],
   },
   FAMILY: {
@@ -224,22 +247,52 @@ const CLINIC_LIST = [
   { id: 'c-03', name: 'Vinmec Central Park', address: 'Bình Thạnh, TP.HCM', type: 'BV Đối tác Cấp 1' },
 ];
 
-function DashboardSidebarInner() {
+/**
+ * Suy ra vai trò từ URL pathname để SSR và Client render đồng nhất, tránh hydration mismatch
+ */
+export const getRoleFromPathname = (path: string): LoginRole | null => {
+  if (path.startsWith('/admin')) return 'ADMIN';
+  if (path.startsWith('/facility')) return 'FACILITY';
+  if (path.startsWith('/doctor')) return 'DOCTOR';
+  if (path.startsWith('/family')) return 'FAMILY';
+  return null;
+};
+
+function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const pathname = usePathname() || '/family';
   const { role, user, logout } = useAuth();
   const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
   const sidebar = useOptionalSidebar();
 
-  const [isHovered, setIsHovered] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [localMobileOpen, setLocalMobileOpen] = useState(false);
+  const [localOpen] = useState(true);
   const [selectedClinic, setSelectedClinic] = useState(CLINIC_LIST[0]);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (sidebar) {
+      try {
+        localStorage.setItem('famidoc_sidebar_pinned', String(sidebar.open));
+      } catch {}
+    }
+  }, [sidebar]);
+
+  const pathRole = getRoleFromPathname(pathname);
+  const effectiveRole: LoginRole = pathRole || initialRole || (mounted ? role : 'FAMILY');
+  const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
+
+  const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
+  const displayName = mounted ? (user?.name || '') : '';
+  const userSubtitle = mounted ? (user?.facilityOrTitle || user?.phone || '') : '';
 
   const mobileMenuOpen = sidebar ? sidebar.openMobile : localMobileOpen;
   const setMobileMenuOpen = sidebar ? sidebar.setOpenMobile : setLocalMobileOpen;
-  const isPinnedExpanded = sidebar ? sidebar.open : false;
-  const isExpanded = isPinnedExpanded || isHovered;
+  const isOpen = sidebar ? sidebar.open : localOpen;
 
-  const currentMenu = ROLE_MENUS[role] || ROLE_MENUS.FAMILY;
 
   const renderSidebarContent = (isCollapsedState: boolean) => (
     <div className="flex h-full flex-col border-r border-slate-200/90 bg-sidebar font-sans text-sidebar-foreground">
@@ -247,11 +300,11 @@ function DashboardSidebarInner() {
       <div
         className={cn(
           'flex h-16 shrink-0 items-center border-b border-slate-100 bg-sidebar',
-          isCollapsedState ? 'justify-center px-2' : 'justify-start px-4'
+          isCollapsedState ? 'justify-center px-2' : 'justify-between px-4'
         )}
       >
         <Link
-          href={getDefaultPathForRole(role)}
+          href={getDefaultPathForRole(effectiveRole)}
           className="flex items-center overflow-hidden outline-hidden"
           title="Bảng điều khiển FamiDoc"
           aria-label="Bảng điều khiển FamiDoc"
@@ -278,6 +331,8 @@ function DashboardSidebarInner() {
             </div>
           )}
         </Link>
+
+
       </div>
 
       {/* Accessible Clinic Switcher using shadcn DropdownMenu */}
@@ -479,78 +534,121 @@ function DashboardSidebarInner() {
 
         {/* Global Settings & Utilities */}
         <div className="space-y-1 border-t border-slate-100 pt-2">
-          <Link
-            href="/packages"
-            onClick={() => setMobileMenuOpen(false)}
-            title={isCollapsedState ? 'Danh mục Gói Dịch vụ' : undefined}
-            aria-label="Danh mục Gói Dịch vụ"
-            className={cn(
-              'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
-              pathname === '/packages'
-                ? 'bg-primary font-semibold text-primary-foreground'
-                : 'text-slate-700 hover:bg-accent hover:text-primary',
-              isCollapsedState && 'justify-center px-2'
-            )}
-          >
-            <span
-              className={cn(
-                'material-symbols-outlined shrink-0 text-[20px] transition-colors',
-                pathname === '/packages' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
-              )}
-            >
-              inventory_2
-            </span>
-            {!isCollapsedState && <span>Danh mục Gói Dịch vụ</span>}
-          </Link>
+          {(() => {
+            const packagesEl = (
+              <Link
+                href="/packages"
+                onClick={() => setMobileMenuOpen(false)}
+                title={isCollapsedState ? 'Danh mục Gói Dịch vụ' : undefined}
+                aria-label="Danh mục Gói Dịch vụ"
+                className={cn(
+                  'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
+                  pathname === '/packages'
+                    ? 'bg-primary font-semibold text-primary-foreground'
+                    : 'text-slate-700 hover:bg-accent hover:text-primary',
+                  isCollapsedState && 'justify-center px-2'
+                )}
+              >
+                <span
+                  className={cn(
+                    'material-symbols-outlined shrink-0 text-[20px] transition-colors',
+                    pathname === '/packages' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
+                  )}
+                >
+                  inventory_2
+                </span>
+                {!isCollapsedState && <span>Danh mục Gói Dịch vụ</span>}
+              </Link>
+            );
 
-          <Link
-            href="/settings"
-            onClick={() => setMobileMenuOpen(false)}
-            title={isCollapsedState ? 'Cài đặt & Hồ sơ BHYT' : undefined}
-            aria-label="Cài đặt & Hồ sơ BHYT"
-            className={cn(
-              'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
-              pathname === '/settings'
-                ? 'bg-primary font-semibold text-primary-foreground'
-                : 'text-slate-700 hover:bg-accent hover:text-primary',
-              isCollapsedState && 'justify-center px-2'
-            )}
-          >
-            <span
-              className={cn(
-                'material-symbols-outlined shrink-0 text-[20px] transition-colors',
-                pathname === '/settings' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
-              )}
-            >
-              settings
-            </span>
-            {!isCollapsedState && <span>Cài đặt &amp; Hồ sơ BHYT</span>}
-          </Link>
+            return isCollapsedState ? (
+              <Tooltip>
+                <TooltipTrigger asChild>{packagesEl}</TooltipTrigger>
+                <TooltipContent side="right">Danh mục Gói Dịch vụ</TooltipContent>
+              </Tooltip>
+            ) : (
+              packagesEl
+            );
+          })()}
+
+          {(() => {
+            const settingsEl = (
+              <Link
+                href="/settings"
+                onClick={() => setMobileMenuOpen(false)}
+                title={isCollapsedState ? 'Cài đặt & Hồ sơ BHYT' : undefined}
+                aria-label="Cài đặt & Hồ sơ BHYT"
+                className={cn(
+                  'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
+                  pathname === '/settings'
+                    ? 'bg-primary font-semibold text-primary-foreground'
+                    : 'text-slate-700 hover:bg-accent hover:text-primary',
+                  isCollapsedState && 'justify-center px-2'
+                )}
+              >
+                <span
+                  className={cn(
+                    'material-symbols-outlined shrink-0 text-[20px] transition-colors',
+                    pathname === '/settings' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
+                  )}
+                >
+                  settings
+                </span>
+                {!isCollapsedState && <span>Cài đặt &amp; Hồ sơ BHYT</span>}
+              </Link>
+            );
+
+            return isCollapsedState ? (
+              <Tooltip>
+                <TooltipTrigger asChild>{settingsEl}</TooltipTrigger>
+                <TooltipContent side="right">Cài đặt &amp; Hồ sơ BHYT</TooltipContent>
+              </Tooltip>
+            ) : (
+              settingsEl
+            );
+          })()}
         </div>
       </div>
 
       {/* User Footer Profile & Logout */}
       <div className="shrink-0 border-t border-slate-100 bg-slate-50 p-3">
         <div className="flex items-center justify-between gap-2">
-          <Link
-            href="/settings"
-            title={user?.name || 'Hồ sơ tài khoản'}
-            aria-label={user?.name || 'Hồ sơ tài khoản'}
-            className={cn(
-              'flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-slate-200/70 outline-hidden',
-              isCollapsedState && 'justify-center'
-            )}
-          >
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-              {user?.avatarText || 'FD'}
-            </div>
-            {!isCollapsedState && (
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-xs font-semibold text-slate-900">{user?.name}</div>
-                <div className="truncate text-xs text-slate-600">{user?.facilityOrTitle || user?.phone}</div>
-              </div>
-            )}
-          </Link>
+          {(() => {
+            const profileLink = (
+              <Link
+                href="/settings"
+                title={displayName || 'Hồ sơ tài khoản'}
+                aria-label={displayName || 'Hồ sơ tài khoản'}
+                className={cn(
+                  'flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-slate-200/70 outline-hidden',
+                  isCollapsedState && 'justify-center'
+                )}
+                suppressHydrationWarning
+              >
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                  suppressHydrationWarning
+                >
+                  {avatarText}
+                </div>
+                {!isCollapsedState && (
+                  <div className="min-w-0 flex-1" suppressHydrationWarning>
+                    <div className="truncate text-xs font-semibold text-slate-900" suppressHydrationWarning>{displayName}</div>
+                    <div className="truncate text-xs text-slate-600" suppressHydrationWarning>{userSubtitle}</div>
+                  </div>
+                )}
+              </Link>
+            );
+
+            return isCollapsedState ? (
+              <Tooltip>
+                <TooltipTrigger asChild>{profileLink}</TooltipTrigger>
+                <TooltipContent side="right">{displayName || 'Hồ sơ tài khoản'}</TooltipContent>
+              </Tooltip>
+            ) : (
+              profileLink
+            );
+          })()}
 
           {!isCollapsedState && (
             <button
@@ -621,8 +719,9 @@ function DashboardSidebarInner() {
             href="/settings"
             className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground outline-hidden"
             aria-label="Hồ sơ tài khoản & Cài đặt"
+            suppressHydrationWarning
           >
-            {user?.avatarText || 'FD'}
+            <span suppressHydrationWarning>{avatarText}</span>
           </Link>
         </div>
       </div>
@@ -722,23 +821,21 @@ function DashboardSidebarInner() {
         </div>
       </nav>
 
-      {/* Desktop Sidenav: Thu gọn icon (w-20), mở rộng khi hover hoặc khi SidebarTrigger bật */}
+      {/* Desktop Sidenav: Thu gọn (w-20) hiện logo và icon các trang, mở rộng (w-64) qua SidebarTrigger, không tự động bung khi hover */}
       <aside
-        data-state={isExpanded ? 'expanded' : 'collapsed'}
+        data-state={isOpen ? 'expanded' : 'collapsed'}
         className={cn(
           'relative sticky top-0 z-40 hidden h-screen shrink-0 transition-[width] duration-300 ease-in-out lg:block',
-          isPinnedExpanded ? 'w-64' : 'w-20'
+          isOpen ? 'w-64' : 'w-20'
         )}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         <div
           className={cn(
-            'absolute top-0 left-0 h-full overflow-hidden border-r border-slate-200/90 bg-sidebar transition-all duration-300 ease-in-out',
-            isExpanded ? 'z-40 w-64 shadow-xl' : 'w-20 shadow-xs'
+            'h-full overflow-hidden border-r border-slate-200/90 bg-sidebar transition-[width] duration-300 ease-in-out',
+            isOpen ? 'w-64' : 'w-20'
           )}
         >
-          {renderSidebarContent(!isExpanded)}
+          {renderSidebarContent(!isOpen)}
         </div>
       </aside>
 
@@ -756,19 +853,32 @@ function DashboardSidebarInner() {
   );
 }
 
+export interface DashboardSidebarProps {
+  initialRole?: LoginRole;
+}
+
 /**
  * Shared role-aware dashboard sidebar. Automatically provides SidebarProvider fallback when rendered standalone.
  */
-export function DashboardSidebar() {
+export function DashboardSidebar({ initialRole }: DashboardSidebarProps = {}) {
   const sidebar = useOptionalSidebar();
   if (sidebar) {
-    return <DashboardSidebarInner />;
+    return <DashboardSidebarInner initialRole={initialRole} />;
   }
+
+  const initialPinned = (() => {
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('famidoc_sidebar_pinned') : null;
+      return saved !== null ? saved === 'true' : true;
+    } catch {
+      return true;
+    }
+  })();
 
   return (
     <TooltipProvider delayDuration={0}>
-      <SidebarProvider defaultOpen={false} className="min-h-0 w-auto">
-        <DashboardSidebarInner />
+      <SidebarProvider defaultOpen={initialPinned} className="min-h-0 w-auto">
+        <DashboardSidebarInner initialRole={initialRole} />
       </SidebarProvider>
     </TooltipProvider>
   );

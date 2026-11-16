@@ -18,6 +18,7 @@ import { Label } from '@/components/ui/label';
 import {
   contractsApi,
   patientsApi,
+  extractErrorMessage,
   type FamilyGateStatusDto,
   type PatientDto,
   type PatientRelationship,
@@ -292,6 +293,21 @@ export function FamilyMembersView() {
     e.preventDefault();
     if (!newName.trim() || isSubmittingAdd) return;
 
+    if (newBirthDate) {
+      const dob = new Date(newBirthDate);
+      if (!isNaN(dob.getTime())) {
+        if (dob > new Date()) {
+          setAddError('Ngày sinh không thể là ngày trong tương lai.');
+          return;
+        }
+        const ageYears = (Date.now() - dob.getTime()) / (1000 * 3600 * 24 * 365.25);
+        if (ageYears > 120) {
+          setAddError('Ngày sinh không hợp lệ (tuổi vượt quá 120 năm).');
+          return;
+        }
+      }
+    }
+
     setAddError(null);
     setIsSubmittingAdd(true);
 
@@ -341,10 +357,10 @@ export function FamilyMembersView() {
           : `Đã thêm thành công người thân "${createdProfile.name}" vào sổ hộ tịch y tế!`
       );
     } catch (err) {
-      const message =
-        err instanceof Error
-          ? err.message
-          : 'Không thể thêm thành viên. Vui lòng kiểm tra thông tin hoặc hạn mức gói.';
+      const message = extractErrorMessage(
+        err,
+        'Không thể thêm thành viên. Vui lòng kiểm tra thông tin hoặc hạn mức gói.'
+      );
       setAddError(message);
     } finally {
       setIsSubmittingAdd(false);
@@ -354,6 +370,21 @@ export function FamilyMembersView() {
   const handleUpdateMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingMember || isSubmittingEdit) return;
+
+    if (editingMember.rawDateOfBirth) {
+      const dob = new Date(editingMember.rawDateOfBirth);
+      if (!isNaN(dob.getTime())) {
+        if (dob > new Date()) {
+          setEditError('Ngày sinh không thể là ngày trong tương lai.');
+          return;
+        }
+        const ageYears = (Date.now() - dob.getTime()) / (1000 * 3600 * 24 * 365.25);
+        if (ageYears > 120) {
+          setEditError('Ngày sinh không hợp lệ (tuổi vượt quá 120 năm).');
+          return;
+        }
+      }
+    }
 
     setEditError(null);
     setIsSubmittingEdit(true);
@@ -389,8 +420,7 @@ export function FamilyMembersView() {
       setEditingMember(null);
       showToast(`Đã cập nhật thông tin thành viên "${updatedProfile.name}"!`);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : 'Không thể cập nhật thông tin thành viên.';
+      const message = extractErrorMessage(err, 'Không thể cập nhật thông tin thành viên.');
       setEditError(message);
     } finally {
       setIsSubmittingEdit(false);

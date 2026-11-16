@@ -6,6 +6,7 @@ import { LandingHeader, LandingFooter } from '@/features/landing';
 import { publicApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
+import { DoctorDetailView } from './doctor-detail-view';
 
 // Types
 export interface Doctor {
@@ -30,18 +31,46 @@ export interface Doctor {
   schedule: string;
 }
 
+export interface FacilityFeaturedDoctor {
+  id: string;
+  doctorName?: string;
+  fullName?: string;
+  name?: string;
+  academicTitle?: string | null;
+  title?: string;
+  specialty: string;
+  avatarUrl?: string | null;
+  rating?: number;
+  experienceYears?: number;
+  cchnNumber?: string;
+}
+
 export interface Facility {
   id: string;
   name: string;
-  type: 'Bệnh viện Tuyến Trung Ương' | 'Bệnh viện Đa Khoa Quốc Tế' | 'Phòng khám Đa Khoa Kỹ Thuật Cao';
+  facility_name?: string;
+  type: string;
+  tier?: string;
+  status?: string;
   address: string;
-  city: 'Hà Nội' | 'TP. Hồ Chí Minh' | 'Đà Nẵng';
+  city: 'Hà Nội' | 'TP. Hồ Chí Minh' | 'Đà Nẵng' | string;
   phone: string;
+  hotline?: string;
+  email?: string;
+  websiteUrl?: string;
+  website?: string;
   workingHours: string;
   imageUrl: string;
+  logoUrl?: string;
   specialties: string[];
   privileges: string[];
   bedCount: string;
+  license_number?: string;
+  tax_code?: string;
+  featuredDoctors?: FacilityFeaturedDoctor[];
+  verification_status?: 'VERIFIED' | 'PENDING' | 'REJECTED';
+  created_at?: string;
+  updated_at?: string;
 }
 
 function DoctorCardSkeleton() {
@@ -328,15 +357,14 @@ const MOCK_FACILITIES: Facility[] = [
 ];
 
 export function DoctorDirectoryView() {
-  const [activeTab, setActiveTab] = useState<'doctors' | 'facilities'>('doctors');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
+  const [selectedDetailId, setSelectedDetailId] = useState<string | null>(null);
   const [doctorPage, setDoctorPage] = useState(1);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [doctorsList, setDoctorsList] = useState<Doctor[]>([]);
-  const [facilitiesList, setFacilitiesList] = useState<Facility[]>(MOCK_FACILITIES);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -387,30 +415,6 @@ export function DoctorDirectoryView() {
     };
   }, [searchQuery, selectedCity, selectedSpecialty]);
 
-  useEffect(() => {
-    publicApi
-      .getFacilities()
-      .then((facs) => {
-        if (facs && facs.length > 0) {
-          const mapped: Facility[] = facs.map((f) => ({
-            id: f.id,
-            name: f.name,
-            type: 'Bệnh viện Tuyến Trung Ương',
-            address: f.address || '215 Hồng Bàng, Phường 11, Quận 5, TP.HCM',
-            city: 'TP. Hồ Chí Minh',
-            phone: f.phone || '1900 6868',
-            workingHours: '24/7 (Cấp cứu & Ngoại trú)',
-            imageUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=600&auto=format&fit=crop&q=80',
-            specialties: ['Nội Tổng Quát', 'Lão Khoa', 'Nhi Khoa'],
-            privileges: ['Ưu tiên luồng khám', 'Bảo lãnh viện phí trực tiếp'],
-            bedCount: '1.000+ giường',
-          }));
-          setFacilitiesList(mapped);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
   // Filtered Doctors
   const filteredDoctors = useMemo(() => {
     return doctorsList.filter((doc) => {
@@ -438,20 +442,17 @@ export function DoctorDirectoryView() {
     safeDoctorPage * DOCTOR_PAGE_SIZE
   );
 
-  // Filtered Facilities
-  const filteredFacilities = useMemo(() => {
-    return facilitiesList.filter((fac) => {
-      const matchSearch =
-        searchQuery.trim() === '' ||
-        fac.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        fac.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        fac.specialties.some((s) => s.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchCity = selectedCity === 'all' || fac.city === selectedCity;
-
-      return matchSearch && matchCity;
-    });
-  }, [facilitiesList, searchQuery, selectedCity]);
+  if (selectedDetailId) {
+    return (
+      <DoctorDetailView
+        id={selectedDetailId}
+        type="doctor"
+        onBack={() => {
+          setSelectedDetailId(null);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans antialiased flex flex-col justify-between">
@@ -487,94 +488,22 @@ export function DoctorDirectoryView() {
         {/* 3. MEDSEV DOCTOR SEARCH AREA (Matching .doctor-search-area in doctor.html) */}
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-14 sm:-mt-16 relative z-20">
           <div className="bg-white rounded-2xl shadow-[0_10px_35px_0_rgba(0,0,0,0.08)] border border-slate-100 p-4 sm:p-8 space-y-5 sm:space-y-6 overflow-hidden">
-            {/* Tab selector for Doctor vs Partner Facilities */}
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between border-b border-slate-100 pb-4 gap-3.5">
-              {/* 2-Tab Segmented Control: full width on mobile, inline-flex on sm+ */}
-              <div className="w-full sm:w-auto grid grid-cols-2 sm:inline-flex items-center p-1 bg-slate-100 rounded-xl text-xs sm:text-sm font-semibold shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('doctors')}
-                  className={`w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${activeTab === 'doctors'
-                    ? 'bg-[#0046c0] text-white shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900 font-medium'
-                    }`}
-                >
-                  <span className="material-symbols-outlined text-base sm:text-lg shrink-0">stethoscope</span>
-                  <span className="whitespace-nowrap">Đội ngũ Bác sĩ</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 leading-none transition-colors ${activeTab === 'doctors'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 text-slate-700'
-                      }`}
-                  >
-                    {isLoading ? '...' : filteredDoctors.length}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('facilities')}
-                  className={`w-full sm:w-auto justify-center px-4 sm:px-5 py-2.5 sm:py-2 rounded-lg transition-all cursor-pointer inline-flex items-center gap-2 whitespace-nowrap shrink-0 ${activeTab === 'facilities'
-                    ? 'bg-[#0046c0] text-white shadow-xs font-bold'
-                    : 'text-slate-600 hover:text-slate-900 font-medium'
-                    }`}
-                >
-                  <span className="material-symbols-outlined text-base sm:text-lg shrink-0">local_hospital</span>
-                  <span className="whitespace-nowrap">Cơ sở &amp; Bệnh viện</span>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[11px] sm:text-xs font-bold shrink-0 leading-none transition-colors ${activeTab === 'facilities'
-                      ? 'bg-white/20 text-white'
-                      : 'bg-slate-200 text-slate-700'
-                      }`}
-                  >
-                    {filteredFacilities.length}
-                  </span>
-                </button>
-              </div>
-
-              {/* City Quick Filter & Smart Matching Wizard Button: stacked full width on mobile, inline flex on sm+ */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-xs w-full lg:w-auto">
-                <Button asChild size="sm" className="w-full sm:w-auto rounded-lg font-bold gap-2 whitespace-nowrap shrink-0">
-                  <Link href="/doctors/matching">
-                    <span className="material-symbols-outlined text-[18px] shrink-0">auto_awesome</span>
-                    <span className="whitespace-nowrap">Gợi ý Bác sĩ Phù hợp</span>
-                  </Link>
-                </Button>
-                <div className="flex items-center justify-between sm:justify-start gap-2 bg-slate-50 sm:bg-transparent p-2 sm:p-0 rounded-lg border border-slate-200 sm:border-transparent">
-                  <span className="text-slate-500 font-medium whitespace-nowrap">Khu vực:</span>
-                  <select
-                    value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
-                    className="w-full sm:w-auto py-1.5 px-3 rounded-lg border border-slate-200 text-xs font-semibold text-slate-700 bg-white sm:bg-slate-50 focus:outline-none focus:border-[#0046c0] cursor-pointer"
-                  >
-                    <option value="all">Tất cả tỉnh thành</option>
-                    <option value="Hà Nội">Hà Nội</option>
-                    <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
-                    <option value="Đà Nẵng">Đà Nẵng</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {/* Medsev 2-Column Search Wrap */}
-            <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 items-center">
+            {/* Medsev 3-Column Search Wrap */}
+            <form onSubmit={(e) => e.preventDefault()} className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 items-center">
               {/* Field 1: Doctor Name / Keyword */}
               <div className="relative pl-14 sm:pl-16">
                 <span className="material-symbols-outlined text-3xl sm:text-4xl text-[#0046c0] absolute left-0 top-1">
                   stethoscope
                 </span>
                 <label className="block text-xs font-semibold text-slate-500 mb-1">
-                  {activeTab === 'doctors' ? 'Tìm Bác Sĩ' : 'Tìm Bệnh Viện'}
+                  Tìm Bác Sĩ Gia Đình
                 </label>
                 <div className="relative flex items-center">
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={
-                      activeTab === 'doctors'
-                        ? 'Nhập tên bác sĩ hoặc bệnh viện...'
-                        : 'Nhập tên cơ sở, địa chỉ...'
-                    }
+                    placeholder="Nhập tên bác sĩ hoặc bệnh viện công tác..."
                     className="w-full pb-2 pt-0.5 text-sm sm:text-base font-semibold text-slate-800 placeholder:text-slate-400 border-b border-[#ccd9f2] focus:border-[#0046c0] focus:outline-none transition-colors pr-8 bg-transparent"
                   />
                   <button
@@ -611,6 +540,26 @@ export function DoctorDirectoryView() {
                   <option value="traditional">Y Học Cổ Truyền &amp; Dưỡng Sinh</option>
                 </select>
               </div>
+
+              {/* Field 3: City / Location */}
+              <div className="relative pl-14 sm:pl-16">
+                <span className="material-symbols-outlined text-3xl sm:text-4xl text-[#0046c0] absolute left-0 top-1">
+                  location_on
+                </span>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">
+                  Khu Vực / Tỉnh Thành
+                </label>
+                <select
+                  value={selectedCity}
+                  onChange={(e) => setSelectedCity(e.target.value)}
+                  className="w-full pb-2 pt-0.5 text-sm sm:text-base font-semibold text-slate-800 border-b border-[#ccd9f2] focus:border-[#0046c0] focus:outline-none transition-colors bg-transparent cursor-pointer"
+                >
+                  <option value="all">Tất cả tỉnh thành</option>
+                  <option value="Hà Nội">Hà Nội</option>
+                  <option value="TP. Hồ Chí Minh">TP. Hồ Chí Minh</option>
+                  <option value="Đà Nẵng">Đà Nẵng</option>
+                </select>
+              </div>
             </form>
 
             {/* Clear filters badge */}
@@ -644,10 +593,9 @@ export function DoctorDirectoryView() {
           </div>
 
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* TAB 1: DOCTORS DIRECTORY (3-Column Grid) */}
-            {activeTab === 'doctors' && (
-              <div>
-                {isLoading ? (
+            {/* DOCTORS DIRECTORY (3-Column Grid) */}
+            <div>
+              {isLoading ? (
                   <div
                     data-testid="doctors-skeleton-grid"
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
@@ -732,12 +680,21 @@ export function DoctorDirectoryView() {
                               <span className="material-symbols-outlined text-sm text-amber-500 material-symbols-filled">star</span>
                               {doc.rating} <span className="font-normal text-slate-400">({doc.reviewCount})</span>
                             </span>
-                            <Link
-                              href={`/doctors/${doc.id}`}
-                              className="font-bold text-[#0046c0] hover:underline cursor-pointer"
-                            >
-                              Xem chi tiết →
-                            </Link>
+                            <div className="flex items-center gap-2">
+                              <Link
+                                href={`/doctors/${doc.id}`}
+                                className="font-semibold text-slate-500 hover:text-slate-800"
+                              >
+                                Chi tiết
+                              </Link>
+                              <span className="text-slate-300">•</span>
+                              <Link
+                                href={`/family/subscription/new?doctorId=${doc.id}`}
+                                className="font-bold text-[#0046c0] hover:underline cursor-pointer"
+                              >
+                                Đăng ký Bác sĩ →
+                              </Link>
+                            </div>
                           </div>
                         </div>
                       </article>
@@ -761,122 +718,6 @@ export function DoctorDirectoryView() {
                   </>
                 )}
               </div>
-            )}
-
-            {/* TAB 2: FACILITIES DIRECTORY */}
-            {activeTab === 'facilities' && (
-              <div>
-                {filteredFacilities.length === 0 ? (
-                  <div role="status" className="bg-white rounded-2xl border border-slate-200 p-12 text-center space-y-4 max-w-lg mx-auto shadow-xs">
-                    <div className="w-14 h-14 bg-blue-50 text-[#0046c0] rounded-full flex items-center justify-center mx-auto">
-                      <span className="material-symbols-outlined text-3xl">apartment</span>
-                    </div>
-                    <h3 className="text-lg font-bold text-slate-900">
-                      Không tìm thấy cơ sở y tế phù hợp
-                    </h3>
-                    <p className="text-xs sm:text-sm text-slate-500">
-                      Vui lòng thử lại với tên bệnh viện hoặc khu vực thành phố khác.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSelectedCity('all');
-                      }}
-                      className="px-5 py-2.5 bg-[#0046c0] hover:bg-[#003899] text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-xs"
-                    >
-                      Xem toàn bộ danh sách cơ sở y tế
-                    </button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    {filteredFacilities.map((fac) => (
-                      <article
-                        key={fac.id}
-                        className="bg-white rounded-2xl border border-slate-100 shadow-[0_4px_25px_0_rgba(0,0,0,0.06)] hover:shadow-[0_15px_35px_0_rgba(0,70,192,0.15)] hover:-translate-y-1.5 transition-all duration-300 overflow-hidden flex flex-col justify-between group"
-                      >
-                        <div>
-                          {/* Image banner */}
-                          <div className="relative h-52 w-full overflow-hidden bg-slate-100">
-                            <img
-                              src={fac.imageUrl}
-                              alt={fac.name}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            />
-                            <div className="absolute top-3 left-3 bg-white/95 text-slate-900 text-[11px] font-bold px-3 py-1 rounded-lg border border-slate-200 shadow-xs">
-                              {fac.type}
-                            </div>
-                            <div className="absolute bottom-3 right-3 bg-slate-900/80 text-white text-[11px] font-medium px-2.5 py-1 rounded-md flex items-center gap-1">
-                              <span className="material-symbols-outlined text-xs">bed</span>
-                              {fac.bedCount}
-                            </div>
-                          </div>
-
-                          {/* Content */}
-                          <div className="p-6 space-y-4">
-                            <div>
-                              <Link
-                                href={`/doctors/${fac.id}`}
-                                className="text-lg font-bold text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer block"
-                              >
-                                {fac.name}
-                              </Link>
-                              <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-1.5">
-                                <span className="material-symbols-outlined text-base text-slate-400 shrink-0">location_on</span>
-                                <span>{fac.address}</span>
-                              </p>
-                            </div>
-
-                            <div className="space-y-2 text-xs text-slate-600">
-                              <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-base text-[#0046c0]">schedule</span>
-                                <span><strong>Giờ làm việc:</strong> {fac.workingHours}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className="material-symbols-outlined text-base text-emerald-600">call</span>
-                                <span><strong>Hotline viện:</strong> {fac.phone}</span>
-                              </div>
-                            </div>
-
-                            {/* Privileges */}
-                            <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-100 space-y-1.5">
-                              <h4 className="text-xs font-bold text-[#0046c0] flex items-center gap-1">
-                                <span className="material-symbols-outlined text-sm">stars</span>
-                                Đặc quyền hội viên FamiDoc:
-                              </h4>
-                              <ul className="text-xs text-slate-700 space-y-1">
-                                {fac.privileges.map((priv, idx) => (
-                                  <li key={idx} className="flex items-start gap-1.5">
-                                    <span className="material-symbols-outlined text-sm text-[#0046c0] shrink-0 mt-0.5">check_circle</span>
-                                    <span>{priv}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Footer Actions */}
-                        <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center gap-3">
-                          <Link
-                            href={`/doctors/${fac.id}`}
-                            className="flex-1 py-2.5 px-3 rounded-lg border border-slate-300 hover:bg-slate-100 bg-white text-xs font-semibold text-slate-700 text-center transition-colors cursor-pointer"
-                          >
-                            Chi tiết cơ sở
-                          </Link>
-                          <Link
-                            href={`/doctors/${fac.id}#dat-lich`}
-                            className="flex-1 py-2.5 px-3 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs font-semibold text-center transition-colors shadow-xs cursor-pointer"
-                          >
-                            Yêu cầu nhập viện
-                          </Link>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         </section>
       </main>

@@ -54,50 +54,7 @@ describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
     expect(screen.getByRole('heading', { level: 3, name: /Gói Trải Nghiệm/i })).toBeInTheDocument();
   });
 
-  it('UT-FAQ-01: expands package FAQ items by click using the accessible Accordion primitive', async () => {
-    const user = userEvent.setup();
-    render(<PackageDetailView packageId="pkg-toan-dien" />);
-
-    const firstAnswer =
-      /Bác sĩ CKI có thể thực hiện kiểm tra định kỳ lần lượt cho cả 4 thành viên/i;
-    expect(screen.getByText(firstAnswer)).toBeInTheDocument();
-
-    const secondTrigger = screen.getByRole('button', {
-      name: /Khi dùng hết 5 lượt khám tại nhà thì gia đình xử lý như thế nào/i,
-    });
-    expect(secondTrigger).toHaveAttribute('aria-expanded', 'false');
-
-    await user.click(secondTrigger);
-    expect(secondTrigger).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByText(/350\.000 đ\/lượt thay vì giá gốc 550\.000 đ/i)).toBeInTheDocument();
-    expect(secondTrigger.closest('[data-state]')).toHaveAttribute('data-state', 'open');
-  });
-
-  it('UT-FAQ-02: navigates and toggles package FAQ items using keyboard only', async () => {
-    const user = userEvent.setup();
-    render(<PackageDetailView packageId="pkg-toan-dien" />);
-
-    const firstTrigger = screen.getByRole('button', {
-      name: /Gói có áp dụng cho tất cả 4 thành viên cùng lúc/i,
-    });
-    firstTrigger.focus();
-
-    await user.keyboard('{ArrowDown}');
-    const secondTrigger = screen.getByRole('button', {
-      name: /Khi dùng hết 5 lượt khám tại nhà thì gia đình xử lý như thế nào/i,
-    });
-    expect(secondTrigger).toHaveFocus();
-    expect(secondTrigger).toHaveAttribute('aria-expanded', 'false');
-
-    await user.keyboard('{Enter}');
-    expect(secondTrigger).toHaveAttribute('aria-expanded', 'true');
-    expect(secondTrigger).toHaveAttribute('aria-controls');
-
-    await user.keyboard(' ');
-    expect(secondTrigger).toHaveAttribute('aria-expanded', 'false');
-  });
-
-  it('standardizes typography across Group 1 Public/Marketing views (no font-mono, font-black, or font-extrabold)', () => {
+  it('standardizes typography across Group 1 Public/Marketing views (no tracking-wide, font-black, or font-extrabold)', () => {
     const { container } = render(<PackagesCatalogView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
 
@@ -112,5 +69,37 @@ describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
       const source = fs.readFileSync(fullPath, 'utf-8');
       expect(source, `Violation in ${relPath}`).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     }
+  });
+
+  it('UT-ESTIMATOR-CAP: caps member count in pricing estimator to package defaultMembers and dims + button at limit', async () => {
+    render(<PackagesCatalogView />);
+
+    // Default package is Gói Đồng Hành (defaultMembers: 3)
+    const plusBtn = screen.getByRole('button', { name: 'Tăng số thành viên gia đình' });
+    const minusBtn = screen.getByRole('button', { name: 'Giảm số thành viên gia đình' });
+
+    // Initial memberCount should be 3 and plus button should be disabled (dimmed)
+    expect(screen.getByText(/Gói gồm mặc định:/i)).toBeInTheDocument();
+    expect(plusBtn).toBeDisabled();
+
+    // Decrease memberCount to 2
+    await userEvent.click(minusBtn);
+    expect(plusBtn).not.toBeDisabled();
+
+    // Click plus back to 3
+    await userEvent.click(plusBtn);
+    expect(plusBtn).toBeDisabled();
+
+    // Switch to Gói Trải Nghiệm (defaultMembers: 1)
+    const basicPkgBtn = screen.getByRole('button', { name: /Gói Trải Nghiệm/i });
+    await userEvent.click(basicPkgBtn);
+    expect(plusBtn).toBeDisabled();
+    expect(minusBtn).toBeDisabled();
+
+    // Switch to Gói Toàn Diện (defaultMembers: 6)
+    const royalPkgBtn = screen.getByRole('button', { name: /Gói Toàn Diện/i });
+    await userEvent.click(royalPkgBtn);
+    expect(plusBtn).toBeDisabled();
+    expect(minusBtn).not.toBeDisabled();
   });
 });

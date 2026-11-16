@@ -1,5 +1,5 @@
 import { ApiError } from '../http/errors';
-import { COOKIE_KEYS } from '@/lib/auth-storage';
+import { COOKIE_KEYS, getCookie } from '@/lib/auth-storage';
 
 const LEGACY_TOKEN_KEY = 'famidoc_auth_token';
 
@@ -11,11 +11,12 @@ class HttpClient {
     this.baseUrl =
       process.env.INTERNAL_BACKEND_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
-      'http://localhost:8080';
+      'https://api.famidoc.online';
     if (typeof window !== 'undefined') {
       this.token =
         sessionStorage.getItem(COOKIE_KEYS.TOKEN) ||
-        localStorage.getItem(COOKIE_KEYS.TOKEN);
+        localStorage.getItem(COOKIE_KEYS.TOKEN) ||
+        getCookie(COOKIE_KEYS.TOKEN);
     }
   }
 
@@ -47,7 +48,8 @@ class HttpClient {
     if (typeof window !== 'undefined') {
       this.token =
         sessionStorage.getItem(COOKIE_KEYS.TOKEN) ||
-        localStorage.getItem(COOKIE_KEYS.TOKEN);
+        localStorage.getItem(COOKIE_KEYS.TOKEN) ||
+        getCookie(COOKIE_KEYS.TOKEN);
     }
     return this.token;
   }
@@ -184,6 +186,28 @@ class HttpClient {
 
   delete<T>(path: string, options?: RequestInit): Promise<T> {
     return this.request<T>(path, { ...options, method: 'DELETE' });
+  }
+
+  async upload<T>(path: string, formData: FormData): Promise<T> {
+    const url = this.buildUrl(path);
+    const headers: Record<string, string> = {};
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      const detailMessage =
+        (errorData as { error?: { detail?: string } })?.error?.detail ||
+        (errorData as { message?: string })?.message;
+      throw new ApiError(detailMessage || `Upload failed (${res.status})`, res.status, errorData);
+    }
+    return (await res.json()) as T;
   }
 }
 

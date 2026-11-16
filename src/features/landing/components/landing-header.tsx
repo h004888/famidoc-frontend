@@ -9,7 +9,8 @@ import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-con
 const NAV_LINKS = [
   { href: '/', label: 'Trang chủ' },
   { href: '/packages', label: 'Gói chăm sóc' },
-  { href: '/doctors', label: 'Bác sĩ & Cơ sở y tế' },
+  { href: '/doctors', label: 'Bác sĩ gia đình' },
+  { href: '/facilities', label: 'Cơ sở y tế đối tác' },
   { href: '/contact', label: 'Liên hệ & Tư vấn' },
 ];
 
@@ -73,6 +74,13 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
       isActive: pathname.startsWith('/doctors'),
     },
     {
+      href: '/facilities',
+      label: 'Cơ sở y tế',
+      ariaLabel: 'Mạng lưới cơ sở y tế FamiDoc',
+      icon: 'apartment',
+      isActive: pathname.startsWith('/facilities'),
+    },
+    {
       href: '/contact',
       label: 'Tư vấn',
       ariaLabel: 'Gửi yêu cầu tư vấn FamiDoc',
@@ -133,10 +141,26 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                   aria-controls="landing-user-menu"
                   className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-50 text-[#0046c0] hover:bg-blue-100/80 text-xs sm:text-sm font-semibold transition-colors border border-blue-200/70 cursor-pointer"
                 >
-                  <div className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold border border-blue-300">
+                  <div
+                    className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold border border-blue-300"
+                    suppressHydrationWarning
+                  >
                     {user.avatarText || user.name.charAt(0)}
                   </div>
-                  <span className="hidden sm:inline max-w-[120px] truncate">{user.name}</span>
+                  <span className="hidden sm:inline max-w-[120px] truncate" suppressHydrationWarning>
+                    {user.name}
+                  </span>
+                  <span className="material-symbols-outlined text-[18px]">dashboard</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={logout}
+                  title="Đăng xuất"
+                  aria-label="Đăng xuất tài khoản"
+                  className="p-1.5 sm:p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors border border-slate-200 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px] sm:text-[20px]">logout</span>
                 </button>
 
                 {isUserMenuOpen && (

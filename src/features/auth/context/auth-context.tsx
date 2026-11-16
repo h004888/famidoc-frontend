@@ -133,7 +133,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsAuthenticated(true);
       setIsLoading(false);
 
-      const redirectPath = getDefaultPathForRole(assignedRole);
+      const isInitialPassword = pwd.startsWith('FamiDoc@');
+      const redirectPath = isInitialPassword ? '/change-password' : getDefaultPathForRole(assignedRole);
       if (typeof window !== 'undefined') {
         window.location.replace(redirectPath);
       } else {
@@ -177,7 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 // Fallback an toàn cho test hoặc ngoài provider
 const fallbackAuthContext: AuthContextType = {
   role: 'FAMILY',
-  user: DEFAULT_USERS.FAMILY,
+  user: null,
   isAuthenticated: false,
   isLoading: false,
   login: async () => {},

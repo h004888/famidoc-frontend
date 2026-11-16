@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -225,43 +225,60 @@ export function FacilityDoctorAssignView({
   );
 
   return (
-    <div className="space-y-6">
-      {/* Navigation & Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <Link
-              href="/facility/contracts"
-              className="text-xs font-medium text-slate-500 hover:text-primary transition-colors inline-flex items-center gap-1"
-            >
-              <span>&larr;</span> Quay lại danh sách tiếp nhận
-            </Link>
-          </div>
-          <h1 className="text-xl font-bold text-slate-900 tracking-tight">
-            Phân công Bác sĩ Gia đình &amp; Ký Documenso (Bên B — CSYT)
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Hợp đồng số:{' '}
-            <span className="font-semibold text-slate-800 tabular-nums">
-              {currentContract.contractNumber}
-            </span>{' '}
-            • Trạng thái hiện tại:{' '}
-            <span className="font-medium text-amber-700">{currentContract.status}</span>
-          </p>
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased p-4 sm:p-6 lg:p-8">
+      <main className="max-w-7xl mx-auto space-y-6">
+        {/* Breadcrumbs matching project style */}
+        <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+          <Link href="/" className="hover:text-primary transition-colors">
+            Trang chủ
+          </Link>
+          <span className="text-slate-300">/</span>
+          <Link href="/facility" className="hover:text-primary transition-colors">
+            Cơ sở Y tế
+          </Link>
+          <span className="text-slate-300">/</span>
+          <span className="text-primary font-semibold">Điều phối HĐ 4 bên</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          {isFacilitySigned ? (
-            <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border-emerald-200">
-              Đã ký Documenso CSYT (Bên B)
+        {/* Navigation & Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-slate-200">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Link
+                href="/facility/contracts"
+                className="text-xs font-medium text-slate-500 hover:text-primary transition-colors inline-flex items-center gap-1"
+              >
+                <span>&larr;</span> Quay lại danh sách tiếp nhận
+              </Link>
+            </div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">
+              Phân công Bác sĩ Gia đình &amp; Ký Documenso (Bên B — CSYT)
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Hợp đồng số:{' '}
+              <span className="font-semibold text-slate-800 tabular-nums">
+                {currentContract.contractNumber}
+              </span>{' '}
+              • Trạng thái hiện tại:{' '}
+              <span className="font-medium text-amber-700">{currentContract.status}</span>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-accent text-primary border-primary/20">
+              Phân Công Bác Sĩ & Ký Số
             </Badge>
-          ) : (
-            <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border-amber-200">
-              Chờ CSYT ký Documenso
-            </Badge>
-          )}
+            {isFacilitySigned ? (
+              <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-800 border-emerald-200">
+                Đã ký Documenso CSYT (Bên B)
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-800 border-amber-200">
+                Chờ CSYT ký Documenso
+              </Badge>
+            )}
+          </div>
         </div>
-      </div>
 
       {/* Success Notification */}
       {successMessage && (
@@ -590,6 +607,7 @@ export function FacilityDoctorAssignView({
           )}
         </div>
       </div>
+      </main>
     </div>
   );
 }

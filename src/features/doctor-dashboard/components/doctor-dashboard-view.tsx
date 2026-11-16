@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { doctorsApi, contractsApi, type DoctorProfileDto, type MedicalContractListItem } from '@/lib/api';
 import { KpiStatCard } from '@/components/dashboard';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -139,6 +140,32 @@ export function DoctorDashboardView() {
   const [showSignModal, setShowSignModal] = useState<boolean>(false);
   const [isSigning, setIsSigning] = useState<boolean>(false);
   const [queuePage, setQueuePage] = useState<number>(1);
+
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
+  const [contracts, setContracts] = useState<any[]>([]);
+
+  useEffect(() => {
+    let isMounted = true;
+    doctorsApi
+      .getDoctorMe()
+      .then((data) => {
+        if (!isMounted) return;
+        if (data && data.id) setDoctorProfile(data);
+      })
+      .catch(() => {});
+
+    contractsApi
+      .getMedicalContracts({ role: 'DOCTOR' })
+      .then((items) => {
+        if (!isMounted) return;
+        if (Array.isArray(items)) setContracts(items);
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredPatients = patients.filter((p) => p.status === activeQueue);
   const QUEUE_PAGE_SIZE = 2;

@@ -1,8 +1,9 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -351,7 +352,7 @@ export function ContractSigningTrackerView({
             Đường dẫn này cần mã hợp đồng. Hãy mở lại đường dẫn trong email thông báo
             thanh toán, hoặc chọn gói dịch vụ để bắt đầu.
           </p>
-          <Button asChild size="sm" className="rounded-xl text-xs font-bold gap-2">
+          <Button asChild size="sm" className="rounded-xl text-xs font-bold gap-2 tabular-nums">
             <Link href={backHref}>
               <span className="material-symbols-outlined text-[16px]">arrow_back</span>
               Về danh sách gói dịch vụ
@@ -763,6 +764,20 @@ export function ContractSigningTrackerView({
                   <p className="text-sm leading-relaxed text-slate-600">
                     {party.description}
                   </p>
+                  {!partySigned && isFamilySigned && (
+                    <div className="pt-1.5 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toast.success(`Đã gửi thông báo nhắc nhở ký số tới ${party.title}!`);
+                        }}
+                        className="px-2 py-1 rounded-md text-[11px] font-semibold text-primary hover:bg-primary/10 border border-primary/25 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">notifications_active</span>
+                        <span>Nhắc ký số</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

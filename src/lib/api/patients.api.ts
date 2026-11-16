@@ -35,6 +35,7 @@ export interface PatientDto {
   gender: PatientGender;
   relationshipToHead: PatientRelationship | string;
   citizenId?: string | null;
+  identityCardNumber?: string | null;
   healthInsuranceNumber?: string | null;
   bloodType?: string | null;
   registeredHospital?: string | null;
@@ -53,6 +54,7 @@ export interface CreatePatientDto {
   relationshipToRepresentative?: PatientRelationship | string;
   relationshipToHead?: PatientRelationship | string;
   identityNumber?: string;
+  identityCardNumber?: string;
   citizenId?: string;
   phoneNumber?: string;
   bloodType?: string;
