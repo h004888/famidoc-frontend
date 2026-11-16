@@ -279,7 +279,7 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
         localStorage.setItem('famidoc_sidebar_pinned', String(sidebar.open));
       } catch {}
     }
-  }, [sidebar?.open]);
+  }, [sidebar]);
 
   const pathRole = getRoleFromPathname(pathname);
   const effectiveRole: LoginRole = pathRole || initialRole || (mounted ? role : 'FAMILY');

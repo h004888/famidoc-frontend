@@ -260,8 +260,9 @@ export function FamilyDashboardView() {
   const headMember = realPatients.find((p) => p.relationshipToHead === 'SELF') || realPatients[0];
   const familyHeadName = headMember ? headMember.fullName : (loggedInName || session.user?.name || 'Gia Đình');
 
+  const [currentTimestamp] = useState(() => Date.now());
   const daysUntilExpiry = activeContract?.endDate
-    ? Math.ceil((new Date(activeContract.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    ? Math.ceil((new Date(activeContract.endDate).getTime() - currentTimestamp) / (1000 * 60 * 60 * 24))
     : null;
 
   // Tổng hợp danh sách thuốc hôm nay của cả gia đình

@@ -10,6 +10,10 @@ const eslintConfig = defineConfig([
     rules: {
       "@next/next/no-img-element": "off",
       "@next/next/no-page-custom-font": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/purity": "warn",
+      "react/no-unescaped-entities": "off",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {

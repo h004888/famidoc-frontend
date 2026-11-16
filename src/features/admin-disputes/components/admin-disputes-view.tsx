@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { reviewsApi, type ComplaintItem } from '@/lib/api';
+import { reviewsApi } from '@/lib/api';
 
 interface DisputeCase {
   id: string;

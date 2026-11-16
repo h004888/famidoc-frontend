@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
-import { contractsApi, type StaffingContractItem, normalizeStaffingContract } from '@/lib/api/contracts.api';
+import { contractsApi, type StaffingContractItem } from '@/lib/api/contracts.api';
 
 interface AdminFacilityDetailViewProps {
   facilityId: string;
@@ -26,9 +26,9 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   const [showCreateContractModal, setShowCreateContractModal] = useState(false);
   const [facilityShare, setFacilityShare] = useState<number>(85);
   const [platformShare, setPlatformShare] = useState<number>(15);
-  const [validFrom, setValidFrom] = useState<string>(new Date().toISOString().slice(0, 10));
+  const [validFrom, setValidFrom] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [validTo, setValidTo] = useState<string>(
-    new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+    () => new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
   );
   const [contractTerms, setContractTerms] = useState<string>(
     'HỢP ĐỒNG NGUYÊN TẮC CUNG ỨNG NGUỒN NHÂN LỰC Y TẾ & CHĂM SÓC SỨC KHỎE GIA ĐÌNH B2B\n\n' +
@@ -58,7 +58,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     setTimeout(() => setToastMessage(null), 4500);
   };
 
-  const fetchStaffingContracts = async (_targetFacilityName?: string) => {
+  const fetchStaffingContracts = useCallback(async (_targetFacilityName?: string) => {
     setIsContractsLoading(true);
     try {
       const res = await contractsApi.getStaffingContracts({ facilityId });
@@ -73,7 +73,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     } finally {
       setIsContractsLoading(false);
     }
-  };
+  }, [facilityId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -100,7 +100,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     return () => {
       isMounted = false;
     };
-  }, [facilityId]);
+  }, [facilityId, fetchStaffingContracts]);
 
   // Duyệt Cấp 1
   const handleApproveAccount = async () => {

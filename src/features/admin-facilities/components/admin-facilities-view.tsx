@@ -20,7 +20,6 @@ interface DoctorVerificationItem {
 export function AdminFacilitiesView() {
   const [facilities, setFacilities] = useState<AdminFacilityItem[]>([]);
   const [doctorsList, setDoctorsList] = useState<DoctorVerificationItem[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING_APPROVAL' | 'PENDING_LEGAL' | 'ACTIVE' | 'DOCTOR_VERIFY'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFacility, setSelectedFacility] = useState<AdminFacilityItem | null>(null);
@@ -813,14 +812,14 @@ export function AdminFacilitiesView() {
                 {/* Hướng dẫn & Cảnh báo điều kiện duyệt */}
                 {selectedFacility.onboardingStatus === 'PENDING_APPROVAL' && (
                   <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs leading-relaxed">
-                    💡 <strong>Bước tiếp theo:</strong> Bấm <em>"Duyệt Cấp 1 (Cấp Portal)"</em> để hệ thống tự động sinh tài khoản với mật khẩu mặc định <code>FamiDoc@Facility2026</code> và gửi email kích hoạt cho người đại diện.
+                    💡 <strong>Bước tiếp theo:</strong> Bấm <em>&ldquo;Duyệt Cấp 1 (Cấp Portal)&rdquo;</em> để hệ thống tự động sinh tài khoản với mật khẩu mặc định <code>FamiDoc@Facility2026</code> và gửi email kích hoạt cho người đại diện.
                   </div>
                 )}
 
                 {selectedFacility.onboardingStatus !== 'PENDING_APPROVAL' && selectedFacility.onboardingStatus !== 'ACTIVE' && (
                   selectedFacility.taxCode && selectedFacility.operatingLicense ? (
                     <div className="p-3 bg-indigo-50 rounded-xl border border-indigo-200 text-indigo-900 text-xs leading-relaxed">
-                      🔍 <strong>Hồ sơ sẵn sàng thẩm định:</strong> CSYT đã nộp đầy đủ MST và GPHĐ. Quản trị viên vui lòng tra cứu đối soát trên CSDL Quốc gia trước khi bấm <em>"Duyệt Cấp 2: Kích hoạt ACTIVE"</em>.
+                      🔍 <strong>Hồ sơ sẵn sàng thẩm định:</strong> CSYT đã nộp đầy đủ MST và GPHĐ. Quản trị viên vui lòng tra cứu đối soát trên CSDL Quốc gia trước khi bấm <em>&ldquo;Duyệt Cấp 2: Kích hoạt ACTIVE&rdquo;</em>.
                     </div>
                   ) : (
                     <div className="p-3 bg-rose-50 rounded-xl border border-rose-200 text-rose-900 text-xs leading-relaxed">

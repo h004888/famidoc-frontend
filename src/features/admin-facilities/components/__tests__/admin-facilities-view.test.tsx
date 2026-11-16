@@ -3,7 +3,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdminFacilitiesView } from '../admin-facilities-view';
 import { facilitiesApi } from '@/lib/api/facilities.api';
-import { doctorsApi } from '@/lib/api/doctors.api';
 
 vi.mock('@/lib/api/doctors.api', () => ({
   doctorsApi: {
