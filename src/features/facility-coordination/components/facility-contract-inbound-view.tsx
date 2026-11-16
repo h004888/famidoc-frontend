@@ -143,7 +143,7 @@ export function FacilityContractInboundView({
 
   return (
     <div className="min-h-screen bg-[#f8fafc] text-slate-900 font-sans antialiased p-4 sm:p-6 lg:p-8">
-      <main className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Breadcrumb matching project style */}
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
           <Link href="/" className="hover:text-primary transition-colors">
@@ -302,6 +302,7 @@ export function FacilityContractInboundView({
 
       {/* Contracts Table */}
       <Card className="bg-white rounded-xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+        <div className="hidden md:block">
         <Table className="text-sm">
           <TableHeader>
             <TableRow className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold text-xs tracking-wider hover:bg-slate-50">
@@ -439,6 +440,48 @@ export function FacilityContractInboundView({
             )}
           </TableBody>
         </Table>
+        </div>
+        <div className="divide-y divide-slate-100 md:hidden">
+          {isLoading ? (
+            <div className="p-8 text-center text-xs text-slate-500">Đang tải danh sách hợp đồng...</div>
+          ) : filteredContracts.length === 0 ? (
+            <div className="p-8 text-center text-xs text-slate-500">Không có hợp đồng nào phù hợp.</div>
+          ) : (
+            filteredContracts.map((contract) => (
+              <div key={contract.id} className="space-y-2.5 p-4 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-bold text-slate-900 tabular-nums">{contract.contractNumber}</div>
+                    <div className="text-[11px] text-slate-500">{contract.packageName}</div>
+                  </div>
+                  <span className="font-bold text-primary tabular-nums">{formatPrice(contract.packagePrice)}</span>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-2.5 space-y-1 text-slate-600">
+                  <div>Gia đình: <strong className="text-slate-800">{contract.familyRepresentativeName}</strong></div>
+                  <div>Bác sĩ: <strong className="text-slate-800">{contract.doctorName || 'Chưa phân công'}</strong></div>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant="outline" className="rounded-full text-[11px] font-semibold">{contract.status}</Badge>
+                  <div className="flex items-center gap-2">
+                    <Button asChild size="sm" variant="outline" className="rounded-lg text-xs font-semibold">
+                      <Link href={`/facility/contracts/${contract.id}`}>Chi tiết</Link>
+                    </Button>
+                    {!contract.signatures?.facility?.signedAt && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => setSigningContract(contract)}
+                        className="rounded-lg text-xs font-semibold cursor-pointer"
+                      >
+                        Ký Documenso
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </Card>
 
       {/* Dialog ký Documenso trực tiếp cho CSYT (Bên B) */}
@@ -463,7 +506,7 @@ export function FacilityContractInboundView({
           )}
         </DialogContent>
       </Dialog>
-      </main>
+      </div>
     </div>
   );
 }

@@ -742,7 +742,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+      <div className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* 1. THANH ĐIỀU HƯỚNG & CHUYỂN ĐỔI THÀNH VIÊN NHANH (THOÁNG ĐÃNG, KHÔNG KHUNG HỘP NẶNG NỀ) */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <nav aria-label="Điều hướng trang" className="flex items-center gap-2 flex-wrap">
@@ -1105,7 +1105,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
             </div>
 
             {/* Bảng danh sách chỉ số */}
-            <div className="overflow-x-auto">
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50/80 border-b border-slate-100 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
@@ -1225,6 +1225,25 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="divide-y divide-slate-100 md:hidden">
+              {filteredDailyVitals.length === 0 ? (
+                <div className="p-6 text-center text-xs text-slate-500">Chưa có dữ liệu chỉ số sinh tồn.</div>
+              ) : (
+                filteredDailyVitals.map((rec, idx) => (
+                  <div key={rec.id || idx} className="space-y-1.5 p-3.5 text-xs">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-slate-900 tabular-nums">{rec.date}</span>
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                        HA: {rec.bpSystolic}/{rec.bpDiastolic}
+                      </span>
+                    </div>
+                    <div className="text-slate-600 tabular-nums">
+                      Nhịp tim: {rec.heartRate} bpm • SpO2: {rec.spo2}%
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </section>
@@ -1786,7 +1805,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
             )}
           </div>
         </section>
-      </main>
+      </div>
 
       {/* MODAL 1: HƯỚNG DẪN ĐÓN BÁC SĨ TẠI NHÀ */}
       <Dialog open={showHomeVisitGuide} onOpenChange={setShowHomeVisitGuide}>

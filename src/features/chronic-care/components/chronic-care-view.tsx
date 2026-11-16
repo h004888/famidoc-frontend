@@ -286,8 +286,8 @@ export function ChronicCareView() {
   });
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+    <div className="min-h-full bg-[#f5f6f8] text-slate-900 font-sans antialiased">
+      <div className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* 1. HEADER CANVAS THOÁNG ĐÃNG ĐỒNG BỘ VỚI /family */}
         <header className="space-y-4">
           <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
@@ -646,7 +646,7 @@ export function ChronicCareView() {
 
           {/* Khung vẽ SVG Biểu đồ */}
           <div className="w-full overflow-x-auto py-2">
-            <svg viewBox="0 0 700 205" className="w-full min-w-[560px] h-48 sm:h-56">
+            <svg viewBox="0 0 700 205" className="h-48 w-full sm:h-56">
               {/* Lưới ngang tham chiếu */}
               <line x1="40" y1="30" x2="670" y2="30" stroke="#f1f5f9" strokeWidth="1" />
               <text x="8" y="34" fontSize="10" fill="#94a3b8" fontWeight="500">
@@ -935,7 +935,7 @@ export function ChronicCareView() {
             </Table>
           </div>
         </section>
-      </main>
+      </div>
 
       {/* MODAL GHI NHẬN SỐ ĐO MỚI */}
       <Dialog open={showAddModal} onOpenChange={setShowAddModal}>
@@ -997,7 +997,7 @@ export function ChronicCareView() {
             </div>
 
             {/* Đường huyết, Nhịp tim, SpO2 */}
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
               <div>
                 <Label className="block font-semibold text-slate-700 mb-1">
                   Đường huyết

@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { FacilityContractsView } from '../facility-contracts-view';
 import { contractsApi } from '@/lib/api/contracts.api';
 import { facilitiesApi } from '@/lib/api/facilities.api';
@@ -50,19 +50,20 @@ describe('Giai đoạn 3: Hợp đồng cung ứng nhân lực y tế B2B (Flow 
     render(<FacilityContractsView />);
 
     // Kiểm tra hợp đồng STAFF-2026-ANSINH-002 xuất hiện
-    const contractCode = await screen.findByText('STAFF-2026-ANSINH-002');
-    expect(contractCode).toBeInTheDocument();
+    const contractCodes = await screen.findAllByText('STAFF-2026-ANSINH-002');
+    expect(contractCodes.length).toBeGreaterThan(0);
 
+    const desktop = within(screen.getByTestId('desktop-view'));
     // Kiểm tra tỷ lệ 85% CSYT / 15% Platform
-    expect(screen.getAllByText(/85% CSYT/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/\/ 15% Platform/i)).toBeInTheDocument();
+    expect(desktop.getByText(/85% CSYT/i)).toBeInTheDocument();
+    expect(desktop.getByText(/\/ 15% Platform/i)).toBeInTheDocument();
 
     // Kiểm tra trạng thái DRAFT
-    expect(screen.getByText(/Dự Thảo \(Chờ CSYT ký\)/i)).toBeInTheDocument();
+    expect(desktop.getByText(/Dự Thảo \(Chờ CSYT ký\)/i)).toBeInTheDocument();
 
     // Kiểm tra chữ ký 2 bên
-    expect(screen.getByText(/Admin: Đã ký số/i)).toBeInTheDocument();
-    expect(screen.getByText(/CSYT: Chờ ký xác nhận/i)).toBeInTheDocument();
+    expect(desktop.getByText(/Admin: Đã ký số/i)).toBeInTheDocument();
+    expect(desktop.getByText(/CSYT: Chờ ký xác nhận/i)).toBeInTheDocument();
   });
 
   it('Cho phép CSYT bấm "Chi Tiết & Ký Số", mở SmartCA và Ký số thành công chuyển sang ACTIVE', async () => {
@@ -88,10 +89,10 @@ describe('Giai đoạn 3: Hợp đồng cung ứng nhân lực y tế B2B (Flow 
 
     render(<FacilityContractsView />);
 
-    await screen.findByText('STAFF-2026-ANSINH-002');
+    await screen.findAllByText('STAFF-2026-ANSINH-002');
 
     // Bấm Chi Tiết & Ký Số
-    const detailBtn = screen.getByRole('button', { name: /Chi Tiết & Ký Số/i });
+    const detailBtn = within(screen.getByTestId('desktop-view')).getByRole('button', { name: /Chi Tiết & Ký Số/i });
     fireEvent.click(detailBtn);
 
     // Modal chi tiết hiện lên
@@ -118,12 +119,13 @@ describe('Giai đoạn 3: Hợp đồng cung ứng nhân lực y tế B2B (Flow 
     });
 
     // Kết quả: Chuyển sang ACTIVE
+    const desktop = within(screen.getByTestId('desktop-view'));
     await waitFor(() => {
-      expect(screen.getByText(/Đang Hoạt Động \(ACTIVE\)/i)).toBeInTheDocument();
+      expect(desktop.getByText(/Đang Hoạt Động \(ACTIVE\)/i)).toBeInTheDocument();
     });
 
     // Cả 2 bên đều có dấu kiểm ✓ Đã ký số
-    expect(screen.getByText(/CSYT: Đã ký số/i)).toBeInTheDocument();
+    expect(desktop.getByText(/CSYT: Đã ký số/i)).toBeInTheDocument();
   });
 
   it('Cho phép CSYT từ chối / đàm phán lại chuyển hợp đồng sang TERMINATED', async () => {
@@ -149,10 +151,10 @@ describe('Giai đoạn 3: Hợp đồng cung ứng nhân lực y tế B2B (Flow 
 
     render(<FacilityContractsView />);
 
-    await screen.findByText('STAFF-2026-ANSINH-002');
+    await screen.findAllByText('STAFF-2026-ANSINH-002');
 
     // Bấm Chi Tiết & Ký Số
-    const detailBtn = screen.getByRole('button', { name: /Chi Tiết & Ký Số/i });
+    const detailBtn = within(screen.getByTestId('desktop-view')).getByRole('button', { name: /Chi Tiết & Ký Số/i });
     fireEvent.click(detailBtn);
 
     // Bấm Từ chối / Đàm phán lại

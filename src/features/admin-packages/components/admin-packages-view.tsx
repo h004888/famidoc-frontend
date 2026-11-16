@@ -321,8 +321,8 @@ export function AdminPackagesView() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-full bg-[#f5f6f8] text-slate-900 font-sans antialiased">
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -492,7 +492,7 @@ export function AdminPackagesView() {
                 />
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div className="space-y-1">
                   <Label htmlFor="pkg-m1" className="text-xs font-semibold text-slate-700">
                     Giá 1 Tháng (VNĐ)
@@ -590,7 +590,7 @@ export function AdminPackagesView() {
             </form>
           </DialogContent>
         </Dialog>
-      </main>
+      </div>
     </div>
   );
 }

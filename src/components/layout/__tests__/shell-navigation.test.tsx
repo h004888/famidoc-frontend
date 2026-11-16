@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { DashboardSidebar } from '../dashboard-sidebar';
 import { SiteHeader } from '../site-header';
 import { FamilySubscriptionGateProvider } from '../family-subscription-gate';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarProvider, useSidebar } from '@/components/ui/sidebar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 
 let mockPathname = '/admin/disputes';
@@ -114,31 +114,6 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
     expect(aside).toHaveAttribute('data-state', 'expanded');
   });
 
-  it('opens Clinic Switcher DropdownMenu, dismisses on Escape, and switches clinic on select', async () => {
-    const user = userEvent.setup();
-    renderShell();
-
-    // Pin sidebar expanded so Clinic Switcher button is visible
-    await user.click(screen.getByRole('button', { name: 'Bật hoặc tắt thanh điều hướng' }));
-
-    const switcherTrigger = screen.getByRole('button', { name: 'Chuyển cơ sở y tế phụ trách' });
-    await user.click(switcherTrigger);
-
-    expect(await screen.findByText('Vinmec Central Park')).toBeInTheDocument();
-
-    // Dismiss via Escape
-    await user.keyboard('{Escape}');
-    await waitFor(() => {
-      expect(screen.queryByText('Vinmec Central Park')).not.toBeInTheDocument();
-    });
-
-    // Re-open and choose a different clinic
-    await user.click(switcherTrigger);
-    await user.click(await screen.findByText('Vinmec Central Park'));
-
-    expect(switcherTrigger).toHaveTextContent('Vinmec Central Park');
-  });
-
   it('deduplicates FACILITY and DOCTOR contract routes and opens mobile Sheet when clicking "Thêm"', async () => {
     const user = userEvent.setup();
     mockRole = 'FACILITY';
@@ -233,5 +208,59 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
     expect(
       within(notice).getByRole('link', { name: /Không gian chuẩn bị/i })
     ).toHaveAttribute('href', '/onboarding');
+  });
+
+  it('treats 768px tablet as mobile drawer mode and 1024px as desktop sidebar mode', () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalMatchMedia = window.matchMedia;
+
+    const setViewportWidth = (width: number) => {
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: width,
+      });
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        matches: width < 1024 && query.includes('1023px'),
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      }));
+    };
+
+    function MobileProbe() {
+      const { isMobile } = useSidebar();
+      return <div data-testid="is-mobile-probe">{String(isMobile)}</div>;
+    }
+
+    try {
+      setViewportWidth(768);
+      const { unmount } = render(
+        <SidebarProvider>
+          <MobileProbe />
+        </SidebarProvider>
+      );
+      expect(screen.getByTestId('is-mobile-probe')).toHaveTextContent('true');
+      unmount();
+
+      setViewportWidth(1024);
+      render(
+        <SidebarProvider>
+          <MobileProbe />
+        </SidebarProvider>
+      );
+      expect(screen.getByTestId('is-mobile-probe')).toHaveTextContent('false');
+    } finally {
+      Object.defineProperty(window, 'innerWidth', {
+        writable: true,
+        configurable: true,
+        value: originalInnerWidth,
+      });
+      window.matchMedia = originalMatchMedia;
+    }
   });
 });

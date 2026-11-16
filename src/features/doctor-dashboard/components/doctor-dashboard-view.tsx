@@ -245,8 +245,8 @@ export function DoctorDashboardView() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] font-sans text-slate-900 antialiased">
-      <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="min-h-full bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Doctor Profile Banner */}
         <Card className="rounded-2xl border-slate-200/80 bg-white py-6 shadow-[0_2px_8px_rgba(0,0,0,0.03)]">
           <CardContent className="flex flex-col items-start justify-between gap-5 px-6 md:flex-row md:items-center">
@@ -400,7 +400,7 @@ export function DoctorDashboardView() {
               </div>
 
               <Tabs value={activeQueue} onValueChange={handleQueueTabChange}>
-                <TabsList className="grid w-full grid-cols-3 rounded-xl bg-slate-100 p-1">
+                <TabsList className="flex w-full overflow-x-auto rounded-xl bg-slate-100 p-1 sm:grid sm:grid-cols-3">
                   <TabsTrigger value="pending" className="rounded-lg text-xs font-semibold">
                     Chờ khám
                   </TabsTrigger>
@@ -595,7 +595,7 @@ export function DoctorDashboardView() {
             </CardContent>
           </Card>
         </div>
-      </main>
+      </div>
 
       {/* Accessible shadcn Dialog xác thực ký số Viettel-CA */}
       <Dialog open={showSignModal} onOpenChange={setShowSignModal}>

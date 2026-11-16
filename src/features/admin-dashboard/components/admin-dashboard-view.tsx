@@ -447,7 +447,8 @@ export function AdminDashboardView() {
                 </div>
               </CardHeader>
 
-              <Table>
+              <div className="hidden md:block">
+            <Table>
                 <TableHeader>
                   <TableRow className="border-b border-slate-100 bg-slate-50/80 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-50/80">
                     <TableHead className="px-4 py-3 text-slate-500">Mã / Mức độ</TableHead>
@@ -525,6 +526,36 @@ export function AdminDashboardView() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
+              <div className="divide-y divide-slate-100 md:hidden">
+                {filteredArbitrations.map((item) => (
+                  <div key={item.id} className="space-y-2.5 p-4 text-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-slate-900 tabular-nums">{item.id}</div>
+                        <div className="text-slate-600">{item.family}</div>
+                      </div>
+                      <span className="font-bold text-primary tabular-nums">{item.escrowAmount}</span>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-2.5 text-slate-600 space-y-1">
+                      <div>{item.doctorOrFacility}</div>
+                      <div className="text-[11px] text-slate-500 line-clamp-2">{item.issue}</div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] text-slate-500">{item.time}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedArbitration(item)}
+                        className="rounded-lg text-xs font-semibold cursor-pointer"
+                      >
+                        Xử lý nhanh
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
           </div>
 

@@ -265,8 +265,8 @@ export function AdminReconciliationView({
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-full bg-[#f5f6f8] text-slate-900 font-sans antialiased">
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
           <div className="space-y-1">
@@ -382,6 +382,7 @@ export function AdminReconciliationView({
 
         {/* Ledger Table */}
         <Card className="rounded-xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+          <div data-testid="desktop-view" className="hidden md:block">
           <Table className="text-xs">
             <TableHeader>
               <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
@@ -473,6 +474,46 @@ export function AdminReconciliationView({
               )}
             </TableBody>
           </Table>
+          </div>
+          <div data-testid="mobile-view" className="divide-y divide-slate-100 md:hidden">
+            {filteredTransactions.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400">
+                Không có giao dịch SePay nào phù hợp với bộ lọc hiện tại.
+              </div>
+            ) : (
+              filteredTransactions.map((tx) => (
+                <div key={tx.id} className="space-y-2.5 p-4 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-slate-900 tabular-nums">{tx.transactionId}</div>
+                      <div className="text-[11px] text-slate-500 tabular-nums">{tx.contractNumber}</div>
+                    </div>
+                    <span className="font-bold text-slate-900 tabular-nums">{tx.amount.toLocaleString('vi-VN')} đ</span>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-2.5 space-y-1 text-slate-600">
+                    <div>{tx.bankBrand} • {tx.syntax}</div>
+                    <div className="text-[11px] text-slate-500 tabular-nums">{tx.receivedAt}</div>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="outline" className="rounded-full text-[11px] font-semibold">
+                      {tx.status}
+                    </Badge>
+                    {tx.status !== 'MATCHED' && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedTx(tx)}
+                        className="rounded-lg text-xs font-semibold cursor-pointer"
+                      >
+                        Đối soát
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </Card>
 
         {/* Audit Trail Section */}
@@ -515,7 +556,7 @@ export function AdminReconciliationView({
             </div>
           </CardContent>
         </Card>
-      </main>
+      </div>
 
       {/* Dialog: Xác nhận Kích hoạt Bù Hợp đồng */}
       <Dialog open={Boolean(selectedTx)} onOpenChange={(open) => !open && setSelectedTx(null)}>

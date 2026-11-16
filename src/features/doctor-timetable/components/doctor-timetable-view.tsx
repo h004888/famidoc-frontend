@@ -68,7 +68,7 @@ export function DoctorTimetableView() {
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-[#0f172a] font-sans antialiased">
 
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
         {/* Header & Controls */}
         <Card className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border-slate-200 shadow-xs">
           <div>
@@ -195,7 +195,7 @@ export function DoctorTimetableView() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <Table className="text-xs">
               <TableHeader>
                 <TableRow className="bg-slate-50 border-b border-slate-200 text-[#475569] hover:bg-slate-50">
@@ -248,8 +248,25 @@ export function DoctorTimetableView() {
               </TableBody>
             </Table>
           </div>
+          <div className="divide-y divide-slate-100 md:hidden">
+            {TIMETABLE_DATA.map((slot, idx) => (
+              <div key={idx} className="space-y-2 p-4 text-xs">
+                <div className="font-bold text-slate-900 tabular-nums">{slot.time}</div>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {[slot.monday, slot.tuesday, slot.wednesday, slot.thursday, slot.friday, slot.saturday].map(
+                    (item, dIdx) => (
+                      <div key={dIdx} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5">
+                        <span className="font-medium text-slate-500">Thứ {dIdx + 2}</span>
+                        <span className="font-semibold text-slate-800 truncate">{item?.title || 'Trống'}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
-      </main>
+      </div>
     </div>
   );
 }

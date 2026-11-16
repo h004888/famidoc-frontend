@@ -447,7 +447,7 @@ export function FamilyContractOnboardingView() {
 
         {/* 5-Step Visual Stepper Bar */}
         <div className="bg-slate-50 border-t border-slate-200 px-4 sm:px-8 py-3">
-          <div className="max-w-5xl mx-auto grid grid-cols-5 gap-1.5 sm:gap-3 text-center text-xs">
+          <div className="mx-auto flex max-w-5xl gap-2 overflow-x-auto pb-1 text-center text-xs snap-x sm:grid sm:grid-cols-5 sm:gap-3 sm:overflow-visible sm:pb-0">
             {[
               { num: 1, label: '1. Chọn Bác sĩ' },
               { num: 2, label: '2. Chọn Gói DV' },
@@ -491,7 +491,7 @@ export function FamilyContractOnboardingView() {
       </header>
 
       {/* Main Content Area (Spacious & Clean Layout) */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
         {/* ========================================================================= */}
         {/* BƯỚC 1: CHỌN BÁC SĨ GIA ĐÌNH (DOCTOR DIRECTORY WITH REAL PHOTOS)           */}
         {/* ========================================================================= */}
@@ -1302,7 +1302,7 @@ export function FamilyContractOnboardingView() {
             )}
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

@@ -364,7 +364,7 @@ export function ContractSigningWizard({
 
         {/* 4-Step Progress Indicator (Doctor First -> Package -> Members -> Sign) */}
         <div className="bg-slate-50 border-b border-slate-200 px-4 sm:px-8 py-3.5">
-          <div className="grid grid-cols-4 gap-2 text-center text-xs">
+          <div className="grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
             {[
               { num: 1, label: 'Chọn Bác sĩ' },
               { num: 2, label: 'Chọn Gói DV' },

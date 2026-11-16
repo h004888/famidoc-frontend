@@ -148,7 +148,7 @@ describe('AdminFourPartyReviewView (Documenso Platform Review & Sign)', () => {
 
     expect(screen.getByText(/HD-4P-2026-0001/i)).toBeInTheDocument();
     expect(screen.getAllByText(/Gói Chăm Sóc Toàn Diện Gia Đình/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Trần Thị Cúc/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Trần Thị Cúc/i).length).toBeGreaterThan(0);
     expect(
       screen.getByText(/a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890/i)
     ).toBeInTheDocument();

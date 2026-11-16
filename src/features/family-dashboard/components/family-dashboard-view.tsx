@@ -307,8 +307,8 @@ export function FamilyDashboardView() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] font-sans text-slate-900 antialiased">
-      <main className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="min-h-full bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+      <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* 1. HEADER THOÁNG ĐÃNG TRỰC TIẾP TRÊN NỀN CANVAS */}
         <header className="space-y-4">
           <div className="flex flex-col justify-between gap-6 lg:flex-row lg:items-center">
@@ -772,7 +772,7 @@ export function FamilyDashboardView() {
                       </Badge>
                     </div>
 
-                    <div className="grid grid-cols-4 gap-2.5 rounded-xl border border-slate-100/90 bg-slate-50/70 p-3">
+                    <div className="grid grid-cols-2 gap-2.5 rounded-xl border border-slate-100/90 bg-slate-50/70 p-3 sm:grid-cols-4">
                       <div className="text-center">
                         <span className="block truncate text-[11px] font-medium text-slate-500">
                           Huyết áp
@@ -1000,7 +1000,7 @@ export function FamilyDashboardView() {
             </div>
           </aside>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

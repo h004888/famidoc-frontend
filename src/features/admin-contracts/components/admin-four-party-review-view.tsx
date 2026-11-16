@@ -137,8 +137,8 @@ export function AdminFourPartyReviewView({
   );
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-full bg-[#f5f6f8] text-slate-900 font-sans antialiased">
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Navigation & Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
           <div className="space-y-1">
@@ -353,6 +353,7 @@ export function AdminFourPartyReviewView({
                 </span>
               </div>
 
+              <div className="hidden md:block">
               <Table className="text-xs">
                 <TableHeader>
                   <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold hover:bg-slate-50">
@@ -401,6 +402,21 @@ export function AdminFourPartyReviewView({
                   )}
                 </TableBody>
               </Table>
+              </div>
+              <div className="divide-y divide-slate-100 md:hidden">
+                {!contract?.members || contract.members.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-slate-500">Không có thông tin thành viên.</div>
+                ) : (
+                  contract.members.map((member) => (
+                    <div key={member.id} className="space-y-1.5 p-3.5 text-xs">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-900">{member.name}</span>
+                        <span className="text-slate-500 tabular-nums">{member.age} tuổi • {member.relation}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </Card>
 
             {/* Digital Signature Audit Box: Family Signature */}
@@ -502,7 +518,7 @@ export function AdminFourPartyReviewView({
             <ContractDocumentSheet contract={currentContract} />
           </Card>
         )}
-      </main>
+      </div>
     </div>
   );
 }
