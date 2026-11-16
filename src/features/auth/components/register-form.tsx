@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { registerFamilySchema } from '../schemas/auth.schema';
 import { resolveReturnUrl } from '../return-url';
@@ -943,7 +944,21 @@ export function RegisterForm({ defaultType }: RegisterFormProps = {}) {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500">Mật khẩu khởi tạo:</span>
-                    <span className="tracking-wide tabular-nums text-slate-700">FamiDoc@Facility2026</span>
+                    <span className="tracking-wide tabular-nums font-semibold text-slate-800">FamiDoc@Facility2026</span>
+                  </div>
+                  <div className="pt-1 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const text = `Tài khoản CSYT FamiDoc:\n- Mã hồ sơ: ${facilitySuccess.id}\n- Email: ${facilitySuccess.email}\n- Mật khẩu khởi tạo: FamiDoc@Facility2026\n- Cổng đăng nhập: ${typeof window !== 'undefined' ? window.location.origin : ''}/login`;
+                        void navigator.clipboard.writeText(text);
+                        toast.success('Đã sao chép thông tin tài khoản CSYT vào bộ nhớ tạm!');
+                      }}
+                      className="py-1 px-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-[11px] font-semibold rounded-lg flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">content_copy</span>
+                      <span>Sao chép thông tin đăng nhập</span>
+                    </button>
                   </div>
                 </div>
 

@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { doctorsApi, type DoctorProfileDto } from '@/lib/api/doctors.api';
+import { extractErrorMessage } from '@/lib/api';
 
 interface FacilityDoctorDetailViewProps {
   doctorId: string;
@@ -14,16 +16,10 @@ export function FacilityDoctorDetailView({ doctorId }: FacilityDoctorDetailViewP
   const [doctor, setDoctor] = useState<DoctorProfileDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Modal Yêu cầu bổ sung
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4500);
-  };
 
   useEffect(() => {
     let isMounted = true;
@@ -69,11 +65,11 @@ export function FacilityDoctorDetailView({ doctorId }: FacilityDoctorDetailViewP
             }
           : null
       );
-      showToast(
+      toast.success(
         `Đã hoàn tất duyệt Tầng 1! Hồ sơ của BS. ${doctor.doctorName} đã được chuyển lên Quản trị viên FamiDoc thẩm định Tầng 2.`
       );
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể duyệt cấp 1 cho bác sĩ.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể duyệt cấp 1 cho bác sĩ.'));
     } finally {
       setIsActionLoading(false);
     }
@@ -89,11 +85,11 @@ export function FacilityDoctorDetailView({ doctorId }: FacilityDoctorDetailViewP
         rejectionReason: rejectReason,
       });
       setDoctor((prev) => (prev ? { ...prev, onboardingStatus: 'REJECTED' } : null));
-      showToast('Đã gửi thông báo yêu cầu cập nhật lại CCHN tới bác sĩ.');
+      toast.success('Đã gửi thông báo yêu cầu cập nhật lại CCHN tới bác sĩ.');
       setRejectReason('');
       setShowRejectModal(false);
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể gửi yêu cầu chỉnh sửa.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể gửi yêu cầu chỉnh sửa.'));
     } finally {
       setIsActionLoading(false);
     }
@@ -126,18 +122,6 @@ export function FacilityDoctorDetailView({ doctorId }: FacilityDoctorDetailViewP
 
   return (
     <div className="space-y-6 pb-16">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div
-          role="status"
-          className="fixed bottom-6 right-6 z-50 max-w-md bg-slate-900 text-white text-xs sm:text-sm px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300"
-        >
-          <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 font-bold">
-            ✓
-          </span>
-          <span className="leading-relaxed">{toastMessage}</span>
-        </div>
-      )}
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

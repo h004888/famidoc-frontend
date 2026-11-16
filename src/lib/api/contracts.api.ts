@@ -2,6 +2,8 @@ import { httpClient } from './http-client';
 import { unwrapApiEnvelope } from './envelope';
 import type { FourPartyContract, ContractStatus } from '@/features/four-party-contract';
 
+export type { FourPartyContract, ContractStatus };
+
 export interface MedicalContractListItem {
   id: string;
   contractNumber: string;

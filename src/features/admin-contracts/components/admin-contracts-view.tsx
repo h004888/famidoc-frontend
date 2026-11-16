@@ -7,7 +7,11 @@ import {
   DocumensoSigningEmbed,
   type FourPartyContract,
 } from '@/features/four-party-contract';
-import { contractsApi } from '@/lib/api';
+import {
+  contractsApi,
+  extractErrorMessage,
+  type StaffingContractItem,
+} from '@/lib/api';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -47,6 +51,13 @@ export function AdminContractsView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedContract, setSelectedContract] = useState<FourPartyContract | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
+
+  const [adminContractTab, setAdminContractTab] = useState<'medical' | 'staffing'>('medical');
+  const [staffingList, setStaffingList] = useState<StaffingContractItem[]>([]);
+  const [isStaffingLoading, setIsStaffingLoading] = useState(false);
+  const [selectedStaffing, setSelectedStaffing] = useState<StaffingContractItem | null>(null);
+  const [showStaffingDetailModal, setShowStaffingDetailModal] = useState(false);
+  const [signingStaffingId, setSigningStaffingId] = useState<string | null>(null);
 
   // B2B Staffing Contract Draft Modal (Flow 2.1)
   const [showCreateB2BModal, setShowCreateB2BModal] = useState(false);
@@ -140,18 +151,32 @@ export function AdminContractsView() {
       setShowCreateB2BModal(false);
       triggerReload();
     } catch (err: any) {
-      const errorMsg =
-        err?.message ||
-        err?.response?.data?.message ||
-        'Không thể tạo hợp đồng B2B trên máy chủ.';
-      toast.error(errorMsg);
+      toast.error(extractErrorMessage(err, 'Không thể tạo hợp đồng B2B trên máy chủ.'));
     } finally {
       setIsCreatingDraft(false);
     }
   };
 
+  const handleAdminSignStaffing = async (contractId: string) => {
+    setSigningStaffingId(contractId);
+    try {
+      await contractsApi.signStaffingContract(contractId, {
+        confirmed: true,
+        signedPdfUrl: `https://cdn.famidoc.vn/contracts/staffing/${contractId}-admin-signed.pdf`,
+        signatureHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+      });
+      toast.success('Admin đã hoàn tất ký số điện tử SmartCA cho Hợp đồng B2B!');
+      triggerReload();
+    } catch (err: any) {
+      toast.error(extractErrorMessage(err, 'Lỗi khi ký số hợp đồng B2B.'));
+    } finally {
+      setSigningStaffingId(null);
+    }
+  };
+
   const triggerReload = () => {
     setIsLoading(true);
+    setIsStaffingLoading(true);
     setLoadError(null);
     setReloadTick((t) => t + 1);
   };
@@ -160,10 +185,27 @@ export function AdminContractsView() {
     let active = true;
     async function loadContracts() {
       try {
-        const items = await contractsApi.getMedicalContracts({ limit: 50 });
+        const [items, staffingRes] = await Promise.allSettled([
+          contractsApi.getMedicalContracts({ limit: 50 }),
+          contractsApi.getStaffingContracts(),
+        ]);
+
         if (!active) return;
-        setContracts(items);
-        setLoadError(null);
+
+        if (items.status === 'fulfilled') {
+          setContracts(items.value);
+          setLoadError(null);
+        } else {
+          setLoadError(
+            items.reason instanceof Error
+              ? items.reason.message
+              : 'Không thể tải danh sách hợp đồng y tế từ máy chủ.'
+          );
+        }
+
+        if (staffingRes.status === 'fulfilled' && staffingRes.value?.data) {
+          setStaffingList(staffingRes.value.data);
+        }
       } catch (err) {
         if (!active) return;
         setLoadError(
@@ -174,6 +216,7 @@ export function AdminContractsView() {
       } finally {
         if (active) {
           setIsLoading(false);
+          setIsStaffingLoading(false);
         }
       }
     }
@@ -281,153 +324,330 @@ export function AdminContractsView() {
           </Alert>
         )}
 
-        {/* Filter and Search Bar */}
-        <Card className="rounded-2xl border-slate-200 py-4 shadow-xs">
-          <CardContent className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4">
-            <div className="relative flex-1">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
-                search
-              </span>
-              <Input
-                type="text"
-                placeholder="Tìm theo mã hợp đồng, đại diện hộ gia đình, cơ sở y tế, bác sĩ..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 bg-slate-50 rounded-xl text-xs sm:text-sm"
-              />
-            </div>
+        {/* Navigation Tab Bar: Flow 2.2 (HĐ 4 bên) vs Flow 2.1 (HĐ Cung ứng B2B) */}
+        <div className="flex border-b border-slate-200 gap-2">
+          <button
+            type="button"
+            onClick={() => setAdminContractTab('medical')}
+            className={`pb-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+              adminContractTab === 'medical'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">assignment_turned_in</span>
+            <span>1. Hợp Đồng Y Tế Gia Đình 4 Bên (Documenso)</span>
+            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              {contracts.length}
+            </span>
+          </button>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {(
-                [
-                  ['ALL', 'Tất cả'],
-                  ['READY_FOR_ADMIN', 'Chờ Admin ký (Bên D)'],
-                  ['WAITING_FAMILY', 'Chờ Bên A ký'],
-                  ['PENDING_PAYMENT', 'Chờ thanh toán'],
-                  ['ACTIVE', 'Đang hiệu lực'],
-                ] as const
-              ).map(([key, label]) => (
-                <Button
-                  key={key}
-                  type="button"
-                  size="sm"
-                  variant={filterStatus === key ? 'default' : 'secondary'}
-                  onClick={() => setFilterStatus(key)}
-                  className="rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer"
-                >
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+          <button
+            type="button"
+            onClick={() => setAdminContractTab('staffing')}
+            className={`pb-3 px-4 text-xs sm:text-sm font-bold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+              adminContractTab === 'staffing'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <span className="material-symbols-outlined text-[18px]">handshake</span>
+            <span>2. Hợp Đồng Cung Ứng Nhân Lực B2B (Flow 2.1)</span>
+            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+              {staffingList.length}
+            </span>
+          </button>
+        </div>
 
-        {/* Contracts Table */}
-        <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
-          <Table className="text-xs sm:text-sm">
-            <TableHeader>
-              <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
-                <TableHead className="py-3.5 px-4 text-slate-600">Mã Hợp đồng &amp; Gói</TableHead>
-                <TableHead className="py-3.5 px-4 text-slate-600">Hộ gia đình (Bên A)</TableHead>
-                <TableHead className="py-3.5 px-4 text-slate-600">CSYT (Bên B) &amp; Bác sĩ (Bên C)</TableHead>
-                <TableHead className="py-3.5 px-4 text-right text-slate-600">Giá trị</TableHead>
-                <TableHead className="py-3.5 px-4 text-center text-slate-600">Tiến độ Documenso</TableHead>
-                <TableHead className="py-3.5 px-4 text-right text-slate-600">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-slate-100">
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-slate-500 text-xs">
-                    Đang tải danh sách hợp đồng từ hệ thống...
-                  </TableCell>
-                </TableRow>
-              ) : filteredContracts.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-slate-500 text-xs">
-                    Không có hợp đồng nào phù hợp với bộ lọc hiện tại.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredContracts.map((c) => {
-                  const sigCount = countSignatures(c);
-                  const familySigned = Boolean(c.signatures?.family);
-                  const adminSigned = Boolean(c.signatures?.platform);
+        {adminContractTab === 'medical' ? (
+          <>
+            {/* Filter and Search Bar */}
+            <Card className="rounded-2xl border-slate-200 py-4 shadow-xs">
+              <CardContent className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4">
+                <div className="relative flex-1">
+                  <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
+                    search
+                  </span>
+                  <Input
+                    type="text"
+                    placeholder="Tìm theo mã hợp đồng, đại diện hộ gia đình, cơ sở y tế, bác sĩ..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 bg-slate-50 rounded-xl text-xs sm:text-sm"
+                  />
+                </div>
 
-                  return (
-                    <TableRow key={c.id} className="hover:bg-slate-50/70">
-                      <TableCell className="py-3.5 px-4">
-                        <div className="font-bold text-slate-900">{c.packageName}</div>
-                        <div className="tabular-nums text-[11px] text-slate-500 mt-0.5">
-                          {c.contractNumber} • {c.membersCount ?? 1} thành viên
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-3.5 px-4">
-                        <div className="font-semibold text-slate-800">
-                          {c.familyRepresentativeName}
-                        </div>
-                        <div className="text-[11px] text-slate-500 tabular-nums">
-                          {c.familyRepresentativePhone}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-3.5 px-4 text-xs text-slate-700">
-                        <div className="font-medium">{c.facilityName || '—'}</div>
-                        <div className="text-[11px] text-slate-500">
-                          {c.doctorName || 'Chưa phân công BS'}
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-3.5 px-4 text-right font-semibold text-primary tabular-nums">
-                        {formatPrice(c.packagePrice)}
-                      </TableCell>
-                      <TableCell className="py-3.5 px-4 text-center space-y-1">
-                        <Badge
-                          variant="outline"
-                          className={`rounded-full text-[11px] font-semibold ${c.status === 'ACTIVE'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : familySigned
-                                ? 'bg-blue-50 text-primary border-blue-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                            }`}
-                        >
-                          {c.status === 'ACTIVE'
-                            ? 'Đang hiệu lực'
-                            : c.status === 'PENDING_PAYMENT'
-                              ? 'Chờ thanh toán VietQR'
-                              : !familySigned
-                                ? 'Chờ Bên A ký trước'
-                                : adminSigned
-                                  ? 'Admin đã ký — chờ bên khác'
-                                  : CONTRACT_STATUS_LABELS[c.status] || 'Bên A đã ký'}
-                        </Badge>
-                        <div className="text-[11px] text-slate-500 tabular-nums">
-                          {sigCount}/4 chữ ký Documenso
-                        </div>
-                      </TableCell>
-                      <TableCell className="py-3.5 px-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button asChild size="xs" variant="secondary" className="rounded-lg bg-accent text-primary hover:bg-accent/80 font-semibold">
-                            <Link href={`/admin/contracts/${c.id}/review`}>Thẩm định 4 Bên</Link>
-                          </Button>
-                          <Button
-                            type="button"
-                            size="xs"
-                            variant={familySigned && !adminSigned ? 'default' : 'secondary'}
-                            onClick={() => setSelectedContract(c)}
-                            className="rounded-lg font-semibold cursor-pointer"
-                          >
-                            {familySigned && !adminSigned
-                              ? 'Ký trên Documenso'
-                              : 'Chi tiết & Documenso'}
-                          </Button>
-                        </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {(
+                    [
+                      ['ALL', 'Tất cả'],
+                      ['READY_FOR_ADMIN', 'Chờ Admin ký (Bên D)'],
+                      ['WAITING_FAMILY', 'Chờ Bên A ký'],
+                      ['PENDING_PAYMENT', 'Chờ thanh toán'],
+                      ['ACTIVE', 'Đang hiệu lực'],
+                    ] as const
+                  ).map(([key, label]) => (
+                    <Button
+                      key={key}
+                      type="button"
+                      size="sm"
+                      variant={filterStatus === key ? 'default' : 'secondary'}
+                      onClick={() => setFilterStatus(key)}
+                      className="rounded-lg text-xs font-semibold whitespace-nowrap cursor-pointer"
+                    >
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Contracts Table */}
+            <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+              <Table className="text-xs sm:text-sm">
+                <TableHeader>
+                  <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
+                    <TableHead className="py-3.5 px-4 text-slate-600">Mã Hợp đồng &amp; Gói</TableHead>
+                    <TableHead className="py-3.5 px-4 text-slate-600">Hộ gia đình (Bên A)</TableHead>
+                    <TableHead className="py-3.5 px-4 text-slate-600">CSYT (Bên B) &amp; Bác sĩ (Bên C)</TableHead>
+                    <TableHead className="py-3.5 px-4 text-right text-slate-600">Giá trị</TableHead>
+                    <TableHead className="py-3.5 px-4 text-center text-slate-600">Tiến độ Documenso</TableHead>
+                    <TableHead className="py-3.5 px-4 text-right text-slate-600">Thao tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-100">
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-10 text-center text-slate-500 text-xs">
+                        Đang tải danh sách hợp đồng từ hệ thống...
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </Card>
+                  ) : filteredContracts.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="py-10 text-center text-slate-500 text-xs">
+                        Không có hợp đồng nào phù hợp với bộ lọc hiện tại.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredContracts.map((c) => {
+                      const sigCount = countSignatures(c);
+                      const familySigned = Boolean(c.signatures?.family);
+                      const adminSigned = Boolean(c.signatures?.platform);
+
+                      return (
+                        <TableRow key={c.id} className="hover:bg-slate-50/70">
+                          <TableCell className="py-3.5 px-4">
+                            <div className="font-bold text-slate-900">{c.packageName}</div>
+                            <div className="tabular-nums text-[11px] text-slate-500 mt-0.5">
+                              {c.contractNumber} • {c.membersCount ?? 1} thành viên
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4">
+                            <div className="font-semibold text-slate-800">
+                              {c.familyRepresentativeName}
+                            </div>
+                            <div className="text-[11px] text-slate-500 tabular-nums">
+                              {c.familyRepresentativePhone}
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 text-xs text-slate-700">
+                            <div className="font-medium">{c.facilityName || '—'}</div>
+                            <div className="text-[11px] text-slate-500">
+                              {c.doctorName || 'Chưa phân công BS'}
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 text-right font-semibold text-primary tabular-nums">
+                            {formatPrice(c.packagePrice)}
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 text-center space-y-1">
+                            <Badge
+                              variant="outline"
+                              className={`rounded-full text-[11px] font-semibold ${c.status === 'ACTIVE'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : familySigned
+                                    ? 'bg-blue-50 text-primary border-blue-200'
+                                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                                }`}
+                            >
+                              {c.status === 'ACTIVE'
+                                ? 'Đang hiệu lực'
+                                : c.status === 'PENDING_PAYMENT'
+                                  ? 'Chờ thanh toán VietQR'
+                                  : !familySigned
+                                    ? 'Chờ Bên A ký trước'
+                                    : adminSigned
+                                      ? 'Admin đã ký — chờ bên khác'
+                                      : CONTRACT_STATUS_LABELS[c.status] || 'Bên A đã ký'}
+                            </Badge>
+                            <div className="text-[11px] text-slate-500 tabular-nums">
+                              {sigCount}/4 chữ ký Documenso
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3.5 px-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button asChild size="xs" variant="secondary" className="rounded-lg bg-accent text-primary hover:bg-accent/80 font-semibold">
+                                <Link href={`/admin/contracts/${c.id}/review`}>Thẩm định 4 Bên</Link>
+                              </Button>
+                              <Button
+                                type="button"
+                                size="xs"
+                                variant={familySigned && !adminSigned ? 'default' : 'secondary'}
+                                onClick={() => setSelectedContract(c)}
+                                className="rounded-lg font-semibold cursor-pointer"
+                              >
+                                {familySigned && !adminSigned
+                                  ? 'Ký trên Documenso'
+                                  : 'Chi tiết & Documenso'}
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </>
+        ) : (
+          /* TAB 2: HỢP ĐỒNG CUNG ỨNG NHÂN LỰC B2B (FLOW 2.1) */
+          <div className="space-y-6">
+            {/* Banner giới thiệu */}
+            <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary text-lg">handshake</span>
+                  <span>Quản Lý Hợp Đồng Khung Cung Ứng Nhân Lực Y Tế B2B (Flow 2.1)</span>
+                </h2>
+                <p className="text-xs text-slate-500 leading-relaxed max-w-2xl">
+                  Thỏa thuận hợp tác giữa Ban Quản trị Nền tảng FamiDoc và các Cơ sở y tế đối tác, xác lập tỷ lệ phân chia doanh thu và điều kiện pháp lý để kích hoạt phân hệ khám chữa bệnh gia đình.
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setShowCreateB2BModal(true)}
+                className="rounded-xl bg-primary text-white text-xs font-semibold cursor-pointer gap-1.5 shrink-0"
+              >
+                <span className="material-symbols-outlined text-[16px]">add_circle</span>
+                <span>Thiết Lập Dự Thảo Mới</span>
+              </Button>
+            </div>
+
+            {/* Bảng danh sách B2B Staffing Contracts */}
+            <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+              <Table className="text-xs sm:text-sm">
+                <TableHeader>
+                  <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
+                    <TableHead className="py-3.5 px-4 text-slate-600">Mã Hợp Đồng</TableHead>
+                    <TableHead className="py-3.5 px-4 text-slate-600">Cơ Sở Y Tế Đối Tác</TableHead>
+                    <TableHead className="py-3.5 px-4 text-slate-600">Tỷ Lệ Phân Chia</TableHead>
+                    <TableHead className="py-3.5 px-4 text-slate-600">Thời Hạn Hiệu Lực</TableHead>
+                    <TableHead className="py-3.5 px-4 text-slate-600">Tiến Trình Chữ Ký</TableHead>
+                    <TableHead className="py-3.5 px-4 text-slate-600">Trạng Thái</TableHead>
+                    <TableHead className="py-3.5 px-4 text-right text-slate-600">Thao Tác</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody className="divide-y divide-slate-100">
+                  {isStaffingLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-10 text-center text-slate-500 text-xs">
+                        Đang tải danh sách hợp đồng B2B...
+                      </TableCell>
+                    </TableRow>
+                  ) : staffingList.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="py-10 text-center text-slate-500 text-xs">
+                        Chưa có hợp đồng cung ứng nhân lực B2B nào. Nhấn &ldquo;Thiết Lập Dự Thảo Mới&rdquo; để khởi tạo.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    staffingList.map((item) => (
+                      <TableRow key={item.id} className="hover:bg-slate-50/70">
+                        <TableCell className="py-3.5 px-4 font-bold text-primary whitespace-nowrap">
+                          {item.contractNumber}
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4">
+                          <div className="font-semibold text-slate-900">{item.facilityName}</div>
+                          <div className="text-[11px] text-slate-400">ID: {item.id}</div>
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 whitespace-nowrap">
+                          <span className="font-bold text-slate-800">{item.facilitySharePercent}% CSYT</span>
+                          <span className="text-slate-400 text-xs"> / {item.platformSharePercent}% FamiDoc</span>
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 text-xs whitespace-nowrap text-slate-600">
+                          {new Date(item.validFrom).toLocaleDateString('vi-VN')} - {new Date(item.validTo).toLocaleDateString('vi-VN')}
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 text-xs whitespace-nowrap">
+                          <div className="flex flex-col gap-0.5">
+                            <span className={`flex items-center gap-1 text-[11px] font-medium ${item.adminSigned ? 'text-emerald-700' : 'text-amber-600'}`}>
+                              <span>{item.adminSigned ? '✓' : '○'}</span> Admin: {item.adminSigned ? 'Đã ký số' : 'Chờ Admin ký'}
+                            </span>
+                            <span className={`flex items-center gap-1 text-[11px] font-medium ${item.facilitySigned ? 'text-emerald-700' : 'text-slate-500'}`}>
+                              <span>{item.facilitySigned ? '✓' : '○'}</span> CSYT: {item.facilitySigned ? 'Đã ký số' : 'Chờ CSYT ký'}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 whitespace-nowrap">
+                          {item.status === 'ACTIVE' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              Đang Hiệu Lực (ACTIVE)
+                            </span>
+                          )}
+                          {item.status === 'DRAFT' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                              Dự Thảo
+                            </span>
+                          )}
+                          {item.status === 'TERMINATED' && (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                              Đã Hủy / Từ Chối
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="py-3.5 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-2">
+                            {item.status === 'DRAFT' && !item.adminSigned && (
+                              <Button
+                                type="button"
+                                size="xs"
+                                disabled={signingStaffingId === item.id}
+                                onClick={() => handleAdminSignStaffing(item.id)}
+                                className="rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold cursor-pointer gap-1"
+                              >
+                                {signingStaffingId === item.id ? (
+                                  'Đang ký...'
+                                ) : (
+                                  <>
+                                    <span className="material-symbols-outlined text-[15px]">draw</span>
+                                    <span>Ký Duyệt (SmartCA)</span>
+                                  </>
+                                )}
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              size="xs"
+                              variant="secondary"
+                              onClick={() => {
+                                setSelectedStaffing(item);
+                                setShowStaffingDetailModal(true);
+                              }}
+                              className="rounded-lg font-semibold cursor-pointer"
+                            >
+                              Chi Tiết
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
+          </div>
+        )}
 
         {/* Dialog: Ký trực tiếp trên Documenso & Chi tiết 4 bên */}
         <Dialog open={Boolean(selectedContract)} onOpenChange={(open) => !open && setSelectedContract(null)}>
@@ -898,6 +1118,99 @@ export function AdminContractsView() {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Chi Tiết Hợp Đồng B2B Nhân Lực Y Tế */}
+        <Dialog open={showStaffingDetailModal && Boolean(selectedStaffing)} onOpenChange={setShowStaffingDetailModal}>
+          <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 sm:max-w-2xl">
+            {selectedStaffing && (
+              <>
+                <DialogHeader className="border-b border-slate-100 pb-3">
+                  <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                    <span className="material-symbols-outlined text-primary text-[22px]">handshake</span>
+                    <span>Chi Tiết Hợp Đồng Cung Ứng Nhân Lực B2B</span>
+                  </DialogTitle>
+                  <DialogDescription className="text-xs text-slate-500">
+                    Mã HĐ: <strong className="text-primary">{selectedStaffing.contractNumber}</strong> • Đối tác: <strong>{selectedStaffing.facilityName}</strong>
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-2 text-xs text-slate-700">
+                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-50 rounded-xl">
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Phân chia doanh thu</span>
+                      <span className="font-bold text-primary text-sm">
+                        {selectedStaffing.facilitySharePercent}% CSYT / {selectedStaffing.platformSharePercent}% FamiDoc
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block text-[11px]">Hiệu lực</span>
+                      <span className="font-semibold text-slate-800">
+                        {new Date(selectedStaffing.validFrom).toLocaleDateString('vi-VN')} - {new Date(selectedStaffing.validTo).toLocaleDateString('vi-VN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-[11px]">
+                    <div className={`p-2.5 rounded-lg border ${selectedStaffing.adminSigned ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+                      <div className="font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[15px]">{selectedStaffing.adminSigned ? 'verified' : 'pending'}</span>
+                        <span>Ban Quản Trị Hệ Thống</span>
+                      </div>
+                      <div className="mt-1 text-[10px] text-slate-600">
+                        {selectedStaffing.adminSigned ? 'Đã ký số SmartCA (Bên D)' : 'Chưa hoàn tất ký số'}
+                      </div>
+                    </div>
+
+                    <div className={`p-2.5 rounded-lg border ${selectedStaffing.facilitySigned ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                      <div className="font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-[15px]">{selectedStaffing.facilitySigned ? 'verified' : 'schedule'}</span>
+                        <span>Cơ Sở Y Tế Đối Tác</span>
+                      </div>
+                      <div className="mt-1 text-[10px] text-slate-600">
+                        {selectedStaffing.facilitySigned ? 'Đã ký số SmartCA' : 'Đang chờ CSYT ký'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">
+                      Điều khoản pháp lý hợp tác:
+                    </label>
+                    <div className="p-3 bg-white border border-slate-200 rounded-xl text-[11px] leading-relaxed max-h-48 overflow-y-auto whitespace-pre-wrap text-slate-600 font-mono">
+                      {selectedStaffing.contractTerms || 'Điều khoản chuẩn theo Nghị định 130/2018/NĐ-CP và Thông tư 04/2022/TT-BYT.'}
+                    </div>
+                  </div>
+                </div>
+
+                <DialogFooter className="gap-2 pt-2 border-t border-slate-100">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowStaffingDetailModal(false)}
+                    className="text-xs"
+                  >
+                    Đóng
+                  </Button>
+                  {selectedStaffing.status === 'DRAFT' && !selectedStaffing.adminSigned && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={signingStaffingId === selectedStaffing.id}
+                      onClick={async () => {
+                        await handleAdminSignStaffing(selectedStaffing.id);
+                        setShowStaffingDetailModal(false);
+                      }}
+                      className="text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white"
+                    >
+                      {signingStaffingId === selectedStaffing.id ? 'Đang ký số...' : 'Ký Duyệt (SmartCA)'}
+                    </Button>
+                  )}
+                </DialogFooter>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </main>

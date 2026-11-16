@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { reviewsApi } from '@/lib/api';
 
 export interface DoctorEncounterReview {
@@ -120,13 +121,6 @@ export function FamilyFeedbackView() {
   const [disputeDescription, setDisputeDescription] = useState<string>('');
   const [evidenceFileName, setEvidenceFileName] = useState<string>('');
 
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4000);
-  };
-
   const handleOpenReview = (enc: DoctorEncounterReview) => {
     setSelectedEncounterForReview(enc);
     setRatingOverall(enc.overallRating || 5);
@@ -168,7 +162,7 @@ export function FamilyFeedbackView() {
     );
 
     setSelectedEncounterForReview(null);
-    showToast('Cảm ơn quý gia đình! Đánh giá chất lượng bác sĩ đã được ghi nhận vào hồ sơ SLA.');
+    toast.success('Cảm ơn quý gia đình! Đánh giá chất lượng bác sĩ đã được ghi nhận vào hồ sơ SLA.');
   };
 
   const handleCreateDispute = async (e: React.FormEvent) => {
@@ -213,7 +207,7 @@ export function FamilyFeedbackView() {
     setShowCreateDisputeModal(false);
     setDisputeDescription('');
     setEvidenceFileName('');
-    showToast(`Đã gửi khiếu nại #${newTicket.id} đến Ban Quản Trị FamiDoc & Cơ Sở Y Tế!`);
+    toast.success(`Đã gửi khiếu nại #${newTicket.id} đến Ban Quản Trị FamiDoc & Cơ Sở Y Tế!`);
   };
 
   return (
@@ -792,25 +786,6 @@ export function FamilyFeedbackView() {
         </div>
       )}
 
-      {/* Accessible Toast */}
-      {toastMessage && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-xl text-xs sm:text-sm animate-fade-in"
-        >
-          <span className="material-symbols-outlined text-[18px] text-emerald-400">check_circle</span>
-          <span className="font-medium">{toastMessage}</span>
-          <button
-            type="button"
-            onClick={() => setToastMessage(null)}
-            className="ml-2 text-slate-400 hover:text-white cursor-pointer"
-            aria-label="Đóng thông báo"
-          >
-            <span className="material-symbols-outlined text-[16px]">close</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 }

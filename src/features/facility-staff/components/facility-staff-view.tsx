@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { doctorsApi, type CreateFacilityDoctorPayload } from '@/lib/api/doctors.api';
+import { extractErrorMessage } from '@/lib/api';
 
 export interface DoctorStaff {
   id: string;
@@ -48,8 +50,6 @@ export function FacilityStaffView() {
     defaultPassword: string;
     specialty: string;
   } | null>(null);
-
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Tải danh sách bác sĩ trực tiếp từ Backend API
   const fetchDoctors = async () => {
@@ -124,14 +124,11 @@ export function FacilityStaffView() {
         approved: true,
         verificationNotes: 'Cơ sở y tế đã thẩm định và phê duyệt Cấp 1 hồ sơ chuyên môn',
       });
-      setToastMessage(`Đã duyệt Cấp 1 cho Bác sĩ ${docId}. Hồ sơ đã chuyển sang Admin để đối soát CSDL Quốc gia.`);
-      setTimeout(() => setToastMessage(null), 5000);
+      toast.success(`Đã duyệt Cấp 1 cho Bác sĩ. Hồ sơ đã chuyển sang Admin để đối soát CSDL Quốc gia.`);
       await fetchDoctors();
     } catch (err: any) {
       console.warn('Lỗi thẩm định Cấp 1:', err);
-      const msg = err?.message || 'Không thể thẩm định Cấp 1 trên máy chủ.';
-      setToastMessage(`[Lỗi] ${msg}`);
-      setTimeout(() => setToastMessage(null), 5000);
+      toast.error(extractErrorMessage(err, 'Không thể thẩm định Cấp 1 trên máy chủ.'));
     }
   };
 
@@ -195,17 +192,15 @@ export function FacilityStaffView() {
       setNewDoctorEmail('');
       setNewDoctorPhone('');
       setNewDoctorExp('5');
-      setToastMessage(`Khởi tạo Bác sĩ thành công trên Database (ID: ${createdId})`);
-      setTimeout(() => setToastMessage(null), 5000);
+      toast.success(`Khởi tạo Bác sĩ thành công trên Database!`);
     } catch (err: any) {
       console.warn('Lỗi khi gọi API khởi tạo Bác sĩ:', err?.message || err);
-      const errorMsg =
-        err?.message ||
-        err?.response?.data?.message ||
-        'Không thể khởi tạo Bác sĩ trên máy chủ. Vui lòng kiểm tra trạng thái kích hoạt CSYT và Hợp đồng B2B.';
+      const errorMsg = extractErrorMessage(
+        err,
+        'Không thể khởi tạo Bác sĩ trên máy chủ. Vui lòng kiểm tra trạng thái kích hoạt CSYT và Hợp đồng B2B.'
+      );
       setCreateError(errorMsg);
-      setToastMessage(`[Lỗi] ${errorMsg}`);
-      setTimeout(() => setToastMessage(null), 6000);
+      toast.error(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
@@ -213,8 +208,7 @@ export function FacilityStaffView() {
 
   const handleResetDemo = () => {
     fetchDoctors();
-    setToastMessage('Đã đồng bộ lại danh sách bác sĩ từ cơ sở dữ liệu Backend.');
-    setTimeout(() => setToastMessage(null), 4000);
+    toast.info('Đã đồng bộ lại danh sách bác sĩ từ cơ sở dữ liệu Backend.');
   };
 
   return (
@@ -254,19 +248,6 @@ export function FacilityStaffView() {
             </button>
           </div>
         </div>
-
-        {/* Toast Message */}
-        {toastMessage && (
-          <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center justify-between gap-2 shadow-xs animate-in fade-in">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-              <span>{toastMessage}</span>
-            </div>
-            <button type="button" onClick={() => setToastMessage(null)} className="text-slate-400 hover:text-slate-600">
-              ✕
-            </button>
-          </div>
-        )}
 
         {/* Filter Toolbar */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
@@ -619,7 +600,19 @@ export function FacilityStaffView() {
                 * Bác sĩ cần đăng nhập vào Portal Bác sĩ, thực hiện đổi mật khẩu bắt buộc và tải lên hồ sơ CCHN để CSYT thẩm định Cấp 1.
               </p>
 
-              <div className="flex justify-end pt-2">
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const text = `Tài khoản Bác sĩ FamiDoc:\n- Email đăng nhập: ${createdDoctorInfo.email}\n- Mật khẩu khởi tạo: ${createdDoctorInfo.defaultPassword}\n- Cổng đăng nhập: ${typeof window !== 'undefined' ? window.location.origin : ''}/login`;
+                    void navigator.clipboard.writeText(text);
+                    toast.success('Đã sao chép thông tin tài khoản bác sĩ vào bộ nhớ tạm!');
+                  }}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <span className="material-symbols-outlined text-[16px]">content_copy</span>
+                  <span>Sao chép thông tin</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setCreatedDoctorInfo(null)}

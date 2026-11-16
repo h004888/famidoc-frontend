@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
+import { extractErrorMessage } from '@/lib/api';
 
 export function FacilityLegalView() {
   const [loading, setLoading] = useState(true);
@@ -24,7 +26,6 @@ export function FacilityLegalView() {
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [toastMessage, setToastMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -73,8 +74,7 @@ export function FacilityLegalView() {
         names.push(files[i].name);
       }
       setUploadedFiles((prev) => [...prev, ...names]);
-      setToastMessage({ text: `Đã đính kèm ${names.length} tệp tài liệu thành công.`, isError: false });
-      setTimeout(() => setToastMessage(null), 3500);
+      toast.success(`Đã đính kèm ${names.length} tệp tài liệu thành công.`);
     }
   };
 
@@ -169,19 +169,14 @@ export function FacilityLegalView() {
       };
 
       setFacility(updatedFacility);
-      setToastMessage({
-        text: 'Nộp hồ sơ pháp lý chuyên sâu thành công! Hồ sơ đã được cập nhật sang trạng thái "LEGAL_SUBMITTED" và chuyển tới Quản Trị Viên để thẩm định CSDL Quốc gia.',
-        isError: false,
-      });
+      toast.success(
+        'Nộp hồ sơ pháp lý chuyên sâu thành công! Hồ sơ đã được chuyển tới Quản Trị Viên để thẩm định CSDL Quốc gia.'
+      );
     } catch (err: any) {
       console.warn('Lỗi nộp hồ sơ pháp lý CSYT:', err);
-      const errorMsg =
-        err?.message ||
-        'Không thể nộp hồ sơ pháp lý lên máy chủ. Vui lòng kiểm tra lại thông tin và thử lại.';
-      setToastMessage({ text: `[Lỗi] ${errorMsg}`, isError: true });
+      toast.error(extractErrorMessage(err, 'Không thể nộp hồ sơ pháp lý lên máy chủ.'));
     } finally {
       setIsSubmitting(false);
-      setTimeout(() => setToastMessage(null), 6000);
     }
   };
 
@@ -201,31 +196,6 @@ export function FacilityLegalView() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
       <main className="max-w-6xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div
-            className={`p-4 rounded-xl text-sm font-medium border flex items-center justify-between shadow-md transition-all ${
-              toastMessage.isError
-                ? 'bg-rose-50 text-rose-800 border-rose-200'
-                : 'bg-emerald-50 text-emerald-800 border-emerald-200'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-lg">
-                {toastMessage.isError ? 'error' : 'check_circle'}
-              </span>
-              <span>{toastMessage.text}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setToastMessage(null)}
-              className="text-xs opacity-70 hover:opacity-100 font-bold"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
         {/* Breadcrumb & Navigation */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -286,6 +256,20 @@ export function FacilityLegalView() {
         </div>
 
         {/* Warning / Status Banners */}
+        {isWaitingReview && (
+          <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-xs sm:text-sm text-indigo-900 flex items-start gap-3 shadow-2xs">
+            <span className="material-symbols-outlined text-xl text-indigo-600 shrink-0 mt-0.5">hourglass_top</span>
+            <div className="space-y-1">
+              <p className="font-bold text-indigo-950">
+                Hồ sơ pháp lý đã nộp thành công và đang chờ Quản trị viên đối soát CSDL Quốc gia
+              </p>
+              <p className="text-indigo-800 text-xs leading-relaxed">
+                Hệ thống đang tiến hành hậu kiểm thông tin Giấy phép hoạt động và Người đại diện pháp luật theo Nghị định 96/2023/NĐ-CP. Thời gian thẩm định tiêu chuẩn: 24 - 48 giờ làm việc. Bạn sẽ nhận được thông báo kích hoạt ngay khi hồ sơ được duyệt.
+              </p>
+            </div>
+          </div>
+        )}
+
         {isRejected && (
           <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs sm:text-sm text-rose-900 space-y-1">
             <div className="flex items-center gap-2 font-bold text-rose-800">

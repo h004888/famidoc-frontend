@@ -296,6 +296,7 @@ export function BookingPaymentStep({
   const copyToClipboard = (text: string, key: string) => {
     void navigator.clipboard?.writeText(text);
     setIsCopied(key);
+    toast.success('Đã sao chép vào bộ nhớ tạm!');
     setTimeout(() => setIsCopied(null), 2000);
   };
 

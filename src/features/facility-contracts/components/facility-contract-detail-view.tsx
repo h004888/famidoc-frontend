@@ -3,7 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { contractsApi, type StaffingContractItem, normalizeStaffingContract } from '@/lib/api/contracts.api';
+import { extractErrorMessage } from '@/lib/api';
 
 interface FacilityContractDetailViewProps {
   contractId: string;
@@ -14,14 +16,8 @@ export function FacilityContractDetailView({ contractId }: FacilityContractDetai
   const [contract, setContract] = useState<StaffingContractItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSigning, setIsSigning] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectReason] = useState('');
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4500);
-  };
 
   useEffect(() => {
     let isMounted = true;
@@ -68,9 +64,9 @@ export function FacilityContractDetailView({ contractId }: FacilityContractDetai
             }
           : null
       );
-      showToast('Ký số điện tử thành công! Hợp đồng B2B đã có hiệu lực pháp lý.');
+      toast.success('Ký số điện tử thành công! Hợp đồng B2B đã có hiệu lực pháp lý.');
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể thực hiện ký số điện tử.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể thực hiện ký số điện tử.'));
     } finally {
       setIsSigning(false);
     }
@@ -83,10 +79,10 @@ export function FacilityContractDetailView({ contractId }: FacilityContractDetai
     try {
       await contractsApi.rejectStaffingContract(contract.id, rejectionReason);
       setContract((prev) => (prev ? { ...prev, status: 'TERMINATED' } : null));
-      showToast('Đã gửi phản hồi yêu cầu đàm phán sửa đổi tới FamiDoc.');
+      toast.success('Đã gửi phản hồi yêu cầu đàm phán sửa đổi tới FamiDoc.');
       setShowRejectModal(false);
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể từ chối hợp đồng.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể từ chối hợp đồng.'));
     } finally {
       setIsSigning(false);
     }
@@ -117,18 +113,6 @@ export function FacilityContractDetailView({ contractId }: FacilityContractDetai
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto pb-20">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div
-          role="status"
-          className="fixed bottom-6 right-6 z-50 max-w-md bg-slate-900 text-white text-xs sm:text-sm px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300"
-        >
-          <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 font-bold">
-            ✓
-          </span>
-          <span className="leading-relaxed">{toastMessage}</span>
-        </div>
-      )}
 
       {/* Navigation & Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

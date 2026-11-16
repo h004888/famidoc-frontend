@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { doctorsApi } from '@/lib/api/doctors.api';
+import { extractErrorMessage } from '@/lib/api';
 import { Pagination } from '@/components/ui/pagination';
 
 interface DoctorVerificationItem {
@@ -25,7 +27,6 @@ export function AdminFacilitiesView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFacility, setSelectedFacility] = useState<AdminFacilityItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Pagination states
@@ -92,11 +93,6 @@ export function AdminFacilitiesView() {
     fetchDoctorsData();
   }, []);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4500);
-  };
-
   // Filter facilities
   const filteredFacilities = facilities.filter((fac) => {
     const matchesSearch =
@@ -149,11 +145,11 @@ export function AdminFacilitiesView() {
       if (selectedFacility) {
         setSelectedFacility({ ...selectedFacility, onboardingStatus: 'PENDING_LEGAL' });
       }
-      showToast(
+      toast.success(
         `Đã duyệt Cấp 1 thành công! Hệ thống đã gửi email cấp tài khoản Portal kèm mật khẩu khởi tạo "FamiDoc@Facility2026" tới ${selectedFacility.email}.`
       );
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể duyệt cấp 1 trên máy chủ.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể duyệt cấp 1 trên máy chủ.'));
     } finally {
       setIsActionLoading(false);
       setShowApproveAccountModal(false);
@@ -179,9 +175,9 @@ export function AdminFacilitiesView() {
       if (selectedFacility) {
         setSelectedFacility({ ...selectedFacility, onboardingStatus: 'ACTIVE', status: 'ACTIVE' });
       }
-      showToast(`Hậu kiểm pháp lý thành công! Cơ sở y tế "${selectedFacility.facilityName}" đã chính thức chuyển sang trạng thái ACTIVE.`);
+      toast.success(`Hậu kiểm pháp lý thành công! Cơ sở y tế "${selectedFacility.facilityName}" đã chính thức chuyển sang trạng thái ACTIVE.`);
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể hậu kiểm pháp lý trên máy chủ.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể hậu kiểm pháp lý trên máy chủ.'));
     } finally {
       setIsActionLoading(false);
       setIsDetailModalOpen(false);
@@ -203,10 +199,10 @@ export function AdminFacilitiesView() {
           : f
       );
       setFacilities(updated);
-      showToast(`Đã gửi thông báo từ chối / yêu cầu bổ sung hồ sơ tới cơ sở y tế.`);
+      toast.success(`Đã gửi thông báo từ chối / yêu cầu bổ sung hồ sơ tới cơ sở y tế.`);
       setRejectReason('');
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể từ chối hồ sơ trên máy chủ.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể từ chối hồ sơ trên máy chủ.'));
     } finally {
       setIsActionLoading(false);
       setShowRejectModal(false);
@@ -222,26 +218,14 @@ export function AdminFacilitiesView() {
         backgroundCheckConsent: true,
       });
       setDoctorsList((prev) => prev.filter((d) => d.id !== docId));
-      showToast(`Đã hậu kiểm CSDL Quốc gia & kích hoạt ACTIVE cho Bác sĩ ${docName} (${docId}). Bác sĩ đã có thể mở lịch khám!`);
+      toast.success(`Đã hậu kiểm CSDL Quốc gia & kích hoạt ACTIVE cho Bác sĩ ${docName} (${docId}). Bác sĩ đã có thể mở lịch khám!`);
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể duyệt cấp 2 cho Bác sĩ.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể duyệt cấp 2 cho Bác sĩ.'));
     }
   };
 
   return (
     <div className="space-y-6 pb-12">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div
-          role="status"
-          className="fixed bottom-6 right-6 z-50 max-w-md bg-slate-900 text-white text-xs sm:text-sm px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300"
-        >
-          <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 font-bold">
-            ✓
-          </span>
-          <span className="leading-relaxed">{toastMessage}</span>
-        </div>
-      )}
 
       {/* Breadcrumbs & Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
