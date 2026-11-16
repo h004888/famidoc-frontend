@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { DashboardSidebar } from '../dashboard-sidebar';
 
 vi.mock('next/navigation', () => ({
@@ -21,45 +21,46 @@ vi.mock('@/features/auth/context/auth-context', () => ({
   getDefaultPathForRole: (role: string) => `/${role.toLowerCase()}`,
 }));
 
-describe('DashboardSidebar Navigation Pinning', () => {
+describe('DashboardSidebar Navigation', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
   });
 
-  it('renders sidebar with default pinned state (w-64) and pin button', () => {
+  it('renders sidebar with default expanded state (w-64) and without pin button', () => {
     const { container } = render(<DashboardSidebar />);
 
-    // Pin button should be present in the document
-    const pinBtn = screen.getByRole('button', { name: /Bỏ ghim thanh điều hướng|Ghim thanh điều hướng/i });
-    expect(pinBtn).toBeInTheDocument();
+    // Pin button should no longer exist
+    const pinBtn = screen.queryByRole('button', { name: /Bỏ ghim thanh điều hướng|Ghim thanh điều hướng/i });
+    expect(pinBtn).not.toBeInTheDocument();
 
     // Default aside should have w-64
     const aside = container.querySelector('aside');
+    expect(aside).toHaveAttribute('data-state', 'expanded');
     expect(aside).toHaveClass('w-64');
-    expect(pinBtn).toHaveAttribute('title', expect.stringContaining('Bỏ ghim'));
   });
 
-  it('toggles pin state when pin button is clicked and persists in localStorage', () => {
+  it('renders collapsed state (w-20) with icon logo and page icons when collapsed', () => {
+    localStorage.setItem('famidoc_sidebar_pinned', 'false');
     const { container } = render(<DashboardSidebar />);
 
-    const pinBtn = screen.getByRole('button', { name: /Bỏ ghim thanh điều hướng/i });
-    expect(pinBtn).toBeInTheDocument();
-
-    // Click to unpin
-    fireEvent.click(pinBtn);
-
-    expect(localStorage.getItem('famidoc_sidebar_pinned')).toBe('false');
-
-    const aside = container.querySelector('aside');
+    const aside = container.querySelector('aside')!;
+    expect(aside).toHaveAttribute('data-state', 'collapsed');
     expect(aside).toHaveClass('w-20');
 
-    // Click to pin again
-    const pinAgainBtn = screen.getByRole('button', { name: /Ghim thanh điều hướng/i });
-    fireEvent.click(pinAgainBtn);
+    // Shows compact logo without text
+    const iconLogo = screen.getByAltText('FamiDoc Icon');
+    expect(iconLogo).toBeInTheDocument();
+    expect(iconLogo).toHaveAttribute('src', '/images/logo_khong_chu.png');
 
-    expect(localStorage.getItem('famidoc_sidebar_pinned')).toBe('true');
-    expect(aside).toHaveClass('w-64');
+    // Page icon elements should be visible inside aside
+    expect(within(aside).getByText('monitoring')).toBeInTheDocument();
+    expect(within(aside).getByText('local_hospital')).toBeInTheDocument();
+
+    // Hover should NOT expand the sidebar (stays w-20)
+    fireEvent.mouseEnter(aside);
+    expect(aside).toHaveAttribute('data-state', 'collapsed');
+    expect(aside).toHaveClass('w-20');
   });
 
   it('respects pre-existing localStorage preference if pinned was saved as false', () => {
@@ -68,6 +69,7 @@ describe('DashboardSidebar Navigation Pinning', () => {
     const { container } = render(<DashboardSidebar />);
 
     const aside = container.querySelector('aside');
+    expect(aside).toHaveAttribute('data-state', 'collapsed');
     expect(aside).toHaveClass('w-20');
   });
 });

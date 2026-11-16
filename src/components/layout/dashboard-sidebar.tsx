@@ -250,21 +250,21 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const sidebar = useOptionalSidebar();
 
   const [mounted, setMounted] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
   const [localMobileOpen, setLocalMobileOpen] = useState(false);
-  const [localPinned, setLocalPinned] = useState(() => {
-    try {
-      const saved = typeof window !== 'undefined' ? localStorage.getItem('famidoc_sidebar_pinned') : null;
-      return saved !== null ? saved === 'true' : true;
-    } catch {
-      return true;
-    }
-  });
+  const [localOpen] = useState(true);
   const [selectedClinic, setSelectedClinic] = useState(CLINIC_LIST[0]);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (sidebar) {
+      try {
+        localStorage.setItem('famidoc_sidebar_pinned', String(sidebar.open));
+      } catch {}
+    }
+  }, [sidebar?.open]);
 
   const pathRole = getRoleFromPathname(pathname);
   const effectiveRole: LoginRole = pathRole || initialRole || (mounted ? role : 'FAMILY');
@@ -276,28 +276,8 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
 
   const mobileMenuOpen = sidebar ? sidebar.openMobile : localMobileOpen;
   const setMobileMenuOpen = sidebar ? sidebar.setOpenMobile : setLocalMobileOpen;
-  const isPinned = sidebar ? sidebar.open : localPinned;
-  const isPinnedExpanded = isPinned;
-  const isExpanded = isPinnedExpanded || isHovered;
+  const isOpen = sidebar ? sidebar.open : localOpen;
 
-  const togglePin = () => {
-    if (sidebar) {
-      const next = !sidebar.open;
-      sidebar.setOpen(next);
-      try {
-        localStorage.setItem('famidoc_sidebar_pinned', String(next));
-      } catch {}
-    } else {
-      setLocalPinned((prev) => {
-        const next = !prev;
-        try {
-          localStorage.setItem('famidoc_sidebar_pinned', String(next));
-        } catch {}
-        return next;
-      });
-    }
-    setIsHovered(true);
-  };
 
   const renderSidebarContent = (isCollapsedState: boolean) => (
     <div className="flex h-full flex-col border-r border-slate-200/90 bg-sidebar font-sans text-sidebar-foreground">
@@ -337,32 +317,7 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
           )}
         </Link>
 
-        {/* Nút ghim / bỏ ghim thanh điều hướng (Desktop) */}
-        {!isCollapsedState && (
-          <button
-            type="button"
-            onClick={togglePin}
-            className={`hidden lg:inline-flex items-center justify-center w-8 h-8 rounded-lg transition-colors cursor-pointer outline-hidden shrink-0 ${
-              isPinned
-                ? 'text-[#2E37A4] bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 shadow-2xs'
-                : 'text-slate-400 hover:text-[#2E37A4] hover:bg-slate-100 border border-slate-200/60'
-            }`}
-            title={
-              isPinned
-                ? 'Bỏ ghim thanh điều hướng (Tự động thu gọn khi rời chuột)'
-                : 'Ghim cố định thanh điều hướng'
-            }
-            aria-label={isPinned ? 'Bỏ ghim thanh điều hướng' : 'Ghim thanh điều hướng'}
-          >
-            <span
-              className={`material-symbols-outlined text-[18px] transition-transform duration-200 ${
-                isPinned ? 'material-symbols-filled -rotate-45 text-[#2E37A4]' : 'text-slate-500 hover:text-[#2E37A4]'
-              }`}
-            >
-              push_pin
-            </span>
-          </button>
-        )}
+
       </div>
 
       {/* Accessible Clinic Switcher using shadcn DropdownMenu */}
@@ -564,82 +519,121 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
 
         {/* Global Settings & Utilities */}
         <div className="space-y-1 border-t border-slate-100 pt-2">
-          <Link
-            href="/packages"
-            onClick={() => setMobileMenuOpen(false)}
-            title={isCollapsedState ? 'Danh mục Gói Dịch vụ' : undefined}
-            aria-label="Danh mục Gói Dịch vụ"
-            className={cn(
-              'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
-              pathname === '/packages'
-                ? 'bg-primary font-semibold text-primary-foreground'
-                : 'text-slate-700 hover:bg-accent hover:text-primary',
-              isCollapsedState && 'justify-center px-2'
-            )}
-          >
-            <span
-              className={cn(
-                'material-symbols-outlined shrink-0 text-[20px] transition-colors',
-                pathname === '/packages' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
-              )}
-            >
-              inventory_2
-            </span>
-            {!isCollapsedState && <span>Danh mục Gói Dịch vụ</span>}
-          </Link>
+          {(() => {
+            const packagesEl = (
+              <Link
+                href="/packages"
+                onClick={() => setMobileMenuOpen(false)}
+                title={isCollapsedState ? 'Danh mục Gói Dịch vụ' : undefined}
+                aria-label="Danh mục Gói Dịch vụ"
+                className={cn(
+                  'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
+                  pathname === '/packages'
+                    ? 'bg-primary font-semibold text-primary-foreground'
+                    : 'text-slate-700 hover:bg-accent hover:text-primary',
+                  isCollapsedState && 'justify-center px-2'
+                )}
+              >
+                <span
+                  className={cn(
+                    'material-symbols-outlined shrink-0 text-[20px] transition-colors',
+                    pathname === '/packages' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
+                  )}
+                >
+                  inventory_2
+                </span>
+                {!isCollapsedState && <span>Danh mục Gói Dịch vụ</span>}
+              </Link>
+            );
 
-          <Link
-            href="/settings"
-            onClick={() => setMobileMenuOpen(false)}
-            title={isCollapsedState ? 'Cài đặt & Hồ sơ BHYT' : undefined}
-            aria-label="Cài đặt & Hồ sơ BHYT"
-            className={cn(
-              'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
-              pathname === '/settings'
-                ? 'bg-primary font-semibold text-primary-foreground'
-                : 'text-slate-700 hover:bg-accent hover:text-primary',
-              isCollapsedState && 'justify-center px-2'
-            )}
-          >
-            <span
-              className={cn(
-                'material-symbols-outlined shrink-0 text-[20px] transition-colors',
-                pathname === '/settings' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
-              )}
-            >
-              settings
-            </span>
-            {!isCollapsedState && <span>Cài đặt &amp; Hồ sơ BHYT</span>}
-          </Link>
+            return isCollapsedState ? (
+              <Tooltip>
+                <TooltipTrigger asChild>{packagesEl}</TooltipTrigger>
+                <TooltipContent side="right">Danh mục Gói Dịch vụ</TooltipContent>
+              </Tooltip>
+            ) : (
+              packagesEl
+            );
+          })()}
+
+          {(() => {
+            const settingsEl = (
+              <Link
+                href="/settings"
+                onClick={() => setMobileMenuOpen(false)}
+                title={isCollapsedState ? 'Cài đặt & Hồ sơ BHYT' : undefined}
+                aria-label="Cài đặt & Hồ sơ BHYT"
+                className={cn(
+                  'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
+                  pathname === '/settings'
+                    ? 'bg-primary font-semibold text-primary-foreground'
+                    : 'text-slate-700 hover:bg-accent hover:text-primary',
+                  isCollapsedState && 'justify-center px-2'
+                )}
+              >
+                <span
+                  className={cn(
+                    'material-symbols-outlined shrink-0 text-[20px] transition-colors',
+                    pathname === '/settings' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
+                  )}
+                >
+                  settings
+                </span>
+                {!isCollapsedState && <span>Cài đặt &amp; Hồ sơ BHYT</span>}
+              </Link>
+            );
+
+            return isCollapsedState ? (
+              <Tooltip>
+                <TooltipTrigger asChild>{settingsEl}</TooltipTrigger>
+                <TooltipContent side="right">Cài đặt &amp; Hồ sơ BHYT</TooltipContent>
+              </Tooltip>
+            ) : (
+              settingsEl
+            );
+          })()}
         </div>
       </div>
 
       {/* User Footer Profile & Logout */}
       <div className="shrink-0 border-t border-slate-100 bg-slate-50 p-3">
         <div className="flex items-center justify-between gap-2">
-          <Link
-            href="/settings"
-            title={displayName || 'Hồ sơ tài khoản'}
-            aria-label={displayName || 'Hồ sơ tài khoản'}
-            className={cn(
-              'flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-slate-200/70 outline-hidden',
-              isCollapsedState && 'justify-center'
-            )}
-            suppressHydrationWarning
-          >
-            <div
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-              suppressHydrationWarning
-            >
-              {avatarText}
-            </div>
-            {!isCollapsedState && (
-              <div className="min-w-0 flex-1" suppressHydrationWarning>
-                <div className="truncate text-xs font-semibold text-slate-900" suppressHydrationWarning>{displayName}</div>
-                <div className="truncate text-xs text-slate-600" suppressHydrationWarning>{userSubtitle}</div>
-              </div>
-            )}
-          </Link>
+          {(() => {
+            const profileLink = (
+              <Link
+                href="/settings"
+                title={displayName || 'Hồ sơ tài khoản'}
+                aria-label={displayName || 'Hồ sơ tài khoản'}
+                className={cn(
+                  'flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-slate-200/70 outline-hidden',
+                  isCollapsedState && 'justify-center'
+                )}
+                suppressHydrationWarning
+              >
+                <div
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                  suppressHydrationWarning
+                >
+                  {avatarText}
+                </div>
+                {!isCollapsedState && (
+                  <div className="min-w-0 flex-1" suppressHydrationWarning>
+                    <div className="truncate text-xs font-semibold text-slate-900" suppressHydrationWarning>{displayName}</div>
+                    <div className="truncate text-xs text-slate-600" suppressHydrationWarning>{userSubtitle}</div>
+                  </div>
+                )}
+              </Link>
+            );
+
+            return isCollapsedState ? (
+              <Tooltip>
+                <TooltipTrigger asChild>{profileLink}</TooltipTrigger>
+                <TooltipContent side="right">{displayName || 'Hồ sơ tài khoản'}</TooltipContent>
+              </Tooltip>
+            ) : (
+              profileLink
+            );
+          })()}
 
           {!isCollapsedState && (
             <button
@@ -812,23 +806,21 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
         </div>
       </nav>
 
-      {/* Desktop Sidenav: Thu gọn icon (w-20), mở rộng khi hover hoặc khi SidebarTrigger bật */}
+      {/* Desktop Sidenav: Thu gọn (w-20) hiện logo và icon các trang, mở rộng (w-64) qua SidebarTrigger, không tự động bung khi hover */}
       <aside
-        data-state={isExpanded ? 'expanded' : 'collapsed'}
+        data-state={isOpen ? 'expanded' : 'collapsed'}
         className={cn(
           'relative sticky top-0 z-40 hidden h-screen shrink-0 transition-[width] duration-300 ease-in-out lg:block',
-          isPinnedExpanded ? 'w-64' : 'w-20'
+          isOpen ? 'w-64' : 'w-20'
         )}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         <div
           className={cn(
-            'absolute top-0 left-0 h-full overflow-hidden border-r border-slate-200/90 bg-sidebar transition-all duration-300 ease-in-out',
-            isExpanded ? 'z-40 w-64 shadow-xl' : 'w-20 shadow-xs'
+            'h-full overflow-hidden border-r border-slate-200/90 bg-sidebar transition-[width] duration-300 ease-in-out',
+            isOpen ? 'w-64' : 'w-20'
           )}
         >
-          {renderSidebarContent(!isExpanded)}
+          {renderSidebarContent(!isOpen)}
         </div>
       </aside>
 

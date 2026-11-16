@@ -57,8 +57,9 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
     <header className="sticky top-0 z-30 hidden h-16 shrink-0 items-center justify-between border-b border-slate-200/90 bg-white px-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] sm:px-6 lg:flex lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <SidebarTrigger
-          className="h-9 w-9 rounded-xl text-slate-600 hover:bg-accent hover:text-primary"
+          className="h-9 w-9 rounded-xl text-slate-600 hover:bg-accent hover:text-primary cursor-pointer"
           aria-label="Bật hoặc tắt thanh điều hướng"
+          title="Bật hoặc tắt thanh điều hướng"
         />
         <Separator orientation="vertical" className="h-4" />
         <Breadcrumb suppressHydrationWarning>
