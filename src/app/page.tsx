@@ -1,6 +1,5 @@
 import { Suspense } from 'react';
 import {
-  LandingHeader,
   LandingHero,
   LandingStats,
   LandingAbout,
@@ -10,6 +9,11 @@ import {
   LandingCtaBanner,
   LandingFooter,
 } from '@/features/landing';
+import {
+  LandingHeaderSkeleton,
+  LandingHeaderWithSession,
+} from '@/features/landing/components/landing-header-with-session';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 import { fetchHomePageData } from '@/features/landing/api/landing-queries';
 
 async function HomeDynamicSections() {
@@ -30,7 +34,9 @@ async function HomeDynamicSections() {
       <LandingDoctors doctors={doctors} totalDoctors={totalDoctors} />
 
       {/* 6. FamiDoc Care Packages: Gói Chăm Sóc Sức Khỏe Gia Đình */}
-      <LandingPackages packages={packages} />
+      <ServerAuthSessionBoundary>
+        <LandingPackages packages={packages} />
+      </ServerAuthSessionBoundary>
 
       {/* 7. Medsev Consultation & Hotline Cấp Cứu 24/7 */}
       <LandingCtaBanner packages={packages} />
@@ -54,7 +60,9 @@ function HomeDynamicFallback() {
 export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col justify-between bg-white text-slate-900 font-sans antialiased selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden pb-16 md:pb-0">
-      <LandingHeader />
+      <Suspense fallback={<LandingHeaderSkeleton />}>
+        <LandingHeaderWithSession />
+      </Suspense>
       <main className="flex-1">
         {/* 1. Medsev Hero Banner & Quick Doctor Finder */}
         <LandingHero />

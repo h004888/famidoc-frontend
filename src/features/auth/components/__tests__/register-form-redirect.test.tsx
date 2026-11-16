@@ -4,6 +4,7 @@ import { RegisterForm } from '../register-form';
 
 const replaceMock = vi.fn();
 let mockSearchParams = new URLSearchParams();
+let mockIsLoading = false;
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: replaceMock }),
@@ -13,6 +14,7 @@ vi.mock('next/navigation', () => ({
 vi.mock('@/features/auth/context/auth-context', () => ({
   useAuth: () => ({
     isAuthenticated: true,
+    isLoading: mockIsLoading,
     role: 'FAMILY',
     getDefaultPathForRole: () => '/family',
   }),
@@ -22,6 +24,13 @@ describe('RegisterForm - điều hướng tài khoản hộ gia đình đã đă
   beforeEach(() => {
     vi.clearAllMocks();
     mockSearchParams = new URLSearchParams();
+    mockIsLoading = false;
+  });
+
+  it('không điều hướng sớm khi auth vẫn đang isLoading', () => {
+    mockIsLoading = true;
+    render(<RegisterForm />);
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 
   it('không đưa tài khoản chưa kích hoạt gói vào /family/subscription', async () => {

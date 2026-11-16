@@ -2,6 +2,7 @@ import { Suspense, cache } from 'react';
 import { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { DoctorDetailView } from '@/features/doctors';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 import { publicApi, type PublicDoctorDetailDto } from '@/lib/api/public.api';
 import { ApiError } from '@/lib/http/errors';
 
@@ -90,7 +91,9 @@ export default function DoctorDetailPage({
         </div>
       }
     >
-      <DoctorDetailPageContent params={params} searchParams={searchParams} />
+      <ServerAuthSessionBoundary>
+        <DoctorDetailPageContent params={params} />
+      </ServerAuthSessionBoundary>
     </Suspense>
   );
 }

@@ -349,7 +349,7 @@ const BLOG_POSTS = [
 ];
 
 export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetailViewProps) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const [leadName, setLeadName] = useState('');
   const [leadPhone, setLeadPhone] = useState('');
   const [leadSuccess, setLeadSuccess] = useState(false);
@@ -460,13 +460,20 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-                  <Link
-                    href={selectPackageHref}
-                    className="flex-1 sm:flex-none py-3.5 px-6 rounded-lg bg-[#0046c0] hover:bg-[#111111] text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base">stethoscope</span>
-                    <span>{isAuthenticated ? 'Chọn bác sĩ & đăng ký gói' : 'Đăng ký gói này'}</span>
-                  </Link>
+                  {isLoading ? (
+                    <div
+                      aria-hidden="true"
+                      className="h-11 w-44 rounded-lg bg-slate-100 animate-pulse"
+                    />
+                  ) : (
+                    <Link
+                      href={selectPackageHref}
+                      className="flex-1 sm:flex-none py-3.5 px-6 rounded-lg bg-[#0046c0] hover:bg-[#111111] text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-base">stethoscope</span>
+                      <span>{isAuthenticated ? 'Chọn bác sĩ & đăng ký gói' : 'Đăng ký gói này'}</span>
+                    </Link>
+                  )}
 
                   <Link
                     href={`/contact?package=${pkg.id}`}

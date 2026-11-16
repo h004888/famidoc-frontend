@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
 import { PackageDetailView } from '@/features/packages/components/package-detail-view';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 
 export const instant = false;
 
@@ -38,7 +39,9 @@ export default function PackageDetailPage({
         </div>
       }
     >
-      <PackageDetailContent params={params} />
+      <ServerAuthSessionBoundary>
+        <PackageDetailContent params={params} />
+      </ServerAuthSessionBoundary>
     </Suspense>
   );
 }

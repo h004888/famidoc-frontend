@@ -23,8 +23,12 @@ vi.mock('@/lib/api/contracts.api', () => ({
 
 type MockRole = 'FAMILY' | 'PATIENT' | 'DOCTOR' | 'FACILITY' | 'ADMIN';
 
-function mockAuth(role: MockRole, overrides?: { isAuthenticated?: boolean; user?: null }) {
+function mockAuth(
+  role: MockRole,
+  overrides?: { isAuthenticated?: boolean; user?: null; isLoading?: boolean }
+) {
   const isAuthenticated = overrides?.isAuthenticated ?? true;
+  const isLoading = overrides?.isLoading ?? false;
   vi.spyOn(authContextModule, 'useAuth').mockReturnValue({
     isAuthenticated,
     user: isAuthenticated
@@ -38,7 +42,8 @@ function mockAuth(role: MockRole, overrides?: { isAuthenticated?: boolean; user?
         }
       : null,
     role,
-    isLoading: false,
+    isLoading,
+    applySession: vi.fn(),
     login: vi.fn(),
     logout: vi.fn(),
     getDefaultPathForRole: authContextModule.getDefaultPathForRole,
@@ -69,6 +74,22 @@ describe('LandingHeader - menu tài khoản nhận biết vai trò và trạng t
     );
   });
 
+  it('renders a neutral skeleton and never shows Login or Register while auth is loading (desktop & mobile)', async () => {
+    mockAuth('FAMILY', { isAuthenticated: false, isLoading: true });
+
+    render(<LandingHeader />);
+
+    expect(screen.getByTestId('landing-header-auth-skeleton')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Đăng nhập/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Đăng ký/i })).not.toBeInTheDocument();
+
+    const mobileToggle = screen.getByRole('button', { name: /Mở menu điều hướng/i });
+    await userEvent.click(mobileToggle);
+    expect(screen.getByTestId('landing-header-mobile-auth-skeleton')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Đăng nhập tài khoản/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Đăng ký Bác sĩ Gia đình/i })).not.toBeInTheDocument();
+  });
+
   it('renders Login and Register action links when user is unauthenticated and never calls the gate API', () => {
     mockAuth('FAMILY', { isAuthenticated: false });
 
@@ -94,6 +115,7 @@ describe('LandingHeader - menu tài khoản nhận biết vai trò và trạng t
       },
       role: 'FAMILY',
       isLoading: false,
+      applySession: vi.fn(),
       login: vi.fn(),
       logout,
       getDefaultPathForRole: authContextModule.getDefaultPathForRole,
@@ -383,6 +405,7 @@ describe('LandingHeader - menu tài khoản nhận biết vai trò và trạng t
       },
       role: 'FAMILY',
       isLoading: false,
+      applySession: vi.fn(),
       login: vi.fn(),
       logout,
       getDefaultPathForRole: authContextModule.getDefaultPathForRole,

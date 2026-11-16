@@ -5,6 +5,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PackagesCatalogView } from '../packages-catalog-view';
 import { PackageDetailView } from '../package-detail-view';
+import * as authContextModule from '@/features/auth/context/auth-context';
 
 // Mock useRouter
 vi.mock('next/navigation', () => ({
@@ -101,5 +102,34 @@ describe('UT-QRY-04..06: PackagesCatalogView Search & Empty State', () => {
     await userEvent.click(royalPkgBtn);
     expect(plusBtn).toBeDisabled();
     expect(minusBtn).not.toBeDisabled();
+  });
+
+  it('does not link PackagesCatalogView or PackageDetailView CTAs to /register while auth is isLoading', () => {
+    const spy = vi.spyOn(authContextModule, 'useAuth').mockReturnValue({
+      isAuthenticated: false,
+      isLoading: true,
+      user: null,
+      role: 'FAMILY',
+      applySession: vi.fn(),
+      login: vi.fn(),
+      logout: vi.fn(),
+      getDefaultPathForRole: authContextModule.getDefaultPathForRole,
+    });
+
+    const { unmount } = render(<PackagesCatalogView />);
+    const catalogRegisterLinks = screen
+      .queryAllByRole('link')
+      .filter((el) => el.getAttribute('href')?.startsWith('/register'));
+    expect(catalogRegisterLinks).toHaveLength(0);
+    unmount();
+
+    render(<PackageDetailView packageId="pkg-toan-dien" />);
+    const detailRegisterLinks = screen
+      .queryAllByRole('link')
+      .filter((el) => el.getAttribute('href')?.startsWith('/register'));
+    expect(detailRegisterLinks).toHaveLength(0);
+    expect(screen.queryByText(/Đăng ký gói này/i)).not.toBeInTheDocument();
+
+    spy.mockRestore();
   });
 });

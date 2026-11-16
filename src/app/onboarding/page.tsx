@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import React, { Suspense } from 'react';
 import { PreActivationFamilyHub } from '@/features/preactivation-hub';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 
 export const metadata: Metadata = {
   title: 'Không gian chuẩn bị gia đình | FamiDoc Pro',
@@ -22,7 +23,9 @@ export default function OnboardingPage() {
         </div>
       }
     >
-      <PreActivationFamilyHub />
+      <ServerAuthSessionBoundary>
+        <PreActivationFamilyHub />
+      </ServerAuthSessionBoundary>
     </Suspense>
   );
 }
