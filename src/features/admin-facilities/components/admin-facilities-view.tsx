@@ -1244,7 +1244,7 @@ export function AdminFacilitiesView() {
                   <div className="flex flex-wrap items-center gap-2 pr-8 text-xs font-medium text-blue-100">
                     <span>Hồ Sơ Chi Tiết Cơ Sở Y Tế</span>
                     <span aria-hidden="true">•</span>
-                    <span className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[11px] tabular-nums text-white">
+                    <span className="rounded bg-white/15 px-1.5 py-0.5 font-sans text-[11px] tabular-nums text-white">
                       {selectedFacility.id}
                     </span>
                   </div>

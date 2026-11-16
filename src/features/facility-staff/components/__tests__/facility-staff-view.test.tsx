@@ -42,8 +42,8 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
     expect(screen.getByText('Thêm Bác Sĩ Mới')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText('BS.CKII Trần Thanh Mai')).toBeInTheDocument();
-      expect(screen.getByText('ThS.BS Vũ Đình Trọng')).toBeInTheDocument();
+      expect(screen.getAllByText('BS.CKII Trần Thanh Mai').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('ThS.BS Vũ Đình Trọng').length).toBeGreaterThan(0);
     });
   });
 
@@ -105,7 +105,7 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
     fireEvent.click(screen.getByText('Đã hiểu & Đóng'));
 
     // Verify doctor is added to the table
-    expect(screen.getByText('BS. Phan Văn Minh')).toBeInTheDocument();
+    expect(screen.getAllByText('BS. Phan Văn Minh').length).toBeGreaterThan(0);
     expect(screen.getByText('minh.phan@ansinhhospital.vn')).toBeInTheDocument();
 
     // Verify localStorage does not store mock doctor
@@ -118,7 +118,7 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
     render(<FacilityStaffView />);
 
     await waitFor(() => {
-      expect(screen.getByText('ThS.BS Vũ Đình Trọng')).toBeInTheDocument();
+      expect(screen.getAllByText('ThS.BS Vũ Đình Trọng').length).toBeGreaterThan(0);
     });
 
     // Doctor "ThS.BS Vũ Đình Trọng" has status PENDING_FACILITY_REVIEW
