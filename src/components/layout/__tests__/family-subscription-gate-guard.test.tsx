@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
   FamilySubscriptionGateGuard,
   FamilySubscriptionGateProvider,
@@ -416,5 +416,55 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     const fallbackLink = screen.getByRole('link', { name: /Tìm bác sĩ/i });
     expect(fallbackLink).toHaveAttribute('href', '/doctors');
     expect(screen.queryByRole('link', { name: /Xem tiến trình hợp đồng/i })).toBeNull();
+  });
+
+  it('KHÔNG đẩy người dùng chưa kích hoạt vào vòng lặp /family: sidebar trỏ /onboarding khi chưa có pendingContract', async () => {
+    mockPathname = '/settings';
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 1,
+    });
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <DashboardSidebar />
+      </FamilySubscriptionGateProvider>,
+    );
+
+    const notice = await screen.findByTestId('sidebar-family-gate-notice');
+    const primaryLink = within(notice).getByRole('link', { name: /Chọn bác sĩ & gói ngay/i });
+    expect(primaryLink).toHaveAttribute('href', '/onboarding');
+    expect(primaryLink).not.toHaveAttribute('href', '/family');
+  });
+
+  it('sidebar trỏ đúng bước /booking tương ứng khi có pendingContract và vẫn mở lối tắt /onboarding', async () => {
+    mockPathname = '/settings';
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: {
+        id: 'mc-pending-55',
+        contractNumber: 'HD-4P-2026-0055',
+        contractStatus: 'PENDING_APPROVAL',
+        memberCount: 3,
+      },
+      patientCount: 1,
+    });
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <DashboardSidebar />
+      </FamilySubscriptionGateProvider>,
+    );
+
+    const notice = await screen.findByTestId('sidebar-family-gate-notice');
+    expect(
+      within(notice).getByRole('link', { name: /Theo dõi tiến trình hợp đồng/i })
+    ).toHaveAttribute('href', '/booking/tracking?contractId=mc-pending-55');
+    expect(
+      within(notice).getByRole('link', { name: /Không gian chuẩn bị/i })
+    ).toHaveAttribute('href', '/onboarding');
   });
 });

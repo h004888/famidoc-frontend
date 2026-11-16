@@ -10,6 +10,28 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 
 let mockPathname = '/admin/disputes';
 let mockRole = 'ADMIN';
+let mockGateStatus: {
+  hasActiveContract: boolean;
+  activeContract: null | {
+    id: string;
+    contractNumber: string;
+    contractStatus: string;
+    memberCount: number;
+    endDate: string;
+  };
+  pendingContract: null | {
+    id: string;
+    contractNumber: string;
+    contractStatus: string;
+    memberCount: number;
+  };
+  patientCount: number;
+} = {
+  hasActiveContract: true,
+  activeContract: null,
+  pendingContract: null,
+  patientCount: 1,
+};
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
@@ -46,12 +68,7 @@ vi.mock('@/features/auth/context/auth-context', () => ({
 
 vi.mock('@/lib/api/contracts.api', () => ({
   contractsApi: {
-    getFamilyGateStatus: vi.fn().mockResolvedValue({
-      hasActiveContract: true,
-      activeContract: null,
-      pendingContract: null,
-      patientCount: 1,
-    }),
+    getFamilyGateStatus: vi.fn().mockImplementation(() => Promise.resolve(mockGateStatus)),
   },
 }));
 
@@ -73,6 +90,12 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
     vi.clearAllMocks();
     mockPathname = '/admin/disputes';
     mockRole = 'ADMIN';
+    mockGateStatus = {
+      hasActiveContract: true,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 1,
+    };
   });
 
   it('renders dynamic Breadcrumb in SiteHeader and toggles sidebar expansion with SidebarTrigger', async () => {
@@ -149,5 +172,66 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
     await user.click(moreBtn);
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('points SiteHeader "Trang chủ" and the sidebar gate notice to /onboarding for a locked family account', async () => {
+    mockRole = 'FAMILY';
+    mockPathname = '/settings';
+    mockGateStatus = {
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 2,
+    };
+
+    const { container } = renderShell();
+    await userEvent.click(screen.getByRole('button', { name: 'Bật hoặc tắt thanh điều hướng' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sidebar-family-gate-notice')).toBeInTheDocument();
+    });
+
+    const notice = screen.getByTestId('sidebar-family-gate-notice');
+    const onboardingLink = within(notice).getByRole('link', { name: /Chọn bác sĩ & gói ngay/i });
+    expect(onboardingLink).toHaveAttribute('href', '/onboarding');
+
+    // Breadcrumb "Trang chủ" in SiteHeader must not loop back into /family
+    const header = container.querySelector('header');
+    expect(header).toBeTruthy();
+    const breadcrumbHome = within(header as HTMLElement)
+      .getAllByRole('link')
+      .find((el) => el.textContent === 'Trang chủ');
+    expect(breadcrumbHome).toHaveAttribute('href', '/onboarding');
+  });
+
+  it('keeps the sidebar gate notice on the pending /booking step while offering the onboarding hub', async () => {
+    mockRole = 'FAMILY';
+    mockPathname = '/settings';
+    mockGateStatus = {
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: {
+        id: 'mc-pending-7',
+        contractNumber: 'HD-4P-2026-0007',
+        contractStatus: 'PENDING_PAYMENT',
+        memberCount: 2,
+      },
+      patientCount: 2,
+    };
+
+    renderShell();
+    await userEvent.click(screen.getByRole('button', { name: 'Bật hoặc tắt thanh điều hướng' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sidebar-family-gate-notice')).toBeInTheDocument();
+    });
+
+    const notice = screen.getByTestId('sidebar-family-gate-notice');
+    expect(
+      within(notice).getByRole('link', { name: /Theo dõi tiến trình hợp đồng/i })
+    ).toHaveAttribute('href', '/booking/payment?contractId=mc-pending-7');
+    expect(
+      within(notice).getByRole('link', { name: /Không gian chuẩn bị/i })
+    ).toHaveAttribute('href', '/onboarding');
   });
 });

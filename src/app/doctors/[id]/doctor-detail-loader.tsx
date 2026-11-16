@@ -24,10 +24,15 @@ export const getDoctorDetail = cache(
 
 export async function DoctorDetailPageContent({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams?: Promise<{ packageId?: string | string[] | undefined }>;
 }) {
   const { id } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const rawPackageId = resolvedSearchParams?.packageId;
+  const packageId = Array.isArray(rawPackageId) ? rawPackageId[0] : rawPackageId;
   let doctor: PublicDoctorDetailDto | null = null;
   let facilityItem: Facility | null = null;
 
@@ -104,5 +109,5 @@ export async function DoctorDetailPageContent({
     redirect(`/facilities/${id}`);
   }
 
-  return <DoctorDetailView initialDoctor={doctor} />;
+  return <DoctorDetailView initialDoctor={doctor} initialPackageCode={packageId} />;
 }
