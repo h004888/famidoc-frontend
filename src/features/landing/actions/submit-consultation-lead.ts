@@ -9,16 +9,32 @@ import {
 
 export interface SubmitConsultationLeadResult {
   success: boolean;
-  leadId?: string;
+  ticketId?: string;
   message?: string;
-  errors?: Record<string, string[]>;
   status?: number;
+  errors?: Record<string, string[] | undefined>;
+}
+
+interface RawConsultationResponse {
+  ticketId?: string;
+  status?: string;
+  message?: string;
+  data?: {
+    ticketId?: string;
+    status?: string;
+    message?: string;
+  };
 }
 
 export async function submitConsultationLeadAction(
   input: ConsultationLeadSchemaInput
 ): Promise<SubmitConsultationLeadResult> {
-  const validated = consultationLeadSchema.safeParse(input);
+  const normalized = {
+    ...input,
+    preferredPackageId: input.preferredPackageId || undefined,
+  };
+
+  const validated = consultationLeadSchema.safeParse(normalized);
   if (!validated.success) {
     return {
       success: false,
@@ -27,14 +43,18 @@ export async function submitConsultationLeadAction(
   }
 
   try {
-    const res = await serverClient.post<{ success: boolean; leadId: string }>(
-      '/api/v1/leads/consultation',
+    const res = await serverClient.post<RawConsultationResponse>(
+      '/api/v1/public/consultation-requests',
       validated.data
     );
 
+    const ticketId = res.data?.data?.ticketId ?? res.data?.ticketId;
+    const message = res.data?.data?.message ?? res.data?.message;
+
     return {
       success: true,
-      leadId: res.data.leadId,
+      ticketId,
+      message,
     };
   } catch (error) {
     if (error instanceof ApiError) {

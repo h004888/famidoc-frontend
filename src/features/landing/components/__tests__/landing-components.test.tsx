@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React from 'react';
 import { LandingHeader } from '../landing-header';
@@ -10,6 +10,11 @@ import { LandingProcess } from '../landing-process';
 import { LandingDoctors } from '../landing-doctors';
 import { LandingCtaBanner } from '../landing-cta-banner';
 import { LandingFooter } from '../landing-footer';
+import {
+  mockPortalMetrics,
+  mockPublicDoctors,
+  mockPublicPackages,
+} from '@/test/mocks/handlers/landing.handler';
 
 describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)', () => {
   it('UT-CMP-01: Header hiển thị đầy đủ Logo, Concierge Navigation, nút Khẩn Cấp và Auth button pair', () => {
@@ -20,8 +25,6 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
     expect(screen.getByRole('link', { name: 'Bác sĩ gia đình' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Cơ sở y tế đối tác' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Liên hệ & Tư vấn' })).toBeInTheDocument();
-    const emergencyBtn = screen.queryByRole('button', { name: /Cấp cứu: 1900 8821/i });
-    if (emergencyBtn) expect(emergencyBtn).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Đăng nhập' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Đăng ký/i })).toBeInTheDocument();
   });
@@ -40,30 +43,31 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
   it('UT-CMP-03: Hero Section hiển thị tiêu đề và nút đăng ký', () => {
     render(<LandingHero />);
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/Y học Gia đình Tận tâm/i);
-    expect(
-      screen.getByRole('link', { name: /Đăng ký Bác sĩ Riêng/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Đăng ký Bác sĩ Riêng/i })).toBeInTheDocument();
   });
 
   it('UT-CMP-04: Hero hiển thị đúng hình ảnh bác sĩ đối thoại tư gia', () => {
     render(<LandingHero />);
-    expect(screen.getByAltText(/Bác sĩ gia đình đối thoại chuyên môn tại tư gia/i)).toBeInTheDocument();
+    expect(
+      screen.getByAltText(/Bác sĩ gia đình đối thoại chuyên môn tại tư gia/i)
+    ).toBeInTheDocument();
   });
 
-  it('UT-CMP-05: Stats Banner (Chương I) hiển thị đủ 4 chuẩn mực y học gia tộc', () => {
-    render(<LandingStats />);
-    expect(screen.getByText('1.200+')).toBeInTheDocument();
-    expect(screen.getByText('Bác sĩ CCHN uy tín')).toBeInTheDocument();
+  it('UT-CMP-05: Stats Banner hiển thị số liệu thật từ Backend và fallback an toàn khi null', () => {
+    const { rerender } = render(<LandingStats metrics={mockPortalMetrics} />);
+    expect(screen.getByText('320+')).toBeInTheDocument();
+    expect(screen.getByText('48+')).toBeInTheDocument();
     expect(screen.getByText('<25 phút')).toBeInTheDocument();
-    expect(screen.getByText('Phản ứng khẩn cấp')).toBeInTheDocument();
     expect(screen.getByText('99.4%')).toBeInTheDocument();
-    expect(screen.getByText('Gia đình hài lòng')).toBeInTheDocument();
     expect(screen.getByText('100%')).toBeInTheDocument();
-    expect(screen.getByText('Ký quỹ Escrow minh bạch')).toBeInTheDocument();
+
+    rerender(<LandingStats metrics={null} />);
+    expect(screen.getByText('50.000+')).toBeInTheDocument();
+    expect(screen.getByText('1.200+')).toBeInTheDocument();
   });
 
-  it('UT-CMP-06: Packages Section render đủ 4 gói dịch vụ và đồng bộ link đăng ký theo packageId', () => {
-    render(<LandingPackages />);
+  it('UT-CMP-06: Packages Section render đủ 4 gói từ Backend và truyền UUID vào packageId', () => {
+    render(<LandingPackages packages={mockPublicPackages} />);
     expect(screen.getByText('Gói Trải Nghiệm')).toBeInTheDocument();
     expect(screen.getByText('Gói Đồng Hành')).toBeInTheDocument();
     expect(screen.getByText('Gói An Tâm')).toBeInTheDocument();
@@ -77,13 +81,17 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
 
     const registerButtons = screen.getAllByRole('link', { name: /Chọn gói này|Đăng ký ngay/i });
     expect(registerButtons).toHaveLength(4);
-    expect(registerButtons[0]).toHaveAttribute('href', '/register?packageId=BASIC');
-    expect(registerButtons[1]).toHaveAttribute('href', '/register?packageId=FAMILY');
-    expect(registerButtons[2]).toHaveAttribute('href', '/register?packageId=ELDERLY');
-    expect(registerButtons[3]).toHaveAttribute('href', '/register?packageId=ROYAL');
+    expect(registerButtons[0]).toHaveAttribute(
+      'href',
+      '/register?packageId=10000000-0000-4000-8000-000000000001'
+    );
+    expect(registerButtons[1]).toHaveAttribute(
+      'href',
+      '/register?packageId=20000000-0000-4000-8000-000000000002'
+    );
   });
 
-  it('UT-CMP-07: Process Section (Chương II) render đủ 3 trụ cột chăm sóc độc bản chuẩn La Mã', () => {
+  it('UT-CMP-07: Process Section render đủ trụ cột chăm sóc', () => {
     render(<LandingProcess />);
     expect(screen.getByText('Chương II · The Three Pillars')).toBeInTheDocument();
     expect(screen.getByText('Ba Trụ Cột Chăm Sóc Độc Bản')).toBeInTheDocument();
@@ -92,35 +100,58 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
     expect(screen.getByText(/Biên Niên Sử Y Bạ Gia Tộc/i)).toBeInTheDocument();
   });
 
-  it('UT-CMP-08: Doctors Bento Grid hiển thị đầy đủ bác sĩ và testimonial', () => {
-    render(<LandingDoctors />);
+  it('UT-CMP-08: Doctors Grid hiển thị bác sĩ từ Backend và link tổng số bác sĩ', () => {
+    render(<LandingDoctors doctors={mockPublicDoctors} totalDoctors={48} />);
     expect(screen.getByText('ĐỘI NGŨ CHUYÊN GIA HÀNG ĐẦU')).toBeInTheDocument();
     expect(screen.getByText(/PGS.TS Nguyễn Trọng Nghĩa/i)).toBeInTheDocument();
     expect(screen.getByText(/BSCKII Trần Mai Phương/i)).toBeInTheDocument();
-    expect(screen.getByText(/Anh Lê Hoàng Nam/i)).toBeInTheDocument();
-    expect(screen.getByText(/Xem toàn bộ 1.200\+ bác sĩ/i)).toBeInTheDocument();
-  });
-
-  it('UT-CMP-08a: Link "Xem toàn bộ 1.200+ bác sĩ" trên LandingDoctors trỏ về /doctors', () => {
-    render(<LandingDoctors />);
+    expect(screen.getByText(/ThS.BS Lê Hoàng Nam/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /Xem toàn bộ 1\.200\+ bác sĩ/i })
+      screen.getByRole('link', { name: /Xem toàn bộ 48 bác sĩ/i })
     ).toHaveAttribute('href', '/doctors');
   });
 
-  it('UT-CMP-09: Bấm nút "Đặt lịch khám" trên thẻ bác sĩ mở Dialog và đóng an toàn bằng Escape', async () => {
-    const user = userEvent.setup();
-    render(<LandingDoctors />);
-    const links = screen.getAllByRole('link', { name: /xem hồ sơ chi tiết/i });
-    expect(links.length).toBeGreaterThanOrEqual(3);
-    expect(links[0]).toHaveAttribute('href', '/doctors/doc-01');
+  it('UT-CMP-08a: Doctors Grid hiển thị trạng thái rỗng thân thiện khi không có bác sĩ', () => {
+    render(<LandingDoctors doctors={[]} totalDoctors={0} />);
+    expect(screen.getByText(/Danh sách bác sĩ tiêu biểu đang được cập nhật/i)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Khám phá danh bạ bác sĩ/i })).toHaveAttribute(
+      'href',
+      '/doctors'
+    );
   });
 
-  it('UT-CMP-10: CTA Banner render tiêu đề kêu gọi và nút Hotline', () => {
-    render(<LandingCtaBanner />);
-    expect(screen.getByText('Trao Gửi Sức Khỏe Gia Đình Cho Bác Sĩ Tận Tâm Hôm Nay')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Đăng ký tư vấn miễn phí/i })).toBeInTheDocument();
+  it('UT-CMP-09: Link "Xem hồ sơ chi tiết" trên thẻ bác sĩ trỏ tới UUID thật', () => {
+    render(<LandingDoctors doctors={mockPublicDoctors} totalDoctors={48} />);
+    const links = screen.getAllByRole('link', { name: /xem hồ sơ chi tiết/i });
+    expect(links).toHaveLength(3);
+    expect(links[0]).toHaveAttribute(
+      'href',
+      '/doctors/11111111-1111-4111-8111-111111111111'
+    );
+  });
+
+  it('UT-CMP-10: CTA Banner render form đầy đủ trường và gửi thành công trả về ticketId', async () => {
+    const user = userEvent.setup();
+    render(<LandingCtaBanner packages={mockPublicPackages} />);
+
+    expect(
+      screen.getByText('Trao Gửi Sức Khỏe Gia Đình Cho Bác Sĩ Tận Tâm Hôm Nay')
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Hotline: 1900 8821/i })).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText(/Họ và tên người đại diện/i), 'Nguyễn Văn Minh');
+    await user.type(screen.getByLabelText(/Số điện thoại liên hệ/i), '0987654321');
+    await user.type(screen.getByLabelText(/Email nhận phản hồi/i), 'minh@famidoc.vn');
+    await user.type(
+      screen.getByLabelText(/Nhu cầu chăm sóc sức khỏe gia đình/i),
+      'Gia đình có bố mẹ lớn tuổi cần theo dõi định kỳ.'
+    );
+
+    await user.click(screen.getByRole('button', { name: /Đăng ký tư vấn miễn phí/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent(/CRQ-TEST-999/);
+    });
   });
 
   it('UT-CMP-11: Footer render dạng thanh ngang tinh gọn với tiêu chuẩn BYT và HIPAA', () => {
@@ -134,17 +165,17 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
     expect(screen.getByRole('link', { name: /Đường dây nóng: 1900 8821/i })).toBeInTheDocument();
   });
 
-  it('standardizes typography across LandingStats, LandingPackages, LandingProcess, LandingDoctors (tabular-nums without tracking-wide)', () => {
+  it('standardizes typography across LandingStats, LandingPackages, LandingProcess, LandingDoctors', () => {
     const { container } = render(
       <>
-        <LandingStats />
-        <LandingPackages />
+        <LandingStats metrics={mockPortalMetrics} />
+        <LandingPackages packages={mockPublicPackages} />
         <LandingProcess />
-        <LandingDoctors />
+        <LandingDoctors doctors={mockPublicDoctors} totalDoctors={48} />
       </>
     );
     expect(container.innerHTML).not.toMatch(/\bfont-mono\b/);
-    expect(screen.getByText('1.200+')).toHaveClass('tabular-nums');
+    expect(screen.getByText('48+')).toHaveClass('tabular-nums');
     expect(screen.getByText('1.000.000đ')).toHaveClass('tabular-nums');
   });
 });
