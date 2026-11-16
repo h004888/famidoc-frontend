@@ -4,6 +4,58 @@ export interface StatItem {
   label: string;
 }
 
+export interface LandingPortalMetrics {
+  totalPartnerFacilities: number;
+  totalDoctors: number;
+  totalActivePackages: number;
+  totalFamiliesServed: number;
+}
+
+export interface LandingDoctorFacility {
+  id: string;
+  facilityName: string;
+  address?: string;
+  hotline?: string;
+}
+
+export interface LandingDoctorItem {
+  id: string;
+  doctorName: string;
+  specialty: string;
+  academicTitle?: string | null;
+  experienceYears?: number;
+  bio?: string | null;
+  ratingAvg?: number;
+  totalReviews?: number;
+  isAvailable?: boolean;
+  avatarUrl?: string | null;
+  facility?: LandingDoctorFacility | null;
+}
+
+export interface LandingPackageItem {
+  id: string;
+  packageCode: string;
+  packageName: string;
+  durationMonths: number;
+  basePrice: number;
+  periodicVisitsQuota: number;
+  telehealthQuota: number;
+  videoQuotaPolicy?: string | null;
+  homeVisitUnitPriceVnd?: number;
+  maxMembers: number;
+  includedMembers?: number;
+  additionalMemberMonthlyPrice?: number;
+  quotaPeriod?: string | null;
+  description: string;
+}
+
+export interface HomePageData {
+  metrics: LandingPortalMetrics | null;
+  doctors: LandingDoctorItem[];
+  totalDoctors: number;
+  packages: LandingPackageItem[];
+}
+
 export interface DoctorCardData {
   id: string;
   name: string;
@@ -47,13 +99,14 @@ export type PackageInterest = 'BASIC' | 'FAMILY' | 'ELDERLY' | 'VIP';
 
 export interface ConsultationLeadInput {
   fullName: string;
-  phoneNumber: string;
-  packageInterest: PackageInterest;
-  notes?: string;
+  phone: string;
+  email: string;
+  healthNeeds: string;
+  preferredPackageId?: string;
 }
 
 export interface ConsultationLeadResponse {
   success: boolean;
-  leadId?: string;
+  ticketId?: string;
   message?: string;
 }

@@ -54,8 +54,12 @@ class HttpClient {
     return this.token;
   }
 
-  private buildUrl(path: string, params?: Record<string, string | number | boolean | undefined>): string {
-    const url = new URL(path.startsWith('http') ? path : `${this.baseUrl}${path}`);
+  private buildUrl(
+    path: string,
+    params?: Record<string, string | number | boolean | undefined>,
+    baseUrl: string = this.baseUrl
+  ): string {
+    const url = new URL(path.startsWith('http') ? path : `${baseUrl}${path}`);
     if (params) {
       Object.entries(params).forEach(([key, val]) => {
         if (val !== undefined && val !== null) {
@@ -83,10 +87,28 @@ class HttpClient {
     }
 
     try {
-      const res = await fetch(url, {
-        ...options,
-        headers,
-      });
+      let res: Response;
+      try {
+        res = await fetch(url, {
+          ...options,
+          headers,
+        });
+      } catch (networkErr) {
+        const fallbackBase = process.env.NEXT_PUBLIC_API_URL;
+        const canFallback =
+          typeof window === 'undefined' &&
+          !path.startsWith('http') &&
+          Boolean(fallbackBase) &&
+          fallbackBase !== this.baseUrl;
+        if (!canFallback || !fallbackBase) {
+          throw networkErr;
+        }
+        const fallbackUrl = this.buildUrl(path, params, fallbackBase);
+        res = await fetch(fallbackUrl, {
+          ...options,
+          headers,
+        });
+      }
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));

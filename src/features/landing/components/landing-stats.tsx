@@ -1,20 +1,38 @@
 'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
+import type { LandingPortalMetrics } from '../types';
 
-export function LandingStats() {
+export interface LandingStatsProps {
+  metrics?: LandingPortalMetrics | null;
+}
+
+const DEFAULT_FAMILIES = 50000;
+const DEFAULT_DOCTORS = 1200;
+
+export function LandingStats({ metrics }: LandingStatsProps = {}) {
+  const targetFamilies = metrics?.totalFamiliesServed ?? DEFAULT_FAMILIES;
+  const targetDoctors = metrics?.totalDoctors ?? DEFAULT_DOCTORS;
+
   const sectionRef = useRef<HTMLElement>(null);
   const [hasAnimated, setHasAnimated] = useState(false);
   const [counts, setCounts] = useState({
-    families: 50000,
-    doctors: 1200,
+    families: targetFamilies,
+    doctors: targetDoctors,
     minutes: 25,
     escrow: 100,
     satisfaction: 99.4,
   });
 
   useEffect(() => {
-    // Only run animated counter in browser (not in test runner)
+    setCounts((prev) => ({
+      ...prev,
+      families: targetFamilies,
+      doctors: targetDoctors,
+    }));
+  }, [targetFamilies, targetDoctors]);
+
+  useEffect(() => {
     if (typeof window === 'undefined' || process.env.NODE_ENV === 'test') {
       return;
     }
@@ -25,18 +43,17 @@ export function LandingStats() {
         if (entry?.isIntersecting && !hasAnimated) {
           setHasAnimated(true);
 
-          const duration = 1800; // ms
+          const duration = 1800;
           const startTime = performance.now();
 
           const animate = (currentTime: number) => {
             const elapsed = currentTime - startTime;
             const progress = Math.min(elapsed / duration, 1);
-            // Ease-out cubic
             const ease = 1 - Math.pow(1 - progress, 3);
 
             setCounts({
-              families: Math.floor(ease * 50000),
-              doctors: Math.floor(ease * 1200),
+              families: Math.floor(ease * targetFamilies),
+              doctors: Math.floor(ease * targetDoctors),
               minutes: Math.max(5, Math.floor(ease * 25)),
               escrow: Math.floor(ease * 100),
               satisfaction: +(ease * 99.4).toFixed(1),
@@ -46,8 +63,8 @@ export function LandingStats() {
               requestAnimationFrame(animate);
             } else {
               setCounts({
-                families: 50000,
-                doctors: 1200,
+                families: targetFamilies,
+                doctors: targetDoctors,
                 minutes: 25,
                 escrow: 100,
                 satisfaction: 99.4,
@@ -55,7 +72,6 @@ export function LandingStats() {
             }
           };
 
-          // Reset to 0 briefly and animate up
           setCounts({ families: 0, doctors: 0, minutes: 0, escrow: 0, satisfaction: 0 });
           requestAnimationFrame(animate);
         }
@@ -69,16 +85,16 @@ export function LandingStats() {
     return () => {
       if (currentRef) observer.unobserve(currentRef);
     };
-  }, [hasAnimated]);
+  }, [hasAnimated, targetFamilies, targetDoctors]);
 
   const formatFamilies = () => {
-    if (!hasAnimated && process.env.NODE_ENV !== 'test') return '50.000+';
-    return `${counts.families.toLocaleString('vi-VN')}+`;
+    const val = !hasAnimated && process.env.NODE_ENV !== 'test' ? targetFamilies : counts.families;
+    return `${val.toLocaleString('vi-VN')}+`;
   };
 
   const formatDoctors = () => {
-    if (!hasAnimated && process.env.NODE_ENV !== 'test') return '1.200+';
-    return `${counts.doctors.toLocaleString('vi-VN')}+`;
+    const val = !hasAnimated && process.env.NODE_ENV !== 'test' ? targetDoctors : counts.doctors;
+    return `${val.toLocaleString('vi-VN')}+`;
   };
 
   const formatMinutes = () => {
@@ -103,7 +119,6 @@ export function LandingStats() {
     >
       <div className="bg-white rounded-2xl shadow-[0_10px_35px_0_rgba(0,0,0,0.08)] border border-slate-100 p-6 sm:p-8">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
-          {/* Stat 1: 50.000+ */}
           <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-1 transition-all duration-300 group cursor-default">
             <div className="flex items-center gap-2.5 text-slate-500 mb-2">
               <span className="material-symbols-outlined text-xl text-blue-700 group-hover:scale-110 transition-transform">
@@ -116,7 +131,6 @@ export function LandingStats() {
             </div>
           </div>
 
-          {/* Stat 2: 1.200+ Bác sĩ CCHN */}
           <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-blue-300 hover:shadow-md hover:-translate-y-1 transition-all duration-300 group cursor-default">
             <div className="flex items-center gap-2.5 text-slate-500 mb-2">
               <span className="material-symbols-outlined text-xl text-blue-700 group-hover:scale-110 transition-transform">
@@ -129,7 +143,6 @@ export function LandingStats() {
             </div>
           </div>
 
-          {/* Stat 3: <25 phút Phản ứng khẩn cấp */}
           <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-rose-300 hover:shadow-md hover:-translate-y-1 transition-all duration-300 group cursor-default">
             <div className="flex items-center gap-2.5 text-slate-500 mb-2">
               <span className="material-symbols-outlined text-xl text-rose-700 group-hover:scale-110 transition-transform">
@@ -142,7 +155,6 @@ export function LandingStats() {
             </div>
           </div>
 
-          {/* Stat 4: 100% Ký quỹ Escrow */}
           <div className="p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-emerald-300 hover:shadow-md hover:-translate-y-1 transition-all duration-300 group cursor-default">
             <div className="flex items-center gap-2.5 text-slate-500 mb-2">
               <span className="material-symbols-outlined text-xl text-emerald-700 group-hover:scale-110 transition-transform">
@@ -155,7 +167,6 @@ export function LandingStats() {
             </div>
           </div>
 
-          {/* Stat 5: 99.4% Gia đình hài lòng */}
           <div className="col-span-2 md:col-span-1 p-4 sm:p-5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-amber-300 hover:shadow-md hover:-translate-y-1 transition-all duration-300 group cursor-default">
             <div className="flex items-center gap-2.5 text-slate-500 mb-2">
               <span className="material-symbols-outlined text-xl text-amber-700 group-hover:scale-110 transition-transform">
@@ -171,7 +182,7 @@ export function LandingStats() {
 
         <div className="mt-4 pt-3 border-t border-slate-100 text-center">
           <p className="text-[11px] text-slate-400">
-            * Dữ liệu thống kê và kiểm định chất lượng định kỳ Quý 3/2026 từ hệ thống FamiDoc Network.
+            * Dữ liệu thống kê và kiểm định chất lượng định kỳ từ hệ thống FamiDoc Network.
           </p>
         </div>
       </div>

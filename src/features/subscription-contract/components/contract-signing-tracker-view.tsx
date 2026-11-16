@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
   DocumensoSigningEmbed,
+  openSignedPdf,
   type ContractStatus,
 } from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
@@ -30,6 +31,12 @@ export interface TrackedContract {
   status: ContractStatus;
   signedRoles?: BackendSignerRole[];
   signedPdfUrl?: string | null;
+  documensoItemId?: string | null;
+  /**
+   * Hợp đồng đã gắn bản Documenso (có `documensoItemId` hoặc `signedPdfUrl`)
+   * nên có thể tải PDF đã ký 4 bên từ endpoint proxy.
+   */
+  hasDocumensoPdf?: boolean;
   signatures?: {
     family?: { signedAt: string; signer: string };
     platform?: { signedAt?: string; signer?: string };
@@ -94,6 +101,8 @@ const mapContractDetail = (dto: MedicalContractDetailDto): TrackedContract => {
     status: mapContractStatus(dto.contractStatus, signedRoles),
     signedRoles,
     signedPdfUrl: dto.signedPdfUrl ?? null,
+    documensoItemId: dto.documensoItemId ?? null,
+    hasDocumensoPdf: Boolean(dto.documensoItemId) || Boolean(dto.signedPdfUrl),
   };
 };
 
@@ -170,6 +179,8 @@ export function ContractSigningTrackerView({
   );
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
+  const [isOpeningPdf, setIsOpeningPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
 
   if (contract !== prevContract) {
     setPrevContract(contract);
@@ -231,6 +242,27 @@ export function ContractSigningTrackerView({
     }, pollingIntervalMs);
     return () => clearInterval(timer);
   }, [pollingIntervalMs, handleRefresh]);
+
+  const handleViewSignedPdf = useCallback(async () => {
+    const targetId = currentContract?.id ?? contractId;
+    if (!targetId) {
+      setPdfError('Chưa xác định được hợp đồng cần tải bản PDF đã ký.');
+      return;
+    }
+    setIsOpeningPdf(true);
+    setPdfError(null);
+    try {
+      await openSignedPdf(targetId);
+    } catch (error) {
+      setPdfError(
+        error instanceof Error
+          ? error.message
+          : 'Không thể tải tệp PDF đã ký từ máy chủ. Vui lòng thử lại.'
+      );
+    } finally {
+      setIsOpeningPdf(false);
+    }
+  }, [contractId, currentContract?.id]);
 
   const handlePaymentClick = () => {
     if (onProceedPayment) {
@@ -347,6 +379,53 @@ export function ContractSigningTrackerView({
   const isActive = currentStatus === 'ACTIVE';
   const isAwaitingSignatures =
     !isPaymentReady && !isActive && currentStatus !== 'CANCELLED';
+  /** Chỉ hiển thị nút tải PDF khi hợp đồng đã gắn bản Documenso (đủ 4/4 chữ ký). */
+  const canViewSignedPdf = Boolean(
+    currentContract.hasDocumensoPdf ||
+      currentContract.signedPdfUrl ||
+      currentContract.documensoItemId
+  );
+
+  const signedPdfAction =
+    isPaymentReady || isActive ? (
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => void handleViewSignedPdf()}
+          disabled={isOpeningPdf}
+          data-testid="tracker-view-signed-pdf"
+          className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all whitespace-nowrap disabled:opacity-50 cursor-pointer ${
+            isActive
+              ? 'bg-white border border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+              : 'bg-white border border-primary/30 text-primary hover:bg-primary/10'
+          }`}
+        >
+          <span className="material-symbols-outlined text-[18px]">
+            {isOpeningPdf ? 'progress_activity' : 'picture_as_pdf'}
+          </span>
+          <span>{isOpeningPdf ? 'Đang mở PDF...' : 'Xem PDF đã ký 4 bên'}</span>
+        </button>
+        {pdfError && (
+          <div
+            role="alert"
+            data-testid="tracker-view-signed-pdf-error"
+            className="flex flex-wrap items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800"
+          >
+            <span className="material-symbols-outlined text-[14px]">error</span>
+            <span className="min-w-0 flex-1">{pdfError}</span>
+            <button
+              type="button"
+              onClick={() => void handleViewSignedPdf()}
+              disabled={isOpeningPdf}
+              data-testid="tracker-view-signed-pdf-retry"
+              className="inline-flex items-center rounded-md border border-rose-300 bg-white px-2.5 py-1 text-xs font-semibold text-rose-900 hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
+            >
+              Thử lại
+            </button>
+          </div>
+        )}
+      </div>
+    ) : null;
 
   return (
     <div className="w-full max-w-5xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
@@ -486,14 +565,17 @@ export function ContractSigningTrackerView({
             </p>
           </div>
 
-          <Button
-            type="button"
-            onClick={handlePaymentClick}
-            className="h-auto px-6 py-3 rounded-xl text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0"
-          >
-            <span className="material-symbols-outlined text-[18px]">qr_code_2</span>
-            <span>Thanh toán VietQR ngay</span>
-          </Button>
+          <div className="flex flex-col sm:items-end gap-2 shrink-0">
+            <Button
+              type="button"
+              onClick={handlePaymentClick}
+              className="h-auto px-6 py-3 rounded-xl text-xs sm:text-sm font-bold gap-2 whitespace-nowrap shrink-0"
+            >
+              <span className="material-symbols-outlined text-[18px]">qr_code_2</span>
+              <span>Thanh toán VietQR ngay</span>
+            </Button>
+            {canViewSignedPdf && signedPdfAction}
+          </div>
         </div>
       )}
 
@@ -530,6 +612,7 @@ export function ContractSigningTrackerView({
               <span className="material-symbols-outlined text-[18px]">description</span>
               <span>Xem bản sao hợp đồng</span>
             </Link>
+            {canViewSignedPdf && signedPdfAction}
           </div>
         </div>
       )}

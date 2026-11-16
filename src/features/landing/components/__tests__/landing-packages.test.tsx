@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { LandingPackages } from '../landing-packages';
+import { mockPublicPackages } from '@/test/mocks/handlers/landing.handler';
 
 let mockIsAuthenticated = false;
 
@@ -31,8 +32,8 @@ describe('LandingPackages', () => {
     mockIsAuthenticated = false;
   });
 
-  it('đưa người dùng chưa đăng nhập tới /register?packageId=... và không trỏ vào /family/subscription', () => {
-    render(<LandingPackages />);
+  it('đưa người dùng chưa đăng nhập tới /register?packageId=<uuid>', () => {
+    render(<LandingPackages packages={mockPublicPackages} />);
 
     const links = screen.getAllByRole('link');
     const packageLinks = links.filter((el) =>
@@ -40,19 +41,16 @@ describe('LandingPackages', () => {
     );
 
     expect(packageLinks.map((el) => el.getAttribute('href'))).toEqual([
-      '/register?packageId=BASIC',
-      '/register?packageId=FAMILY',
-      '/register?packageId=ELDERLY',
-      '/register?packageId=ROYAL',
+      '/register?packageId=10000000-0000-4000-8000-000000000001',
+      '/register?packageId=20000000-0000-4000-8000-000000000002',
+      '/register?packageId=30000000-0000-4000-8000-000000000003',
+      '/register?packageId=40000000-0000-4000-8000-000000000004',
     ]);
-    for (const link of links) {
-      expect(link.getAttribute('href')).not.toContain('/family/subscription');
-    }
   });
 
-  it('đưa người dùng đã đăng nhập tới /doctors?packageId=... để chọn bác sĩ trước khi đặt gói', () => {
+  it('đưa người dùng đã đăng nhập tới /doctors?packageId=<uuid> để chọn bác sĩ trước khi đặt gói', () => {
     mockIsAuthenticated = true;
-    render(<LandingPackages />);
+    render(<LandingPackages packages={mockPublicPackages} />);
 
     const links = screen.getAllByRole('link');
     const doctorLinks = links.filter((el) =>
@@ -60,13 +58,18 @@ describe('LandingPackages', () => {
     );
 
     expect(doctorLinks.map((el) => el.getAttribute('href'))).toEqual([
-      '/doctors?packageId=BASIC',
-      '/doctors?packageId=FAMILY',
-      '/doctors?packageId=ELDERLY',
-      '/doctors?packageId=ROYAL',
+      '/doctors?packageId=10000000-0000-4000-8000-000000000001',
+      '/doctors?packageId=20000000-0000-4000-8000-000000000002',
+      '/doctors?packageId=30000000-0000-4000-8000-000000000003',
+      '/doctors?packageId=40000000-0000-4000-8000-000000000004',
     ]);
-    for (const link of links) {
-      expect(link.getAttribute('href')).not.toContain('/family/subscription');
-    }
+  });
+
+  it('hiển thị trạng thái rỗng an toàn khi không có gói nào từ Backend', () => {
+    render(<LandingPackages packages={[]} />);
+    expect(screen.getByRole('link', { name: /Xem tất cả gói dịch vụ/i })).toHaveAttribute(
+      'href',
+      '/packages'
+    );
   });
 });

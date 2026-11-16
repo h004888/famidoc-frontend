@@ -7,17 +7,24 @@ export const consultationLeadSchema = z.object({
     .string()
     .trim()
     .min(2, 'Họ tên tối thiểu 2 ký tự')
-    .max(70, 'Họ tên tối đa 70 ký tự'),
-  phoneNumber: z
+    .max(100, 'Họ tên tối đa 100 ký tự'),
+  phone: z
     .string()
     .trim()
     .regex(VIETNAM_PHONE_REGEX, 'Số điện thoại không hợp lệ'),
-  packageInterest: z.enum(['BASIC', 'FAMILY', 'ELDERLY', 'VIP'], {
-    message: 'Gói dịch vụ quan tâm không hợp lệ',
-  }),
-  notes: z
+  email: z
     .string()
-    .max(255, 'Ghi chú tối đa 255 ký tự')
+    .trim()
+    .min(1, 'Email không được để trống')
+    .email('Định dạng email không hợp lệ'),
+  healthNeeds: z
+    .string()
+    .trim()
+    .min(10, 'Vui lòng mô tả nhu cầu tối thiểu 10 ký tự')
+    .max(1000, 'Nội dung nhu cầu tối đa 1000 ký tự'),
+  preferredPackageId: z
+    .string()
+    .uuid('ID gói chăm sóc phải là UUID hợp lệ')
     .optional(),
 });
 
