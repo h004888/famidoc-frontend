@@ -523,12 +523,22 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
               Cần kích hoạt gói chăm sóc &amp; hợp đồng ACTIVE để mở khóa các mục quản lý gia đình.
             </p>
             <Link
-              href={unlockTargetHref}
+              href={gateStatus?.pendingContract ? unlockTargetHref : '/onboarding'}
               onClick={() => setMobileMenuOpen(false)}
               className="inline-flex w-full items-center justify-center rounded-lg bg-primary px-3 py-1.5 font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               {gateStatus?.pendingContract ? 'Theo dõi tiến trình hợp đồng' : 'Chọn bác sĩ & gói ngay'}
             </Link>
+            {gateStatus?.pendingContract && (
+              <Link
+                href="/onboarding"
+                onClick={() => setMobileMenuOpen(false)}
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-amber-300 bg-white/70 px-3 py-1.5 font-semibold text-amber-900 transition-colors hover:bg-white"
+              >
+                <span className="material-symbols-outlined text-[15px]">home_health</span>
+                <span>Không gian chuẩn bị</span>
+              </Link>
+            )}
           </div>
         )}
 

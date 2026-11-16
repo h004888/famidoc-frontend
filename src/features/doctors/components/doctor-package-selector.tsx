@@ -12,6 +12,26 @@ export interface DoctorPackageSelectorProps {
   isAvailable: boolean;
   facilityId: string | null;
   carePackages: PublicDoctorCarePackageDto[];
+  /** Mã gói người dùng đã chọn trước đó (ví dụ từ `/doctors?packageId=BASIC`). */
+  initialPackageCode?: string | null;
+}
+
+/**
+ * Tìm gói khớp `packageCode` hoặc `id` (không phân biệt hoa/thường) để pre-select.
+ */
+export function resolveInitialPackageId(
+  carePackages: PublicDoctorCarePackageDto[],
+  initialPackageCode?: string | null
+): string {
+  const wanted = (initialPackageCode ?? '').trim().toLowerCase();
+  if (wanted) {
+    const matched = carePackages.find(
+      (pkg) =>
+        pkg.packageCode.toLowerCase() === wanted || pkg.id.toLowerCase() === wanted
+    );
+    if (matched) return matched.id;
+  }
+  return carePackages[0]?.id ?? '';
 }
 
 export function clampSelectorMemberCount(
@@ -62,9 +82,10 @@ export function DoctorPackageSelector({
   isAvailable,
   facilityId,
   carePackages,
+  initialPackageCode,
 }: DoctorPackageSelectorProps) {
   const [selectedPackageId, setSelectedPackageId] = useState<string>(
-    carePackages[0]?.id ?? ''
+    resolveInitialPackageId(carePackages, initialPackageCode)
   );
   const initialPackage =
     carePackages.find((pkg) => pkg.id === selectedPackageId) ?? carePackages[0];

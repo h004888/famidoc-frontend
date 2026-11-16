@@ -356,7 +356,21 @@ const MOCK_FACILITIES: Facility[] = [
   },
 ];
 
-export function DoctorDirectoryView() {
+export interface DoctorDirectoryViewProps {
+  /**
+   * Mã gói người dùng đã chọn từ `/packages` (`/doctors?packageId=<code>`).
+   * Dùng để hiển thị banner ngữ cảnh và truyền tiếp sang hồ sơ bác sĩ.
+   */
+  packageId?: string | null;
+}
+
+export function buildDoctorHref(doctorId: string, packageId?: string | null): string {
+  const base = `/doctors/${doctorId}`;
+  const code = (packageId ?? '').trim();
+  return code ? `${base}?packageId=${encodeURIComponent(code)}` : base;
+}
+
+export function DoctorDirectoryView({ packageId = null }: DoctorDirectoryViewProps = {}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
@@ -447,6 +461,7 @@ export function DoctorDirectoryView() {
       <DoctorDetailView
         id={selectedDetailId}
         type="doctor"
+        initialPackageCode={packageId}
         onBack={() => {
           setSelectedDetailId(null);
         }}
@@ -484,6 +499,30 @@ export function DoctorDirectoryView() {
             </nav>
           </div>
         </section>
+
+        {/* Banner ngữ cảnh gói đã chọn từ /packages */}
+        {packageId && (
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+            <div
+              data-testid="selected-package-banner"
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-xs sm:text-sm text-[#0046c0]"
+            >
+              <div className="flex items-start gap-2">
+                <span className="material-symbols-outlined text-[20px] shrink-0">inventory_2</span>
+                <span>
+                  Bạn đang chọn <strong>gói {packageId}</strong>. Chọn Bác sĩ Gia đình phụ trách để
+                  tiếp tục ký hợp đồng và thanh toán.
+                </span>
+              </div>
+              <Link
+                href="/packages"
+                className="shrink-0 font-semibold underline underline-offset-2 hover:text-[#003899]"
+              >
+                Đổi gói khác
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* 3. MEDSEV DOCTOR SEARCH AREA (Matching .doctor-search-area in doctor.html) */}
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 -mt-14 sm:-mt-16 relative z-20">
@@ -646,7 +685,7 @@ export function DoctorDirectoryView() {
                           {/* Hover Slide-up Button Overlay */}
                           <div className="absolute inset-0 bg-[#0046c0]/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end justify-center pb-5">
                             <Link
-                              href={`/doctors/${doc.id}`}
+                              href={buildDoctorHref(doc.id, packageId)}
                               className="bg-white hover:bg-slate-900 text-[#0046c0] hover:text-white font-semibold text-xs sm:text-sm py-2.5 px-6 rounded-lg shadow-lg transition-all duration-300 transform translate-y-3 group-hover:translate-y-0 cursor-pointer flex items-center gap-1.5"
                             >
                               <span className="material-symbols-outlined text-base">calendar_month</span>
@@ -662,7 +701,7 @@ export function DoctorDirectoryView() {
                               {doc.title}
                             </div>
                             <Link
-                              href={`/doctors/${doc.id}`}
+                              href={buildDoctorHref(doc.id, packageId)}
                               className="font-bold text-xl text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer block"
                             >
                               {doc.name}
@@ -682,14 +721,14 @@ export function DoctorDirectoryView() {
                             </span>
                             <div className="flex items-center gap-2">
                               <Link
-                                href={`/doctors/${doc.id}`}
+                                href={buildDoctorHref(doc.id, packageId)}
                                 className="font-semibold text-slate-500 hover:text-slate-800"
                               >
                                 Chi tiết
                               </Link>
                               <span className="text-slate-300">•</span>
                               <Link
-                                href={`/family/subscription/new?doctorId=${doc.id}`}
+                                href={buildDoctorHref(doc.id, packageId)}
                                 className="font-bold text-[#0046c0] hover:underline cursor-pointer"
                               >
                                 Đăng ký Bác sĩ →

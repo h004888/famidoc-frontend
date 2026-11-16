@@ -7,6 +7,7 @@ import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-con
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { ROLE_MENUS, getRoleFromPathname } from './dashboard-sidebar';
 import { DashboardTopbarUser } from './dashboard-topbar-user';
+import { useFamilySubscriptionGateState } from './family-subscription-gate';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Separator } from '@/components/ui/separator';
 import {
@@ -34,6 +35,7 @@ export interface SiteHeaderProps {
 export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
   const pathname = usePathname() || '/family';
   const { role } = useAuth();
+  const { isFamilyLocked, gateStatus, unlockTargetHref } = useFamilySubscriptionGateState();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -43,7 +45,16 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
   const pathRole = getRoleFromPathname(pathname);
   const effectiveRole: LoginRole = pathRole || initialRole || (mounted ? role : 'FAMILY');
   const menuConfig = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
-  const homePath = getDefaultPathForRole(effectiveRole);
+  /**
+   * Khi tài khoản gia đình chưa kích hoạt gói và đang ở khung dashboard, breadcrumb
+   * "Trang chủ" trỏ về `/onboarding` của vai trò. Nếu đang chờ ký/thanh toán thì trỏ
+   * về đúng bước `/booking/...` để người dùng tiếp tục luồng nghiệp vụ.
+   */
+  const familyGateHomePath = gateStatus?.pendingContract?.id ? unlockTargetHref : '/onboarding';
+  const homePath =
+    isFamilyLocked && (effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT')
+      ? familyGateHomePath
+      : getDefaultPathForRole(effectiveRole);
 
   const matchedItem =
     menuConfig.items.find((item) => item.href === pathname) ||

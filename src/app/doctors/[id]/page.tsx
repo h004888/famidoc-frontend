@@ -30,8 +30,10 @@ export async function generateMetadata({
 
 export default function DoctorDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ packageId?: string | string[] }>;
 }) {
   return (
     <Suspense
@@ -41,7 +43,7 @@ export default function DoctorDetailPage({
         </div>
       }
     >
-      <DoctorDetailPageContent params={params} />
+      <DoctorDetailPageContent params={params} searchParams={searchParams} />
     </Suspense>
   );
 }

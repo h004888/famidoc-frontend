@@ -205,7 +205,7 @@ export function PackagesCatalogView() {
             ? 'ELDERLY'
             : 'ROYAL';
     return isAuthenticated
-      ? `/family/subscription?packageId=${code}`
+      ? `/doctors?packageId=${code}`
       : `/register?packageId=${code}`;
   };
 
