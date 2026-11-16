@@ -644,8 +644,8 @@ export const contractsApi = {
         new Date(Date.now() + 365 * 24 * 3600 * 1000 * 2).toISOString().slice(0, 10),
     };
 
-    if (payload?.facilityId && /^[0-9a-fA-F-]{36}$/.test(payload.facilityId)) {
-      cleanPayload.facilityId = payload.facilityId;
+    if (payload?.facilityId?.trim()) {
+      cleanPayload.facilityId = payload.facilityId.trim();
     }
 
     return httpClient.post('/api/v1/contracts/staffing', cleanPayload);

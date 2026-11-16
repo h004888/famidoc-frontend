@@ -8,6 +8,7 @@ import {
   type FourPartyContract,
 } from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
+import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -49,23 +50,101 @@ export function AdminContractsView() {
 
   // B2B Staffing Contract Draft Modal (Flow 2.1)
   const [showCreateB2BModal, setShowCreateB2BModal] = useState(false);
-  const [newFacilityName, setNewFacilityName] = useState('');
+  const [facilitiesList, setFacilitiesList] = useState<AdminFacilityItem[]>([]);
+  const [isLoadingFacilities, setIsLoadingFacilities] = useState(false);
+  const [selectedFacilityId, setSelectedFacilityId] = useState<string>('');
+  const [facilitySearchText, setFacilitySearchText] = useState<string>('');
+  const [isFacilityPickerOpen, setIsFacilityPickerOpen] = useState(false);
+  const [facilityFilterTab, setFacilityFilterTab] = useState<'ALL' | 'ACTIVE' | 'PENDING'>('ALL');
+  const facilityPickerRef = React.useRef<HTMLDivElement>(null);
   const [newFacilityShare, setNewFacilityShare] = useState(85);
+  const [validFromDate, setValidFromDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
+  const [validToDate, setValidToDate] = useState<string>(() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().slice(0, 10);
+  });
   const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+
+  // Click outside to close facility dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        facilityPickerRef.current &&
+        !facilityPickerRef.current.contains(event.target as Node)
+      ) {
+        setIsFacilityPickerOpen(false);
+      }
+    }
+    if (isFacilityPickerOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isFacilityPickerOpen]);
+
+  // Nạp danh sách Cơ sở y tế cho modal chọn CSYT
+  useEffect(() => {
+    if (showCreateB2BModal && facilitiesList.length === 0) {
+      setIsLoadingFacilities(true);
+      facilitiesApi
+        .getAdminFacilities({ limit: 100 })
+        .then((res) => {
+          if (res && Array.isArray(res.data)) {
+            setFacilitiesList(res.data);
+            // Ưu tiên chọn CSYT đã kích hoạt ACTIVE
+            const firstActive = res.data.find(
+              (f) => f.onboardingStatus === 'ACTIVE' || f.status === 'ACTIVE'
+            );
+            if (firstActive) {
+              setSelectedFacilityId(firstActive.id);
+            } else if (res.data.length > 0) {
+              setSelectedFacilityId(res.data[0].id);
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('Lỗi tải danh sách cơ sở y tế:', err);
+        })
+        .finally(() => {
+          setIsLoadingFacilities(false);
+        });
+    }
+  }, [showCreateB2BModal, facilitiesList.length]);
 
   const handleCreateB2BDraft = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedFacilityId) {
+      toast.error('Vui lòng chọn một Cơ sở y tế đối tác từ danh sách.');
+      return;
+    }
+    const targetFacility = facilitiesList.find((f) => f.id === selectedFacilityId);
+    if (!targetFacility) {
+      toast.error('Cơ sở y tế được chọn không tồn tại.');
+      return;
+    }
+
     setIsCreatingDraft(true);
     try {
       await contractsApi.createStaffingContract({
+        facilityId: selectedFacilityId,
         platformCommissionRate: 100 - newFacilityShare,
         facilityRevenueRate: newFacilityShare,
+        startDate: validFromDate,
+        endDate: validToDate,
       });
-      toast.success('Đã khởi tạo dự thảo hợp đồng B2B thành công trên hệ thống!');
+      toast.success(
+        `Đã khởi tạo dự thảo hợp đồng B2B với "${targetFacility.facilityName}" thành công!`
+      );
       setShowCreateB2BModal(false);
       triggerReload();
     } catch (err: any) {
-      toast.error(err?.message || 'Không thể tạo hợp đồng B2B trên máy chủ.');
+      const errorMsg =
+        err?.message ||
+        err?.response?.data?.message ||
+        'Không thể tạo hợp đồng B2B trên máy chủ.';
+      toast.error(errorMsg);
     } finally {
       setIsCreatingDraft(false);
     }
@@ -303,23 +382,22 @@ export function AdminContractsView() {
                       <TableCell className="py-3.5 px-4 text-center space-y-1">
                         <Badge
                           variant="outline"
-                          className={`rounded-full text-[11px] font-semibold ${
-                            c.status === 'ACTIVE'
+                          className={`rounded-full text-[11px] font-semibold ${c.status === 'ACTIVE'
                               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                               : familySigned
-                              ? 'bg-blue-50 text-primary border-blue-200'
-                              : 'bg-amber-50 text-amber-700 border-amber-200'
-                          }`}
+                                ? 'bg-blue-50 text-primary border-blue-200'
+                                : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}
                         >
                           {c.status === 'ACTIVE'
                             ? 'Đang hiệu lực'
                             : c.status === 'PENDING_PAYMENT'
-                            ? 'Chờ thanh toán VietQR'
-                            : !familySigned
-                            ? 'Chờ Bên A ký trước'
-                            : adminSigned
-                            ? 'Admin đã ký — chờ bên khác'
-                            : CONTRACT_STATUS_LABELS[c.status] || 'Bên A đã ký'}
+                              ? 'Chờ thanh toán VietQR'
+                              : !familySigned
+                                ? 'Chờ Bên A ký trước'
+                                : adminSigned
+                                  ? 'Admin đã ký — chờ bên khác'
+                                  : CONTRACT_STATUS_LABELS[c.status] || 'Bên A đã ký'}
                         </Badge>
                         <div className="text-[11px] text-slate-500 tabular-nums">
                           {sigCount}/4 chữ ký Documenso
@@ -412,32 +490,354 @@ export function AdminContractsView() {
         </Dialog>
         {/* Modal tạo dự thảo hợp đồng B2B nhân lực y tế (Flow 2.1) */}
         <Dialog open={showCreateB2BModal} onOpenChange={setShowCreateB2BModal}>
-          <DialogContent className="max-w-md rounded-2xl">
+          <DialogContent className="max-w-lg rounded-2xl p-6">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
                 <span className="material-symbols-outlined text-primary text-[20px]">handshake</span>
                 Thiết Lập Dự Thảo HĐ B2B Nhân Lực Y Tế
               </DialogTitle>
               <DialogDescription className="text-xs text-slate-500">
-                Flow 2.1 - Admin thiết lập dự thảo hợp đồng cung ứng nhân lực y tế với Cơ sở y tế đối tác.
+                Flow 2.1 - Admin thiết lập dự thảo hợp đồng khung cung ứng nhân lực y tế với Cơ sở y tế đối tác.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateB2BDraft} className="space-y-4 pt-2">
+              {/* Chọn Cơ sở y tế đối tác (Combobox UI cao cấp) */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Cơ sở y tế đối tác
-                </label>
-                <Input
-                  value={newFacilityName}
-                  onChange={(e) => setNewFacilityName(e.target.value)}
-                  placeholder="VD: Bệnh viện Đa khoa An Sinh"
-                  className="text-xs"
-                />
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Cơ sở y tế đối tác <span className="text-rose-500">*</span>
+                  </label>
+                  {!isLoadingFacilities && facilitiesList.length > 0 && (
+                    <span className="text-[11px] text-slate-500 font-medium">
+                      Tổng {facilitiesList.length} cơ sở y tế
+                    </span>
+                  )}
+                </div>
+
+                {isLoadingFacilities ? (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+                    <span>Đang nạp danh sách cơ sở y tế...</span>
+                  </div>
+                ) : facilitiesList.length === 0 ? (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800">
+                    Chưa có cơ sở y tế nào trên hệ thống.{' '}
+                    <Link href="/admin/facilities" className="underline font-bold">
+                      Thêm hoặc duyệt CSYT ngay
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {(() => {
+                      const selectedFacility = facilitiesList.find((f) => f.id === selectedFacilityId);
+                      const isSelectedActive =
+                        selectedFacility?.onboardingStatus === 'ACTIVE' || selectedFacility?.status === 'ACTIVE';
+
+                      const activeFacilitiesCount = facilitiesList.filter(
+                        (f) => f.onboardingStatus === 'ACTIVE' || f.status === 'ACTIVE'
+                      ).length;
+                      const pendingFacilitiesCount = facilitiesList.length - activeFacilitiesCount;
+
+                      const filteredFacilities = facilitiesList.filter((fac) => {
+                        const isActive = fac.onboardingStatus === 'ACTIVE' || fac.status === 'ACTIVE';
+                        if (facilityFilterTab === 'ACTIVE' && !isActive) return false;
+                        if (facilityFilterTab === 'PENDING' && isActive) return false;
+
+                        if (!facilitySearchText.trim()) return true;
+                        const query = facilitySearchText.toLowerCase();
+                        return (
+                          fac.facilityName.toLowerCase().includes(query) ||
+                          fac.representativeName.toLowerCase().includes(query) ||
+                          (fac.address && fac.address.toLowerCase().includes(query)) ||
+                          (fac.phone && fac.phone.includes(query)) ||
+                          (fac.email && fac.email.toLowerCase().includes(query))
+                        );
+                      });
+
+                      return (
+                        <>
+                          {/* Khối Combobox Trigger & Popover */}
+                          <div ref={facilityPickerRef} className="relative">
+                            {/* Nút Trigger chọn CSYT */}
+                            <button
+                              type="button"
+                              onClick={() => setIsFacilityPickerOpen((prev) => !prev)}
+                              className={`w-full text-left p-2.5 bg-white border rounded-xl transition-all shadow-xs flex items-center justify-between gap-3 hover:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/20 ${isFacilityPickerOpen
+                                  ? 'border-primary ring-2 ring-primary/20 bg-primary/2'
+                                  : 'border-slate-300'
+                                }`}
+                            >
+                              {selectedFacility ? (
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-bold text-slate-900 truncate">
+                                        {selectedFacility.facilityName}
+                                      </span>
+                                      {isSelectedActive ? (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                          Đủ ĐK ký HĐ
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
+                                          Chờ duyệt
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                      Đại diện: <strong>{selectedFacility.representativeName}</strong> • {selectedFacility.phone}
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2.5 text-slate-400 text-xs py-1">
+                                  <span className="material-symbols-outlined text-lg">apartment</span>
+                                  <span>-- Chọn một Cơ sở y tế đối tác từ danh sách --</span>
+                                </div>
+                              )}
+
+                              <div className="flex items-center gap-1.5 shrink-0 pl-1 border-l border-slate-100">
+                                <span className="text-[11px] font-semibold text-primary hidden sm:inline-block">
+                                  {isFacilityPickerOpen ? 'Đóng' : 'Đổi CSYT'}
+                                </span>
+                                <span
+                                  className={`material-symbols-outlined text-slate-400 text-lg transition-transform duration-200 ${isFacilityPickerOpen ? 'rotate-180 text-primary' : ''
+                                    }`}
+                                >
+                                  expand_more
+                                </span>
+                              </div>
+                            </button>
+
+                            {/* Dropdown Menu Popover dạng Card nổi cao cấp */}
+                            {isFacilityPickerOpen && (
+                              <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                                {/* Header tìm kiếm & tab lọc */}
+                                <div className="p-2.5 bg-slate-50/90 border-b border-slate-100 space-y-2">
+                                  <div className="relative">
+                                    <input
+                                      type="text"
+                                      value={facilitySearchText}
+                                      onChange={(e) => setFacilitySearchText(e.target.value)}
+                                      placeholder="Tìm theo tên, người đại diện, SĐT, địa chỉ..."
+                                      className="w-full text-xs pl-8 pr-7 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20"
+                                      autoFocus
+                                    />
+                                    <span className="material-symbols-outlined text-slate-400 text-sm absolute left-2.5 top-2.5">
+                                      search
+                                    </span>
+                                    {facilitySearchText && (
+                                      <button
+                                        type="button"
+                                        onClick={() => setFacilitySearchText('')}
+                                        className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                                      >
+                                        ✕
+                                      </button>
+                                    )}
+                                  </div>
+
+                                  {/* Filter Tabs */}
+                                  <div className="flex items-center gap-1.5 text-[11px]">
+                                    <button
+                                      type="button"
+                                      onClick={() => setFacilityFilterTab('ALL')}
+                                      className={`px-2 py-0.5 rounded-md font-semibold transition-colors ${facilityFilterTab === 'ALL'
+                                          ? 'bg-slate-900 text-white'
+                                          : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                                        }`}
+                                    >
+                                      Tất cả ({facilitiesList.length})
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setFacilityFilterTab('ACTIVE')}
+                                      className={`px-2 py-0.5 rounded-md font-semibold transition-colors ${facilityFilterTab === 'ACTIVE'
+                                          ? 'bg-emerald-600 text-white'
+                                          : 'bg-white text-emerald-700 border border-emerald-200 hover:bg-emerald-50'
+                                        }`}
+                                    >
+                                      ✓ Đủ điều kiện ({activeFacilitiesCount})
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setFacilityFilterTab('PENDING')}
+                                      className={`px-2 py-0.5 rounded-md font-semibold transition-colors ${facilityFilterTab === 'PENDING'
+                                          ? 'bg-amber-600 text-white'
+                                          : 'bg-white text-amber-700 border border-amber-200 hover:bg-amber-50'
+                                        }`}
+                                    >
+                                      Chờ duyệt ({pendingFacilitiesCount})
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Danh sách item cuộn mượt */}
+                                <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 p-1.5">
+                                  {filteredFacilities.length === 0 ? (
+                                    <div className="py-6 text-center text-xs text-slate-400">
+                                      <span className="material-symbols-outlined text-2xl text-slate-300 block mb-1">
+                                        search_off
+                                      </span>
+                                      Không tìm thấy cơ sở y tế nào phù hợp với từ khóa
+                                    </div>
+                                  ) : (
+                                    filteredFacilities.map((fac) => {
+                                      const isSelected = fac.id === selectedFacilityId;
+                                      const isFacActive =
+                                        fac.onboardingStatus === 'ACTIVE' || fac.status === 'ACTIVE';
+
+                                      return (
+                                        <button
+                                          key={fac.id}
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedFacilityId(fac.id);
+                                            setIsFacilityPickerOpen(false);
+                                          }}
+                                          className={`w-full text-left p-2.5 rounded-lg cursor-pointer transition-all flex items-start justify-between gap-2.5 ${isSelected
+                                              ? 'bg-primary/8 border border-primary/30 text-slate-900 shadow-xs'
+                                              : 'hover:bg-slate-50 text-slate-700 border border-transparent'
+                                            }`}
+                                        >
+                                          <div className="flex items-start gap-2.5 min-w-0">
+                                            <div
+                                              className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 mt-0.5 ${isFacActive
+                                                  ? 'bg-emerald-50 text-emerald-600'
+                                                  : 'bg-slate-100 text-slate-500'
+                                                }`}
+                                            >
+                                              <span className="material-symbols-outlined text-[18px]">
+                                                {isFacActive ? 'verified' : 'domain'}
+                                              </span>
+                                            </div>
+                                            <div className="min-w-0">
+                                              <div className="flex items-center gap-1.5">
+                                                <span
+                                                  className={`text-xs ${isSelected
+                                                      ? 'font-bold text-primary'
+                                                      : 'font-semibold text-slate-900'
+                                                    } truncate`}
+                                                >
+                                                  {fac.facilityName}
+                                                </span>
+                                              </div>
+                                              <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                                                Đại diện: <strong>{fac.representativeName}</strong> • SĐT: {fac.phone}
+                                              </p>
+                                              {fac.address && (
+                                                <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                                                  {fac.address}
+                                                </p>
+                                              )}
+                                            </div>
+                                          </div>
+
+                                          <div className="flex flex-col items-end gap-1 shrink-0">
+                                            {isFacActive ? (
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                                ACTIVE
+                                              </span>
+                                            ) : (
+                                              <span className="text-[10px] px-1.5 py-0.5 rounded font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                                Chờ duyệt
+                                              </span>
+                                            )}
+                                            {isSelected && (
+                                              <span className="material-symbols-outlined text-primary text-base">
+                                                check_circle
+                                              </span>
+                                            )}
+                                          </div>
+                                        </button>
+                                      );
+                                    })
+                                  )}
+                                </div>
+
+                                {/* Footer thông tin & đóng */}
+                                <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                                  <span>
+                                    Hiển thị <strong>{filteredFacilities.length}</strong> / {facilitiesList.length} cơ sở
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setIsFacilityPickerOpen(false)}
+                                    className="text-primary hover:underline font-semibold"
+                                  >
+                                    Đóng bảng chọn
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Thẻ xem trước chi tiết CSYT & Hướng dẫn duyệt pháp lý */}
+                          {selectedFacility && (
+                            <div
+                              className={`p-3 rounded-xl text-xs border transition-all ${isSelectedActive
+                                  ? 'bg-emerald-50/60 text-emerald-900 border-emerald-200'
+                                  : 'bg-amber-50/70 text-amber-900 border-amber-200'
+                                }`}
+                            >
+                              <div className="flex items-center justify-between font-bold">
+                                <span className="flex items-center gap-1.5">
+                                  {selectedFacility.facilityName}
+                                </span>
+                                <span
+                                  className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${isSelectedActive
+                                      ? 'bg-white text-emerald-700 border-emerald-300'
+                                      : 'bg-white text-amber-700 border-amber-300'
+                                    }`}
+                                >
+                                  {isSelectedActive ? 'Đủ điều kiện pháp lý' : selectedFacility.onboardingStatus}
+                                </span>
+                              </div>
+
+                              <div className="text-[11px] mt-1.5 space-y-0.5 opacity-90">
+                                <div>
+                                  Đại diện pháp lý: <strong>{selectedFacility.representativeName}</strong> • Email: {selectedFacility.email}
+                                </div>
+                                {selectedFacility.address && <div>Địa chỉ hoạt động: {selectedFacility.address}</div>}
+                              </div>
+
+                              {!isSelectedActive ? (
+                                <div className="text-[10px] text-amber-800 mt-2 pt-1.5 border-t border-amber-200/80 flex items-start gap-1">
+                                  <span className="material-symbols-outlined text-xs shrink-0 mt-0.5">warning</span>
+                                  <span>
+                                    Lưu ý: Cơ sở y tế này chưa hoàn tất thẩm định pháp lý (ACTIVE). Bạn có thể kiểm tra giấy phép tại{' '}
+                                    <Link
+                                      href={`/admin/facilities/${selectedFacility.id}`}
+                                      className="underline font-bold text-amber-900 hover:text-amber-950"
+                                      target="_blank"
+                                    >
+                                      Trang thẩm định CSYT ↗
+                                    </Link>{' '}
+                                    trước khi hoàn tất ký kết hợp đồng.
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="text-[10px] text-emerald-700 mt-2 pt-1.5 border-t border-emerald-200/80 flex items-center gap-1">
+                                  <span>Cơ sở y tế đã qua thẩm định pháp lý, sẵn sàng tạo dự thảo và tiến hành ký kết số 4 bên.</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
+
+              {/* Tỷ lệ chia sẻ doanh thu */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Tỷ lệ chia sẻ doanh thu CSYT (%)
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-semibold text-slate-700">
+                    Tỷ lệ chia sẻ doanh thu CSYT (%) <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-xs font-bold text-primary">{newFacilityShare}% CSYT</span>
+                </div>
                 <Input
                   type="number"
                   min={50}
@@ -446,10 +846,38 @@ export function AdminContractsView() {
                   onChange={(e) => setNewFacilityShare(Number(e.target.value))}
                   className="text-xs font-bold"
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  CSYT: {newFacilityShare}% • Nền tảng FamiDoc: {100 - newFacilityShare}%
-                </p>
+                <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                  <span>Cơ sở y tế: <strong>{newFacilityShare}%</strong></span>
+                  <span>Nền tảng FamiDoc: <strong>{100 - newFacilityShare}%</strong></span>
+                </div>
               </div>
+
+              {/* Thời hạn hiệu lực hợp đồng */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Ngày bắt đầu hiệu lực
+                  </label>
+                  <Input
+                    type="date"
+                    value={validFromDate}
+                    onChange={(e) => setValidFromDate(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Ngày kết thúc hiệu lực
+                  </label>
+                  <Input
+                    type="date"
+                    value={validToDate}
+                    onChange={(e) => setValidToDate(e.target.value)}
+                    className="text-xs"
+                  />
+                </div>
+              </div>
+
               <DialogFooter className="gap-2 pt-2">
                 <Button
                   type="button"
@@ -463,7 +891,7 @@ export function AdminContractsView() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={isCreatingDraft}
+                  disabled={isCreatingDraft || !selectedFacilityId}
                   className="text-xs font-semibold"
                 >
                   {isCreatingDraft ? 'Đang tạo...' : 'Lưu & Gửi Dự Thảo'}
