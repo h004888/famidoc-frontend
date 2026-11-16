@@ -23,7 +23,13 @@ function formatDate(value: string | Date): string {
   }).format(date);
 }
 
-function DoctorDetailViewInner({ initialDoctor }: { initialDoctor?: PublicDoctorDetailDto | null }) {
+function DoctorDetailViewInner({
+  initialDoctor,
+  initialPackageCode,
+}: {
+  initialDoctor?: PublicDoctorDetailDto | null;
+  initialPackageCode?: string | null;
+}) {
   if (!initialDoctor) return null;
   const doctor = initialDoctor;
   const fullTitle = doctor.academicTitle
@@ -423,6 +429,7 @@ function DoctorDetailViewInner({ initialDoctor }: { initialDoctor?: PublicDoctor
                 isAvailable={doctor.isAvailable}
                 facilityId={doctor.facility?.id ?? null}
                 carePackages={doctor.carePackages}
+                initialPackageCode={initialPackageCode}
               />
             </div>
           </div>
@@ -443,6 +450,8 @@ export interface DoctorDetailViewProps {
   onBack?: () => void;
   initialDoctor?: PublicDoctorDetailDto | null;
   initialFacility?: Facility | null;
+  /** Mã gói đã chọn từ `/doctors?packageId=...` để pre-select `DoctorPackageSelector`. */
+  initialPackageCode?: string | null;
 }
 
 function FacilityDetailViewInner({
@@ -842,5 +851,10 @@ export function DoctorDetailView(props: DoctorDetailViewProps) {
   if (props.type === 'facility' || props.initialFacility) {
     return <FacilityDetailViewInner {...props} />;
   }
-  return <DoctorDetailViewInner initialDoctor={props.initialDoctor} />;
+  return (
+    <DoctorDetailViewInner
+      initialDoctor={props.initialDoctor}
+      initialPackageCode={props.initialPackageCode}
+    />
+  );
 }

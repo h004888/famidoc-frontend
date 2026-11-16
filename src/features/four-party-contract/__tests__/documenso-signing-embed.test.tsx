@@ -1,4 +1,3 @@
-import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { DocumensoSigningEmbed } from '../components/documenso-signing-embed';
@@ -38,6 +37,26 @@ vi.mock('@documenso/embed-react', () => ({
     );
   },
 }));
+
+const signingSessionFixture = {
+  contractId: 'ctr-1',
+  contractNumber: 'CTR-2026-001',
+  contractStatus: 'PENDING_APPROVAL' as const,
+  signerRole: 'FAMILY_REP' as const,
+  alreadySigned: false,
+  canSign: true,
+  signingToken: 'tok-family-1',
+  signingUrl: 'https://sign.famidoc.online/sign/tok-family-1',
+  signedRoles: [],
+  signedPdfUrl: null,
+};
+
+/** Giả lập phiên ký khả dụng để kiểm tra giao diện thanh tiêu đề khung ký. */
+function mockSigningSession() {
+  return vi
+    .spyOn(contractsApi, 'getSigningSession')
+    .mockResolvedValue(signingSessionFixture);
+}
 
 describe('DocumensoSigningEmbed Component', () => {
   beforeEach(() => {
@@ -119,6 +138,40 @@ describe('DocumensoSigningEmbed Component', () => {
     ).toBeInTheDocument();
   });
 
+  it('dùng token primary và cỡ chữ tối thiểu 12px ở thanh tiêu đề khung ký', async () => {
+    mockSigningSession();
+
+    render(<DocumensoSigningEmbed contractId="ctr-1" />);
+
+    const container = await screen.findByTestId('documenso-embed-container');
+    expect(container.innerHTML).not.toMatch(/teal-600|teal-700/);
+    expect(container.innerHTML).not.toContain('text-[11px]');
+
+    const openTabLink = screen.getByTestId('documenso-open-tab-link');
+    expect(openTabLink.className).toContain('bg-primary');
+    expect(openTabLink.className).not.toContain('teal');
+  });
+
+  it('giữ nút đồng bộ ở thanh tiêu đề mặc định và ẩn khi hideHeaderSyncButton bật', async () => {
+    mockSigningSession();
+
+    const { unmount } = render(<DocumensoSigningEmbed contractId="ctr-1" />);
+    expect(await screen.findByTestId('documenso-embed-container')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Đồng bộ sau khi ký/i })).toBeInTheDocument();
+    unmount();
+
+    mockSigningSession();
+    render(<DocumensoSigningEmbed contractId="ctr-1" hideHeaderSyncButton />);
+
+    expect(await screen.findByTestId('documenso-embed-container')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Đồng bộ sau khi ký/i })
+    ).toBeNull();
+    // Vẫn giữ liên kết mở trang ký và khung nhúng ký
+    expect(screen.getByTestId('documenso-open-tab-link')).toBeInTheDocument();
+    expect(screen.getByTestId('mock-documenso-embed')).toBeInTheDocument();
+  });
+
   it('hiển thị trạng thái lỗi kèm nút thử lại khi kết nối thất bại', async () => {
     vi.spyOn(contractsApi, 'getSigningSession').mockRejectedValueOnce(
       new Error('Mất kết nối máy chủ')
@@ -128,5 +181,127 @@ describe('DocumensoSigningEmbed Component', () => {
 
     expect(await screen.findByTestId('documenso-embed-error')).toBeInTheDocument();
     expect(screen.getByText(/Mất kết nối máy chủ/i)).toBeInTheDocument();
+  });
+
+  it('vô hiệu hóa nút xem PDF và giải thích chờ đủ 4/4 khi đã ký nhưng signedPdfUrl = null', async () => {
+    vi.spyOn(contractsApi, 'getSigningSession').mockResolvedValue({
+      ...signingSessionFixture,
+      alreadySigned: true,
+      canSign: false,
+      signingToken: null,
+      signingUrl: null,
+      signedRoles: ['FAMILY_REP'],
+      signedPdfUrl: null,
+    });
+    const downloadSpy = vi.spyOn(contractsApi, 'downloadSignedPdf');
+
+    render(<DocumensoSigningEmbed contractId="ctr-1" />);
+
+    const button = await screen.findByTestId('documenso-view-signed-pdf');
+    expect(button).toBeDisabled();
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    expect(button).toHaveTextContent('Xem PDF đã ký (chờ đủ 4/4)');
+
+    expect(
+      screen.getByTestId('documenso-signed-pdf-locked-note')
+    ).toHaveTextContent(/mở khóa sau khi cả 4\/4 bên/i);
+
+    fireEvent.click(button);
+    expect(downloadSpy).not.toHaveBeenCalled();
+  });
+
+  it('kích hoạt nút xem PDF và tải blob qua contractsApi.downloadSignedPdf khi đủ 4/4', async () => {
+    vi.spyOn(contractsApi, 'getSigningSession').mockResolvedValue({
+      ...signingSessionFixture,
+      alreadySigned: true,
+      canSign: false,
+      signingToken: null,
+      signingUrl: null,
+      signedRoles: [
+        'FAMILY_REP',
+        'HEALTHCARE_FACILITY',
+        'ASSIGNED_DOCTOR',
+        'ADMIN',
+      ],
+      signedPdfUrl: '/api/v1/contracts/medical/ctr-1/signed-pdf',
+    });
+    const blob = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
+    const downloadSpy = vi
+      .spyOn(contractsApi, 'downloadSignedPdf')
+      .mockResolvedValue(blob);
+    const createObjectUrlSpy = vi
+      .spyOn(URL, 'createObjectURL')
+      .mockReturnValue('blob:famidoc-signed-pdf');
+    const revokeObjectUrlSpy = vi
+      .spyOn(URL, 'revokeObjectURL')
+      .mockImplementation(() => undefined);
+    const openSpy = vi
+      .spyOn(window, 'open')
+      .mockImplementation(() => null);
+
+    render(<DocumensoSigningEmbed contractId="ctr-1" />);
+
+    const button = await screen.findByTestId('documenso-view-signed-pdf');
+    expect(button).toBeEnabled();
+    expect(button).toHaveTextContent('Xem PDF đã ký');
+    expect(
+      screen.queryByTestId('documenso-signed-pdf-locked-note')
+    ).toBeNull();
+
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledWith('ctr-1');
+      expect(createObjectUrlSpy).toHaveBeenCalledWith(blob);
+      expect(openSpy).toHaveBeenCalledWith(
+        'blob:famidoc-signed-pdf',
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+    expect(revokeObjectUrlSpy).not.toHaveBeenCalled();
+  });
+
+  it('hiển thị lỗi tải PDF kèm nút thử lại ngay trong khối đã ký', async () => {
+    vi.spyOn(contractsApi, 'getSigningSession').mockResolvedValue({
+      ...signingSessionFixture,
+      alreadySigned: true,
+      canSign: false,
+      signingToken: null,
+      signingUrl: null,
+      signedRoles: [
+        'FAMILY_REP',
+        'HEALTHCARE_FACILITY',
+        'ASSIGNED_DOCTOR',
+        'ADMIN',
+      ],
+      signedPdfUrl: '/api/v1/contracts/medical/ctr-1/signed-pdf',
+    });
+    const downloadSpy = vi
+      .spyOn(contractsApi, 'downloadSignedPdf')
+      .mockRejectedValue(new ApiError('API error (409)', 409));
+
+    render(<DocumensoSigningEmbed contractId="ctr-1" />);
+
+    fireEvent.click(await screen.findByTestId('documenso-view-signed-pdf'));
+
+    const alert = await screen.findByTestId('documenso-signed-pdf-error');
+    expect(alert).toHaveAttribute('role', 'alert');
+    expect(alert).toHaveTextContent(/chưa hoàn tất đủ 4\/4 chữ ký/i);
+    // Vẫn giữ khối trạng thái đã ký để người dùng thử lại mà không mất ngữ cảnh
+    expect(screen.getByTestId('documenso-already-signed')).toBeInTheDocument();
+
+    downloadSpy.mockResolvedValueOnce(
+      new Blob(['%PDF-1.7'], { type: 'application/pdf' })
+    );
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:retry');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    fireEvent.click(screen.getByRole('button', { name: /Thử lại/i }));
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledTimes(2);
+    });
   });
 });

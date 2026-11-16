@@ -115,6 +115,54 @@ describe('DoctorPackageSelector', () => {
     );
   });
 
+  it('pre-selects the package passed from /doctors?packageId by packageCode or id', () => {
+    const first = render(
+      <DoctorPackageSelector
+        doctorId="doc-1"
+        doctorName="ThS. BS Trương Hán Siêu"
+        isAvailable={true}
+        facilityId="fac-1"
+        carePackages={samplePackages}
+        initialPackageCode="DONG_HANH_V2"
+      />
+    );
+
+    expect(screen.getByTestId('selected-members-count')).toHaveTextContent('3 người');
+    expect(screen.getByTestId('estimated-package-total')).toHaveTextContent('2.850.000đ');
+    expect(screen.getByRole('button', { name: /Đồng hành/i })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    first.unmount();
+
+    // Pre-select bằng id cũng hoạt động
+    const second = render(
+      <DoctorPackageSelector
+        doctorId="doc-1"
+        doctorName="ThS. BS Trương Hán Siêu"
+        isAvailable={true}
+        facilityId="fac-1"
+        carePackages={samplePackages}
+        initialPackageCode="pkg-3m"
+      />
+    );
+    expect(screen.getByTestId('selected-members-count')).toHaveTextContent('3 người');
+    second.unmount();
+
+    // Mã không khớp quay về gói đầu tiên
+    render(
+      <DoctorPackageSelector
+        doctorId="doc-1"
+        doctorName="ThS. BS Trương Hán Siêu"
+        isAvailable={true}
+        facilityId="fac-1"
+        carePackages={samplePackages}
+        initialPackageCode="KHONG_TON_TAI"
+      />
+    );
+    expect(screen.getByTestId('selected-members-count')).toHaveTextContent('1 người');
+  });
+
   it('disables registration when doctor is unavailable or missing facility', () => {
     const { rerender } = render(
       <DoctorPackageSelector

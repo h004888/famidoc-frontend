@@ -1,6 +1,29 @@
-import { Suspense } from 'react';
+import { Suspense, cache } from 'react';
 import { Metadata } from 'next';
-import { getDoctorDetail, DoctorDetailPageContent } from './doctor-detail-loader';
+import { notFound } from 'next/navigation';
+import { DoctorDetailView } from '@/features/doctors';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
+import { publicApi, type PublicDoctorDetailDto } from '@/lib/api/public.api';
+import { ApiError } from '@/lib/http/errors';
+
+export const getDoctorDetail = cache(
+  (() => {
+    const inFlight = new Map<string, Promise<PublicDoctorDetailDto>>();
+
+    return (id: string): Promise<PublicDoctorDetailDto> => {
+      const existing = inFlight.get(id);
+      if (existing) {
+        return existing;
+      }
+
+      const pending = publicApi
+        .getDoctorDetail(id)
+        .finally(() => inFlight.delete(id));
+      inFlight.set(id, pending);
+      return pending;
+    };
+  })()
+);
 
 export async function generateMetadata({
   params,
@@ -28,10 +51,37 @@ export async function generateMetadata({
   }
 }
 
-export default function DoctorDetailPage({
+export async function DoctorDetailPageContent({
   params,
 }: {
   params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  let doctor: PublicDoctorDetailDto | null = null;
+
+  try {
+    doctor = await getDoctorDetail(id);
+  } catch (error) {
+    console.error('[DoctorDetailPageContent] Failed to load doctor detail:', id, error);
+    if (error instanceof ApiError && error.status >= 500) {
+      throw error;
+    }
+    notFound();
+  }
+
+  if (!doctor || !doctor.id) {
+    notFound();
+  }
+
+  return <DoctorDetailView initialDoctor={doctor} />;
+}
+
+export default function DoctorDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ packageId?: string | string[] }>;
 }) {
   return (
     <Suspense
@@ -41,7 +91,9 @@ export default function DoctorDetailPage({
         </div>
       }
     >
-      <DoctorDetailPageContent params={params} />
+      <ServerAuthSessionBoundary>
+        <DoctorDetailPageContent params={params} />
+      </ServerAuthSessionBoundary>
     </Suspense>
   );
 }

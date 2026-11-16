@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PackageCard } from '../package-card';
 import { PackageItem } from '../../schemas/package.schema';
+import * as authContextModule from '@/features/auth/context/auth-context';
 
 const mockPush = vi.fn();
 vi.mock('next/navigation', () => ({
@@ -36,5 +37,27 @@ describe('UT-CMP-04, UT-ACT-06: PackageCard Component Interactions', () => {
     const btn = screen.getByRole('button', { name: /Đăng ký gói này/i });
     await userEvent.click(btn);
     expect(mockPush).toHaveBeenCalledWith('/register?packageId=pkg-family');
+  });
+
+  it('disables register button and blocks navigation while auth is isLoading', async () => {
+    mockPush.mockClear();
+    const spy = vi.spyOn(authContextModule, 'useAuth').mockReturnValue({
+      isAuthenticated: false,
+      isLoading: true,
+      user: null,
+      role: 'FAMILY',
+      applySession: vi.fn(),
+      login: vi.fn(),
+      logout: vi.fn(),
+      getDefaultPathForRole: authContextModule.getDefaultPathForRole,
+    });
+
+    render(<PackageCard pkg={mockPkg} />);
+    const btn = screen.getByRole('button', { name: /Đăng ký gói này/i });
+    expect(btn).toBeDisabled();
+    await userEvent.click(btn);
+    expect(mockPush).not.toHaveBeenCalled();
+
+    spy.mockRestore();
   });
 });

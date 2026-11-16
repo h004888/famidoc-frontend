@@ -2,12 +2,18 @@
 
 import React, { useState } from 'react';
 import { submitConsultationLeadAction } from '../actions/submit-consultation-lead';
-import { PackageInterest } from '../types';
+import type { LandingPackageItem } from '../types';
 
-export function LandingCtaBanner() {
+export interface LandingCtaBannerProps {
+  packages?: LandingPackageItem[];
+}
+
+export function LandingCtaBanner({ packages = [] }: LandingCtaBannerProps = {}) {
   const [fullName, setFullName] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [packageInterest, setPackageInterest] = useState<PackageInterest>('FAMILY');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [preferredPackageId, setPreferredPackageId] = useState<string>(packages[0]?.id ?? '');
+  const [healthNeeds, setHealthNeeds] = useState('');
   const [isPending, setIsPending] = useState(false);
   const [message, setMessage] = useState<{ text: string; isError: boolean } | null>(null);
 
@@ -15,37 +21,38 @@ export function LandingCtaBanner() {
     e.preventDefault();
     setMessage(null);
 
-    const cleanPhone = phoneNumber.replace(/[\s.-]/g, '');
-    const vietnamesePhoneRegex = /^(03|05|07|08|09)[0-9]{8}$/;
-    if (!vietnamesePhoneRegex.test(cleanPhone)) {
-      setMessage({
-        text: 'Số điện thoại không đúng định dạng di động Việt Nam (10 chữ số, bắt đầu bằng 03, 05, 07, 08, 09).',
-        isError: true,
-      });
-      return;
-    }
-
+    const cleanPhone = phone.replace(/[\s.-]/g, '');
     setIsPending(true);
 
     const res = await submitConsultationLeadAction({
-      fullName: fullName.trim() || 'Khách hàng quan tâm',
-      phoneNumber: cleanPhone,
-      packageInterest,
-      notes: 'Đăng ký tư vấn từ trang chủ',
+      fullName: fullName.trim(),
+      phone: cleanPhone,
+      email: email.trim(),
+      healthNeeds: healthNeeds.trim(),
+      preferredPackageId: preferredPackageId || undefined,
     });
 
     setIsPending(false);
 
     if (res.success) {
+      const ticketNote = res.ticketId ? ` (Mã tiếp nhận: ${res.ticketId})` : '';
       setMessage({
-        text: 'Đăng ký thành công! Bác sĩ cố vấn trưởng sẽ liên lạc với gia đình bạn trong 15 phút.',
+        text: `Đăng ký thành công${ticketNote}! Bác sĩ cố vấn trưởng sẽ liên lạc với gia đình bạn trong 15 phút.`,
         isError: false,
       });
       setFullName('');
-      setPhoneNumber('');
+      setPhone('');
+      setEmail('');
+      setHealthNeeds('');
     } else {
+      const firstFieldError = res.errors
+        ? Object.values(res.errors).flat().find(Boolean)
+        : undefined;
       setMessage({
-        text: res.message || 'Vui lòng kiểm tra lại thông tin gửi tới bác sĩ.',
+        text:
+          firstFieldError ||
+          res.message ||
+          'Vui lòng kiểm tra lại thông tin gửi tới bác sĩ.',
         isError: true,
       });
     }
@@ -53,7 +60,6 @@ export function LandingCtaBanner() {
 
   return (
     <section className="relative py-20 bg-gradient-to-br from-[#00258b] via-[#0037c1] to-[#0046c0] text-white overflow-hidden">
-      {/* Decorative ambient lighting for Clinical Prestige theme */}
       <div className="absolute -right-24 -top-24 w-96 h-96 rounded-full bg-white/10 blur-3xl pointer-events-none" />
       <div className="absolute -left-24 -bottom-24 w-96 h-96 rounded-full bg-teal-400/15 blur-3xl pointer-events-none" />
 
@@ -108,6 +114,7 @@ export function LandingCtaBanner() {
 
               {message && (
                 <div
+                  role="status"
                   className={`p-3 rounded mb-4 text-xs font-medium flex items-center gap-2 ${
                     message.isError
                       ? 'bg-rose-50 border border-rose-200 text-rose-700'
@@ -123,10 +130,14 @@ export function LandingCtaBanner() {
 
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label
+                    htmlFor="cta-fullname"
+                    className="block text-xs font-semibold text-slate-700 mb-1"
+                  >
                     Họ và tên người đại diện
                   </label>
                   <input
+                    id="cta-fullname"
                     type="text"
                     required
                     value={fullName}
@@ -136,34 +147,82 @@ export function LandingCtaBanner() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Số điện thoại liên hệ
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    placeholder="Ví dụ: 0912345678"
-                    className="w-full h-11 px-3.5 rounded-lg border border-slate-300 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 text-sm focus:border-[#0037c1] focus:ring-2 focus:ring-[#0037c1]/20 transition-all outline-none"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      htmlFor="cta-phone"
+                      className="block text-xs font-semibold text-slate-700 mb-1"
+                    >
+                      Số điện thoại liên hệ
+                    </label>
+                    <input
+                      id="cta-phone"
+                      type="tel"
+                      required
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="Ví dụ: 0912345678"
+                      className="w-full h-11 px-3.5 rounded-lg border border-slate-300 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 text-sm focus:border-[#0037c1] focus:ring-2 focus:ring-[#0037c1]/20 transition-all outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="cta-email"
+                      className="block text-xs font-semibold text-slate-700 mb-1"
+                    >
+                      Email nhận phản hồi
+                    </label>
+                    <input
+                      id="cta-email"
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Ví dụ: an.nguyen@famidoc.vn"
+                      className="w-full h-11 px-3.5 rounded-lg border border-slate-300 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 text-sm focus:border-[#0037c1] focus:ring-2 focus:ring-[#0037c1]/20 transition-all outline-none"
+                    />
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  <label
+                    htmlFor="cta-package"
+                    className="block text-xs font-semibold text-slate-700 mb-1"
+                  >
                     Gói dịch vụ quan tâm
                   </label>
                   <select
-                    value={packageInterest}
-                    onChange={(e) => setPackageInterest(e.target.value as PackageInterest)}
+                    id="cta-package"
+                    value={preferredPackageId}
+                    onChange={(e) => setPreferredPackageId(e.target.value)}
                     className="w-full h-11 px-3.5 rounded-lg border border-slate-300 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 text-sm focus:border-[#0037c1] focus:ring-2 focus:ring-[#0037c1]/20 transition-all outline-none"
                   >
-                    <option value="BASIC">Gói Trải Nghiệm (1 Tháng · 1 người)</option>
-                    <option value="FAMILY">Gói Đồng Hành (3 Tháng · 3 người)</option>
-                    <option value="ELDERLY">Gói An Tâm (6 Tháng · 4 người)</option>
-                    <option value="VIP">Gói Toàn Diện (12 Tháng · 6 người)</option>
+                    <option value="">Tư vấn chọn gói phù hợp nhất</option>
+                    {packages.map((pkg) => (
+                      <option key={pkg.id} value={pkg.id}>
+                        {pkg.packageName} ({pkg.durationMonths} Tháng • Tối đa {pkg.maxMembers} người)
+                      </option>
+                    ))}
                   </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="cta-health-needs"
+                    className="block text-xs font-semibold text-slate-700 mb-1"
+                  >
+                    Nhu cầu chăm sóc sức khỏe gia đình
+                  </label>
+                  <textarea
+                    id="cta-health-needs"
+                    required
+                    rows={2}
+                    value={healthNeeds}
+                    onChange={(e) => setHealthNeeds(e.target.value)}
+                    placeholder="Ví dụ: Gia đình có bố mẹ lớn tuổi cần theo dõi huyết áp định kỳ tại nhà."
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 bg-slate-50/50 hover:bg-white focus:bg-white text-slate-900 text-sm focus:border-[#0037c1] focus:ring-2 focus:ring-[#0037c1]/20 transition-all outline-none resize-none"
+                  />
                 </div>
 
                 <div className="pt-2">

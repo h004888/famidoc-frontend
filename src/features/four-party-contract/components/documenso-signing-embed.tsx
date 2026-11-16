@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { EmbedSignDocument } from '@documenso/embed-react';
 import {
   contractsApi,
@@ -10,12 +10,18 @@ import {
 } from '@/lib/api';
 import { ApiError } from '@/lib/http/errors';
 import { cn } from '@/lib/utils';
+import { openSignedPdf } from '../lib/open-signed-pdf';
 
 export interface DocumensoSigningEmbedProps {
   contractId: string;
   onSyncCompleted?: (result: DocumensoSyncResultDto) => void;
   onSessionLoaded?: (session: ContractSigningSessionDto) => void;
   className?: string;
+  /**
+   * Ẩn nút đồng bộ ở thanh tiêu đề khung ký khi nơi đặt đã có nút làm mới chung
+   * (ví dụ `/booking/tracking`), tránh hai nút đồng bộ trùng chức năng.
+   */
+  hideHeaderSyncButton?: boolean;
 }
 
 const ROLE_LABELS: Record<BackendSignerRole, string> = {
@@ -71,11 +77,13 @@ export function DocumensoSigningEmbed({
   onSyncCompleted,
   onSessionLoaded,
   className,
+  hideHeaderSyncButton = false,
 }: DocumensoSigningEmbedProps) {
   const [session, setSession] = useState<ContractSigningSessionDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [syncing, setSyncing] = useState<boolean>(false);
   const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
   const [waitingForFamily, setWaitingForFamily] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,14 +148,11 @@ export function DocumensoSigningEmbed({
 
   const handleDownloadSignedPdf = useCallback(async () => {
     setDownloadingPdf(true);
-    setError(null);
+    setPdfError(null);
     try {
-      const blob = await contractsApi.downloadSignedPdf(contractId);
-      const objectUrl = URL.createObjectURL(blob);
-      window.open(objectUrl, '_blank', 'noopener,noreferrer');
-      setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      await openSignedPdf(contractId);
     } catch (err) {
-      setError(
+      setPdfError(
         err instanceof Error
           ? err.message
           : 'Không thể tải tệp PDF đã ký từ máy chủ.'
@@ -171,7 +176,7 @@ export function DocumensoSigningEmbed({
           className
         )}
       >
-        <span className="material-symbols-outlined text-[24px] animate-spin text-teal-600">
+        <span className="material-symbols-outlined text-[24px] animate-spin text-primary">
           progress_activity
         </span>
         <p className="text-sm font-medium">
@@ -255,6 +260,12 @@ export function DocumensoSigningEmbed({
     return null;
   }
 
+  /**
+   * Backend chỉ trả `signedPdfUrl` khi hợp đồng đã đủ 4/4 chữ ký, nên đây là
+   * nguồn sự thật duy nhất để bật/tắt nút xem PDF.
+   */
+  const hasSignedPdf = Boolean(session.signedPdfUrl);
+
   if (session.alreadySigned) {
     return (
       <div
@@ -295,20 +306,60 @@ export function DocumensoSigningEmbed({
             </span>
             Đồng bộ tiến độ 4 bên
           </button>
-          {session.signedPdfUrl && (
+          <button
+            type="button"
+            data-testid="documenso-view-signed-pdf"
+            disabled={!hasSignedPdf || downloadingPdf}
+            aria-disabled={!hasSignedPdf || downloadingPdf}
+            title={
+              hasSignedPdf
+                ? undefined
+                : 'Bản PDF đầy đủ chữ ký sẽ mở khóa sau khi cả 4 bên ký xong.'
+            }
+            onClick={() => {
+              if (!hasSignedPdf) return;
+              void handleDownloadSignedPdf();
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {hasSignedPdf ? 'Xem PDF đã ký' : 'Xem PDF đã ký (chờ đủ 4/4)'}
+            <span className="material-symbols-outlined text-[14px]">
+              {hasSignedPdf ? 'open_in_new' : 'lock'}
+            </span>
+          </button>
+        </div>
+        {!hasSignedPdf && (
+          <p
+            data-testid="documenso-signed-pdf-locked-note"
+            className="flex items-start gap-1.5 text-xs leading-relaxed text-emerald-900"
+          >
+            <span className="material-symbols-outlined text-[14px] shrink-0 mt-0.5">
+              info
+            </span>
+            <span>
+              Bản PDF đã ký đầy đủ sẽ mở khóa sau khi cả 4/4 bên (Gia đình, Cơ sở y
+              tế, Bác sĩ, FamiDoc) hoàn tất ký trên Documenso.
+            </span>
+          </p>
+        )}
+        {pdfError && (
+          <div
+            role="alert"
+            data-testid="documenso-signed-pdf-error"
+            className="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"
+          >
+            <span className="material-symbols-outlined text-[14px]">error</span>
+            <span className="min-w-0 flex-1">{pdfError}</span>
             <button
               type="button"
               disabled={downloadingPdf}
               onClick={() => void handleDownloadSignedPdf()}
-              className="inline-flex items-center gap-1.5 rounded-md border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-50 cursor-pointer"
+              className="inline-flex items-center rounded-md border border-red-300 bg-white px-2.5 py-1 text-xs font-semibold text-red-900 hover:bg-red-100 disabled:opacity-50 cursor-pointer"
             >
-              Xem PDF đã ký
-              <span className="material-symbols-outlined text-[14px]">
-                open_in_new
-              </span>
+              Thử lại
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -350,7 +401,7 @@ export function DocumensoSigningEmbed({
           <p className="text-xs font-semibold text-slate-900">
             Ký kết trực tiếp trên Documenso — {ROLE_LABELS[session.signerRole]}
           </p>
-          <p className="text-[11px] text-slate-600">
+          <p className="text-xs text-slate-600">
             Hợp đồng {session.contractNumber} • Đã có {session.signedRoles.length}/4 chữ ký
           </p>
         </div>
@@ -361,7 +412,7 @@ export function DocumensoSigningEmbed({
               target="_blank"
               rel="noopener noreferrer"
               data-testid="documenso-open-tab-link"
-              className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-teal-600 text-white hover:bg-teal-700"
+              className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90"
             >
               <span className="material-symbols-outlined text-[14px] mr-1.5">
                 open_in_new
@@ -369,22 +420,24 @@ export function DocumensoSigningEmbed({
               Mở trang ký Documenso
             </a>
           )}
-          <button
-            type="button"
-            disabled={syncing}
-            onClick={() => void handleSync()}
-            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
-          >
-            <span
-              className={cn(
-                'material-symbols-outlined text-[14px] mr-1.5',
-                syncing && 'animate-spin'
-              )}
+          {!hideHeaderSyncButton && (
+            <button
+              type="button"
+              disabled={syncing}
+              onClick={() => void handleSync()}
+              className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
             >
-              refresh
-            </span>
-            Đồng bộ sau khi ký
-          </button>
+              <span
+                className={cn(
+                  'material-symbols-outlined text-[14px] mr-1.5',
+                  syncing && 'animate-spin'
+                )}
+              >
+                refresh
+              </span>
+              Đồng bộ sau khi ký
+            </button>
+          )}
         </div>
       </div>
 

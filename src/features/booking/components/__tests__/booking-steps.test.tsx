@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { BookingSummaryStep } from '../booking-summary-step';
 import { BookingTrackingStep } from '../booking-tracking-step';
 import { BookingPaymentStep } from '../booking-payment-step';
 import { contractsApi } from '@/lib/api/contracts.api';
+import { ApiError } from '@/lib/http/errors';
 
 const pushMock = vi.fn();
 
@@ -55,21 +56,19 @@ vi.mock('@/features/subscription-contract/components/doctor-contract-initiation-
   ),
 }));
 
-vi.mock('@/features/subscription-contract/components/contract-signing-tracker-view', () => ({
-  ContractSigningTrackerView: ({
+vi.mock('@/features/four-party-contract/components/documenso-signing-embed', () => ({
+  DocumensoSigningEmbed: ({
     contractId,
-    backHref,
-    onProceedPayment,
+    hideHeaderSyncButton,
   }: {
-    contractId?: string;
-    backHref?: string;
-    onProceedPayment?: () => void;
+    contractId: string;
+    hideHeaderSyncButton?: boolean;
   }) => (
-    <div data-testid="tracker-view" data-contract-id={contractId ?? ''} data-back-href={backHref ?? ''}>
-      <button type="button" onClick={() => onProceedPayment?.()}>
-        Thanh toán VietQR ngay
-      </button>
-    </div>
+    <div
+      data-testid="documenso-embed-stub"
+      data-contract-id={contractId}
+      data-hide-header-sync={String(Boolean(hideHeaderSyncButton))}
+    />
   ),
 }));
 
@@ -79,6 +78,7 @@ vi.mock('@/lib/api/contracts.api', () => ({
     getPaymentStatus: vi.fn(),
     getFamilyGateStatus: vi.fn(),
     getMedicalContractDetail: vi.fn(),
+    downloadSignedPdf: vi.fn(),
   },
 }));
 
@@ -139,48 +139,478 @@ describe('BookingSummaryStep', () => {
   });
 });
 
+const contractDetailFixture = {
+  id: 'ctr-1',
+  contractNumber: 'FMD-HD-2026-000123456789012345678',
+  contractStatus: 'PENDING_APPROVAL' as const,
+  totalAmount: 9600000,
+  startDate: '2026-11-16T00:00:00.000Z',
+  endDate: '2027-11-16T00:00:00.000Z',
+  createdAt: '2026-11-15T09:30:00.000Z',
+  memberCount: 4,
+  signedPdfUrl: null,
+  signatures: [],
+  familyUnit: {
+    representativeUser: { fullName: 'Nguyễn Thị Lan' },
+  },
+  facility: { id: 'fac-1', facilityName: 'Phòng khám Đa khoa An Khang' },
+  doctor: {
+    id: 'doc-1',
+    doctorName: 'Bác sĩ Trần Văn Minh',
+    user: { fullName: 'Trần Văn Minh' },
+  },
+  servicePackage: { id: 'pkg-1', packageName: 'Gói Chăm Sóc Gia Đình' },
+};
+
 describe('BookingTrackingStep', () => {
   beforeEach(() => {
     pushMock.mockReset();
-    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
-      id: 'ctr-1',
-      contractStatus: 'PENDING_APPROVAL',
-    } as never);
+    vi.clearAllMocks();
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue(
+      contractDetailFixture as never
+    );
   });
 
-  it('dùng ContractSigningTrackerView với nút thanh toán trỏ tới /booking/payment', async () => {
-    render(<BookingTrackingStep contractId="ctr-1" />);
+  it('nạp hợp đồng một lần và hiển thị khung ký kèm bố cục 2 cột của Bước 2', async () => {
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
 
-    expect(screen.getByTestId('tracker-view')).toHaveAttribute('data-contract-id', 'ctr-1');
-    expect(screen.getByTestId('booking-back-to-step-1')).toHaveAttribute(
-      'href',
-      '/booking?contractId=ctr-1'
+    expect(await screen.findByTestId('booking-tracking-panel')).toBeInTheDocument();
+    expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledTimes(1);
+    expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledWith('ctr-1');
+
+    const embed = screen.getByTestId('documenso-embed-stub');
+    expect(embed).toHaveAttribute('data-contract-id', 'ctr-1');
+    // Nút làm mới chung ở đầu trang thay cho nút đồng bộ trong khung ký
+    expect(embed).toHaveAttribute('data-hide-header-sync', 'true');
+    expect(screen.getByTestId('booking-tracking-refresh')).toBeInTheDocument();
+    expect(screen.queryByTestId('booking-back-to-step-1')).toBeNull();
+    expect(screen.queryByText(/Gói dịch vụ & Hợp đồng/i)).toBeNull();
+    expect(screen.queryByText(/Hotline/i)).toBeNull();
+  });
+
+  it('hiển thị mã hợp đồng kèm nút sao chép và thời điểm khởi tạo dạng ngày giờ Việt Nam', async () => {
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-tracking-contract-code')).toHaveTextContent(
+      contractDetailFixture.contractNumber
     );
-    await waitFor(() => {
-      expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledWith('ctr-1');
-    });
-    screen.getByRole('button', { name: /Thanh toán VietQR ngay/i }).click();
+
+    const createdAt = screen.getByTestId('booking-tracking-created-at');
+    expect(createdAt.textContent).not.toBe(contractDetailFixture.createdAt);
+    expect(createdAt.textContent).toMatch(/\d{1,2}[\/.]\d{1,2}[\/.]\d{2,4}/);
+    expect(createdAt.textContent).toMatch(/\d{1,2}:\d{2}/);
+
+    fireEvent.click(screen.getByTestId('booking-tracking-copy-contract-code'));
+    expect(screen.getByTestId('booking-tracking-copy-contract-code')).toHaveTextContent(
+      'Đã chép ✓'
+    );
+  });
+
+  it('gắn tên cơ sở y tế và bác sĩ thật vào tiến trình 4 bên, không lộ thuật ngữ nội bộ', async () => {
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    await screen.findByTestId('booking-tracking-panel');
+
+    expect(screen.getByTestId('booking-party-HEALTHCARE_FACILITY')).toHaveTextContent(
+      'Phòng khám Đa khoa An Khang'
+    );
+    expect(screen.getByTestId('booking-party-ASSIGNED_DOCTOR')).toHaveTextContent(
+      'Bác sĩ Trần Văn Minh'
+    );
+    expect(screen.getByTestId('booking-party-FAMILY_REP')).toHaveTextContent(
+      'Nguyễn Thị Lan'
+    );
+    expect(screen.getByText('Ký hợp đồng điện tử 4 bên')).toBeInTheDocument();
+
+    const panel = screen.getByTestId('booking-tracking-panel');
+    expect(panel.textContent).not.toMatch(/định biên/i);
+    expect(panel.textContent).not.toMatch(/\bACTIVE\b/);
+  });
+
+  it('hiển thị thông báo khi thiếu contractId và không gọi API', () => {
+    render(<BookingTrackingStep />);
+
+    expect(screen.getByTestId('booking-tracking-missing-contract')).toBeInTheDocument();
+    expect(contractsApi.getMedicalContractDetail).not.toHaveBeenCalled();
+  });
+
+  it('báo lỗi 404 khi hợp đồng không tồn tại', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockRejectedValue(
+      Object.assign(new Error('Not found'), { status: 404 })
+    );
+
+    render(<BookingTrackingStep contractId="ctr-404" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-tracking-error')).toBeInTheDocument();
+    expect(screen.getByText(/Không tìm thấy hợp đồng này/i)).toBeInTheDocument();
+  });
+
+  it('báo lỗi 403 khi không có quyền xem hợp đồng', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockRejectedValue(
+      Object.assign(new Error('Forbidden'), { status: 403 })
+    );
+
+    render(<BookingTrackingStep contractId="ctr-403" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-tracking-error')).toBeInTheDocument();
+    expect(screen.getByText(/không có quyền xem hợp đồng này/i)).toBeInTheDocument();
+  });
+
+  it('báo lỗi kết nối khi mất mạng và cho phép thử lại', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockRejectedValueOnce(
+      new Error('Network down')
+    );
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-tracking-error')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Không thể tải hợp đồng\. Vui lòng kiểm tra kết nối/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Thử lại/i })).toBeInTheDocument();
+  });
+
+  it('chuyển sang /booking/payment khi hợp đồng đã đủ 4/4 chữ ký', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      contractStatus: 'PENDING_PAYMENT',
+      signatures: [
+        { signerRole: 'FAMILY_REP', signerUserId: 'u1', signedAt: '2026-11-15T10:00:00.000Z' },
+        { signerRole: 'HEALTHCARE_FACILITY', signerUserId: 'u2', signedAt: '2026-11-15T10:20:00.000Z' },
+        { signerRole: 'ASSIGNED_DOCTOR', signerUserId: 'u3', signedAt: '2026-11-15T10:30:00.000Z' },
+        { signerRole: 'ADMIN', signerUserId: 'u4', signedAt: '2026-11-15T10:40:00.000Z' },
+      ],
+    } as never);
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-tracking-payment-ready')).toBeInTheDocument();
+    expect(screen.getByTestId('booking-tracking-signed-count')).toHaveTextContent('Đã ký 4/4');
+    expect(screen.queryByTestId('documenso-embed-stub')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('booking-proceed-payment'));
     expect(pushMock).toHaveBeenCalledWith('/booking/payment?contractId=ctr-1');
   });
 
-  it('ẩn nút quay lại Bước 1 khi hợp đồng đã ACTIVE', async () => {
+  it('hiển thị nút "Xem PDF đã ký 4 bên" ở PENDING_PAYMENT khi có bản Documenso và tải qua contractsApi', async () => {
     vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
-      id: 'ctr-1',
-      contractStatus: 'ACTIVE',
+      ...contractDetailFixture,
+      contractStatus: 'PENDING_PAYMENT',
+      documensoItemId: 'item-42',
+      signatures: [
+        { signerRole: 'FAMILY_REP', signerUserId: 'u1', signedAt: '2026-11-15T10:00:00.000Z' },
+        { signerRole: 'HEALTHCARE_FACILITY', signerUserId: 'u2', signedAt: '2026-11-15T10:20:00.000Z' },
+        { signerRole: 'ASSIGNED_DOCTOR', signerUserId: 'u3', signedAt: '2026-11-15T10:30:00.000Z' },
+        { signerRole: 'ADMIN', signerUserId: 'u4', signedAt: '2026-11-15T10:40:00.000Z' },
+      ],
     } as never);
+    const blob = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
+    const downloadSpy = vi
+      .mocked(contractsApi.downloadSignedPdf)
+      .mockResolvedValue(blob);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:booking-signed-pdf');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
-    render(<BookingTrackingStep contractId="ctr-1" />);
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(
+      await screen.findByTestId('booking-tracking-payment-ready')
+    ).toBeInTheDocument();
+    const button = screen.getByTestId('booking-view-signed-pdf');
+    expect(button).toHaveTextContent('Xem PDF đã ký 4 bên');
+
+    fireEvent.click(button);
 
     await waitFor(() => {
-      expect(screen.queryByTestId('booking-back-to-step-1')).toBeNull();
+      expect(downloadSpy).toHaveBeenCalledWith('ctr-1');
+      expect(openSpy).toHaveBeenCalledWith(
+        'blob:booking-signed-pdf',
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+    // Dữ liệu hợp đồng vẫn còn nguyên sau khi mở PDF
+    expect(screen.getByTestId('booking-tracking-payment-ready')).toBeInTheDocument();
+  });
+
+  it('hiển thị và tải được PDF đã ký ở trạng thái ACTIVE', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      contractStatus: 'ACTIVE',
+      documensoItemId: 'item-42',
+      signedPdfUrl: '/api/v1/contracts/medical/ctr-1/signed-pdf',
+    } as never);
+    const downloadSpy = vi
+      .mocked(contractsApi.downloadSignedPdf)
+      .mockResolvedValue(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:booking-active-pdf');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    await screen.findByTestId('booking-tracking-active');
+    fireEvent.click(screen.getByTestId('booking-view-signed-pdf'));
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledWith('ctr-1');
     });
   });
 
-  it('không gọi dữ liệu mẫu khi thiếu contractId', () => {
-    render(<BookingTrackingStep />);
+  it('không hiển thị nút xem PDF đã ký khi hợp đồng chưa gắn bản Documenso (PENDING_APPROVAL)', async () => {
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
 
-    expect(screen.queryByTestId('tracker-view')).toBeNull();
-    expect(screen.getByTestId('booking-tracking-missing-contract')).toBeInTheDocument();
+    await screen.findByTestId('booking-tracking-panel');
+    expect(screen.queryByTestId('booking-view-signed-pdf')).toBeNull();
+  });
+
+  it('hiển thị lỗi inline kèm nút thử lại khi tải PDF đã ký thất bại', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      contractStatus: 'PENDING_PAYMENT',
+      documensoItemId: 'item-42',
+    } as never);
+    const downloadSpy = vi
+      .mocked(contractsApi.downloadSignedPdf)
+      .mockRejectedValueOnce(new Error('Mất kết nối máy chủ'));
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    await screen.findByTestId('booking-tracking-payment-ready');
+    fireEvent.click(screen.getByTestId('booking-view-signed-pdf'));
+
+    const alert = await screen.findByTestId('booking-view-signed-pdf-error');
+    expect(alert).toHaveAttribute('role', 'alert');
+    // Vẫn giữ dữ liệu trang theo dõi
+    expect(screen.getByTestId('booking-tracking-payment-ready')).toBeInTheDocument();
+    expect(screen.getByTestId('booking-tracking-panel')).toBeInTheDocument();
+
+    downloadSpy.mockResolvedValueOnce(
+      new Blob(['%PDF-1.7'], { type: 'application/pdf' })
+    );
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:retry-booking');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    fireEvent.click(screen.getByTestId('booking-view-signed-pdf-retry'));
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('booking-view-signed-pdf-error')).toBeNull();
+    });
+  });
+
+  it('khóa lùi và hiển thị trạng thái đã kích hoạt khi hợp đồng ACTIVE', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      contractStatus: 'ACTIVE',
+    } as never);
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-tracking-active')).toBeInTheDocument();
+    expect(screen.queryByTestId('booking-back-to-step-1')).toBeNull();
+    expect(screen.queryByTestId('documenso-embed-stub')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: /Quản lý thành viên/i })
+    ).toHaveAttribute('href', '/family/members');
+  });
+
+  it('tự động cập nhật tiến độ định kỳ và dừng khi đủ chữ ký', async () => {
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={40} />);
+
+    await screen.findByTestId('booking-tracking-panel');
+    await waitFor(
+      () => {
+        expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 2000 }
+    );
+
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      contractStatus: 'ACTIVE',
+    } as never);
+
+    expect(await screen.findByTestId('booking-tracking-active', {}, { timeout: 2000 })).toBeInTheDocument();
+
+    const callsAfterActive = vi.mocked(contractsApi.getMedicalContractDetail).mock.calls.length;
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    expect(vi.mocked(contractsApi.getMedicalContractDetail).mock.calls.length).toBe(
+      callsAfterActive
+    );
+  });
+
+  it('giữ nguyên giao diện hiện tại khi nhịp cập nhật nền gặp lỗi', async () => {
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={40} />);
+
+    await screen.findByTestId('booking-tracking-panel');
+    vi.mocked(contractsApi.getMedicalContractDetail).mockRejectedValue(
+      new Error('Mất mạng tạm thời')
+    );
+
+    await waitFor(
+      () => {
+        expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 2000 }
+    );
+
+    expect(screen.queryByTestId('booking-tracking-error')).toBeNull();
+    expect(screen.getByTestId('booking-tracking-panel')).toBeInTheDocument();
+  });
+
+  it('ép backend kiểm tra Documenso khi bấm "Cập nhật tiến độ" nhưng polling nền thì không', async () => {
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={40} />);
+
+    await screen.findByTestId('booking-tracking-panel');
+    expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledWith('ctr-1');
+
+    await waitFor(
+      () => {
+        expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledTimes(2);
+      },
+      { timeout: 2000 }
+    );
+    // Nhịp polling nền không kèm forceSync để backend tự áp dụng cooldown.
+    expect(vi.mocked(contractsApi.getMedicalContractDetail).mock.calls[1]).toEqual([
+      'ctr-1',
+    ]);
+
+    fireEvent.click(screen.getByTestId('booking-tracking-refresh'));
+
+    await waitFor(() => {
+      expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledWith('ctr-1', {
+        forceSync: true,
+      });
+    });
+  });
+
+  it('không hiển thị khung ký nhúng khi Bên A đã ký và còn 1/4 tiến độ', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      signatures: [
+        {
+          signerRole: 'FAMILY_REP',
+          signerUserId: 'u1',
+          signedAt: '2026-11-15T10:00:00.000Z',
+        },
+      ],
+    } as never);
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    const card = await screen.findByTestId('booking-post-family-signing-card');
+    expect(screen.queryByTestId('documenso-embed-stub')).toBeNull();
+    expect(screen.queryByText(/Đồng bộ tiến độ 4 bên/i)).toBeNull();
+    expect(screen.getByTestId('booking-post-signing-progress')).toHaveTextContent(
+      'Đã ký 1/4 bên'
+    );
+    expect(
+      screen.getByTestId('booking-post-signing-party-FAMILY_REP')
+    ).toHaveAttribute('data-signed', 'true');
+    expect(
+      screen.getByTestId('booking-post-signing-party-FAMILY_REP')
+    ).toHaveTextContent('Đã ký');
+    expect(
+      screen.getByTestId('booking-post-signing-party-FAMILY_REP')
+    ).toHaveTextContent(/\d{1,2}:\d{2}/);
+    expect(
+      screen.getByTestId('booking-post-signing-party-HEALTHCARE_FACILITY')
+    ).toHaveTextContent('Đang chờ ký');
+    expect(card).toHaveTextContent(/Tự động kiểm tra tiến độ mỗi 10 giây/i);
+    // Chỉ giữ duy nhất nút làm mới ở header
+    expect(screen.getAllByTestId('booking-tracking-refresh')).toHaveLength(1);
+    // Cột phải không lặp lại danh sách 4 bên, thay bằng thẻ bước tiếp theo + nút khóa PDF
+    expect(screen.queryByTestId('booking-party-HEALTHCARE_FACILITY')).toBeNull();
+    expect(screen.getByTestId('booking-view-signed-pdf-locked')).toBeDisabled();
+    expect(screen.getByText(/Theo dõi tiến độ ký hợp đồng 4 bên/i)).toBeInTheDocument();
+  });
+
+  it('hiển thị đúng 2/4 bên đã ký khi Bên A và cơ sở y tế đã ký', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      signatures: [
+        {
+          signerRole: 'FAMILY_REP',
+          signerUserId: 'u1',
+          signedAt: '2026-11-15T10:00:00.000Z',
+        },
+        {
+          signerRole: 'HEALTHCARE_FACILITY',
+          signerUserId: 'u2',
+          signedAt: '2026-11-15T10:20:00.000Z',
+        },
+      ],
+    } as never);
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    await screen.findByTestId('booking-post-family-signing-card');
+    expect(screen.getByTestId('booking-post-signing-progress')).toHaveTextContent(
+      'Đã ký 2/4 bên'
+    );
+    expect(
+      screen.getByTestId('booking-post-signing-party-HEALTHCARE_FACILITY')
+    ).toHaveTextContent('Đã ký');
+    expect(
+      screen.getByTestId('booking-post-signing-party-ASSIGNED_DOCTOR')
+    ).toHaveTextContent('Đang chờ ký');
+    expect(
+      screen.getByTestId('booking-post-signing-party-ADMIN')
+    ).toHaveTextContent('Đang chờ ký');
+    expect(screen.getByTestId('booking-view-signed-pdf-locked')).toBeDisabled();
+  });
+
+  it('giữ nguyên khung ký nhúng khi chưa có chữ ký nào (0/4)', async () => {
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    await screen.findByTestId('booking-tracking-panel');
+    expect(screen.getByTestId('documenso-embed-stub')).toBeInTheDocument();
+    expect(screen.queryByTestId('booking-post-family-signing-card')).toBeNull();
+    expect(screen.getByTestId('booking-tracking-signed-count')).toHaveTextContent(
+      'Đã ký 0/4'
+    );
+  });
+
+  it('chuyển sang trạng thái 4/4 PENDING_PAYMENT khi polling phát hiện đủ chữ ký', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      signatures: [
+        {
+          signerRole: 'FAMILY_REP',
+          signerUserId: 'u1',
+          signedAt: '2026-11-15T10:00:00.000Z',
+        },
+      ],
+    } as never);
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={40} />);
+
+    await screen.findByTestId('booking-post-family-signing-card');
+
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      contractStatus: 'PENDING_PAYMENT',
+      signatures: [
+        { signerRole: 'FAMILY_REP', signerUserId: 'u1', signedAt: '2026-11-15T10:00:00.000Z' },
+        { signerRole: 'HEALTHCARE_FACILITY', signerUserId: 'u2', signedAt: '2026-11-15T10:20:00.000Z' },
+        { signerRole: 'ASSIGNED_DOCTOR', signerUserId: 'u3', signedAt: '2026-11-15T10:30:00.000Z' },
+        { signerRole: 'ADMIN', signerUserId: 'u4', signedAt: '2026-11-15T10:40:00.000Z' },
+      ],
+    } as never);
+
+    expect(
+      await screen.findByTestId('booking-tracking-payment-ready', {}, { timeout: 2000 })
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('booking-post-family-signing-card')).toBeNull();
+    expect(screen.getByTestId('booking-tracking-signed-count')).toHaveTextContent(
+      'Đã ký 4/4'
+    );
+    expect(screen.getByTestId('booking-proceed-payment')).toBeInTheDocument();
   });
 });
 
@@ -190,17 +620,23 @@ describe('BookingPaymentStep', () => {
     vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue(pendingPayment as never);
   });
 
-  it('hiển thị trạng thái chờ thanh toán VietQR theo contractId và nút quay lại Bước 2', async () => {
+  it('hiển thị trạng thái chờ thanh toán VietQR theo contractId', async () => {
     render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
 
     expect(await screen.findByTestId('booking-payment-pending')).toBeInTheDocument();
-    expect(screen.getByTestId('booking-back-to-step-2')).toHaveAttribute(
-      'href',
-      '/booking/tracking?contractId=ctr-1'
-    );
     expect(contractsApi.createVietQRPayment).toHaveBeenCalledWith('ctr-1');
     expect(screen.getByText('FMD PAY 0001')).toBeInTheDocument();
     expect(screen.getByText('9.600.000 đ')).toBeInTheDocument();
+  });
+
+  it('không lặp nút quay lại Bước 2 bên trong nội dung Bước 3', async () => {
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    await screen.findByTestId('booking-payment-pending');
+    expect(screen.queryByTestId('booking-back-to-step-2')).toBeNull();
+    expect(
+      screen.queryByRole('link', { name: /Quay lại theo dõi ký hợp đồng/i })
+    ).toBeNull();
   });
 
   it('hiển thị màn hình chúc mừng kèm CTA Dashboard khi hợp đồng ACTIVE', async () => {
@@ -254,6 +690,75 @@ describe('BookingPaymentStep', () => {
     expect(dispatchSpy).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'famidoc:family-gate-refresh' })
     );
+  });
+
+  it('hiển thị thông báo tiếng Việt theo blockingReasons khi thiếu điều kiện kích hoạt', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockRejectedValue(
+      new ApiError('Contract is not ready for payment', 409, {
+        success: false,
+        code: 409,
+        message: 'Contract is not ready for payment',
+        error: {
+          type: 'https://api.famidoc.vn/errors/conflict-error',
+          title: 'Conflict',
+          detail: 'Contract is not ready for payment',
+          errorCode: 'CONFLICT_ERROR',
+          blockingReasons: ['DOCTOR_VERIFICATION_REQUIRED'],
+        },
+      })
+    );
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      id: 'ctr-1',
+      contractStatus: 'PENDING_PAYMENT',
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-payment-error')).toBeInTheDocument();
+    const blocking = screen.getByTestId('booking-payment-blocking-reasons');
+    expect(blocking).toHaveTextContent(/điều kiện kích hoạt/i);
+    expect(blocking).toHaveTextContent(/hợp đồng cung ứng nhân lực B2B còn hiệu lực/i);
+    // Không còn hiển thị thông điệp tiếng Anh chung chung từ API.
+    expect(screen.queryByText('Contract is not ready for payment')).toBeNull();
+    expect(
+      screen.getByRole('link', { name: /Quay lại theo dõi ký 4 bên/i })
+    ).toHaveAttribute('href', '/booking/tracking?contractId=ctr-1');
+  });
+
+  it('hiển thị thông báo vượt số suất thành viên khi ADDITIONAL_FAMILY_MEMBERS_PAYMENT_REQUIRED', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockRejectedValue(
+      new ApiError('Contract is not ready for payment', 409, {
+        error: {
+          message: 'Contract is not ready for payment',
+          blockingReasons: ['ADDITIONAL_FAMILY_MEMBERS_PAYMENT_REQUIRED'],
+        },
+      })
+    );
+    vi.mocked(contractsApi.getMedicalContractDetail).mockRejectedValue(
+      new Error('Không tìm thấy hợp đồng')
+    );
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    const blocking = await screen.findByTestId('booking-payment-blocking-reasons');
+    expect(blocking).toHaveTextContent(/vượt quá số suất trên hợp đồng/i);
+    expect(blocking).toHaveTextContent(/thanh toán bổ sung/i);
+  });
+
+  it('giữ nguyên thông điệp lỗi gốc khi lỗi không kèm blockingReasons', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockRejectedValue(
+      new Error('Mất kết nối máy chủ')
+    );
+    vi.mocked(contractsApi.getMedicalContractDetail).mockRejectedValue(
+      new Error('Không tìm thấy hợp đồng')
+    );
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-payment-error')).toHaveTextContent(
+      'Mất kết nối máy chủ'
+    );
+    expect(screen.queryByTestId('booking-payment-blocking-reasons')).toBeNull();
   });
 
   it('hiển thị nút quay lại /booking/tracking khi hợp đồng chưa đủ 4 chữ ký', async () => {

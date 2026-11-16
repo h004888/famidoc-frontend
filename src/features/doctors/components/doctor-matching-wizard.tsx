@@ -4,9 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { LandingHeader, LandingFooter } from '@/features/landing';
-import { ContractSigningWizard } from '@/features/subscription-contract';
 
 interface MatchedDoctor {
   id: string;
@@ -96,13 +94,8 @@ export function DoctorMatchingWizard() {
     'Tăng huyết áp',
     'Đái tháo đường Type 2',
   ]);
-  const [selectedDoctorForContract, setSelectedDoctorForContract] = useState<{
-    name: string;
-    specialty: string;
-  } | null>(null);
   const [isAddingChronic, setIsAddingChronic] = useState(false);
   const [newChronicInput, setNewChronicInput] = useState('');
-  const [contractSuccessToast, setContractSuccessToast] = useState<string | null>(null);
 
   const removeChronic = (item: string) => {
     setSelectedChronic((prev) => prev.filter((c) => c !== item));
@@ -545,21 +538,15 @@ export function DoctorMatchingWizard() {
 
                       {/* Right Action Buttons */}
                       <div className="flex flex-col sm:flex-row lg:flex-col items-stretch gap-2.5 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            setSelectedDoctorForContract({
-                              name: `${doc.title} ${doc.name}`,
-                              specialty: doc.specialty,
-                            })
-                          }
-                          className="h-auto px-6 py-3.5 font-bold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg transition-all gap-2 group"
+                        <Link
+                          href={`/doctors/${doc.id}`}
+                          className="h-auto px-6 py-3.5 bg-primary text-primary-foreground font-bold text-xs sm:text-sm rounded-xl shadow-md hover:shadow-lg hover:bg-primary/90 transition-all gap-2 group text-center flex items-center justify-center"
                         >
                           <span className="material-symbols-outlined text-[18px] group-hover:scale-110 transition-transform">
-                            assignment_turned_in
+                            stethoscope
                           </span>
-                          <span>Chọn Bác Sĩ &amp; Ký Hợp Đồng (SCR-15)</span>
-                        </Button>
+                          <span>Chọn Bác Sĩ Này &amp; Chọn Gói</span>
+                        </Link>
 
                         <Link
                           href={`/doctors/${doc.id}`}
@@ -592,44 +579,6 @@ export function DoctorMatchingWizard() {
       {/* 4. Standard Landing Footer */}
       <LandingFooter />
 
-      {/* Success Notification Banner */}
-      {contractSuccessToast && (
-        <div
-          role="status"
-          className="fixed top-6 right-6 z-50 p-4 rounded-2xl bg-emerald-600 text-white shadow-xl max-w-md flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-4"
-        >
-          <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[24px]">verified</span>
-            <span className="text-xs font-bold leading-snug">
-              {contractSuccessToast}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setContractSuccessToast(null)}
-            className="text-white/80 hover:text-white p-1"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* Modal: 4-Party Digital Contract Signing Wizard (SCR-15) */}
-      {selectedDoctorForContract && (
-        <ContractSigningWizard
-          packageName="Gói Gia Đình Toàn Diện (Kỳ hạn 3 Tháng)"
-          packagePrice="4.245.000 đ"
-          doctorName={selectedDoctorForContract.name}
-          onClose={() => setSelectedDoctorForContract(null)}
-          onSuccess={() => {
-            setContractSuccessToast(
-              'Chúc mừng bạn đã ký kết hợp đồng Bác sĩ Gia đình thành công! Hệ thống đã kích hoạt hồ sơ quản lý sức khỏe gia đình.'
-            );
-            setSelectedDoctorForContract(null);
-            setTimeout(() => setContractSuccessToast(null), 6000);
-          }}
-        />
-      )}
     </div>
   );
 }

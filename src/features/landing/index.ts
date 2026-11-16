@@ -12,6 +12,8 @@ export * from './components/landing-cta-banner';
 export * from './components/landing-footer';
 export * from './components/landing-floating-actions';
 
+export * from './hooks/use-landing-family-gate';
+
 export * from './actions/submit-consultation-lead';
 export * from './api/landing-queries';
 export * from './schemas/landing.schema';

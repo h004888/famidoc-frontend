@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import React, { Suspense } from 'react';
 import { BookingOnboardingShell } from '@/features/booking';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 
 export const metadata: Metadata = {
   title: 'Đăng ký gói chăm sóc gia đình | FamiDoc',
@@ -21,7 +22,9 @@ export default function BookingLayout({ children }: { children: React.ReactNode 
         </div>
       }
     >
-      <BookingOnboardingShell>{children}</BookingOnboardingShell>
+      <ServerAuthSessionBoundary>
+        <BookingOnboardingShell>{children}</BookingOnboardingShell>
+      </ServerAuthSessionBoundary>
     </Suspense>
   );
 }

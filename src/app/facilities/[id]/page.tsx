@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { Metadata } from 'next';
 import { FacilityDetailView } from '@/features/facilities';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 import { publicApi, type PublicFacilityDto } from '@/lib/api';
 import type { Facility } from '@/features/doctors';
 
@@ -151,7 +152,9 @@ export default async function FacilityDetailPage({
         </div>
       }
     >
-      <FacilityDetailPageContent params={params} />
+      <ServerAuthSessionBoundary>
+        <FacilityDetailPageContent params={params} />
+      </ServerAuthSessionBoundary>
     </Suspense>
   );
 }

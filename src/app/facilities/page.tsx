@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { FacilitiesDirectoryView } from '@/features/facilities';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 
 export const metadata: Metadata = {
   title: 'Mạng Lưới Bệnh Viện & Cơ Sở Y Tế Đối Tác | FamiDoc Pro',
@@ -20,7 +21,9 @@ export default function FacilitiesPage() {
         </div>
       }
     >
-      <FacilitiesDirectoryView />
+      <ServerAuthSessionBoundary>
+        <FacilitiesDirectoryView />
+      </ServerAuthSessionBoundary>
     </Suspense>
   );
 }

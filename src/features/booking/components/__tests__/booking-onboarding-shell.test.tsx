@@ -210,6 +210,42 @@ describe('BookingOnboardingShell', () => {
     ).toHaveAttribute('href', '/booking/tracking?contractId=ctr-1');
   });
 
+  it('chỉ hiển thị hàng nút Quay lại ở màn hình hẹp, desktop dựa vào stepper', () => {
+    mockPathname = '/booking/tracking';
+    render(
+      <BookingOnboardingShell>
+        <ContextProbe contractId="ctr-1" contractStatus="PENDING_APPROVAL" />
+      </BookingOnboardingShell>
+    );
+
+    const compactRow = screen.getByTestId('booking-compact-back-row');
+    expect(compactRow).toHaveClass('md:hidden');
+    expect(compactRow).toContainElement(
+      screen.getByRole('link', { name: /Quay lại bước xác nhận gói/i })
+    );
+    expect(screen.getByTestId('booking-step-compact')).toHaveTextContent('Bước 2/3');
+  });
+
+  it('khóa nút Quay lại trên thanh hẹp khi hợp đồng đã ACTIVE', () => {
+    mockPathname = '/booking/tracking';
+    render(
+      <BookingOnboardingShell>
+        <ContextProbe contractId="ctr-1" contractStatus="ACTIVE" />
+      </BookingOnboardingShell>
+    );
+
+    const compactRow = screen.getByTestId('booking-compact-back-row');
+    expect(compactRow).toHaveClass('md:hidden');
+    const lockedButton = screen.getByRole('button', {
+      name: /Hợp đồng đã kích hoạt, không thể quay lại bước trước/i,
+    });
+    expect(lockedButton).toBeDisabled();
+    expect(compactRow).toContainElement(lockedButton);
+    expect(
+      screen.queryByRole('link', { name: /Quay lại bước xác nhận gói/i })
+    ).toBeNull();
+  });
+
   it('hiển thị chỉ báo gọn Bước N/3 cho màn hình nhỏ', () => {
     mockPathname = '/booking/tracking';
     render(

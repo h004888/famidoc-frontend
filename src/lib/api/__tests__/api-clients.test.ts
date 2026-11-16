@@ -197,6 +197,21 @@ describe('Task 3: Typed API Client Services (Patients, Contracts, Auth)', () => 
       fetchSpy.mockRestore();
     });
 
+    it('truyền query forceSync=1 khi ép kiểm tra Documenso', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'ctr-3', contractStatus: 'PENDING_APPROVAL' }),
+      } as Response);
+
+      await contractsApi.getMedicalContractDetail('ctr-3', { forceSync: true });
+
+      const [requestedUrl] = fetchSpy.mock.calls[0];
+      expect(String(requestedUrl)).toContain('/api/v1/contracts/medical/ctr-3');
+      expect(String(requestedUrl)).toContain('forceSync=1');
+      fetchSpy.mockRestore();
+    });
+
     it('calls PUT /api/v1/contracts/four-party/:id/sign to execute digital signature', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
         ok: true,

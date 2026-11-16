@@ -9,6 +9,7 @@ vi.mock('@/lib/api', () => ({
     getMedicalContractDetail: vi.fn(),
     getSigningSession: vi.fn(),
     syncDocumenso: vi.fn(),
+    downloadSignedPdf: vi.fn(),
   },
 }));
 
@@ -238,6 +239,109 @@ describe('ContractSigningTrackerView (Luồng Documenso 2 pha & Thanh toán)', (
     const { container } = render(<ContractSigningTrackerView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');
+  });
+
+  it('hiển thị nút "Xem PDF đã ký 4 bên" ở PENDING_PAYMENT khi DTO có documensoItemId và tải qua contractsApi', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue(
+      detailDto({ documensoItemId: 'item-42' }) as never
+    );
+    const blob = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
+    const downloadSpy = vi
+      .mocked(contractsApi.downloadSignedPdf)
+      .mockResolvedValue(blob);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:tracker-signed-pdf');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(<ContractSigningTrackerView contractId="FMD-2026-REGR821" />);
+
+    const button = await screen.findByTestId('tracker-view-signed-pdf');
+    expect(button).toHaveTextContent('Xem PDF đã ký 4 bên');
+
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledWith('FMD-2026-REGR821');
+      expect(openSpy).toHaveBeenCalledWith(
+        'blob:tracker-signed-pdf',
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+  });
+
+  it('hiển thị nút xem PDF đã ký ở trạng thái ACTIVE khi DTO có signedPdfUrl', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue(
+      detailDto({
+        contractStatus: 'ACTIVE',
+        signedPdfUrl: '/api/v1/contracts/medical/FMD-2026-REGR821/signed-pdf',
+      }) as never
+    );
+    const downloadSpy = vi
+      .mocked(contractsApi.downloadSignedPdf)
+      .mockResolvedValue(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:tracker-active-pdf');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(<ContractSigningTrackerView contractId="FMD-2026-REGR821" />);
+
+    const button = await screen.findByTestId('tracker-view-signed-pdf');
+    fireEvent.click(button);
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledWith('FMD-2026-REGR821');
+    });
+    expect(screen.getByText(/Hợp đồng đang có hiệu lực pháp lý/i)).toBeInTheDocument();
+  });
+
+  it('hiển thị lỗi inline kèm nút thử lại khi tải PDF đã ký thất bại', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue(
+      detailDto({ documensoItemId: 'item-42' }) as never
+    );
+    const downloadSpy = vi
+      .mocked(contractsApi.downloadSignedPdf)
+      .mockRejectedValueOnce(new Error('Mất kết nối máy chủ'));
+
+    render(<ContractSigningTrackerView contractId="FMD-2026-REGR821" />);
+
+    fireEvent.click(await screen.findByTestId('tracker-view-signed-pdf'));
+
+    const alert = await screen.findByTestId('tracker-view-signed-pdf-error');
+    expect(alert).toHaveAttribute('role', 'alert');
+    expect(alert).toHaveTextContent(/Không thể tải tệp PDF đã ký/i);
+    // Không làm mất dữ liệu hợp đồng đang hiển thị
+    expect(screen.getByTestId('phase-3-payment')).toBeInTheDocument();
+
+    downloadSpy.mockResolvedValueOnce(
+      new Blob(['%PDF-1.7'], { type: 'application/pdf' })
+    );
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:tracker-retry');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    fireEvent.click(screen.getByTestId('tracker-view-signed-pdf-retry'));
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledTimes(2);
+    });
+    await waitFor(() => {
+      expect(screen.queryByTestId('tracker-view-signed-pdf-error')).toBeNull();
+    });
+  });
+
+  it('không hiển thị nút xem PDF đã ký khi hợp đồng chưa gắn bản Documenso', async () => {
+    render(
+      <ContractSigningTrackerView
+        contract={{
+          id: 'FMD-2026-REGR821',
+          status: 'PENDING_PAYMENT',
+          packagePrice: '9.600.000 đ',
+        }}
+      />
+    );
+
+    expect(screen.queryByTestId('tracker-view-signed-pdf')).toBeNull();
   });
 
   it('hiển thị lỗi có thể thấy được khi tải hợp đồng thất bại', async () => {

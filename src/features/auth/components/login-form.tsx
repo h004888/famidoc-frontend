@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { loginSchema, LoginRole } from '../schemas/auth.schema';
-import { getDefaultPathForRole } from '../context/auth-context';
+import { getDefaultPathForRole, useAuth } from '../context/auth-context';
 import { saveAuthSession, AuthUser } from '@/lib/auth-storage';
 import { httpClient } from '@/lib/api/http-client';
 import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 
 export function LoginForm() {
   const router = useRouter();
+  const { applySession } = useAuth();
   const searchParams = useSearchParams();
   const isRegisteredSuccess = searchParams.get('registered') === 'true';
 
@@ -66,10 +67,7 @@ export function LoginForm() {
         avatarText: (data.user?.fullName || email).slice(0, 2).toUpperCase(),
       };
 
-      if (data.accessToken) {
-        httpClient.setToken(data.accessToken, validData.rememberMe);
-      }
-      saveAuthSession(role, authUser, data.accessToken, validData.rememberMe);
+      applySession(role, authUser, data.accessToken, validData.rememberMe);
       setLoading(false);
 
       const isFamilyRole = role === 'FAMILY' || role === 'PATIENT';
@@ -77,11 +75,7 @@ export function LoginForm() {
       const returnUrl = resolveReturnUrl(searchParams.get('redirect'));
       const redirectPath =
         returnUrl ?? (isFamilyRole ? '/' : getDefaultPathForRole(role));
-      if (typeof window !== 'undefined') {
-        window.location.replace(redirectPath);
-      } else {
-        router.push(redirectPath);
-      }
+      router.replace(redirectPath);
     } catch (err: unknown) {
       setLoading(false);
       const rawMessage = err instanceof Error ? err.message.trim() : '';
