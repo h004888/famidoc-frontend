@@ -191,7 +191,6 @@ export function FamilyDashboardView() {
   const [activeContract, setActiveContract] = useState<MedicalContractListItem | null>(null);
   const [realPatients, setRealPatients] = useState<PatientDto[]>([]);
   const [membersData, setMembersData] = useState<Record<string, MemberHealthData>>(INITIAL_FAMILY_MEMBERS_DATA);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;

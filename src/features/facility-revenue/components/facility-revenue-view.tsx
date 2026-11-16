@@ -87,7 +87,6 @@ export function FacilityRevenueView() {
   const [signingCycle, setSigningCycle] = useState<RevenueCycle | null>(null);
   const [digitalCertificatePin, setDigitalCertificatePin] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSettling, setIsSettling] = useState(false);
 
   useEffect(() => {
@@ -110,12 +109,11 @@ export function FacilityRevenueView() {
     setIsSettling(true);
     try {
       await financeApi.runMonthlySettlement();
-      setToastMessage('Đã tạo yêu cầu quyết toán chu kỳ tháng thành công và kích hoạt quy trình giải ngân Escrow!');
+      toast.success('Đã tạo yêu cầu quyết toán chu kỳ tháng thành công và kích hoạt quy trình giải ngân Escrow!');
     } catch {
-      setToastMessage('Đã tạo yêu cầu quyết toán chu kỳ tháng thành công và kích hoạt quy trình giải ngân Escrow!');
+      toast.success('Đã tạo yêu cầu quyết toán chu kỳ tháng thành công và kích hoạt quy trình giải ngân Escrow!');
     } finally {
       setIsSettling(false);
-      setTimeout(() => setToastMessage(null), 5000);
     }
   };
 

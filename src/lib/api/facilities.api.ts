@@ -284,7 +284,25 @@ export const facilitiesApi = {
     licenseIssuer?: string;
     licenseDate?: string;
   }): Promise<any> => {
-    return httpClient.put('/api/v1/facilities/me/legal-profile', payload);
+    // Làm sạch payload: Chỉ gửi các trường được whitelist bởi backend SubmitFacilityLegalProfileDto
+    const cleanPayload: Record<string, any> = {
+      licenseNumber: payload.licenseNumber.trim(),
+      taxCode: payload.taxCode.trim(),
+      hotline: payload.hotline.trim(),
+      bankName: payload.bankName.trim(),
+      bankAccountNumber: payload.bankAccountNumber.trim(),
+      bankAccountHolder: payload.bankAccountHolder.trim().toUpperCase(),
+    };
+    if (payload.facilityName?.trim()) {
+      cleanPayload.facilityName = payload.facilityName.trim();
+    }
+    if (payload.address?.trim()) {
+      cleanPayload.address = payload.address.trim();
+    }
+    if (payload.legalDocumentsUrl?.trim()) {
+      cleanPayload.legalDocumentsUrl = payload.legalDocumentsUrl.trim();
+    }
+    return httpClient.put('/api/v1/facilities/me/legal-profile', cleanPayload);
   },
 
   // Admin gửi lại email kích hoạt & mật khẩu khởi tạo (Flow 2.1 Mở rộng)

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -680,6 +681,20 @@ export function ContractSigningTrackerView({
                   <p className="text-sm leading-relaxed text-slate-600">
                     {party.description}
                   </p>
+                  {!partySigned && isFamilySigned && (
+                    <div className="pt-1.5 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toast.success(`Đã gửi thông báo nhắc nhở ký số tới ${party.title}!`);
+                        }}
+                        className="px-2 py-1 rounded-md text-[11px] font-semibold text-primary hover:bg-primary/10 border border-primary/25 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">notifications_active</span>
+                        <span>Nhắc ký số</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

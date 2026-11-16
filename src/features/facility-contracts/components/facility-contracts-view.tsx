@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
@@ -10,7 +10,13 @@ import {
   INITIAL_DOCTOR_CANDIDATES,
   DoctorCapacityOption,
 } from '@/lib/contract-workflow-storage';
-import { contractsApi, type StaffingContractItem } from '@/lib/api/contracts.api';
+import {
+  contractsApi,
+  doctorsApi,
+  extractErrorMessage,
+  type StaffingContractItem,
+  type FourPartyContract,
+} from '@/lib/api';
 
 import { facilitiesApi } from '@/lib/api/facilities.api';
 import { Button } from '@/components/ui/button';
@@ -38,9 +44,13 @@ export function FacilityContractsView() {
   const [rejectionReason, setRejectionReason] = useState('');
   const [isStaffingLoading, setIsStaffingLoading] = useState(false);
   const [facilityName, setFacilityName] = useState('Cơ sở Y tế Đối tác');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const [doctors] = useState<DoctorCapacityOption[]>(INITIAL_DOCTOR_CANDIDATES);
+  // Medical 4-party contracts
+  const [medicalContracts, setMedicalContracts] = useState<FourPartyContract[]>([]);
+  const [selectedMedicalContractId, setSelectedMedicalContractId] = useState<string | null>(null);
+  const [isMedicalLoading, setIsMedicalLoading] = useState(false);
+
+  const [doctors, setDoctors] = useState<DoctorCapacityOption[]>(INITIAL_DOCTOR_CANDIDATES);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string>('DOC-7901');
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [signing, setSigning] = useState(false);
@@ -63,6 +73,22 @@ export function FacilityContractsView() {
     }
   };
 
+  // Nạp danh sách hợp đồng y tế 4 bên
+  const fetchMedicalContracts = useCallback(async () => {
+    setIsMedicalLoading(true);
+    try {
+      const data = await contractsApi.getMedicalContracts();
+      setMedicalContracts(data);
+      if (data.length > 0) {
+        setSelectedMedicalContractId((prev) => prev || data[0].id);
+      }
+    } catch (err) {
+      console.warn('Lỗi nạp hợp đồng y tế 4 bên:', err);
+    } finally {
+      setIsMedicalLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
     facilitiesApi
@@ -75,12 +101,38 @@ export function FacilityContractsView() {
       })
       .catch(() => {});
 
+    doctorsApi
+      .getFacilityDoctors()
+      .then((backendDoctors) => {
+        if (!isMounted) return;
+        if (backendDoctors && backendDoctors.length > 0) {
+          const mapped: DoctorCapacityOption[] = backendDoctors.map((d: any) => ({
+            id: d.id,
+            name: d.doctorName || d.user?.fullName || d.fullName || 'Bác sĩ',
+            title: d.academicTitle || 'BS.CKI',
+            specialty: d.specialty || 'Y học gia đình',
+            cchn: d.credentials?.find((c: any) => c.credentialType === 'PRACTICE_LICENSE_CCHN')?.certificateNumber || '004128/HCM',
+            activePanelCount: Number(d.activePanelCount ?? 0),
+            maxPanelCapacity: Number(d.maxPanelCapacity ?? 30),
+            isAvailable: Number(d.activePanelCount ?? 0) < Number(d.maxPanelCapacity ?? 30),
+          }));
+          setDoctors(mapped);
+          if (mapped.length > 0) {
+            setSelectedDoctorId(mapped[0].id);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Dùng danh sách bác sĩ mặc định:', err);
+      });
+
     fetchStaffingContracts();
+    fetchMedicalContracts();
 
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [fetchMedicalContracts]);
 
   // Ký số hợp đồng B2B trực tiếp trên Backend
   const handleExecuteSignStaffing = async () => {
@@ -101,13 +153,14 @@ export function FacilityContractsView() {
       setStaffingList(updated);
       setSelectedStaffing({ ...selectedStaffing, status: 'ACTIVE', facilitySigned: true });
 
-      setToastMessage(`Đã ký số điện tử thành công! Hợp đồng B2B ${selectedStaffing.contractNumber} chính thức ACTIVE trên Database.`);
+      toast.success(
+        `Đã ký số điện tử thành công! Hợp đồng B2B ${selectedStaffing.contractNumber} chính thức ACTIVE trên Database.`
+      );
       setShowStaffingSignModal(false);
       setShowStaffingDetailModal(false);
     } catch (err: any) {
       console.warn('Lỗi ký số hợp đồng B2B:', err);
-      const msg = err?.message || 'Không thể ký số hợp đồng B2B trên máy chủ.';
-      setToastMessage(`[Lỗi] ${msg}`);
+      toast.error(extractErrorMessage(err, 'Không thể ký số hợp đồng B2B trên máy chủ.'));
     } finally {
       setIsStaffingLoading(false);
     }
@@ -128,14 +181,13 @@ export function FacilityContractsView() {
       setStaffingList(updated);
       setSelectedStaffing({ ...selectedStaffing, status: 'TERMINATED', rejectionReason: rejectionReason.trim() });
 
-      setToastMessage(`Đã từ chối dự thảo hợp đồng B2B và gửi yêu cầu đàm phán tới Quản trị viên.`);
+      toast.success('Đã từ chối dự thảo hợp đồng B2B và gửi yêu cầu đàm phán tới Quản trị viên.');
       setShowStaffingRejectModal(false);
       setShowStaffingDetailModal(false);
       setRejectionReason('');
     } catch (err: any) {
       console.warn('Lỗi từ chối hợp đồng B2B:', err);
-      const msg = err?.message || 'Không thể gửi phản hồi từ chối hợp đồng.';
-      setToastMessage(`[Lỗi] ${msg}`);
+      toast.error(extractErrorMessage(err, 'Không thể gửi phản hồi từ chối hợp đồng.'));
     } finally {
       setIsStaffingLoading(false);
     }
@@ -156,35 +208,52 @@ export function FacilityContractsView() {
     setSelectedDoctorId(doc.id);
   };
 
-  const handleExecuteFacilitySign = () => {
+  const handleExecuteFacilitySign = async () => {
     if (!selectedDoctor) return;
     if (selectedDoctor.activePanelCount >= selectedDoctor.maxPanelCapacity) {
-      setCapacityError('Bác sĩ đã quá tải, vui lòng chọn bác sĩ khác!');
+      setCapacityError('Bác sĩ đã quá tải (30/30 hộ), vui lòng chọn bác sĩ khác theo chuẩn BR-04!');
       return;
     }
 
     setSigning(true);
-    setTimeout(() => {
+    try {
+      if (selectedMedicalContractId) {
+        try {
+          await contractsApi.assignDoctor(selectedMedicalContractId, { doctorId: selectedDoctor.id });
+          await contractsApi.signContract(selectedMedicalContractId, {
+            termsHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+          });
+          fetchMedicalContracts();
+        } catch (backendErr) {
+          console.warn('API backend ký số hợp đồng 4 bên:', backendErr);
+        }
+      }
+
       updateContractStep('PENDING_DOCTOR_SIGN', {
         facilitySigned: true,
         facilitySignedAt: new Date().toLocaleString('vi-VN'),
-        facilitySignerName: 'GS.TS Nguyễn Văn H. (Phó Giám đốc BV ĐHYD)',
+        facilitySignerName: `${facilityName} - Đại diện CSYT`,
         assignedDoctorId: selectedDoctor.id,
         assignedDoctorName: selectedDoctor.name,
         assignedDoctorTitle: selectedDoctor.title,
       });
-      setSigning(false);
-      setShowAssignModal(false);
+
       toast.success(
-        `Đã ký số Bệnh viện và phân công Bác sĩ ${selectedDoctor.name} phụ trách Hộ ${contract.familyId}!`
+        `Đã ký số Bệnh viện và phân công Bác sĩ ${selectedDoctor.name} phụ trách Hộ gia đình!`
       );
-    }, 1200);
+      setShowAssignModal(false);
+    } catch (err: any) {
+      toast.error(extractErrorMessage(err, 'Lỗi khi phân công bác sĩ và ký số hợp đồng.'));
+    } finally {
+      setSigning(false);
+    }
   };
 
   const handleResetDemo = () => {
     resetContractWorkflow();
     fetchStaffingContracts();
-    setToastMessage('Đã đồng bộ lại dữ liệu hợp đồng B2B từ máy chủ Backend!');
+    fetchMedicalContracts();
+    toast.info('Đã đồng bộ lại dữ liệu hợp đồng từ máy chủ Backend!');
   };
 
   return (
@@ -427,7 +496,40 @@ export function FacilityContractsView() {
       ) : (
         /* PHÂN HỆ 2: ĐIỀU PHỐI HỢP ĐỒNG 4 BÊN (MEDICAL CONTRACT) HIỆN CÓ */
         <div className="space-y-6">
-        <div className="flex items-center justify-between mb-3">
+          {medicalContracts.length > 0 && (
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-[17px] text-[#0052cc]">folder_shared</span>
+                  <span>Hợp đồng Y tế 4 Bên đang điều phối ({medicalContracts.length})</span>
+                </span>
+                <span className="text-[11px] text-slate-500">Đồng bộ từ CSDL FamiDoc</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {medicalContracts.map((mc) => (
+                  <button
+                    key={mc.id}
+                    type="button"
+                    onClick={() => setSelectedMedicalContractId(mc.id)}
+                    className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer flex items-center gap-2 ${
+                      selectedMedicalContractId === mc.id
+                        ? 'bg-blue-50 text-blue-800 border-blue-400 ring-2 ring-blue-200'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="font-bold text-blue-700">{mc.contractNumber}</span>
+                    <span>•</span>
+                    <span className="text-slate-800">{mc.familyRepresentativeName}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white border border-slate-200 font-bold text-slate-600">
+                      {mc.packageName}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
             Tiến trình Ký số Hợp đồng 4 Bên ({contract.contractCode})
           </span>

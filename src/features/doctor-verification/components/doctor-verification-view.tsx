@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { doctorsApi, type DoctorProfileDto } from '@/lib/api';
+import { toast } from 'sonner';
+import { doctorsApi, extractErrorMessage, type DoctorProfileDto } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -21,7 +22,6 @@ export function DoctorVerificationView() {
 
   const [onboardingStatus, setOnboardingStatus] = useState<string>('PENDING_SUBMISSION');
   const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form states in modal
@@ -30,6 +30,7 @@ export function DoctorVerificationView() {
   const [formIssuer, setFormIssuer] = useState('');
   const [formDate, setFormDate] = useState('');
   const [formFiles, setFormFiles] = useState<string[]>([]);
+  const [selectedFileObjects, setSelectedFileObjects] = useState<{ name: string; size: string }[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -94,13 +95,32 @@ export function DoctorVerificationView() {
 
   const handleSubmitCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!formCchn.trim()) {
+      toast.error('Vui lòng nhập Số chứng chỉ hành nghề (CCHN).');
+      return;
+    }
+    if (!formIssuer.trim()) {
+      toast.error('Vui lòng nhập Cơ quan cấp phép CCHN.');
+      return;
+    }
+    if (!formDate.trim()) {
+      toast.error('Vui lòng chọn Ngày cấp CCHN.');
+      return;
+    }
+    const issueDateObj = new Date(formDate);
+    if (!isNaN(issueDateObj.getTime()) && issueDateObj > new Date()) {
+      toast.error('Ngày cấp chứng chỉ không thể là ngày trong tương lai.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const res = await doctorsApi.submitMyCredentials({
-        cchnNumber: formCchn,
-        scopeOfPractice: formScope,
-        issuedBy: formIssuer,
-        issuedDate: formDate,
+        cchnNumber: formCchn.trim(),
+        scopeOfPractice: formScope.trim(),
+        issuedBy: formIssuer.trim(),
+        issuedDate: formDate.trim(),
         certificateFiles: formFiles,
       });
 
@@ -135,15 +155,13 @@ export function DoctorVerificationView() {
         setOnboardingStatus('PENDING_SUBMISSION');
       }
 
-      setToastMessage('Đã nộp hồ sơ CCHN lên hệ thống! Hồ sơ đang chờ Cơ sở y tế thẩm định Cấp 1.');
+      toast.success('Đã nộp hồ sơ CCHN lên hệ thống! Hồ sơ đang chờ Cơ sở y tế thẩm định Cấp 1.');
       setShowUpdateModal(false);
     } catch (err: any) {
       console.warn('Lỗi khi nộp CCHN:', err?.message || err);
-      const errMsg = err?.message || 'Có lỗi khi nộp hồ sơ CCHN lên máy chủ';
-      setToastMessage(`[Lỗi] ${errMsg}`);
+      toast.error(extractErrorMessage(err, 'Có lỗi khi nộp hồ sơ CCHN lên máy chủ.'));
     } finally {
       setIsSubmitting(false);
-      setTimeout(() => setToastMessage(null), 5000);
     }
   };
 
@@ -192,6 +210,29 @@ export function DoctorVerificationView() {
             <span>Cập nhật / Nộp hồ sơ CCHN</span>
           </Button>
         </Card>
+
+        {/* Warning khi bị từ chối */}
+        {onboardingStatus === 'REJECTED' && (
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs sm:text-sm text-rose-900 flex items-start justify-between gap-3 shadow-xs">
+            <div className="flex items-start gap-2.5">
+              <span className="material-symbols-outlined text-rose-600 text-xl shrink-0 mt-0.5">error</span>
+              <div>
+                <p className="font-bold text-rose-900">Hồ sơ CCHN cần bổ sung hoặc đã bị từ chối</p>
+                <p className="text-xs text-rose-700 mt-0.5">
+                  Thông tin chứng chỉ hoặc phạm vi hoạt động chuyên môn chưa khớp với CSDL y tế. Vui lòng kiểm tra lại thông tin và nộp lại hồ sơ.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => setShowUpdateModal(true)}
+              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shrink-0"
+            >
+              Cập nhật lại
+            </Button>
+          </div>
+        )}
 
         {/* Verification Status Banner (2-Tier Pipeline chuẩn BYT) */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
@@ -476,19 +517,61 @@ export function DoctorVerificationView() {
               </div>
 
               <div>
-                <label className="block font-semibold text-[#475569] mb-1">Ảnh chụp 2 mặt CCHN &amp; Bằng cấp (JPG, PNG, PDF)</label>
+                <label className="block font-semibold text-[#475569] mb-1">
+                  Hồ sơ scan đính kèm: CCHN 2 mặt, Bằng tốt nghiệp &amp; Chứng chỉ Y học Gia đình (JPG, PNG, PDF)
+                </label>
                 <input
                   type="file"
                   multiple
-                  className="w-full p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50"
+                  accept=".jpg,.jpeg,.png,.pdf"
+                  className="w-full p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 cursor-pointer"
                   onChange={(e) => {
                     if (e.target.files) {
-                      const names = Array.from(e.target.files).map((f) => f.name);
-                      setFormFiles(names);
+                      const files = Array.from(e.target.files);
+                      const validFiles = files.filter((f) => {
+                        if (f.size > 10 * 1024 * 1024) {
+                          toast.error(`File "${f.name}" vượt quá giới hạn 10MB!`);
+                          return false;
+                        }
+                        return true;
+                      });
+                      const fileInfos = validFiles.map((f) => ({
+                        name: f.name,
+                        size: f.size > 1024 * 1024 ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(f.size / 1024)} KB`,
+                      }));
+                      setSelectedFileObjects((prev) => [...prev, ...fileInfos]);
+                      setFormFiles((prev) => [...prev, ...validFiles.map((f) => f.name)]);
                     }
                   }}
                 />
-                <p className="text-[10px] text-slate-400 mt-1">Hệ thống chấp nhận tối đa 5 file, dung lượng mỗi file dưới 10MB.</p>
+                <p className="text-[10px] text-slate-400 mt-1">
+                  Bao gồm: (1) Bản chụp CCHN, (2) Bằng cấp chuyên môn, (3) Chứng chỉ bồi dưỡng Y học Gia đình. Tối đa 10MB/file.
+                </p>
+
+                {selectedFileObjects.length > 0 && (
+                  <div className="space-y-1.5 mt-2">
+                    {selectedFileObjects.map((file, idx) => (
+                      <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-blue-50/60 border border-blue-200 text-xs">
+                        <div className="flex items-center gap-2 truncate">
+                          <span className="material-symbols-outlined text-[16px] text-blue-600">description</span>
+                          <span className="font-semibold text-slate-800 truncate">{file.name}</span>
+                          <span className="text-[10px] text-slate-500 font-medium">({file.size})</span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFileObjects((prev) => prev.filter((_, i) => i !== idx));
+                            setFormFiles((prev) => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="text-slate-400 hover:text-rose-600 cursor-pointer p-0.5 rounded"
+                          title="Xóa tệp này"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">close</span>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2 pt-3 border-t border-slate-100">

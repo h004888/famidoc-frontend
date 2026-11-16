@@ -3,8 +3,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { contractsApi, type StaffingContractItem } from '@/lib/api/contracts.api';
+import { extractErrorMessage } from '@/lib/api';
 
 interface AdminFacilityDetailViewProps {
   facilityId: string;
@@ -15,7 +17,6 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   const [facility, setFacility] = useState<AdminFacilityItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'LEGAL' | 'BANK' | 'TIMELINE' | 'CONTRACTS'>('GENERAL');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Danh sách hợp đồng B2B của CSYT này
@@ -52,11 +53,6 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
 
   // Modal duyệt cấp 1
   const [showApproveAccountModal, setShowApproveAccountModal] = useState(false);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 4500);
-  };
 
   const fetchStaffingContracts = useCallback(async (_targetFacilityName?: string) => {
     setIsContractsLoading(true);
@@ -109,11 +105,11 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     try {
       await facilitiesApi.approveAccount(facility.id);
       setFacility((prev) => (prev ? { ...prev, onboardingStatus: 'PENDING_LEGAL' } : null));
-      showToast(
+      toast.success(
         `Đã duyệt Cấp 1 thành công! Đã gửi thông tin tài khoản Portal kèm mật khẩu khởi tạo "FamiDoc@Facility2026" tới ${facility.email}.`
       );
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể duyệt cấp 1 trên máy chủ.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể duyệt cấp 1 trên máy chủ.'));
     } finally {
       setIsActionLoading(false);
       setShowApproveAccountModal(false);
@@ -127,9 +123,9 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     try {
       await facilitiesApi.verifyLegal(facility.id, { approved: true, verified: true });
       setFacility((prev) => (prev ? { ...prev, onboardingStatus: 'ACTIVE', status: 'ACTIVE' } : null));
-      showToast(`Hậu kiểm pháp lý thành công! CSYT "${facility.facilityName}" đã chính thức chuyển sang trạng thái ACTIVE.`);
+      toast.success(`Hậu kiểm pháp lý thành công! CSYT "${facility.facilityName}" đã chính thức chuyển sang trạng thái ACTIVE.`);
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể hậu kiểm pháp lý.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể hậu kiểm pháp lý.'));
     } finally {
       setIsActionLoading(false);
     }
@@ -142,11 +138,11 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     try {
       await facilitiesApi.rejectFacility(facility.id, rejectReason);
       setFacility((prev) => (prev ? { ...prev, onboardingStatus: 'REJECTED' } : null));
-      showToast('Đã gửi thông báo từ chối / yêu cầu bổ sung hồ sơ tới cơ sở y tế.');
+      toast.success('Đã gửi thông báo từ chối / yêu cầu bổ sung hồ sơ tới cơ sở y tế.');
       setRejectReason('');
       setShowRejectModal(false);
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể từ chối hồ sơ.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể từ chối hồ sơ.'));
     } finally {
       setIsActionLoading(false);
     }
@@ -156,7 +152,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   const handleCreateAndSendContract = async () => {
     if (!facility) return;
     if (facilityShare + platformShare !== 100) {
-      showToast('[Lỗi] Tổng tỷ lệ phân chia doanh thu của CSYT và Nền tảng phải bằng đúng 100%.');
+      toast.error('Tổng tỷ lệ phân chia doanh thu của CSYT và Nền tảng phải bằng đúng 100%.');
       return;
     }
 
@@ -196,11 +192,11 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
       setStaffingContracts((prev) => [newlyCreated, ...prev]);
       setShowCreateContractModal(false);
       setActiveTab('CONTRACTS');
-      showToast(
+      toast.success(
         `Đã tạo dự thảo hợp đồng ${newContractNumber} thành công! Hệ thống đã ký duyệt trước và tự động gửi thông báo tới đại diện CSYT (${facility.email}) để ký số.`
       );
     } catch (err: any) {
-      showToast(`[Lỗi] ${err?.message || 'Không thể thiết lập hợp đồng B2B trên máy chủ.'}`);
+      toast.error(extractErrorMessage(err, 'Không thể thiết lập hợp đồng B2B trên máy chủ.'));
     } finally {
       setIsCreatingContract(false);
     }
@@ -272,19 +268,6 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
 
   return (
     <div className="space-y-6 pb-16">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div
-          role="status"
-          className="fixed bottom-6 right-6 z-50 max-w-md bg-slate-900 text-white text-xs sm:text-sm px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300"
-        >
-          <span className="w-6 h-6 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 font-bold">
-            ✓
-          </span>
-          <span className="leading-relaxed">{toastMessage}</span>
-        </div>
-      )}
-
       {/* Breadcrumb & Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">

@@ -18,7 +18,7 @@ export default function FacilityRegisterPage() {
         </div>
       }
     >
-      <RegisterForm />
+      <RegisterForm defaultType="FACILITY" />
     </Suspense>
   );
 }
