@@ -165,6 +165,28 @@ class HttpClient {
   delete<T>(path: string, options?: RequestInit): Promise<T> {
     return this.request<T>(path, { ...options, method: 'DELETE' });
   }
+
+  async upload<T>(path: string, formData: FormData): Promise<T> {
+    const url = this.buildUrl(path);
+    const headers: Record<string, string> = {};
+    const token = this.getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      const detailMessage =
+        (errorData as { error?: { detail?: string } })?.error?.detail ||
+        (errorData as { message?: string })?.message;
+      throw new ApiError(detailMessage || `Upload failed (${res.status})`, res.status, errorData);
+    }
+    return (await res.json()) as T;
+  }
 }
 
 export const httpClient = new HttpClient();

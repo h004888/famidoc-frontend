@@ -200,4 +200,37 @@ export const doctorsApi = {
       return [];
     }
   },
+
+  getDoctorById: async (id: string): Promise<DoctorProfileDto | null> => {
+    try {
+      const res: any = await httpClient.get<any>(`/api/v1/doctors/${id}`);
+      if (res && typeof res === 'object') {
+        if (res.data && typeof res.data === 'object' && !Array.isArray(res.data)) {
+          return res.data as DoctorProfileDto;
+        }
+        return res as DoctorProfileDto;
+      }
+    } catch {
+      // Fallback
+    }
+    return null;
+  },
+
+  // CSYT gửi lại email thông tin tài khoản và mật khẩu khởi tạo cho bác sĩ
+  resendDoctorInvite: async (doctorId: string): Promise<any> => {
+    return httpClient.post(`/api/v1/facilities/doctors/${doctorId}/resend-invite`);
+  },
+
+  // CSYT cập nhật trạng thái làm việc / tạm hoãn / đình chỉ bác sĩ
+  updateDoctorStatus: async (
+    doctorId: string,
+    payload: { status: 'ACTIVE' | 'ON_LEAVE' | 'SUSPENDED' | 'TERMINATED'; reason?: string }
+  ): Promise<any> => {
+    return httpClient.patch(`/api/v1/facilities/doctors/${doctorId}/status`, payload);
+  },
+
+  // CSYT hủy liên kết bác sĩ khi chuyển viện / thôi việc
+  unlinkDoctor: async (doctorId: string): Promise<any> => {
+    return httpClient.delete(`/api/v1/facilities/doctors/${doctorId}`);
+  },
 };

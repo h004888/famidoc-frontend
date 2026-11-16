@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { doctorsApi } from '@/lib/api/doctors.api';
 import { Pagination } from '@/components/ui/pagination';
@@ -571,13 +572,21 @@ export function AdminFacilitiesView() {
                         </td>
 
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenDetail(fac)}
-                            className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-xs transition-colors border border-blue-200/80 shadow-2xs"
-                          >
-                            Chi tiết &amp; Thẩm định
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/admin/facilities/${fac.id}`}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-lg text-xs transition-colors border border-slate-200"
+                            >
+                              Trang hồ sơ
+                            </Link>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenDetail(fac)}
+                              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold rounded-lg text-xs transition-colors border border-blue-200/80 shadow-2xs"
+                            >
+                              Chi tiết &amp; Thẩm định
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

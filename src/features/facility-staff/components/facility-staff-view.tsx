@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { doctorsApi, type CreateFacilityDoctorPayload } from '@/lib/api/doctors.api';
 
 export interface DoctorStaff {
@@ -398,26 +399,23 @@ export function FacilityStaffView() {
                         </td>
 
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          {(doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' || (doc.onboardingStatus === 'PENDING_SUBMISSION' && doc.cchnNumber && doc.cchnNumber !== 'Chờ BS nộp CCHN' && doc.cchnNumber !== 'Chưa có')) ? (
-                            <button
-                              type="button"
-                              onClick={() => handleApprove(doc.id)}
-                              className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                          <div className="flex items-center justify-end gap-2">
+                            <Link
+                              href={`/facility/doctors/${doc.id}`}
+                              className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors border border-slate-200"
                             >
-                              Duyệt Cấp 1
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setToastMessage(`Hồ sơ Bác sĩ ${doc.name} (ID: ${doc.id}) - Trạng thái: ${doc.onboardingStatus || 'ACTIVE'}`);
-                                setTimeout(() => setToastMessage(null), 4000);
-                              }}
-                              className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
-                            >
-                              Chi tiết
-                            </button>
-                          )}
+                              Hồ sơ CCHN
+                            </Link>
+                            {(doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' || (doc.onboardingStatus === 'PENDING_SUBMISSION' && doc.cchnNumber && doc.cchnNumber !== 'Chờ BS nộp CCHN' && doc.cchnNumber !== 'Chưa có')) && (
+                              <button
+                                type="button"
+                                onClick={() => handleApprove(doc.id)}
+                                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+                              >
+                                Duyệt Cấp 1
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

@@ -91,6 +91,23 @@ function normalizeFacility(item: any): AdminFacilityItem {
     normalizedOnboarding = 'PENDING_APPROVAL';
   }
 
+  let rawFiles: string[] = [];
+  if (Array.isArray(item.licenseFiles) && item.licenseFiles.length > 0) {
+    rawFiles = item.licenseFiles;
+  } else if (Array.isArray(item.license_files) && item.license_files.length > 0) {
+    rawFiles = item.license_files;
+  } else if (typeof item.legalDocumentsUrl === 'string' && item.legalDocumentsUrl.trim()) {
+    rawFiles = [item.legalDocumentsUrl.trim()];
+  } else if (typeof item.legal_documents_url === 'string' && item.legal_documents_url.trim()) {
+    rawFiles = [item.legal_documents_url.trim()];
+  } else if (typeof item.licenseUrl === 'string' && item.licenseUrl.trim()) {
+    rawFiles = [item.licenseUrl.trim()];
+  } else if (typeof item.license_url === 'string' && item.license_url.trim()) {
+    rawFiles = [item.license_url.trim()];
+  } else if (typeof item.documentUrl === 'string' && item.documentUrl.trim()) {
+    rawFiles = [item.documentUrl.trim()];
+  }
+
   return {
     id: item.id || `FAC-${Math.floor(1000 + Math.random() * 9000)}`,
     userId: item.userId || item.user_id,
@@ -104,12 +121,12 @@ function normalizeFacility(item: any): AdminFacilityItem {
     createdAt: item.createdAt || item.created_at || new Date().toISOString(),
     taxCode: isPendingTax ? '' : (rawTax || undefined),
     operatingLicense: isPendingLicense ? '' : (rawLicense || undefined),
-    licenseIssuer: item.licenseIssuer || 'Bộ Y Tế - Cục Quản lý Khám chữa bệnh',
-    licenseDate: item.licenseDate || '2022-01-15',
+    licenseIssuer: item.licenseIssuer || (rawLicense && !isPendingLicense ? 'Bộ Y Tế - Cục Quản lý Khám chữa bệnh' : undefined),
+    licenseDate: item.licenseDate || undefined,
     bankName: rawBankName && rawBankName !== 'CHƯA_CẬP_NHẬT' ? rawBankName : undefined,
     bankAccount: item.bankAccount || (item.bankAccountNumber && item.bankAccountNumber !== 'CHƯA_CẬP_NHẬT' ? item.bankAccountNumber : undefined) || (item.bank_account_number && item.bank_account_number !== 'CHƯA_CẬP_NHẬT' ? item.bank_account_number : undefined),
     bankAccountHolder: item.bankAccountHolder && item.bankAccountHolder !== 'CHƯA_CẬP_NHẬT' ? item.bankAccountHolder : (item.bank_account_holder && item.bank_account_holder !== 'CHƯA_CẬP_NHẬT' ? item.bank_account_holder : undefined),
-    licenseFiles: item.licenseFiles || (rawLicense && !isPendingLicense ? ['giay_phep_kcb_scan.pdf'] : []),
+    licenseFiles: rawFiles,
   };
 }
 
@@ -168,27 +185,7 @@ export const facilitiesApi = {
       }
 
       if (publicItems.length > 0) {
-        // Phân bổ trạng thái để Admin có đủ dữ liệu test các nút Duyệt Cấp 1, Cấp 2, ACTIVE
-        const mappedFromDb = publicItems.map((item, index) => {
-          const base = normalizeFacility(item);
-          if (index === 0) {
-            base.onboardingStatus = 'PENDING_APPROVAL';
-            base.status = 'PENDING';
-          } else if (index === 1) {
-            base.onboardingStatus = 'LEGAL_SUBMITTED';
-            base.status = 'PENDING';
-          } else if (index === 2) {
-            base.onboardingStatus = 'PENDING_LEGAL';
-            base.status = 'PENDING';
-            base.operatingLicense = '';
-            base.taxCode = 'PENDING_TAX_NEW';
-          } else {
-            base.onboardingStatus = 'ACTIVE';
-            base.status = 'ACTIVE';
-          }
-          return base;
-        });
-
+        const mappedFromDb = publicItems.map((item) => normalizeFacility(item));
         return {
           data: mappedFromDb,
           total: mappedFromDb.length,
@@ -202,7 +199,7 @@ export const facilitiesApi = {
   },
 
   // Admin xem chi tiết 1 CSYT
-  getAdminFacilityDetail: async (id: string): Promise<AdminFacilityItem> => {
+  getAdminFacilityDetail: async (id: string): Promise<AdminFacilityItem | null> => {
     try {
       const res = await httpClient.get<any>(`/api/v1/admin/facilities/${id}`);
       if (res && typeof res === 'object') {
@@ -212,7 +209,7 @@ export const facilitiesApi = {
     } catch {
       // Ignore
     }
-    return normalizeFacility({ id });
+    return null;
   },
 
   // Admin Duyệt Lần 1: Cấp tài khoản Portal (FamiDoc@Facility2026)
@@ -277,5 +274,18 @@ export const facilitiesApi = {
     legalDocumentsUrl?: string;
   }): Promise<any> => {
     return httpClient.put('/api/v1/facilities/me/legal-profile', payload);
+  },
+
+  // Admin gửi lại email kích hoạt & mật khẩu khởi tạo (Flow 2.1 Mở rộng)
+  resendFacilityInvite: async (id: string): Promise<any> => {
+    return httpClient.post(`/api/v1/admin/facilities/${id}/resend-invite`);
+  },
+
+  // Admin đình chỉ hoặc khóa Cơ sở Y tế khi có vi phạm (Flow 2.1 Mở rộng)
+  updateFacilityStatus: async (
+    id: string,
+    payload: { status: 'ACTIVE' | 'SUSPENDED' | 'TERMINATED'; reason?: string }
+  ): Promise<any> => {
+    return httpClient.patch(`/api/v1/admin/facilities/${id}/status`, payload);
   },
 };

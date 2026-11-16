@@ -908,8 +908,15 @@ export function RegisterForm() {
                 <div className="bg-slate-50 rounded-2xl p-3.5 border border-slate-200/80 space-y-2 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500">Mã hồ sơ tiếp nhận:</span>
-                    <span className="tracking-wide font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+                    <span className="tracking-wide tabular-nums font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
                       {facilitySuccess.id}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-500">Trạng thái hồ sơ:</span>
+                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                      Chờ phê duyệt tài khoản (PENDING_APPROVAL)
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -918,7 +925,7 @@ export function RegisterForm() {
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-slate-500">Mật khẩu khởi tạo:</span>
-                    <span className="tracking-wide text-slate-700">FamiDoc@Facility2026</span>
+                    <span className="tracking-wide tabular-nums text-slate-700">FamiDoc@Facility2026</span>
                   </div>
                 </div>
 
