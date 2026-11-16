@@ -43,6 +43,8 @@ export interface ContractSigningTrackerViewProps {
   onProceedPayment?: () => void;
   onRefresh?: () => void;
   pollingIntervalMs?: number;
+  /** Đường dẫn quay lại ở breadcrumb trạng thái trống/lỗi (mặc định `/family/subscription`). */
+  backHref?: string;
 }
 
 const mapContractStatus = (
@@ -154,6 +156,7 @@ export function ContractSigningTrackerView({
   onProceedPayment,
   onRefresh,
   pollingIntervalMs,
+  backHref = '/family/subscription',
 }: ContractSigningTrackerViewProps) {
   const router = useRouter();
   const [prevContract, setPrevContract] = useState(contract);
@@ -233,8 +236,8 @@ export function ContractSigningTrackerView({
       onProceedPayment();
     } else {
       const target = currentContract?.id
-        ? `/family/billing?contractId=${encodeURIComponent(currentContract.id)}`
-        : '/family/billing';
+        ? `/booking/payment?contractId=${encodeURIComponent(currentContract.id)}`
+        : '/booking/payment';
       router.push(target);
     }
   };
@@ -291,7 +294,7 @@ export function ContractSigningTrackerView({
               Thử lại
             </button>
             <Link
-              href="/family/subscription"
+              href={backHref}
               className="px-4 py-2 rounded-xl bg-white border border-rose-200 text-rose-800 text-xs font-semibold hover:bg-rose-100 transition-colors"
             >
               Về danh sách gói dịch vụ
@@ -317,7 +320,7 @@ export function ContractSigningTrackerView({
             thanh toán, hoặc chọn gói dịch vụ để bắt đầu.
           </p>
           <Button asChild size="sm" className="rounded-xl text-xs font-bold gap-2">
-            <Link href="/family/subscription">
+            <Link href={backHref}>
               <span className="material-symbols-outlined text-[16px]">arrow_back</span>
               Về danh sách gói dịch vụ
             </Link>
@@ -351,7 +354,7 @@ export function ContractSigningTrackerView({
         <div>
           <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
             <Link
-              href="/family/subscription"
+              href={backHref}
               className="hover:text-slate-800 transition-colors"
             >
               Gói dịch vụ &amp; Hợp đồng
@@ -552,9 +555,9 @@ export function ContractSigningTrackerView({
           }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold tabular-nums ${
+                className={`flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums ${
                   isFamilySigned
                     ? 'bg-emerald-600 text-white'
                     : 'bg-primary text-primary-foreground'
@@ -562,17 +565,17 @@ export function ContractSigningTrackerView({
               >
                 {isFamilySigned ? '✓' : '1'}
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-slate-900">
                   Pha 1: Bên A (Đại diện Hộ gia đình) ký xác nhận trước trên Documenso
                 </h3>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-sm text-slate-600 mt-0.5">
                   Gia đình kiểm tra gói chăm sóc, số lượng thành viên và ký điện tử trực tiếp trên Documenso.
                 </p>
               </div>
             </div>
             <span
-              className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
+              className={`px-2.5 py-0.5 rounded-md text-xs font-bold ${
                 isFamilySigned
                   ? 'bg-emerald-50 text-emerald-700'
                   : 'bg-primary/10 text-primary'
@@ -602,9 +605,9 @@ export function ContractSigningTrackerView({
           }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold tabular-nums ${
+                className={`flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-bold tabular-nums ${
                   isAllSigned
                     ? 'bg-emerald-600 text-white'
                     : isFamilySigned
@@ -614,17 +617,17 @@ export function ContractSigningTrackerView({
               >
                 {isAllSigned ? '✓' : '2'}
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-sm font-bold text-slate-900">
                   Pha 2: Bên B, Bên C &amp; Bên D ký song song đồng thời trên Documenso
                 </h3>
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-sm text-slate-600 mt-0.5">
                   Ngay sau khi Bên A ký xong, cả 3 bên còn lại được mở khóa cùng lúc và không phụ thuộc thứ tự ký giữa nhau.
                 </p>
               </div>
             </div>
             <span
-              className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold tabular-nums ${
+              className={`px-2.5 py-0.5 rounded-md text-xs font-bold tabular-nums ${
                 isAllSigned
                   ? 'bg-emerald-50 text-emerald-700'
                   : isFamilySigned
@@ -648,23 +651,23 @@ export function ContractSigningTrackerView({
                   key={party.role}
                   data-testid={`party-status-${party.role}`}
                   data-signed={partySigned ? 'true' : 'false'}
-                  className={`p-3.5 rounded-lg border text-xs space-y-1.5 ${
+                  className={`space-y-2 rounded-lg border p-3.5 ${
                     partySigned
-                      ? 'bg-emerald-50/60 border-emerald-200'
-                      : 'bg-white border-slate-200'
+                      ? 'border-emerald-200 bg-emerald-50/60'
+                      : 'border-slate-200 bg-white'
                   }`}
                 >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-slate-900">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <span className="text-sm font-bold text-slate-900">
                       {party.partyCode} · {party.title}
                     </span>
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      className={`shrink-0 rounded px-2 py-0.5 text-xs font-bold ${
                         partySigned
                           ? 'bg-emerald-100 text-emerald-800'
                           : isFamilySigned
                           ? 'bg-amber-50 text-amber-800'
-                          : 'bg-slate-100 text-slate-500'
+                          : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       {partySigned
@@ -674,7 +677,7 @@ export function ContractSigningTrackerView({
                         : 'Chờ Bên A'}
                     </span>
                   </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                  <p className="text-sm leading-relaxed text-slate-600">
                     {party.description}
                   </p>
                 </div>
@@ -698,7 +701,7 @@ export function ContractSigningTrackerView({
           }`}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
+            <div className="flex items-start gap-3">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold tabular-nums ${
                   isActive
@@ -720,7 +723,7 @@ export function ContractSigningTrackerView({
               </div>
             </div>
             <span
-              className={`px-2.5 py-0.5 rounded-md text-[11px] font-bold ${
+              className={`px-2.5 py-0.5 rounded-md text-xs font-bold ${
                 isActive
                   ? 'bg-emerald-50 text-emerald-700'
                   : isPaymentReady

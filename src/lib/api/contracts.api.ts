@@ -204,6 +204,8 @@ export interface CreateFourPartyContractPayload {
   videoConsultations?: number;
   extraHomeVisits?: number;
   additionalTerms?: string;
+  /** ID hợp đồng nháp chưa thanh toán cần hủy nguyên tử trước khi tạo hợp đồng mới. */
+  replaceContractId?: string;
 }
 
 export interface SignContractPayload {
@@ -445,6 +447,20 @@ export const contractsApi = {
 
   signContract: (contractId: string, payload: SignContractPayload): Promise<{ signatureHash: string }> => {
     return httpClient.put<{ signatureHash: string }>(`/api/v1/contracts/four-party/${contractId}/sign`, payload);
+  },
+
+  /**
+   * Hủy bản nháp hợp đồng chưa thanh toán (PENDING_APPROVAL / PENDING_PAYMENT, chưa có hóa đơn PAID).
+   */
+  cancelDraftContract: async (
+    contractId: string,
+    reason?: string
+  ): Promise<{ id: string; contractStatus: BackendContractStatus }> => {
+    const response = await httpClient.post<unknown>(
+      `/api/v1/contracts/medical/${contractId}/cancel-draft`,
+      reason ? { reason } : {}
+    );
+    return unwrapEnvelope<{ id: string; contractStatus: BackendContractStatus }>(response);
   },
 
   assignDoctor: (contractId: string, payload: AssignDoctorPayload): Promise<{ id: string; doctorId: string }> => {

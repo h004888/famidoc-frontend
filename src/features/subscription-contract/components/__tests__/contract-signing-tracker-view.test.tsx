@@ -176,6 +176,21 @@ describe('ContractSigningTrackerView (Luồng Documenso 2 pha & Thanh toán)', (
     expect(handleProceedPayment).toHaveBeenCalled();
   });
 
+  it('điều hướng nút thanh toán mặc định tới /booking/payment?contractId=<id>', () => {
+    render(
+      <ContractSigningTrackerView
+        contract={{
+          id: 'FMD-2026-REGR821',
+          status: 'PENDING_PAYMENT',
+          packagePrice: '9.600.000 đ',
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Thanh toán VietQR/i }));
+    expect(mockPush).toHaveBeenCalledWith('/booking/payment?contractId=FMD-2026-REGR821');
+  });
+
   it('gọi contractsApi.getMedicalContractDetail khi bấm Cập nhật tiến độ', async () => {
     render(
       <ContractSigningTrackerView

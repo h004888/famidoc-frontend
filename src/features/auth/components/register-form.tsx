@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { registerFamilySchema } from '../schemas/auth.schema';
+import { resolveReturnUrl } from '../return-url';
 import { useAuth } from '../context/auth-context';
 import { authApi, mapRegistrationErrorToFields } from '@/lib/api/auth.api';
 import { ApiError } from '@/lib/http/errors';
@@ -18,21 +19,32 @@ export function RegisterForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselectedPackage = searchParams.get('packageId');
+  const redirectTarget = resolveReturnUrl(searchParams.get('redirect'));
   const { isAuthenticated, role, getDefaultPathForRole } = useAuth();
 
-  // Khi đã đăng nhập, tự động chuyển thẳng sang phân hệ phù hợp thay vì đăng ký lại
+  // Khi đã đăng nhập, tự động chuyển thẳng sang phân hệ phù hợp thay vì đăng ký lại.
+  // Tài khoản hộ gia đình chưa kích hoạt gói không bị đưa vào `/family/subscription*`
+  // mà quay về `/doctors` (kèm packageId nếu có) để chọn bác sĩ và bắt đầu luồng `/booking`.
   useEffect(() => {
     if (isAuthenticated) {
       if (role === 'FAMILY' || role === 'PATIENT') {
-        const target = preselectedPackage
-          ? `/family/subscription?packageId=${encodeURIComponent(preselectedPackage)}`
-          : '/family/subscription';
-        router.replace(target);
+        if (redirectTarget) {
+          router.replace(redirectTarget);
+          return;
+        }
+        router.replace('/doctors');
       } else {
         router.replace(getDefaultPathForRole(role));
       }
     }
-  }, [isAuthenticated, role, preselectedPackage, router, getDefaultPathForRole]);
+  }, [
+    isAuthenticated,
+    role,
+    preselectedPackage,
+    redirectTarget,
+    router,
+    getDefaultPathForRole,
+  ]);
 
   const [formData, setFormData] = useState({
     fullName: '',

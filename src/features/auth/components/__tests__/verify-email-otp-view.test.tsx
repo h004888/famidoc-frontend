@@ -148,7 +148,7 @@ describe('Màn 6: VerifyEmailOtpView (Xác thực mã OTP qua Email)', () => {
         email="nguyen.van.an@gmail.com"
         expectedOtp="123456"
         onSuccess={handleSuccess}
-        redirectUrl="/family/subscription/tracking"
+        redirectUrl="/doctors"
       />
     );
 
@@ -165,7 +165,7 @@ describe('Màn 6: VerifyEmailOtpView (Xác thực mã OTP qua Email)', () => {
     });
 
     expect(handleSuccess).toHaveBeenCalledWith('123456');
-    expect(mockPush).toHaveBeenCalledWith('/family/subscription/tracking');
+    expect(mockPush).toHaveBeenCalledWith('/doctors');
   });
 
   it('calls POST /api/v1/auth/verify-email-otp when expectedOtp is not provided', async () => {
