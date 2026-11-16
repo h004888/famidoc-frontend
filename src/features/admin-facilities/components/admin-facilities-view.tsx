@@ -20,6 +20,7 @@ interface DoctorVerificationItem {
 export function AdminFacilitiesView() {
   const [facilities, setFacilities] = useState<AdminFacilityItem[]>([]);
   const [doctorsList, setDoctorsList] = useState<DoctorVerificationItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING_APPROVAL' | 'PENDING_LEGAL' | 'ACTIVE' | 'DOCTOR_VERIFY'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFacility, setSelectedFacility] = useState<AdminFacilityItem | null>(null);
@@ -490,7 +491,11 @@ export function AdminFacilitiesView() {
         /* TAB: DANH SÁCH CƠ SỞ Y TẾ (ADMIN LIST FACILITIES)                         */
         /* ========================================================================= */
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
-          {paginatedFacilities.length === 0 ? (
+          {isLoading ? (
+            <div className="p-12 text-center text-slate-500 text-xs sm:text-sm animate-pulse" role="status">
+              Đang tải danh sách cơ sở y tế...
+            </div>
+          ) : paginatedFacilities.length === 0 ? (
             <div className="p-12 text-center text-slate-500 text-xs sm:text-sm">
               Không tìm thấy cơ sở y tế nào phù hợp với bộ lọc hiện tại.
             </div>
