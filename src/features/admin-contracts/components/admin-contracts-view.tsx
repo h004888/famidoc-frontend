@@ -260,8 +260,8 @@ export function AdminContractsView() {
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(price);
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-full bg-[#f5f6f8] text-slate-900 font-sans antialiased">
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -325,7 +325,7 @@ export function AdminContractsView() {
         )}
 
         {/* Navigation Tab Bar: Flow 2.2 (HĐ 4 bên) vs Flow 2.1 (HĐ Cung ứng B2B) */}
-        <div className="flex border-b border-slate-200 gap-2">
+        <div className="flex overflow-x-auto border-b border-slate-200 gap-2">
           <button
             type="button"
             onClick={() => setAdminContractTab('medical')}
@@ -404,6 +404,7 @@ export function AdminContractsView() {
 
             {/* Contracts Table */}
             <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+              <div className="hidden md:block">
               <Table className="text-xs sm:text-sm">
                 <TableHeader>
                   <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
@@ -507,6 +508,50 @@ export function AdminContractsView() {
                   )}
                 </TableBody>
               </Table>
+              </div>
+              <div className="divide-y divide-slate-100 md:hidden">
+                {isLoading ? (
+                  <div className="p-8 text-center text-xs text-slate-500">Đang tải danh sách hợp đồng từ hệ thống...</div>
+                ) : filteredContracts.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-slate-500">Không có hợp đồng nào phù hợp với bộ lọc hiện tại.</div>
+                ) : (
+                  filteredContracts.map((c) => {
+                    const sigCount = countSignatures(c);
+                    const familySigned = Boolean(c.signatures?.family);
+                    const adminSigned = Boolean(c.signatures?.platform);
+                    return (
+                      <div key={c.id} className="space-y-2.5 p-4 text-xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="font-bold text-slate-900">{c.packageName}</div>
+                            <div className="tabular-nums text-[11px] text-slate-500">{c.contractNumber} • {c.membersCount ?? 1} TV</div>
+                          </div>
+                          <span className="shrink-0 font-bold text-primary tabular-nums">{formatPrice(c.packagePrice)}</span>
+                        </div>
+                        <div className="rounded-xl bg-slate-50 p-2.5 space-y-1 text-slate-600">
+                          <div><span className="font-semibold text-slate-700">Hộ gia đình:</span> {c.familyRepresentativeName}</div>
+                          <div><span className="font-semibold text-slate-700">CSYT / BS:</span> {c.facilityName} • {c.doctorName}</div>
+                          <div className="tabular-nums text-[11px] text-slate-500">Chữ ký: {sigCount}/4 • {CONTRACT_STATUS_LABELS[c.status] || c.status}</div>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-end gap-2">
+                          <Button asChild size="sm" variant="secondary" className="rounded-lg bg-accent text-primary text-xs font-semibold">
+                            <Link href={`/admin/contracts/${c.id}/review`}>Thẩm định 4 Bên</Link>
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={familySigned && !adminSigned ? 'default' : 'secondary'}
+                            onClick={() => setSelectedContract(c)}
+                            className="rounded-lg text-xs font-semibold cursor-pointer"
+                          >
+                            {familySigned && !adminSigned ? 'Ký trên Documenso' : 'Chi tiết & Documenso'}
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </Card>
           </>
         ) : (
@@ -1213,7 +1258,7 @@ export function AdminContractsView() {
             )}
           </DialogContent>
         </Dialog>
-      </main>
+      </div>
     </div>
   );
 }

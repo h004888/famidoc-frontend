@@ -68,4 +68,9 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
     expect(screen.queryByRole('button', { name: 'Bấm đã uống' })).not.toBeInTheDocument();
     expect(toast.success).toHaveBeenCalledWith('Đã cập nhật trạng thái uống thuốc hôm nay của gia đình!');
   });
+
+  it('renders FamilyDashboardView without nested <main> landmark', () => {
+    const { container } = render(<FamilyDashboardView />);
+    expect(container.querySelector('main')).toBeNull();
+  });
 });

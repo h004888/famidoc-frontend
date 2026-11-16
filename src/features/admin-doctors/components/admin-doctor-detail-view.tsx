@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { doctorsApi, type DoctorProfileDto } from '@/lib/api/doctors.api';
 import { extractErrorMessage } from '@/lib/api';
+import { DashboardPageShell } from '@/components/shared';
 
 interface AdminDoctorDetailViewProps {
   doctorId: string;
@@ -123,7 +124,7 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
   const primaryCred = doctor.credentials?.[0];
 
   return (
-    <div className="space-y-6 pb-16">
+    <DashboardPageShell containerClassName="pb-16">
 
       {/* Breadcrumb & Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -421,6 +422,6 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
           </div>
         </div>
       )}
-    </div>
+    </DashboardPageShell>
   );
 }

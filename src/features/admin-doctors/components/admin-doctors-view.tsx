@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { doctorsApi } from '@/lib/api/doctors.api';
 import { Pagination } from '@/components/ui/pagination';
+import { DashboardPageShell } from '@/components/shared';
 
 interface DoctorRow {
   id: string;
@@ -113,7 +114,7 @@ export function AdminDoctorsView() {
   };
 
   return (
-    <div className="space-y-6 pb-16">
+    <DashboardPageShell containerClassName="pb-16">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -241,7 +242,8 @@ export function AdminDoctorsView() {
             Không tìm thấy bác sĩ nào phù hợp với bộ lọc.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 font-semibold">
@@ -294,6 +296,44 @@ export function AdminDoctorsView() {
               </tbody>
             </table>
           </div>
+          <div className="divide-y divide-slate-100 md:hidden">
+            {paginatedDoctors.map((doc) => (
+              <div key={doc.id} className="space-y-3 p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-sm font-bold text-slate-900">{doc.doctorName}</div>
+                    <div className="text-xs text-slate-500">
+                      {doc.specialty} • {doc.experienceYears} năm kinh nghiệm
+                    </div>
+                  </div>
+                  {renderStatusBadge(doc.onboardingStatus)}
+                </div>
+                <div className="rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 space-y-1">
+                  <div>
+                    <span className="font-semibold text-slate-700">CSYT:</span> {doc.facilityName}
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-700">CCHN:</span>{' '}
+                    <span className="font-semibold text-slate-800 tabular-nums">{doc.cchnNumber}</span> ({doc.issuingAuthority})
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <Link
+                    href={`/admin/doctors/${doc.id}`}
+                    className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors shadow-2xs ${
+                      doc.onboardingStatus === 'FACILITY_VERIFIED'
+                        ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-xs">visibility</span>
+                    {doc.onboardingStatus === 'FACILITY_VERIFIED' ? 'Hậu kiểm & Duyệt' : 'Xem hồ sơ'}
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+          </>
         )}
 
         {totalPages > 1 && (
@@ -306,6 +346,6 @@ export function AdminDoctorsView() {
           </div>
         )}
       </div>
-    </div>
+    </DashboardPageShell>
   );
 }

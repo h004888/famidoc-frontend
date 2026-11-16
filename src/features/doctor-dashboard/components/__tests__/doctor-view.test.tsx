@@ -155,4 +155,9 @@ describe('DoctorDashboardView Queue Tabs & HSM Signing Dialog', () => {
       { timeout: 1500 },
     );
   });
+
+  it('renders without nested <main> landmark', () => {
+    const { container } = render(<DoctorDashboardView />);
+    expect(container.querySelector('main')).toBeNull();
+  });
 });

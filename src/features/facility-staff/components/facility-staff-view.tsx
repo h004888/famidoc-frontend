@@ -212,8 +212,8 @@ export function FacilityStaffView() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-full bg-[#f5f6f8] text-[#0f172a] font-sans antialiased">
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
           <div>
@@ -295,7 +295,7 @@ export function FacilityStaffView() {
 
         {/* Staff Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left text-xs sm:text-sm">
               <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
                 <tr>
@@ -404,6 +404,34 @@ export function FacilityStaffView() {
                 )}
               </tbody>
             </table>
+          </div>
+          <div className="divide-y divide-slate-100 md:hidden">
+            {filteredStaff.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-500">Không tìm thấy bác sĩ phù hợp.</div>
+            ) : (
+              filteredStaff.map((doc) => (
+                <div key={doc.id} className="space-y-2.5 p-4 text-xs">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-slate-900">{doc.name}</div>
+                      <div className="text-[11px] text-slate-500">{doc.title}</div>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">{doc.onboardingStatus}</span>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-2.5 text-slate-600 tabular-nums">
+                    Panel: {doc.panelCap}/{doc.maxCap} hộ
+                  </div>
+                  <div className="flex justify-end">
+                    <Link
+                      href={`/facility/doctors/${doc.id}`}
+                      className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"
+                    >
+                      Quản lý hồ sơ
+                    </Link>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -624,7 +652,7 @@ export function FacilityStaffView() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

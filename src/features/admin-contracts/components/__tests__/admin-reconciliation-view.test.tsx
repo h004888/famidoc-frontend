@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { AdminReconciliationView } from '../admin-reconciliation-view';
 import { contractsApi } from '@/lib/api';
 
@@ -72,10 +72,17 @@ describe('Màn 5: AdminReconciliationView (Đối soát SePay & Kích hoạt bù
     ).toBeInTheDocument();
 
     // Table headers & content
-    expect(screen.getByText(/SP-20261109-7712/i)).toBeInTheDocument();
-    expect(screen.getByText(/FAMIDOC HD-4P-2026-0001/i)).toBeInTheDocument();
-    expect(screen.getByText(/9\.600\.000/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/MBBank/i).length).toBeGreaterThan(0);
+    const desktopView = screen.getByTestId('desktop-view');
+    expect(within(desktopView).getByText(/SP-20261109-7712/i)).toBeInTheDocument();
+    expect(within(desktopView).getByText(/FAMIDOC HD-4P-2026-0001/i)).toBeInTheDocument();
+    expect(within(desktopView).getByText(/9\.600\.000/i)).toBeInTheDocument();
+    expect(within(desktopView).getAllByText(/MBBank/i).length).toBeGreaterThan(0);
+
+    // Mobile card content
+    const mobileView = screen.getByTestId('mobile-view');
+    expect(within(mobileView).getByText(/SP-20261109-7712/i)).toBeInTheDocument();
+    expect(within(mobileView).getByText(/FAMIDOC HD-4P-2026-0001/i)).toBeInTheDocument();
+    expect(within(mobileView).getAllByText(/MBBank/i).length).toBeGreaterThan(0);
 
     // Status badges
     expect(screen.getAllByText(/Chờ đối soát/i).length).toBeGreaterThan(0);
@@ -90,20 +97,21 @@ describe('Màn 5: AdminReconciliationView (Đối soát SePay & Kích hoạt bù
     const filterSelect = screen.getByLabelText(/Lọc theo trạng thái/i);
     fireEvent.change(filterSelect, { target: { value: 'PENDING' } });
 
-    expect(screen.getByText(/SP-20261109-7712/i)).toBeInTheDocument();
+    const desktopView = screen.getByTestId('desktop-view');
+    expect(within(desktopView).getByText(/SP-20261109-7712/i)).toBeInTheDocument();
     expect(screen.queryByText(/SP-20261109-7713/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/SP-20261109-7714/i)).not.toBeInTheDocument();
 
     // Reset filter
     fireEvent.change(filterSelect, { target: { value: 'ALL' } });
-    expect(screen.getByText(/SP-20261109-7713/i)).toBeInTheDocument();
+    expect(within(desktopView).getByText(/SP-20261109-7713/i)).toBeInTheDocument();
 
     // Search query
     const searchInput = screen.getByPlaceholderText(/Tìm kiếm mã giao dịch, số hợp đồng/i);
     fireEvent.change(searchInput, { target: { value: 'HD-4P-2026-0002' } });
 
     expect(screen.queryByText(/SP-20261109-7712/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/SP-20261109-7713/i)).toBeInTheDocument();
+    expect(within(desktopView).getByText(/SP-20261109-7713/i)).toBeInTheDocument();
   });
 
   it('triggers manual fallback activation for pending transaction and logs admin audit trail', async () => {

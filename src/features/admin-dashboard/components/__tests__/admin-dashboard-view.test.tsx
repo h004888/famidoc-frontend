@@ -20,14 +20,14 @@ describe('AdminDashboardView', () => {
   it('filters arbitration queue by severity and opens quick inspection sheet', () => {
     render(<AdminDashboardView />);
 
-    expect(screen.getByText('DISP-2026-004')).toBeInTheDocument();
-    expect(screen.getByText('DISP-2026-002')).toBeInTheDocument();
+    expect(screen.getAllByText('DISP-2026-004').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('DISP-2026-002').length).toBeGreaterThan(0);
 
     const highFilterTab = screen.getByRole('tab', { name: 'Khẩn' });
     fireEvent.mouseDown(highFilterTab);
     fireEvent.click(highFilterTab);
 
-    expect(screen.getByText('DISP-2026-004')).toBeInTheDocument();
+    expect(screen.getAllByText('DISP-2026-004').length).toBeGreaterThan(0);
     expect(screen.queryByText('DISP-2026-002')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Xem nhanh' }));

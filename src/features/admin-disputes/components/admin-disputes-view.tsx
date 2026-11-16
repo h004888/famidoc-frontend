@@ -177,8 +177,8 @@ export function AdminDisputesView() {
   });
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-full bg-[#f5f6f8] text-[#0f172a] font-sans antialiased">
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -433,7 +433,7 @@ export function AdminDisputesView() {
             </div>
           </div>
         )}
-      </main>
+      </div>
     </div>
   );
 }

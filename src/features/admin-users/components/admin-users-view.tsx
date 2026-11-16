@@ -182,8 +182,8 @@ export function AdminUsersView() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-full bg-[#f5f6f8] text-slate-900 font-sans antialiased">
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         <PageHeader
           title="Quản trị Tài khoản, Phân quyền RBAC & Audit Logs"
           description="Kiểm soát quyền truy cập dữ liệu y tế nhạy cảm và nhật ký truy vết an ninh tuân thủ HIPAA"
@@ -235,6 +235,7 @@ export function AdminUsersView() {
             </Card>
 
             <Card className="rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
+              <div className="hidden md:block">
               <Table className="text-xs sm:text-sm">
                 <TableHeader>
                   <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
@@ -325,6 +326,42 @@ export function AdminUsersView() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
+              <div className="divide-y divide-slate-100 md:hidden">
+                {filteredUsers.map((u) => (
+                  <div key={u.id} className="space-y-2.5 p-4 text-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-bold text-slate-900">{u.name}</div>
+                        <div className="text-[11px] text-slate-400 tabular-nums">{u.id}</div>
+                      </div>
+                      {u.status === 'active' ? (
+                        <Badge variant="outline" className="rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">Hoạt động</Badge>
+                      ) : u.status === 'suspended' ? (
+                        <Badge variant="outline" className="rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border-rose-200">Đã khóa</Badge>
+                      ) : (
+                        <Badge variant="outline" className="rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border-amber-200">Chờ KYC</Badge>
+                      )}
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-2.5 space-y-1 text-slate-600">
+                      <div className="truncate">{u.email}</div>
+                      <div className="tabular-nums text-[11px] text-slate-500">{u.phone} • 2FA: {u.mfaEnabled ? 'Bật' : 'Chưa kích hoạt'}</div>
+                    </div>
+                    <div className="flex items-center justify-between gap-2 pt-0.5">
+                      <Badge variant="secondary" className="rounded-full text-[11px] font-semibold">{u.role}</Badge>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={u.status === 'suspended' ? 'default' : 'secondary'}
+                        onClick={() => handleActionClick(u)}
+                        className="rounded-lg text-xs font-semibold cursor-pointer"
+                      >
+                        {u.status === 'suspended' ? 'Mở khóa' : 'Khóa truy cập'}
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </Card>
           </div>
         )}
@@ -431,7 +468,7 @@ export function AdminUsersView() {
             </div>
           )}
         </ConfirmDialog>
-      </main>
+      </div>
     </div>
   );
 }

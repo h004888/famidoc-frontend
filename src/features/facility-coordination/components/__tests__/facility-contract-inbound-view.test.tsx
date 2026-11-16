@@ -102,8 +102,8 @@ describe('FacilityContractInboundView (Màn 1: Tiếp nhận Hợp đồng 4 bê
     expect(screen.getByText(/Danh sách hợp đồng dịch vụ bác sĩ gia đình cần phân công và ký số/i)).toBeInTheDocument();
 
     // Check contract details
-    expect(screen.getByText('HD-4P-2026-0001')).toBeInTheDocument();
-    expect(screen.getByText('Nguyễn Văn An')).toBeInTheDocument();
+    expect(screen.getAllByText('HD-4P-2026-0001').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Nguyễn Văn An').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Gói Chăm Sóc Toàn Diện Gia Đình').length).toBeGreaterThanOrEqual(1);
 
     // Check status badge
@@ -118,17 +118,17 @@ describe('FacilityContractInboundView (Màn 1: Tiếp nhận Hợp đồng 4 bê
     fireEvent.change(packageFilter, { target: { value: 'pkg-silver' } });
 
     expect(screen.queryByText('HD-4P-2026-0001')).not.toBeInTheDocument();
-    expect(screen.getByText('HD-4P-2026-0002')).toBeInTheDocument();
+    expect(screen.getAllByText('HD-4P-2026-0002').length).toBeGreaterThan(0);
 
     // Reset package filter
     fireEvent.change(packageFilter, { target: { value: 'ALL' } });
-    expect(screen.getByText('HD-4P-2026-0001')).toBeInTheDocument();
+    expect(screen.getAllByText('HD-4P-2026-0001').length).toBeGreaterThan(0);
 
     // Filter by status
     const statusFilter = screen.getByLabelText(/Lọc theo trạng thái/i);
     fireEvent.change(statusFilter, { target: { value: 'PLATFORM_SIGNED' } });
 
-    expect(screen.getByText('HD-4P-2026-0001')).toBeInTheDocument();
+    expect(screen.getAllByText('HD-4P-2026-0001').length).toBeGreaterThan(0);
     expect(screen.queryByText('HD-4P-2026-0002')).not.toBeInTheDocument();
   });
 
@@ -153,9 +153,10 @@ describe('FacilityContractInboundView (Màn 1: Tiếp nhận Hợp đồng 4 bê
     expect(screen.getByText('Cơ sở Y tế')).toBeInTheDocument();
     expect(screen.getByText('Điều phối HĐ 4 bên')).toBeInTheDocument();
 
-    // Verify main responsive container
-    const mainEl = container.querySelector('main');
-    expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
+    // Verify responsive container without nested <main>
+    expect(container.querySelector('main')).toBeNull();
+    const containerEl = container.querySelector('.max-w-7xl');
+    expect(containerEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
 
     // Verify action buttons and badges
     expect(screen.getByRole('button', { name: /Làm mới/i })).toBeInTheDocument();

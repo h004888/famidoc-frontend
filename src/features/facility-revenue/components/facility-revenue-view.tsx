@@ -146,8 +146,8 @@ export function FacilityRevenueView() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="min-h-full bg-[#f5f6f8] text-[#0f172a] font-sans antialiased">
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -257,6 +257,7 @@ export function FacilityRevenueView() {
             </Button>
           </div>
 
+          <div className="hidden md:block">
           <Table className="text-xs sm:text-sm">
             <TableHeader>
               <TableRow className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider hover:bg-slate-50/80">
@@ -333,6 +334,49 @@ export function FacilityRevenueView() {
               ))}
             </TableBody>
           </Table>
+          </div>
+          <div className="divide-y divide-slate-100 md:hidden">
+            {cycles.map((c) => (
+              <div key={c.id} className="space-y-2.5 p-4 text-xs">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-bold text-slate-900">{c.monthYear}</div>
+                    <div className="text-[11px] text-slate-500 tabular-nums">{c.id} • {c.totalEncounters} ca khám</div>
+                  </div>
+                  <span className="font-bold text-primary tabular-nums">{formatVND(c.facilityShareAmount)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Badge variant="outline" className="rounded-full text-[11px] font-semibold">
+                    {c.escrowStatus === 'paid'
+                      ? 'Đã giải ngân'
+                      : c.escrowStatus === 'pending_signature'
+                      ? 'Chờ ký số'
+                      : 'Đang xử lý'}
+                  </Badge>
+                  {c.escrowStatus === 'pending_signature' ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => handleOpenSignModal(c)}
+                      className="rounded-lg text-xs font-semibold cursor-pointer"
+                    >
+                      Ký số B2B
+                    </Button>
+                  ) : (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => toast.info(`Đang tải biên bản đã ký số cho kỳ ${c.id}...`)}
+                      className="rounded-lg text-xs font-semibold cursor-pointer"
+                    >
+                      Tải PDF
+                    </Button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
 
         {/* Dialog: Ký số biên bản đối soát B2B */}
@@ -415,7 +459,7 @@ export function FacilityRevenueView() {
             )}
           </DialogContent>
         </Dialog>
-      </main>
+      </div>
     </div>
   );
 }

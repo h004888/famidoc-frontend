@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
@@ -9,14 +9,6 @@ import {
   isRestrictedFamilyPath,
   useFamilySubscriptionGateState,
 } from './family-subscription-gate';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import {
   Sheet,
   SheetContent,
@@ -68,16 +60,12 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         shortLabel: 'Tổng quan',
         icon: 'monitoring',
         exact: true,
-        badge: 'Live',
-        badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
       },
       {
         href: '/admin/facilities',
         label: 'Quản trị Cơ sở Y tế',
         shortLabel: 'CSYT',
         icon: 'local_hospital',
-        badge: 'Duyệt 2 cấp',
-        badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200',
       },
       {
         href: '/admin/doctors',
@@ -93,8 +81,6 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         label: 'Trọng tài & Tranh chấp',
         shortLabel: 'Tranh chấp',
         icon: 'gavel',
-        badge: '3',
-        badgeColor: 'bg-rose-50 text-rose-800 border border-rose-200',
       },
       { href: '/admin/users', label: 'Tài khoản, RBAC & Audit', shortLabel: 'Tài khoản', icon: 'shield_person' },
     ],
@@ -241,12 +227,6 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
   },
 };
 
-const CLINIC_LIST = [
-  { id: 'c-01', name: 'BV Đại học Y Dược TP.HCM', address: 'Quận 5, TP.HCM', type: 'Trụ sở Trung tâm' },
-  { id: 'c-02', name: 'PKĐK Trustcare Hub Medical', address: 'Bến Nghé, Quận 1', type: 'Phòng khám Vệ tinh' },
-  { id: 'c-03', name: 'Vinmec Central Park', address: 'Bình Thạnh, TP.HCM', type: 'BV Đối tác Cấp 1' },
-];
-
 /**
  * Suy ra vai trò từ URL pathname để SSR và Client render đồng nhất, tránh hydration mismatch
  */
@@ -260,14 +240,13 @@ export const getRoleFromPathname = (path: string): LoginRole | null => {
 
 function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const pathname = usePathname() || '/family';
-  const { role, user, logout } = useAuth();
+  const { role, user } = useAuth();
   const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
   const sidebar = useOptionalSidebar();
 
   const [mounted, setMounted] = useState(false);
   const [localMobileOpen, setLocalMobileOpen] = useState(false);
   const [localOpen] = useState(true);
-  const [selectedClinic, setSelectedClinic] = useState(CLINIC_LIST[0]);
 
   useEffect(() => {
     setMounted(true);
@@ -286,8 +265,6 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
 
   const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
-  const displayName = mounted ? (user?.name || '') : '';
-  const userSubtitle = mounted ? (user?.facilityOrTitle || user?.phone || '') : '';
 
   const mobileMenuOpen = sidebar ? sidebar.openMobile : localMobileOpen;
   const setMobileMenuOpen = sidebar ? sidebar.setOpenMobile : setLocalMobileOpen;
@@ -334,79 +311,6 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
 
 
       </div>
-
-      {/* Accessible Clinic Switcher using shadcn DropdownMenu */}
-      {!isCollapsedState ? (
-        <div className="border-b border-slate-100 bg-sidebar p-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="Chuyển cơ sở y tế phụ trách"
-                className="group flex w-full cursor-pointer items-center justify-between rounded-xl border border-slate-200/80 bg-slate-50 p-2.5 text-left transition-colors hover:bg-accent outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-primary/20 bg-primary/10 text-primary">
-                    <span className="material-symbols-outlined text-[18px]">domain</span>
-                  </div>
-                  <div className="truncate">
-                    <div className="truncate text-xs font-semibold text-slate-900 transition-colors group-hover:text-primary">
-                      {selectedClinic.name}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-1 truncate text-xs text-slate-600">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
-                      <span className="truncate">{selectedClinic.address}</span>
-                    </div>
-                  </div>
-                </div>
-                <span className="material-symbols-outlined shrink-0 text-[16px] text-slate-600 group-hover:text-slate-900">
-                  unfold_more
-                </span>
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-60 rounded-xl p-1.5">
-              <DropdownMenuLabel className="px-2.5 py-1 text-xs font-semibold text-slate-600">
-                Chuyển cơ sở y tế phụ trách
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {CLINIC_LIST.map((clinic) => {
-                const isSelected = selectedClinic.id === clinic.id;
-                return (
-                  <DropdownMenuItem
-                    key={clinic.id}
-                    onSelect={() => setSelectedClinic(clinic)}
-                    className={cn(
-                      'flex cursor-pointer items-center justify-between rounded-lg p-2 text-xs',
-                      isSelected && 'bg-primary text-primary-foreground focus:bg-primary focus:text-primary-foreground'
-                    )}
-                  >
-                    <div className="min-w-0 truncate">
-                      <div className="truncate font-semibold">{clinic.name}</div>
-                      <div className="truncate text-[11px] opacity-80">
-                        {clinic.address} · {clinic.type}
-                      </div>
-                    </div>
-                    {isSelected && (
-                      <span className="material-symbols-outlined ml-2 shrink-0 text-[16px]">check</span>
-                    )}
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ) : (
-        <div className="flex justify-center border-b border-slate-100 py-3 text-primary">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span className="material-symbols-outlined text-[20px]" aria-label={selectedClinic.name}>
-                domain
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="right">{selectedClinic.name}</TooltipContent>
-          </Tooltip>
-        </div>
-      )}
 
       {/* Nav Items List */}
       <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
@@ -617,60 +521,6 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
               settingsEl
             );
           })()}
-        </div>
-      </div>
-
-      {/* User Footer Profile & Logout */}
-      <div className="shrink-0 border-t border-slate-100 bg-slate-50 p-3">
-        <div className="flex items-center justify-between gap-2">
-          {(() => {
-            const profileLink = (
-              <Link
-                href="/settings"
-                title={displayName || 'Hồ sơ tài khoản'}
-                aria-label={displayName || 'Hồ sơ tài khoản'}
-                className={cn(
-                  'flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-1.5 transition-colors hover:bg-slate-200/70 outline-hidden',
-                  isCollapsedState && 'justify-center'
-                )}
-                suppressHydrationWarning
-              >
-                <div
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
-                  suppressHydrationWarning
-                >
-                  {avatarText}
-                </div>
-                {!isCollapsedState && (
-                  <div className="min-w-0 flex-1" suppressHydrationWarning>
-                    <div className="truncate text-xs font-semibold text-slate-900" suppressHydrationWarning>{displayName}</div>
-                    <div className="truncate text-xs text-slate-600" suppressHydrationWarning>{userSubtitle}</div>
-                  </div>
-                )}
-              </Link>
-            );
-
-            return isCollapsedState ? (
-              <Tooltip>
-                <TooltipTrigger asChild>{profileLink}</TooltipTrigger>
-                <TooltipContent side="right">{displayName || 'Hồ sơ tài khoản'}</TooltipContent>
-              </Tooltip>
-            ) : (
-              profileLink
-            );
-          })()}
-
-          {!isCollapsedState && (
-            <button
-              type="button"
-              onClick={logout}
-              className="flex shrink-0 cursor-pointer items-center justify-center rounded-lg p-2 text-slate-600 transition-colors hover:bg-rose-500/10 hover:text-rose-700 outline-hidden"
-              title="Đăng xuất khỏi tài khoản"
-              aria-label="Đăng xuất"
-            >
-              <span className="material-symbols-outlined text-[18px]">logout</span>
-            </button>
-          )}
         </div>
       </div>
     </div>

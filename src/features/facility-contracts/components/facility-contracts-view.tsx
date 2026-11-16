@@ -383,7 +383,7 @@ export function FacilityContractsView() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            <div data-testid="desktop-view" className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs sm:text-sm">
                 <thead>
                   <tr className="border-b border-slate-100 bg-slate-50/75 text-slate-500 text-[11px] font-bold uppercase tracking-wider">
@@ -490,6 +490,38 @@ export function FacilityContractsView() {
                   )))}
                 </tbody>
               </table>
+            </div>
+            <div data-testid="mobile-view" className="divide-y divide-slate-100 md:hidden">
+              {staffingList.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500">Chưa có hợp đồng B2B nào.</div>
+              ) : (
+                staffingList.map((c) => (
+                  <div key={c.id} className="space-y-2.5 p-4 text-xs">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <div className="font-bold text-slate-900 tabular-nums">{c.contractNumber}</div>
+                        <div className="text-[11px] text-slate-500">{c.facilityName || 'Cơ sở y tế'}</div>
+                      </div>
+                      <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">{c.status}</span>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-2.5 text-slate-600">
+                      Tỷ lệ: <strong className="text-slate-900">{c.facilitySharePercent}% CSYT</strong> / {c.platformSharePercent}% Nền tảng
+                    </div>
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedStaffing(c);
+                          setShowStaffingDetailModal(true);
+                        }}
+                        className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary cursor-pointer"
+                      >
+                        Chi tiết &amp; Ký số
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

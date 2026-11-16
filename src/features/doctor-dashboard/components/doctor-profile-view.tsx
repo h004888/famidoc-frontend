@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { doctorsApi, type DoctorProfileDto } from '@/lib/api/doctors.api';
+import { DashboardPageShell } from '@/components/shared';
 
 export function DoctorProfileView() {
   const [doctor, setDoctor] = useState<DoctorProfileDto | null>(null);
@@ -77,7 +78,7 @@ export function DoctorProfileView() {
   const primaryCred = doctor.credentials?.[0];
 
   return (
-    <div className="space-y-6 pb-16">
+    <DashboardPageShell containerClassName="pb-16">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -275,6 +276,6 @@ export function DoctorProfileView() {
           </div>
         </div>
       </div>
-    </div>
+    </DashboardPageShell>
   );
 }

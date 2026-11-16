@@ -87,11 +87,11 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
 
     await waitFor(() => {
       expect(contractsApi.getMedicalContracts).toHaveBeenCalledWith({ limit: 50 });
-      expect(screen.getByText(/CTR-2026-888/)).toBeInTheDocument();
-      expect(screen.getByText('Phạm Hoàng Minh')).toBeInTheDocument();
+      expect(screen.getAllByText(/CTR-2026-888/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText('Phạm Hoàng Minh').length).toBeGreaterThan(0);
     });
 
-    const signBtn = screen.getByRole('button', { name: /Ký trên Documenso/i });
+    const signBtn = screen.getAllByRole('button', { name: /Ký trên Documenso/i })[0];
     fireEvent.click(signBtn);
 
     await waitFor(() => {
