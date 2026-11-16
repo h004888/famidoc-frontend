@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Suspense } from 'react';
 import { DoctorDirectoryView } from '@/features/doctors';
 import { LandingFloatingActions } from '@/features/landing';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 
 export const metadata: Metadata = {
   title: 'Đội ngũ Bác sĩ Gia đình & Chuyên gia Y tế | FamiDoc Pro',
@@ -33,7 +34,9 @@ export default function DoctorsPage({
   return (
     <>
       <Suspense fallback={<div className="min-h-screen bg-white" />}>
-        <DoctorsDirectoryWithSearchParams searchParams={searchParams} />
+        <ServerAuthSessionBoundary>
+          <DoctorsDirectoryWithSearchParams searchParams={searchParams} />
+        </ServerAuthSessionBoundary>
       </Suspense>
       <LandingFloatingActions />
     </>

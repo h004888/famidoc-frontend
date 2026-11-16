@@ -4,6 +4,7 @@ import { LandingPackages } from '../landing-packages';
 import { mockPublicPackages } from '@/test/mocks/handlers/landing.handler';
 
 let mockIsAuthenticated = false;
+let mockIsLoading = false;
 
 vi.mock('next/link', () => ({
   default: ({
@@ -24,12 +25,25 @@ vi.mock('next/link', () => ({
 vi.mock('@/features/auth/context/auth-context', () => ({
   useAuth: () => ({
     isAuthenticated: mockIsAuthenticated,
+    isLoading: mockIsLoading,
   }),
 }));
 
 describe('LandingPackages', () => {
   beforeEach(() => {
     mockIsAuthenticated = false;
+    mockIsLoading = false;
+  });
+
+  it('không hiển thị link /register khi auth đang isLoading', () => {
+    mockIsLoading = true;
+    render(<LandingPackages packages={mockPublicPackages} />);
+
+    const registerLinks = screen
+      .queryAllByRole('link')
+      .filter((el) => el.getAttribute('href')?.startsWith('/register'));
+    expect(registerLinks).toHaveLength(0);
+    expect(screen.queryByText(/Đăng ký ngay/i)).not.toBeInTheDocument();
   });
 
   it('đưa người dùng chưa đăng nhập tới /register?packageId=<uuid>', () => {

@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ContactView } from '@/features/contact';
 import { LandingFloatingActions } from '@/features/landing';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 
 export const metadata: Metadata = {
   title: 'Liên Hệ & Đăng Ký Tư Vấn Gói Dịch Vụ | FamiDoc Pro',
@@ -18,7 +19,9 @@ export default function ContactPage() {
         </div>
       }
     >
-      <ContactView />
+      <ServerAuthSessionBoundary>
+        <ContactView />
+      </ServerAuthSessionBoundary>
       <LandingFloatingActions />
     </Suspense>
   );

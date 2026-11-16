@@ -35,13 +35,13 @@ export function RegisterForm({ defaultType }: RegisterFormProps = {}) {
       ? 'FACILITY'
       : 'FAMILY');
   const [accountType, setAccountType] = useState<'FAMILY' | 'FACILITY'>(initialType);
-  const { isAuthenticated, role, getDefaultPathForRole } = useAuth();
+  const { isAuthenticated, isLoading, role, getDefaultPathForRole } = useAuth();
 
   // Khi đã đăng nhập, tự động chuyển thẳng sang phân hệ phù hợp thay vì đăng ký lại.
   // Tài khoản hộ gia đình chưa kích hoạt gói không bị đưa vào `/family/subscription*`
   // mà quay về `/doctors` (kèm packageId nếu có) để chọn bác sĩ và bắt đầu luồng `/booking`.
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isLoading && isAuthenticated) {
       if (role === 'FAMILY' || role === 'PATIENT') {
         if (redirectTarget) {
           router.replace(redirectTarget);
@@ -54,6 +54,7 @@ export function RegisterForm({ defaultType }: RegisterFormProps = {}) {
     }
   }, [
     isAuthenticated,
+    isLoading,
     role,
     preselectedPackage,
     redirectTarget,

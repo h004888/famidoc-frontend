@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../auth-context';
+import { InitialAuthSessionProvider } from '../initial-auth-session-context';
 import { authApi } from '@/lib/api/auth.api';
 import { httpClient } from '@/lib/api/http-client';
 import * as authStorage from '@/lib/auth-storage';
@@ -70,5 +71,58 @@ describe('Task 2: AuthContext integration with authApi.login and session sync', 
     expect(result.current.user?.name).toBe('Nguyễn Văn Đại Diện');
 
     authApiSpy.mockRestore();
+  });
+
+  it('exposes applySession to update in-memory auth state and persist session', () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <AuthProvider>{children}</AuthProvider>
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    act(() => {
+      result.current.applySession(
+        'FAMILY',
+        {
+          id: 'usr-sync',
+          name: 'Trần Minh',
+          phone: '0901234567',
+          role: 'FAMILY',
+          avatarText: 'TM',
+        },
+        'jwt-sync-1',
+        true
+      );
+    });
+
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.user?.name).toBe('Trần Minh');
+  });
+
+  it('uses InitialAuthSessionProvider when AuthProvider is still loading', () => {
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <InitialAuthSessionProvider
+        initialSession={{
+          role: 'FAMILY',
+          token: 'jwt-ssr',
+          user: {
+            id: 'usr-ssr',
+            name: 'Lê Thị Hoa',
+            phone: '0909999888',
+            role: 'FAMILY',
+            avatarText: 'LH',
+          },
+        }}
+      >
+        {children}
+      </InitialAuthSessionProvider>
+    );
+
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    expect(result.current.isAuthenticated).toBe(true);
+    expect(result.current.isLoading).toBe(false);
+    expect(result.current.user?.name).toBe('Lê Thị Hoa');
   });
 });

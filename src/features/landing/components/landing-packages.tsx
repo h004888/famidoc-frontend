@@ -17,7 +17,7 @@ function formatVnd(amount: number): string {
 }
 
 export function LandingPackages({ packages = [] }: LandingPackagesProps = {}) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const displayPackages = packages.slice(0, 4);
 
   return (
@@ -129,28 +129,35 @@ export function LandingPackages({ packages = [] }: LandingPackagesProps = {}) {
                     </div>
 
                     <div className="pt-6 mt-6 border-t border-slate-100">
-                      <Button
-                        asChild
-                        variant={isPopular ? 'default' : 'outline'}
-                        className={`w-full py-2.5 h-auto rounded-lg font-medium text-xs sm:text-sm gap-1.5 shadow-xs ${
-                          isPopular
-                            ? 'bg-[#0046c0] hover:bg-[#003899] text-white hover:shadow-md'
-                            : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-300 hover:border-slate-400'
-                        }`}
-                      >
-                        <Link
-                          href={
-                            isAuthenticated
-                              ? `/doctors?packageId=${pkg.id}`
-                              : `/register?packageId=${pkg.id}`
-                          }
+                      {isLoading ? (
+                        <div
+                          aria-hidden="true"
+                          className="w-full h-10 rounded-lg bg-slate-100 animate-pulse"
+                        />
+                      ) : (
+                        <Button
+                          asChild
+                          variant={isPopular ? 'default' : 'outline'}
+                          className={`w-full py-2.5 h-auto rounded-lg font-medium text-xs sm:text-sm gap-1.5 shadow-xs ${
+                            isPopular
+                              ? 'bg-[#0046c0] hover:bg-[#003899] text-white hover:shadow-md'
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-300 hover:border-slate-400'
+                          }`}
                         >
-                          <span>{isAuthenticated ? 'Chọn gói này' : 'Đăng ký ngay'}</span>
-                          <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
-                            arrow_forward
-                          </span>
-                        </Link>
-                      </Button>
+                          <Link
+                            href={
+                              isAuthenticated
+                                ? `/doctors?packageId=${pkg.id}`
+                                : `/register?packageId=${pkg.id}`
+                            }
+                          >
+                            <span>{isAuthenticated ? 'Chọn gói này' : 'Đăng ký ngay'}</span>
+                            <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
+                              arrow_forward
+                            </span>
+                          </Link>
+                        </Button>
+                      )}
                     </div>
                   </Card>
                 );

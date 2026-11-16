@@ -190,7 +190,7 @@ const BLOG_POSTS = [
 ];
 
 export function PackagesCatalogView() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
   const [searchKeyword, setSearchKeyword] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'trial' | 'standard' | 'annual'>('all');
   const [isMonthlyView, setIsMonthlyView] = useState(false);
@@ -206,7 +206,9 @@ export function PackagesCatalogView() {
             : 'ROYAL';
     return isAuthenticated
       ? `/doctors?packageId=${code}`
-      : `/register?packageId=${code}`;
+      : isLoading
+        ? '#'
+        : `/register?packageId=${code}`;
   };
 
   // Estimator interactive state

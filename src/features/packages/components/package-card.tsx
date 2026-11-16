@@ -11,9 +11,10 @@ import { useAuth } from '@/features/auth/context/auth-context';
 
 export function PackageCard({ pkg, onSelect }: { pkg: PackageItem; onSelect?: (pkg: PackageItem) => void }) {
   const router = useRouter();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
 
   const handleRegister = () => {
+    if (isLoading) return;
     if (onSelect) {
       onSelect(pkg);
     } else {
@@ -72,6 +73,7 @@ export function PackageCard({ pkg, onSelect }: { pkg: PackageItem; onSelect?: (p
 
       <Button
         type="button"
+        disabled={isLoading}
         variant={pkg.isPopular ? 'default' : 'outline'}
         onClick={handleRegister}
         className={`mt-6 w-full py-2.5 h-auto rounded-lg text-xs font-semibold shadow-sm ${

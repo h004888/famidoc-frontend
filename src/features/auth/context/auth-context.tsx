@@ -12,12 +12,19 @@ import {
 } from '@/lib/auth-storage';
 import { httpClient } from '@/lib/api/http-client';
 import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
+import { useInitialAuthSession } from './initial-auth-session-context';
 
 interface AuthContextType {
   role: LoginRole;
   user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
+  applySession: (
+    nextRole: LoginRole,
+    nextUser: AuthUser,
+    token?: string,
+    rememberMe?: boolean,
+  ) => void;
   login: (
     roleOrIdentifier: string,
     passwordOrPhone?: string,
@@ -54,22 +61,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Sync state từ cookies/localStorage khi mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const session = getStoredAuthSession();
-      if (session.role && session.token) {
-        setRole(session.role);
-        setUser(session.user || DEFAULT_USERS[session.role]);
-        setIsAuthenticated(true);
-      } else {
-        setRole('FAMILY');
-        setUser(null);
-        setIsAuthenticated(false);
-      }
-      setIsLoading(false);
-    }, 0);
-
-    return () => clearTimeout(timer);
+    const session = getStoredAuthSession();
+    if (session.role && session.token) {
+      setRole(session.role);
+      setUser(session.user || DEFAULT_USERS[session.role]);
+      setIsAuthenticated(true);
+    } else {
+      setRole('FAMILY');
+      setUser(null);
+      setIsAuthenticated(false);
+    }
+    setIsLoading(false);
   }, []);
+
+  const applySession = (
+    nextRole: LoginRole,
+    nextUser: AuthUser,
+    token?: string,
+    rememberMe = true,
+  ) => {
+    if (token) {
+      httpClient.setToken(token, rememberMe);
+    }
+    saveAuthSession(nextRole, nextUser, token, rememberMe);
+    setRole(nextRole);
+    setUser(nextUser);
+    setIsAuthenticated(true);
+    setIsLoading(false);
+  };
 
   const login = async (
     roleOrIdentifier: string,
@@ -89,11 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (isRoleCall) {
         const selectedRole = roleOrIdentifier.toUpperCase() as LoginRole;
         const assignedUser = DEFAULT_USERS[selectedRole];
-        saveAuthSession(selectedRole, assignedUser, undefined, isRemember);
-        setRole(selectedRole);
-        setUser(assignedUser);
-        setIsAuthenticated(true);
-        setIsLoading(false);
+        applySession(selectedRole, assignedUser, undefined, isRemember);
 
         const redirectPath = getDefaultPathForRole(selectedRole);
         if (typeof window !== 'undefined') {
@@ -124,14 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         avatarText: (data.user?.fullName || email).slice(0, 2).toUpperCase(),
       };
 
-      if (data.accessToken) {
-        httpClient.setToken(data.accessToken, isRemember);
-      }
-      saveAuthSession(assignedRole, assignedUser, data.accessToken, isRemember);
-      setRole(assignedRole);
-      setUser(assignedUser);
-      setIsAuthenticated(true);
-      setIsLoading(false);
+      applySession(assignedRole, assignedUser, data.accessToken, isRemember);
 
       const isInitialPassword = pwd.startsWith('FamiDoc@');
       const redirectPath = isInitialPassword ? '/change-password' : getDefaultPathForRole(assignedRole);
@@ -165,6 +173,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user,
         isAuthenticated,
         isLoading,
+        applySession,
         login,
         logout,
         getDefaultPathForRole,
@@ -181,6 +190,12 @@ const fallbackAuthContext: AuthContextType = {
   user: null,
   isAuthenticated: false,
   isLoading: false,
+  applySession: (nextRole, nextUser, token, rememberMe = true) => {
+    if (token) {
+      httpClient.setToken(token, rememberMe);
+    }
+    saveAuthSession(nextRole, nextUser, token, rememberMe);
+  },
   login: async () => {},
   logout: () => {},
   getDefaultPathForRole: () => '/family',
@@ -188,8 +203,30 @@ const fallbackAuthContext: AuthContextType = {
 
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
+  const initialSession = useInitialAuthSession();
+
   if (!context) {
+    if (initialSession) {
+      return {
+        ...fallbackAuthContext,
+        role: initialSession.role,
+        user: initialSession.user,
+        isAuthenticated: true,
+        isLoading: false,
+      };
+    }
     return fallbackAuthContext;
   }
+
+  if (context.isLoading && initialSession) {
+    return {
+      ...context,
+      role: initialSession.role,
+      user: initialSession.user,
+      isAuthenticated: true,
+      isLoading: false,
+    };
+  }
+
   return context;
 }

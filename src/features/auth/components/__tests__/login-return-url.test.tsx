@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LoginForm } from '../login-form';
+import { AuthProvider, useAuth } from '../../context/auth-context';
 
 let mockSearchParams = new URLSearchParams();
 const replaceMock = vi.fn();
@@ -10,6 +11,7 @@ const replaceMock = vi.fn();
 vi.mock('next/navigation', () => ({
   useRouter: () => ({
     push: vi.fn(),
+    replace: replaceMock,
   }),
   useSearchParams: () => mockSearchParams,
 }));
@@ -101,6 +103,33 @@ describe('LoginForm - khôi phục URL đích sau đăng nhập', () => {
     expect(replaceMock).not.toHaveBeenCalledWith(
       expect.stringContaining('example.com')
     );
+    fetchSpy.mockRestore();
+  });
+
+  it('cập nhật AuthContext in-memory ngay khi đăng nhập trong AuthProvider trước khi router.replace', async () => {
+    mockSearchParams = new URLSearchParams();
+    const fetchSpy = mockLoginSuccess();
+
+    function AuthStateProbe() {
+      const { isAuthenticated, user } = useAuth();
+      return (
+        <div data-testid="auth-probe">
+          {isAuthenticated ? user?.name : 'guest'}
+        </div>
+      );
+    }
+
+    render(
+      <AuthProvider>
+        <AuthStateProbe />
+        <LoginForm />
+      </AuthProvider>
+    );
+
+    await submitLogin();
+
+    expect(screen.getByTestId('auth-probe')).toHaveTextContent('Nguyễn Văn Đại Diện');
+    expect(replaceMock).toHaveBeenCalledWith('/');
     fetchSpy.mockRestore();
   });
 });

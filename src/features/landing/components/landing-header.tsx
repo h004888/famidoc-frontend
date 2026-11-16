@@ -42,7 +42,7 @@ export interface LandingHeaderProps {
 
 export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProps = {}) {
   const pathname = usePathname() || '/';
-  const { isAuthenticated, user, role, logout } = useAuth();
+  const { isAuthenticated, user, role, isLoading, logout } = useAuth();
   const familyGate = useLandingFamilyGate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -161,7 +161,13 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
 
           {/* Action Buttons: Khi đã đăng nhập hiển thị cụm Avatar + Tên mở dropdown (định danh, hành động theo vai trò/trạng thái gói, tiện ích, đăng xuất), ngược lại hiển thị Đăng nhập & Đăng ký */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {isAuthenticated && user ? (
+            {isLoading ? (
+              <div
+                data-testid="landing-header-auth-skeleton"
+                aria-hidden="true"
+                className="h-9 w-28 sm:w-36 rounded-lg bg-slate-100 animate-pulse"
+              />
+            ) : isAuthenticated && user ? (
               <div className="relative" ref={userMenuRef}>
                 <button
                   type="button"
@@ -382,7 +388,13 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
             </nav>
 
             <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
-              {isAuthenticated && user ? (
+              {isLoading ? (
+                <div
+                  data-testid="landing-header-mobile-auth-skeleton"
+                  aria-hidden="true"
+                  className="h-10 w-full rounded-lg bg-slate-100 animate-pulse"
+                />
+              ) : isAuthenticated && user ? (
                 <>
                   <div className="flex items-start gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold border border-slate-300 shrink-0">

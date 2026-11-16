@@ -1,6 +1,8 @@
+import { Suspense } from 'react';
 import { Metadata } from 'next';
 import { PackagesCatalogView } from '@/features/packages';
 import { LandingFloatingActions } from '@/features/landing';
+import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 
 export const metadata: Metadata = {
   title: 'Tra Cứu Gói Chăm Sóc Sức Khỏe Gia Đình | FamiDoc Pro',
@@ -10,7 +12,11 @@ export const metadata: Metadata = {
 export default function PackagesPage() {
   return (
     <>
-      <PackagesCatalogView />
+      <Suspense fallback={<div className="min-h-screen bg-white" />}>
+        <ServerAuthSessionBoundary>
+          <PackagesCatalogView />
+        </ServerAuthSessionBoundary>
+      </Suspense>
       <LandingFloatingActions />
     </>
   );

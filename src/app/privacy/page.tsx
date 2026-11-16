@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { LandingHeader } from '@/features/landing/components/landing-header';
+import {
+  LandingHeaderSkeleton,
+  LandingHeaderWithSession,
+} from '@/features/landing/components/landing-header-with-session';
 import { LandingFooter } from '@/features/landing/components/landing-footer';
 
 export const metadata: Metadata = {
@@ -15,7 +18,9 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-white text-slate-900 font-sans antialiased flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900">
-      <LandingHeader />
+      <Suspense fallback={<LandingHeaderSkeleton />}>
+        <LandingHeaderWithSession />
+      </Suspense>
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 space-y-8">
         {/* Header Title */}
