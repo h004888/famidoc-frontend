@@ -414,6 +414,7 @@ export function mapMedicalContractToFourParty(
     assignedDoctorName: dto.doctor?.doctorName || dto.doctor?.user?.fullName,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
+    documensoEnvelopeId: dto.documensoEnvelopeId,
     signatures: mappedSignatures,
   };
 }

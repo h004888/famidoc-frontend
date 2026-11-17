@@ -76,10 +76,26 @@ export function resolveMedicalContractBadge(contract: FourPartyContract): Medica
   };
 }
 
+export function hasDocumensoSigningEnvelope(contract: FourPartyContract): boolean {
+  return contract.documensoEnvelopeId !== null && contract.documensoEnvelopeId !== '';
+}
+
+export function isContractReadyForAdminSign(contract: FourPartyContract): boolean {
+  const familySigned = Boolean(contract.signatures?.family);
+  const adminSigned = Boolean(contract.signatures?.platform);
+  return (
+    hasDocumensoSigningEnvelope(contract) &&
+    familySigned &&
+    !adminSigned &&
+    contract.status !== 'ACTIVE' &&
+    contract.status !== 'CANCELLED'
+  );
+}
+
 export function getPartySignatureMatrix(contract: FourPartyContract): PartySignatureState[] {
   const sigs = contract.signatures ?? {};
   const familySigned = Boolean(sigs.family);
-  const isInactive = contract.status === 'CANCELLED' || contract.status === 'ACTIVE';
+  const readyForAdmin = isContractReadyForAdminSign(contract);
 
   return [
     {
@@ -107,7 +123,7 @@ export function getPartySignatureMatrix(contract: FourPartyContract): PartySigna
       key: 'D',
       roleLabel: 'Bên D (Admin nền tảng)',
       signed: Boolean(sigs.platform),
-      isAdminTurn: familySigned && !sigs.platform && !isInactive,
+      isAdminTurn: readyForAdmin,
       signedAt: sigs.platform?.signedAt,
     },
   ];
@@ -123,18 +139,12 @@ export function matchesMedicalStatusFilter(
   if (filter === 'PENDING_PAYMENT') return contract.status === 'PENDING_PAYMENT';
 
   const familySigned = Boolean(contract.signatures?.family);
-  const adminSigned = Boolean(contract.signatures?.platform);
 
   if (filter === 'WAITING_FAMILY') {
     return contract.status === 'DRAFT' && !familySigned;
   }
   if (filter === 'READY_FOR_ADMIN') {
-    return (
-      familySigned &&
-      !adminSigned &&
-      contract.status !== 'ACTIVE' &&
-      contract.status !== 'CANCELLED'
-    );
+    return isContractReadyForAdminSign(contract);
   }
   return true;
 }

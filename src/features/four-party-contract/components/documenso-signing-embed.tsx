@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { EmbedSignDocument } from '@documenso/embed-react';
 import {
   contractsApi,
@@ -47,6 +47,7 @@ function resolveDocumensoHost(signingUrl: string | null): string {
 type SessionFetchResult =
   | { ok: true; data: ContractSigningSessionDto }
   | { ok: false; waitingForFamily: string }
+  | { ok: false; missingSession: string }
   | { ok: false; error: string };
 
 async function fetchSigningSessionResult(
@@ -60,13 +61,19 @@ async function fetchSigningSessionResult(
       err instanceof ApiError
         ? err.status
         : (err as { status?: number })?.status;
+    const rawMessage =
+      err instanceof Error && err.message.trim() ? err.message.trim() : '';
     const message =
-      err instanceof Error
-        ? err.message
-        : 'Không thể tải phiên ký điện tử Documenso.';
+      rawMessage ||
+      (status === 404
+        ? 'Hợp đồng này chưa có phiên ký Documenso cho vai trò hiện tại.'
+        : 'Không thể tải phiên ký điện tử Documenso.');
 
     if (status === 409) {
       return { ok: false, waitingForFamily: message };
+    }
+    if (status === 404) {
+      return { ok: false, missingSession: message };
     }
     return { ok: false, error: message };
   }
@@ -85,18 +92,25 @@ export function DocumensoSigningEmbed({
   const [downloadingPdf, setDownloadingPdf] = useState<boolean>(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [waitingForFamily, setWaitingForFamily] = useState<string | null>(null);
+  const [missingSession, setMissingSession] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const requestSeqRef = useRef(0);
 
   const loadSession = useCallback(async () => {
+    const seq = ++requestSeqRef.current;
     setLoading(true);
     setError(null);
     setWaitingForFamily(null);
+    setMissingSession(null);
     const result = await fetchSigningSessionResult(contractId);
+    if (seq !== requestSeqRef.current) return;
     if (result.ok) {
       setSession(result.data);
       onSessionLoaded?.(result.data);
     } else if ('waitingForFamily' in result) {
       setWaitingForFamily(result.waitingForFamily);
+    } else if ('missingSession' in result) {
+      setMissingSession(result.missingSession);
     } else {
       setError(result.error);
     }
@@ -104,29 +118,11 @@ export function DocumensoSigningEmbed({
   }, [contractId, onSessionLoaded]);
 
   useEffect(() => {
-    let active = true;
-    async function loadInitialSession() {
-      const result = await fetchSigningSessionResult(contractId);
-      if (!active) return;
-      if (result.ok) {
-        setSession(result.data);
-        setWaitingForFamily(null);
-        setError(null);
-        onSessionLoaded?.(result.data);
-      } else if ('waitingForFamily' in result) {
-        setWaitingForFamily(result.waitingForFamily);
-        setError(null);
-      } else {
-        setWaitingForFamily(null);
-        setError(result.error);
-      }
-      setLoading(false);
-    }
-    void loadInitialSession();
+    void loadSession();
     return () => {
-      active = false;
+      requestSeqRef.current += 1;
     };
-  }, [contractId, onSessionLoaded]);
+  }, [loadSession]);
 
   const handleSync = useCallback(async () => {
     setSyncing(true);
@@ -217,6 +213,46 @@ export function DocumensoSigningEmbed({
             refresh
           </span>
           Kiểm tra lại trạng thái Bên A
+        </button>
+      </div>
+    );
+  }
+
+  if (missingSession) {
+    return (
+      <div
+        role="alert"
+        data-testid="documenso-missing-session"
+        className={cn(
+          'rounded-xl border border-amber-200 bg-amber-50/70 p-6 space-y-3',
+          className
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <span className="material-symbols-outlined text-[20px] text-amber-700 shrink-0 mt-0.5">
+            info
+          </span>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-amber-950">
+              Chưa tìm thấy phiên ký Documenso
+            </h3>
+            <p className="text-xs text-amber-900 leading-relaxed">
+              {missingSession}
+            </p>
+            <p className="text-xs text-amber-800 leading-relaxed">
+              Nếu đây là hợp đồng cũ, hợp đồng mẫu hoặc email tài khoản vừa thay đổi, vui lòng liên hệ quản trị viên FamiDoc để kiểm tra và cấp lại phiên ký.
+            </p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => void loadSession()}
+          className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 cursor-pointer"
+        >
+          <span className="material-symbols-outlined text-[14px] mr-1.5">
+            refresh
+          </span>
+          Kiểm tra lại
         </button>
       </div>
     );
@@ -369,21 +405,47 @@ export function DocumensoSigningEmbed({
       <div
         data-testid="documenso-unavailable"
         className={cn(
-          'rounded-xl border border-slate-200 bg-slate-50 p-6 space-y-2',
+          'rounded-xl border border-slate-200 bg-slate-50 p-6 space-y-3',
           className
         )}
       >
         <p className="text-sm font-medium text-slate-900">
           Phiên ký Documenso hiện chưa khả dụng cho trạng thái {session.contractStatus}.
         </p>
-        <button
-          type="button"
-          disabled={syncing}
-          onClick={() => void handleSync()}
-          className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
-        >
-          Đồng bộ trạng thái từ Documenso
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={syncing}
+            onClick={() => void handleSync()}
+            className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-300 text-slate-800 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+          >
+            Đồng bộ trạng thái từ Documenso
+          </button>
+          {hasSignedPdf && (
+            <button
+              type="button"
+              data-testid="documenso-view-signed-pdf"
+              disabled={downloadingPdf}
+              onClick={() => void handleDownloadSignedPdf()}
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-800 hover:bg-slate-100 disabled:opacity-50 cursor-pointer"
+            >
+              Xem PDF đã ký
+              <span className="material-symbols-outlined text-[14px]">
+                open_in_new
+              </span>
+            </button>
+          )}
+        </div>
+        {pdfError && (
+          <div
+            role="alert"
+            data-testid="documenso-signed-pdf-error"
+            className="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"
+          >
+            <span className="material-symbols-outlined text-[14px]">error</span>
+            <span className="min-w-0 flex-1">{pdfError}</span>
+          </div>
+        )}
       </div>
     );
   }

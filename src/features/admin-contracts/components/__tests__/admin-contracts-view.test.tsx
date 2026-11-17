@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdminContractsView } from '../admin-contracts-view';
+import { getPartySignatureMatrix } from '../contract-status-helpers';
 import { contractsApi } from '@/lib/api';
 import { facilitiesApi } from '@/lib/api/facilities.api';
 
@@ -304,5 +305,62 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
         screen.getByText(/Số liệu KPI đang tổng hợp trên 50 hợp đồng y tế mới nhất từ máy chủ/i)
       ).toBeInTheDocument();
     });
+  });
+
+  it('ẩn nút "Ký trên Documenso" và loại khỏi đếm/lọc READY_FOR_ADMIN khi documensoEnvelopeId === null', async () => {
+    const legacyContract = {
+      id: 'ct-legacy-null-env',
+      contractNumber: 'CTR-2026-LEGACY',
+      status: 'FAMILY_SIGNED' as const,
+      createdAt: '2026-04-10T09:00:00Z',
+      packageId: 'pkg-1',
+      packageName: 'Gói Chăm Sóc Gia Đình Tiêu Chuẩn',
+      packagePrice: 5200000,
+      durationMonths: 12,
+      membersCount: 3,
+      familyId: 'fam-1',
+      familyRepresentativeName: 'Nguyễn Văn Legacy',
+      familyRepresentativePhone: '0909123456',
+      facilityId: 'fac-1',
+      facilityName: 'Phòng khám FamiCare Quận 3',
+      doctorId: 'doc-1',
+      doctorName: 'BS. Nguyễn Thị Lan',
+      documensoEnvelopeId: null,
+      members: [],
+      signatures: {
+        family: {
+          signedBy: 'Nguyễn Văn Legacy',
+          signerRole: 'FAMILY' as const,
+          signedAt: '2026-04-10T09:05:00Z',
+          sha256Hash: 'legacy-signature-hash',
+        },
+      },
+    };
+
+    expect(
+      getPartySignatureMatrix(legacyContract).find((p) => p.key === 'D')?.isAdminTurn
+    ).toBe(false);
+
+    vi.mocked(contractsApi.getMedicalContracts).mockResolvedValueOnce([legacyContract]);
+
+    render(<AdminContractsView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/CTR-2026-LEGACY/).length).toBeGreaterThan(0);
+    });
+
+    expect(
+      screen.queryByRole('button', { name: /Ký trên Documenso/i })
+    ).toBeNull();
+    expect(
+      screen.getAllByRole('button', { name: /Chi tiết & Documenso/i }).length
+    ).toBeGreaterThan(0);
+
+    const readyFilterBtn = screen.getByRole('button', { name: /Chờ Admin ký \(Bên D\)/i });
+    expect(readyFilterBtn).toHaveTextContent('0');
+    fireEvent.click(readyFilterBtn);
+
+    expect(screen.queryAllByText(/CTR-2026-LEGACY/)).toHaveLength(0);
+    expect(screen.getByText(/Không có hợp đồng y tế phù hợp/i)).toBeInTheDocument();
   });
 });

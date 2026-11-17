@@ -179,5 +179,36 @@ describe('contractsApi.initiateFourPartyContract', () => {
     expect(list[0].familyRepresentativeName).toBe('Nguyễn Văn A');
     expect(list[0].signatures?.family?.signedBy).toBe('Nguyễn Văn A');
     expect(list[0].signatures?.doctor).toBeUndefined();
+    expect(list[0].documensoEnvelopeId).toBeUndefined();
+  });
+
+  it('preserves documensoEnvelopeId null and string values in mapMedicalContractToFourParty', async () => {
+    vi.spyOn(httpClient, 'get').mockResolvedValueOnce({
+      success: true,
+      data: {
+        items: [
+          {
+            id: 'ctr-env-null',
+            contractNumber: 'CTR-NULL',
+            contractStatus: 'PENDING_APPROVAL',
+            createdAt: '2026-04-10T09:00:00Z',
+            totalAmount: 5000000,
+            documensoEnvelopeId: null,
+          },
+          {
+            id: 'ctr-env-set',
+            contractNumber: 'CTR-SET',
+            contractStatus: 'PENDING_APPROVAL',
+            createdAt: '2026-04-10T09:00:00Z',
+            totalAmount: 5000000,
+            documensoEnvelopeId: 'env-123',
+          },
+        ],
+      },
+    });
+
+    const list = await contractsApi.getMedicalContracts();
+    expect(list[0].documensoEnvelopeId).toBeNull();
+    expect(list[1].documensoEnvelopeId).toBe('env-123');
   });
 });

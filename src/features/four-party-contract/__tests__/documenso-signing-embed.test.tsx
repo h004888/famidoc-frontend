@@ -304,4 +304,68 @@ describe('DocumensoSigningEmbed Component', () => {
       expect(downloadSpy).toHaveBeenCalledTimes(2);
     });
   });
+
+  it('hiển thị trạng thái thiếu phiên ký kèm hướng dẫn (role="alert"), xử lý message rỗng và cho phép "Kiểm tra lại"', async () => {
+    const getSessionSpy = vi
+      .spyOn(contractsApi, 'getSigningSession')
+      .mockRejectedValueOnce(new ApiError('', 404))
+      .mockResolvedValueOnce(signingSessionFixture);
+
+    render(<DocumensoSigningEmbed contractId="ctr-missing" />);
+
+    const missingBox = await screen.findByTestId('documenso-missing-session');
+    expect(missingBox).toHaveAttribute('role', 'alert');
+    expect(missingBox).toHaveTextContent(/Chưa tìm thấy phiên ký Documenso/i);
+    expect(missingBox).toHaveTextContent(
+      /Hợp đồng này chưa có phiên ký Documenso cho vai trò hiện tại/i
+    );
+    expect(missingBox).toHaveTextContent(/quản trị viên FamiDoc/i);
+    expect(
+      screen.queryByTestId('documenso-embed-error')
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Kiểm tra lại/i }));
+
+    expect(
+      await screen.findByTestId('documenso-embed-container')
+    ).toBeInTheDocument();
+    expect(getSessionSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('hiển thị nút "Xem PDF đã ký" ở trạng thái không thể ký (documenso-unavailable) khi signedPdfUrl tồn tại', async () => {
+    vi.spyOn(contractsApi, 'getSigningSession').mockResolvedValueOnce({
+      ...signingSessionFixture,
+      contractStatus: 'ACTIVE',
+      alreadySigned: false,
+      canSign: false,
+      signingToken: null,
+      signingUrl: null,
+      signedRoles: [
+        'FAMILY_REP',
+        'HEALTHCARE_FACILITY',
+        'ASSIGNED_DOCTOR',
+        'ADMIN',
+      ],
+      signedPdfUrl: '/api/v1/contracts/medical/ctr-1/signed-pdf',
+    });
+    const blob = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
+    const downloadSpy = vi
+      .spyOn(contractsApi, 'downloadSignedPdf')
+      .mockResolvedValueOnce(blob);
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:unavailable-pdf');
+    vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(<DocumensoSigningEmbed contractId="ctr-1" />);
+
+    const unavailableBox = await screen.findByTestId('documenso-unavailable');
+    expect(unavailableBox).toBeInTheDocument();
+
+    const pdfBtn = screen.getByTestId('documenso-view-signed-pdf');
+    expect(pdfBtn).toHaveTextContent('Xem PDF đã ký');
+    fireEvent.click(pdfBtn);
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledWith('ctr-1');
+    });
+  });
 });

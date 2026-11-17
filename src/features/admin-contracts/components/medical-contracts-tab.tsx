@@ -36,6 +36,7 @@ import {
   formatContractCurrency,
   formatShortDate,
   getPartySignatureMatrix,
+  isContractReadyForAdminSign,
   matchesMedicalStatusFilter,
   resolveMedicalContractBadge,
   type AdminStatusFilter,
@@ -253,10 +254,7 @@ export function MedicalContractsTab({
                   const badge = resolveMedicalContractBadge(c);
                   const matrix = getPartySignatureMatrix(c);
                   const sigCount = matrix.filter((m) => m.signed).length;
-                  const familySigned = Boolean(c.signatures?.family);
-                  const adminSigned = Boolean(c.signatures?.platform);
-                  const isReadyForAdminSign =
-                    familySigned && !adminSigned && c.status !== 'ACTIVE' && c.status !== 'CANCELLED';
+                  const isReadyForAdminSign = isContractReadyForAdminSign(c);
 
                   return (
                     <TableRow key={c.id} className="hover:bg-slate-50/70">
@@ -364,10 +362,7 @@ export function MedicalContractsTab({
             {paginatedContracts.map((c) => {
               const badge = resolveMedicalContractBadge(c);
               const matrix = getPartySignatureMatrix(c);
-              const familySigned = Boolean(c.signatures?.family);
-              const adminSigned = Boolean(c.signatures?.platform);
-              const isReadyForAdminSign =
-                familySigned && !adminSigned && c.status !== 'ACTIVE' && c.status !== 'CANCELLED';
+              const isReadyForAdminSign = isContractReadyForAdminSign(c);
 
               return (
                 <Card key={c.id} className="rounded-2xl border-slate-200 p-4 space-y-3">
