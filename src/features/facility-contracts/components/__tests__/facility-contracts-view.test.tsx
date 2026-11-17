@@ -8,7 +8,7 @@ import { facilitiesApi } from '@/lib/api/facilities.api';
 vi.mock('@/lib/api/facilities.api', () => ({
   facilitiesApi: {
     getMyFacilityProfile: vi.fn().mockResolvedValue({
-      facilityName: 'Bệnh viện Đa khoa An Sinh',
+      facilityName: 'Bệnh viện Nhi Đồng 1',
     }),
   },
 }));
@@ -21,166 +21,194 @@ vi.mock('@/lib/api/contracts.api', () => ({
   },
 }));
 
-describe('Giai đoạn 3: Hợp đồng cung ứng nhân lực y tế B2B (Flow 2.1)', () => {
+const draftContract = {
+  id: 'ctr-b2b-002',
+  contractNumber: 'HĐHT-2026-ND1-002',
+  facilityName: 'Bệnh viện Nhi Đồng 1',
+  platformSharePercent: 15,
+  facilitySharePercent: 85,
+  validFrom: '2026-12-01T00:00:00.000Z',
+  validTo: '2028-11-30T23:59:59.000Z',
+  status: 'DRAFT' as const,
+  adminSigned: true,
+  facilitySigned: false,
+  contractTerms: 'Điều khoản hợp tác B2B.',
+};
+
+const activeContract = {
+  id: 'ctr-b2b-001',
+  contractNumber: 'HĐHT-2024-ND1-001',
+  facilityName: 'Bệnh viện Nhi Đồng 1',
+  platformSharePercent: 18,
+  facilitySharePercent: 82,
+  validFrom: '2024-12-01T00:00:00.000Z',
+  validTo: '2026-11-30T23:59:59.000Z',
+  status: 'ACTIVE' as const,
+  adminSigned: true,
+  facilitySigned: true,
+  contractTerms: 'Điều khoản hợp tác B2B.',
+};
+
+describe('FacilityContractsView (/facility/contracts — B2B Only)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
   });
 
-  it('Bước 3.1: CSYT quan sát danh sách hợp đồng B2B thấy STAFF-2026-ANSINH-002 ở trạng thái DRAFT và tỷ lệ 85/15', async () => {
+  it('renders facility-b2b-summary-card for single draft contract without history table, 4-party tab, or Reset Demo', async () => {
     vi.mocked(contractsApi.getStaffingContracts).mockResolvedValue({
-      data: [
-        {
-          id: 'CTR-B2B-2026-002',
-          contractNumber: 'STAFF-2026-ANSINH-002',
-          facilityName: 'Bệnh viện Đa khoa An Sinh',
-          platformSharePercent: 15,
-          facilitySharePercent: 85,
-          validFrom: '2026-11-12T00:00:00.000Z',
-          validTo: '2027-11-12T23:59:59.000Z',
-          status: 'DRAFT',
-          adminSigned: true,
-          facilitySigned: false,
-          contractTerms: 'Toàn văn điều khoản phân chia doanh thu 85% CSYT / 15% Platform.',
-        },
-      ],
+      data: [draftContract],
       total: 1,
+    });
+
+    const { container } = render(<FacilityContractsView />);
+
+    const summaryCard = await screen.findByTestId('facility-b2b-summary-card');
+    expect(contractsApi.getStaffingContracts).toHaveBeenCalledWith(
+      { limit: 100 },
+      { throwOnError: true }
+    );
+    expect(summaryCard).toBeInTheDocument();
+    expect(within(summaryCard).getByText('HĐHT-2026-ND1-002')).toBeInTheDocument();
+    expect(within(summaryCard).getByText(/85% CSYT \/ 15% FamiDoc/i)).toBeInTheDocument();
+    expect(within(summaryCard).getByText(/Ngày 05 hằng tháng/i)).toBeInTheDocument();
+
+    const detailCta = within(summaryCard).getByRole('link', {
+      name: /Xem chi tiết & Ký số/i,
+    });
+    expect(detailCta).toHaveAttribute('href', '/facility/contracts/ctr-b2b-002');
+
+    // No history table for 1 record
+    expect(screen.queryByTestId('facility-b2b-history')).not.toBeInTheDocument();
+
+    // No legacy 4-party tabs, Reset Demo, or /facility/staff links
+    expect(screen.queryByText(/Reset Demo/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Hợp Đồng Y Tế 4 Bên/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Flow 2\.1|SCR-22|BR-04/i)).not.toBeInTheDocument();
+    expect(container.querySelector('a[href="/facility/staff"]')).toBeNull();
+    expect(container.querySelector('a[href="/facility/doctors"]')).not.toBeNull();
+
+    // No typography violations
+    expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
+  });
+
+  it('renders conditional history table below summary card when more than 1 B2B contract exists', async () => {
+    vi.mocked(contractsApi.getStaffingContracts).mockResolvedValue({
+      data: [draftContract, activeContract],
+      total: 2,
     });
 
     render(<FacilityContractsView />);
 
-    // Kiểm tra hợp đồng STAFF-2026-ANSINH-002 xuất hiện
-    const contractCodes = await screen.findAllByText('STAFF-2026-ANSINH-002');
-    expect(contractCodes.length).toBeGreaterThan(0);
-
-    const desktop = within(screen.getByTestId('desktop-view'));
-    // Kiểm tra tỷ lệ 85% CSYT / 15% Platform
-    expect(desktop.getByText(/85% CSYT/i)).toBeInTheDocument();
-    expect(desktop.getByText(/\/ 15% Platform/i)).toBeInTheDocument();
-
-    // Kiểm tra trạng thái DRAFT
-    expect(desktop.getByText(/Dự Thảo \(Chờ CSYT ký\)/i)).toBeInTheDocument();
-
-    // Kiểm tra chữ ký 2 bên
-    expect(desktop.getByText(/Admin: Đã ký số/i)).toBeInTheDocument();
-    expect(desktop.getByText(/CSYT: Chờ ký xác nhận/i)).toBeInTheDocument();
+    await screen.findByTestId('facility-b2b-summary-card');
+    const historySection = screen.getByTestId('facility-b2b-history');
+    expect(historySection).toBeInTheDocument();
+    expect(within(historySection).getAllByText('HĐHT-2026-ND1-002').length).toBeGreaterThan(0);
+    expect(within(historySection).getAllByText('HĐHT-2024-ND1-001').length).toBeGreaterThan(0);
   });
 
-  it('Cho phép CSYT bấm "Chi Tiết & Ký Số", mở SmartCA và Ký số thành công chuyển sang ACTIVE', async () => {
+  it('renders centered Vietnamese empty card when getStaffingContracts returns empty array', async () => {
     vi.mocked(contractsApi.getStaffingContracts).mockResolvedValue({
-      data: [
-        {
-          id: 'CTR-B2B-2026-002',
-          contractNumber: 'STAFF-2026-ANSINH-002',
-          facilityName: 'Bệnh viện Đa khoa An Sinh',
-          platformSharePercent: 15,
-          facilitySharePercent: 85,
-          validFrom: '2026-11-12T00:00:00.000Z',
-          validTo: '2027-11-12T23:59:59.000Z',
-          status: 'DRAFT',
-          adminSigned: true,
-          facilitySigned: false,
-          contractTerms: 'Toàn văn điều khoản phân chia doanh thu 85% CSYT / 15% Platform.',
-        },
-      ],
+      data: [],
+      total: 0,
+    });
+
+    render(<FacilityContractsView />);
+
+    const emptyCard = await screen.findByTestId('facility-b2b-empty-state');
+    expect(emptyCard).toBeInTheDocument();
+    expect(
+      within(emptyCard).getByText('Chưa có dự thảo Hợp đồng Hợp tác B2B')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/An Sinh/i)).not.toBeInTheDocument();
+  });
+
+  it('surfaces Vietnamese error alert with retry button and no fake fallback when API fails', async () => {
+    vi.mocked(contractsApi.getStaffingContracts)
+      .mockRejectedValueOnce(new Error('Kết nối máy chủ gián đoạn'))
+      .mockResolvedValueOnce({ data: [activeContract], total: 1 });
+
+    render(<FacilityContractsView />);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/Kết nối máy chủ gián đoạn/i);
+    expect(screen.queryByText(/An Sinh/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Thử lại/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('facility-b2b-summary-card')).toBeInTheDocument();
+    });
+    expect(contractsApi.getStaffingContracts).toHaveBeenCalledTimes(2);
+  });
+
+  it('allows quick signing via shadcn Dialog and updates contract status to ACTIVE', async () => {
+    vi.mocked(contractsApi.getStaffingContracts).mockResolvedValue({
+      data: [draftContract],
       total: 1,
     });
     vi.mocked(contractsApi.signStaffingContract).mockResolvedValue({ statusCode: 200 });
 
     render(<FacilityContractsView />);
 
-    await screen.findAllByText('STAFF-2026-ANSINH-002');
+    await screen.findByTestId('facility-b2b-summary-card');
+    fireEvent.click(screen.getByRole('button', { name: /Ký số nhanh/i }));
 
-    // Bấm Chi Tiết & Ký Số
-    const detailBtn = within(screen.getByTestId('desktop-view')).getByRole('button', { name: /Chi Tiết & Ký Số/i });
-    fireEvent.click(detailBtn);
+    expect(
+      await screen.findByText(/Xác nhận ký số Hợp đồng Hợp tác B2B/i)
+    ).toBeInTheDocument();
 
-    // Modal chi tiết hiện lên
-    expect(screen.getByText(/Chi Tiết Hợp Đồng Cung Ứng Nhân Lực B2B/i)).toBeInTheDocument();
-    expect(screen.getByText(/Toàn văn điều khoản phân chia doanh thu/i)).toBeInTheDocument();
-
-    // Bấm Ký Số Điện Tử B2B
-    const signBtn = screen.getByRole('button', { name: /Ký Số Điện Tử B2B/i });
-    fireEvent.click(signBtn);
-
-    // Hộp thoại SmartCA xác nhận hiện lên
-    expect(screen.getByText(/Xác Nhận Ký Số Hợp Đồng B2B/i)).toBeInTheDocument();
-    expect(screen.getByText(/CERT-VNPT-CA-2026-B2B/i)).toBeInTheDocument();
-
-    // Bấm Xác Nhận Ký Số Ngay
-    const confirmBtn = screen.getByRole('button', { name: /Xác Nhận Ký Số Ngay/i });
-    fireEvent.click(confirmBtn);
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận ký số/i }));
 
     await waitFor(() => {
       expect(contractsApi.signStaffingContract).toHaveBeenCalledWith(
-        'CTR-B2B-2026-002',
+        'ctr-b2b-002',
         expect.objectContaining({ confirmed: true })
       );
     });
 
-    // Kết quả: Chuyển sang ACTIVE
-    const desktop = within(screen.getByTestId('desktop-view'));
-    await waitFor(() => {
-      expect(desktop.getByText(/Đang Hoạt Động \(ACTIVE\)/i)).toBeInTheDocument();
-    });
-
-    // Cả 2 bên đều có dấu kiểm ✓ Đã ký số
-    expect(desktop.getByText(/CSYT: Đã ký số/i)).toBeInTheDocument();
+    expect(await screen.findByText('Đang hiệu lực')).toBeInTheDocument();
   });
 
-  it('Cho phép CSYT từ chối / đàm phán lại chuyển hợp đồng sang TERMINATED', async () => {
+  it('allows rejecting draft via shadcn Dialog with 5-char validation and renders TERMINATED banner', async () => {
     vi.mocked(contractsApi.getStaffingContracts).mockResolvedValue({
-      data: [
-        {
-          id: 'CTR-B2B-2026-002',
-          contractNumber: 'STAFF-2026-ANSINH-002',
-          facilityName: 'Bệnh viện Đa khoa An Sinh',
-          platformSharePercent: 15,
-          facilitySharePercent: 85,
-          validFrom: '2026-11-12T00:00:00.000Z',
-          validTo: '2027-11-12T23:59:59.000Z',
-          status: 'DRAFT',
-          adminSigned: true,
-          facilitySigned: false,
-          contractTerms: 'Toàn văn điều khoản phân chia doanh thu 85% CSYT / 15% Platform.',
-        },
-      ],
+      data: [draftContract],
       total: 1,
     });
     vi.mocked(contractsApi.rejectStaffingContract).mockResolvedValue({ statusCode: 200 });
 
     render(<FacilityContractsView />);
 
-    await screen.findAllByText('STAFF-2026-ANSINH-002');
+    await screen.findByTestId('facility-b2b-summary-card');
+    fireEvent.click(screen.getByRole('button', { name: /Yêu cầu sửa điều khoản/i }));
 
-    // Bấm Chi Tiết & Ký Số
-    const detailBtn = within(screen.getByTestId('desktop-view')).getByRole('button', { name: /Chi Tiết & Ký Số/i });
-    fireEvent.click(detailBtn);
+    const reasonInput = await screen.findByLabelText(/Nội dung đề xuất/i);
+    const submitBtn = screen.getByRole('button', { name: /Gửi yêu cầu đàm phán/i });
+    expect(submitBtn).toBeDisabled();
 
-    // Bấm Từ chối / Đàm phán lại
-    const rejectBtn = screen.getByRole('button', { name: /Từ chối \/ Đàm phán lại/i });
-    fireEvent.click(rejectBtn);
+    fireEvent.change(reasonInput, { target: { value: 'abc' } });
+    expect(submitBtn).toBeDisabled();
 
-    // Nhập lý do từ chối
-    const reasonInput = screen.getByPlaceholderText(/Đề xuất điều chỉnh lại tỷ lệ phân chia/i);
     fireEvent.change(reasonInput, {
-      target: { value: 'Đề xuất tăng tỷ lệ CSYT lên 90% do quy mô bác sĩ lớn.' },
+      target: { value: 'Đề xuất điều chỉnh tỷ lệ phân chia 90/10.' },
     });
+    expect(submitBtn).toBeEnabled();
 
-    // Bấm Gửi Yêu Cầu Đàm Phán
-    const submitRejectBtn = screen.getByRole('button', { name: /Gửi Yêu Cầu Đàm Phán/i });
-    fireEvent.click(submitRejectBtn);
+    fireEvent.click(submitBtn);
 
     await waitFor(() => {
       expect(contractsApi.rejectStaffingContract).toHaveBeenCalledWith(
-        'CTR-B2B-2026-002',
-        'Đề xuất tăng tỷ lệ CSYT lên 90% do quy mô bác sĩ lớn.'
+        'ctr-b2b-002',
+        'Đề xuất điều chỉnh tỷ lệ phân chia 90/10.'
       );
     });
 
-    // Hợp đồng chuyển sang TERMINATED
-    await waitFor(() => {
-      expect(screen.getByText(/Đã từ chối \/ Đàm phán lại/i)).toBeInTheDocument();
-    });
+    expect(
+      await screen.findByText(/Đã từ chối \/ Đàm phán lại/i)
+    ).toBeInTheDocument();
+    const terminatedBanner = screen.getByTestId('facility-b2b-terminated-banner');
+    expect(terminatedBanner).toHaveTextContent(
+      /Đề xuất điều chỉnh tỷ lệ phân chia 90\/10\./i
+    );
   });
 });

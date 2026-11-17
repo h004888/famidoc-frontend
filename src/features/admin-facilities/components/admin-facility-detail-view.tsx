@@ -13,6 +13,12 @@ interface AdminFacilityDetailViewProps {
   facilityId: string;
 }
 
+function formatContractDate(value?: string): string {
+  if (!value) return '—';
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN');
+}
+
 export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewProps) {
   const router = useRouter();
   const [facility, setFacility] = useState<AdminFacilityItem | null>(null);
@@ -840,8 +846,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                         </td>
 
                         <td className="py-3.5 px-4 text-slate-600 text-[11px] tabular-nums">
-                          {new Date(c.validFrom).toLocaleDateString('vi-VN')} -{' '}
-                          {new Date(c.validTo).toLocaleDateString('vi-VN')}
+                          {formatContractDate(c.validFrom)} - {formatContractDate(c.validTo)}
                         </td>
 
                         <td className="py-3.5 px-4">
@@ -912,8 +917,8 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                         <strong className="text-indigo-700">FamiDoc {c.platformSharePercent}%</strong>
                       </div>
                       <div>
-                        Hiệu lực: {new Date(c.validFrom).toLocaleDateString('vi-VN')} -{' '}
-                        {new Date(c.validTo).toLocaleDateString('vi-VN')}
+                        Hiệu lực: {formatContractDate(c.validFrom)} -{' '}
+                        {formatContractDate(c.validTo)}
                       </div>
                     </div>
                     <div className="flex justify-end">

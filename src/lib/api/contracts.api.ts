@@ -34,17 +34,35 @@ export interface MedicalContractListItem {
 export interface CareNeedsSummaryDto {
   contractId: string;
   contractNumber: string;
+  familyId?: string;
   packageName: string;
-  facilityName: string;
+  facilityName?: string;
   familyAddress?: string;
+  totalMembers?: number;
   members: {
     patientId: string;
     fullName: string;
+    dateOfBirth?: string;
     age: number;
+    ageGroup?: 'CHILD' | 'ADOLESCENT' | 'ADULT' | 'ELDERLY';
     gender: string;
     relationshipToHead: string;
-    allergies: { allergen: string; severity: string }[];
-    documents: { title: string; documentType: string }[];
+    citizenId?: string | null;
+    healthInsuranceNumber?: string | null;
+    allergies: {
+      id?: string;
+      allergen?: string;
+      allergenName?: string;
+      allergenType?: string;
+      severity: string;
+      clinicalManifestation?: string | null;
+    }[];
+    documents: {
+      id?: string;
+      title?: string;
+      documentName?: string;
+      documentType: string;
+    }[];
   }[];
 }
 
@@ -116,8 +134,31 @@ export interface MedicalContractDetailDto {
     id?: string;
     doctorName?: string;
     specialty?: string;
+    academicTitle?: string;
+    experienceYears?: number;
+    cchnNumber?: string;
+    credentials?: Array<{
+      credentialType?: string;
+      certificateNumber?: string;
+    }>;
     user?: { fullName?: string; email?: string };
   } | null;
+  members?: Array<{
+    id?: string;
+    patientId?: string;
+    patient?: {
+      id?: string;
+      fullName?: string;
+      dateOfBirth?: string;
+      gender?: string;
+      relationshipToHead?: string;
+    };
+  }>;
+  documensoSigners?: Array<{
+    signerRole: BackendSignerRole;
+    status: string;
+    completedAt?: string | null;
+  }>;
   servicePackage?: { id?: string; packageName?: string; durationMonths?: number };
   billingSnapshot?: {
     package?: { name?: string };
@@ -228,7 +269,7 @@ export interface AssignDoctorPayload {
   doctorId: string;
 }
 
-// === HỢP ĐỒNG CUNG ỨNG NHÂN LỰC Y TẾ B2B (Flow 2.1 - APIs 9, 10, 11, 12, 13) ===
+// === HỢP ĐỒNG CUNG ỨNG NHÂN LỰC Y TẾ B2B ===
 export interface StaffingContractItem {
   id: string;
   contractNumber: string;
@@ -241,57 +282,80 @@ export interface StaffingContractItem {
   status: 'DRAFT' | 'ACTIVE' | 'TERMINATED';
   adminSigned: boolean;
   facilitySigned: boolean;
+  signedPdfUrl?: string | null;
   contractTerms?: string;
   rejectionReason?: string;
 }
 
 export function normalizeStaffingContract(item: any): StaffingContractItem {
   const contractNumber =
-    item.contractNumber ||
-    item.contractCode ||
-    item.contract_code ||
-    `STAFF-2026-ANSINH-${Math.floor(100 + Math.random() * 900)}`;
+    item?.contractNumber ||
+    item?.contractCode ||
+    item?.contract_code ||
+    (item?.id ? String(item.id) : '—');
 
-  const statusRaw = item.status || 'DRAFT';
-  let normalizedStatus: 'DRAFT' | 'ACTIVE' | 'TERMINATED' = 'DRAFT';
-  if (statusRaw === 'ACTIVE') normalizedStatus = 'ACTIVE';
-  else if (statusRaw === 'TERMINATED' || statusRaw === 'EXPIRED') normalizedStatus = 'TERMINATED';
-  else normalizedStatus = 'DRAFT';
+  const statusRaw = item?.status;
+  let normalizedStatus: 'DRAFT' | 'ACTIVE' | 'TERMINATED' = 'TERMINATED';
+  if (statusRaw === 'ACTIVE') {
+    normalizedStatus = 'ACTIVE';
+  } else if (
+    !statusRaw ||
+    statusRaw === 'DRAFT' ||
+    statusRaw === 'PENDING_SIGNATURE'
+  ) {
+    normalizedStatus = 'DRAFT';
+  }
 
-  const facilitySigned = Boolean(item.facilitySigned || normalizedStatus === 'ACTIVE');
-  const adminSigned = Boolean(item.adminSigned || normalizedStatus === 'ACTIVE');
+  const facilitySigned = Boolean(item?.facilitySigned || normalizedStatus === 'ACTIVE');
+  const adminSigned = Boolean(
+    item?.adminSigned ??
+      (normalizedStatus === 'DRAFT' || normalizedStatus === 'ACTIVE')
+  );
+  const rawFacilityShare = Number(
+    item?.facilitySharePercent ?? item?.facilityRevenueRate ?? 85
+  );
+  const facilitySharePercent = Number.isFinite(rawFacilityShare)
+    ? rawFacilityShare
+    : 85;
+  const rawPlatformShare = Number(
+    item?.platformSharePercent ?? item?.platformCommissionRate ?? 15
+  );
+  const platformSharePercent = Number.isFinite(rawPlatformShare)
+    ? rawPlatformShare
+    : 15;
 
   return {
-    id: item.id || `CTR-B2B-${Math.floor(1000 + Math.random() * 9000)}`,
+    id: String(item?.id || contractNumber),
     contractNumber,
-    facilityId: item.facilityId || item.facility?.id,
+    facilityId: item?.facilityId || item?.facility?.id,
     facilityName:
-      item.facilityName ||
-      item.facility?.facilityName ||
-      item.facility?.name ||
-      'Bệnh viện Đa khoa An Sinh',
-    platformSharePercent: Number(item.platformSharePercent ?? item.platformCommissionRate ?? 15),
-    facilitySharePercent: Number(item.facilitySharePercent ?? item.facilityRevenueRate ?? 85),
-    validFrom: item.validFrom || item.startDate || '2026-11-12T00:00:00.000Z',
-    validTo: item.validTo || item.endDate || '2027-11-12T23:59:59.000Z',
+      item?.facilityName ||
+      item?.facility?.facilityName ||
+      item?.facility?.name ||
+      'Cơ sở Y tế Đối tác',
+    platformSharePercent,
+    facilitySharePercent,
+    validFrom: item?.validFrom || item?.startDate || '',
+    validTo: item?.validTo || item?.endDate || '',
     status: normalizedStatus,
     adminSigned,
     facilitySigned,
+    signedPdfUrl: item?.signedPdfUrl ?? null,
     contractTerms:
-      item.contractTerms ||
+      item?.contractTerms ||
       'HỢP ĐỒNG KHUNG CUNG ỨNG NHÂN LỰC Y TẾ B2B (MÔ HÌNH BÁC SĨ GIA ĐÌNH)\n\n' +
-      'Điều 1. Phạm vi hợp tác:\n' +
-      'Cơ sở y tế đồng ý cung ứng nguồn nhân lực Bác sĩ có Chứng chỉ hành nghề (CCHN) hợp lệ để thực hiện dịch vụ khám chữa bệnh gia đình và chăm sóc y tế toàn diện trên nền tảng số FamiDoc.\n\n' +
-      'Điều 2. Tỷ lệ phân chia doanh thu & Cơ chế quyết toán:\n' +
-      '- Cơ sở y tế hưởng: 85% trên tổng doanh thu các gói dịch vụ y tế phát sinh.\n' +
-      '- Nền tảng FamiDoc hưởng: 15% phí vận hành công nghệ, tổng đài điều phối và hạ tầng bệnh án điện tử.\n' +
-      '- Kỳ quyết toán: Định kỳ ngày 05 hàng tháng, FamiDoc tự động lập đối soát doanh thu chi trả về tài khoản ngân hàng thụ hưởng của CSYT.\n\n' +
-      'Điều 3. Cam kết chất lượng chuyên môn:\n' +
-      '- 100% bác sĩ tham gia phải được hậu kiểm CCHN trên CSDL Quốc gia của Bộ Y Tế.\n' +
-      '- Tuân thủ chuẩn định mức tải gia đình (BR-04 Panel Capacity Ceiling) tối đa 150 hộ/bác sĩ nhằm bảo đảm an toàn y tế.\n\n' +
-      'Điều 4. Ký số điện tử & Hiệu lực pháp lý:\n' +
-      'Hợp đồng được lập và ký số điện tử hợp pháp theo Luật Giao dịch điện tử và Nghị định 130/2018/NĐ-CP (SmartCA / VNPT-CA / Documenso), có hiệu lực 01 năm kể từ thời điểm ký.',
-    rejectionReason: item.rejectionReason,
+        'Điều 1. Phạm vi hợp tác:\n' +
+        'Cơ sở y tế đồng ý cung ứng nguồn nhân lực Bác sĩ có Chứng chỉ hành nghề (CCHN) hợp lệ để thực hiện dịch vụ khám chữa bệnh gia đình và chăm sóc y tế toàn diện trên nền tảng số FamiDoc.\n\n' +
+        'Điều 2. Tỷ lệ phân chia doanh thu & Cơ chế quyết toán:\n' +
+        `- Cơ sở y tế hưởng: ${facilitySharePercent}% trên tổng doanh thu các gói dịch vụ y tế phát sinh.\n` +
+        `- Nền tảng FamiDoc hưởng: ${platformSharePercent}% phí vận hành công nghệ, tổng đài điều phối và hạ tầng bệnh án điện tử.\n` +
+        '- Kỳ quyết toán: Định kỳ ngày 05 hằng tháng, FamiDoc lập đối soát doanh thu chi trả về tài khoản ngân hàng thụ hưởng của CSYT.\n\n' +
+        'Điều 3. Cam kết chất lượng chuyên môn:\n' +
+        '- 100% bác sĩ tham gia phải được xác thực Chứng chỉ hành nghề (CCHN) hợp lệ.\n' +
+        '- Tuân thủ định mức phụ trách tối đa 30 hộ gia đình/bác sĩ nhằm bảo đảm chất lượng chăm sóc và an toàn y tế.\n\n' +
+        'Điều 4. Ký số điện tử & Hiệu lực pháp lý:\n' +
+        'Hợp đồng được lập và ký số điện tử hợp pháp theo Luật Giao dịch điện tử và Nghị định 130/2018/NĐ-CP.',
+    rejectionReason: item?.rejectionReason,
   };
 }
 
@@ -492,8 +556,11 @@ export const contractsApi = {
     return unwrapEnvelope<FamilyGateStatusDto>(payload);
   },
 
-  getCareSummary: (contractId: string): Promise<CareNeedsSummaryDto> => {
-    return httpClient.get<CareNeedsSummaryDto>(`/api/v1/contracts/medical/${contractId}/care-summary`);
+  getCareSummary: async (contractId: string): Promise<CareNeedsSummaryDto> => {
+    const payload = await httpClient.get<unknown>(
+      `/api/v1/contracts/medical/${contractId}/care-summary`
+    );
+    return unwrapEnvelope<CareNeedsSummaryDto>(payload);
   },
 
   getContractDocument: (contractId: string): Promise<ContractDocumentDto> => {
@@ -578,31 +645,35 @@ export const contractsApi = {
     return httpClient.getBlob(`/api/v1/contracts/medical/${contractId}/signed-pdf`);
   },
 
-  // === HỢP ĐỒNG CUNG ỨNG NHÂN LỰC Y TẾ B2B (Flow 2.1 - APIs 9, 10, 11, 12, 13) ===
-  getStaffingContracts: async (params?: {
-    facilityId?: string;
-    status?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{ data: StaffingContractItem[]; total: number }> => {
+  // === HỢP ĐỒNG CUNG ỨNG NHÂN LỰC Y TẾ B2B ===
+  getStaffingContracts: async (
+    params?: {
+      facilityId?: string;
+      status?: string;
+      page?: number;
+      limit?: number;
+    },
+    options?: { throwOnError?: boolean }
+  ): Promise<{ data: StaffingContractItem[]; total: number }> => {
     try {
       const res = await httpClient.get<any>('/api/v1/contracts/staffing', params);
+      const unwrapped = unwrapEnvelope<any>(res);
       let rawList: any[] = [];
       let totalCount = 0;
 
-      if (res && typeof res === 'object') {
-        if (Array.isArray(res.data)) {
-          rawList = res.data;
-          totalCount = res.pagination?.total ?? res.data.length;
-        } else if (res.data && Array.isArray(res.data.items)) {
-          rawList = res.data.items;
-          totalCount = res.data.total ?? res.data.items.length;
-        } else if (Array.isArray(res.items)) {
-          rawList = res.items;
-          totalCount = res.total ?? res.items.length;
-        } else if (Array.isArray(res)) {
-          rawList = res;
-          totalCount = res.length;
+      if (unwrapped && typeof unwrapped === 'object') {
+        if (Array.isArray(unwrapped.data)) {
+          rawList = unwrapped.data;
+          totalCount = unwrapped.pagination?.total ?? unwrapped.total ?? unwrapped.data.length;
+        } else if (unwrapped.data && Array.isArray(unwrapped.data.items)) {
+          rawList = unwrapped.data.items;
+          totalCount = unwrapped.data.total ?? unwrapped.data.items.length;
+        } else if (Array.isArray(unwrapped.items)) {
+          rawList = unwrapped.items;
+          totalCount = unwrapped.total ?? unwrapped.items.length;
+        } else if (Array.isArray(unwrapped)) {
+          rawList = unwrapped;
+          totalCount = unwrapped.length;
         }
       }
 
@@ -612,18 +683,36 @@ export const contractsApi = {
           total: totalCount,
         };
       }
-    } catch {
-      // Fallback
+      return { data: [], total: 0 };
+    } catch (err) {
+      if (options?.throwOnError) {
+        throw err;
+      }
+      return { data: [], total: 0 };
     }
-    return { data: [], total: 0 };
   },
 
-  getStaffingContractById: async (id: string): Promise<any> => {
+  getStaffingContractById: async (
+    id: string,
+    options?: { throwOnError?: boolean }
+  ): Promise<any> => {
     try {
       const res = await httpClient.get<any>(`/api/v1/contracts/staffing/${id}`);
-      if (res && typeof res === 'object' && res.data) return res.data;
-      return res;
-    } catch {
+      const unwrapped = unwrapEnvelope<any>(res);
+      if (
+        unwrapped &&
+        typeof unwrapped === 'object' &&
+        'data' in unwrapped &&
+        unwrapped.data &&
+        typeof unwrapped.data === 'object'
+      ) {
+        return unwrapped.data;
+      }
+      return unwrapped;
+    } catch (err) {
+      if (options?.throwOnError) {
+        throw err;
+      }
       return null;
     }
   },

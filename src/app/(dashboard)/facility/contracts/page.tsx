@@ -3,9 +3,9 @@ import type { Metadata } from 'next';
 import { FacilityContractsView } from '@/features/facility-contracts';
 
 export const metadata: Metadata = {
-  title: 'Hợp Đồng Cung Ứng Nhân Lực B2B & Điều Phối 4 Bên | Cơ Sở Y Tế FamiDoc',
+  title: 'Hợp đồng Hợp tác B2B | Cơ sở Y tế FamiDoc',
   description:
-    'Quản lý hợp đồng cung ứng nhân lực y tế B2B (Flow 2.1) và điều phối hợp đồng y tế 4 bên gia đình (SCR-22).',
+    'Quản lý hợp đồng khung 2 bên về phân chia doanh thu và cung ứng dịch vụ bác sĩ gia đình giữa Cơ sở Y tế và FamiDoc.',
 };
 
 export default function FacilityContractsPage() {

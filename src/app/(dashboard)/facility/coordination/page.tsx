@@ -1,11 +1,11 @@
-import { FacilityCoordinationView } from '@/features/facility-coordination';
+import { FacilityContractInboundView } from '@/features/facility-coordination';
 
 export const metadata = {
-  title: 'Điều phối Lịch khám & Xử lý Khiếu nại | Bệnh viện Đối tác FamiDoc',
-  description: 'Cân đối lịch trình khám tại nhà, khám cơ sở và tiếp nhận giải quyết sự cố dịch vụ',
+  title: 'Hợp đồng Y tế 4 bên | Cơ sở Y tế FamiDoc',
+  description:
+    'Rà soát thông tin hộ gia đình, bác sĩ đã chọn và ký số hợp đồng y tế 4 bên trên Documenso dành cho Cơ sở Y tế.',
 };
 
 export default function FacilityCoordinationPage() {
-  return <FacilityCoordinationView />;
+  return <FacilityContractInboundView />;
 }
-
