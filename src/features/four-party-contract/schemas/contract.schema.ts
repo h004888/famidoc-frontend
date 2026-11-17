@@ -70,6 +70,7 @@ export const contractSchema = z.object({
   updatedAt: z.string().optional(),
   activatedAt: z.string().optional(),
   expiresAt: z.string().optional(),
+  documensoEnvelopeId: z.string().nullable().optional(),
   signatures: z
     .object({
       family: digitalSignatureSchema.optional(),

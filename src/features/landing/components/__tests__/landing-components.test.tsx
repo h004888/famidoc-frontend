@@ -178,4 +178,35 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
     expect(screen.getByText('48+')).toHaveClass('tabular-nums');
     expect(screen.getByText('1.000.000đ')).toHaveClass('tabular-nums');
   });
+
+  it('UT-CMP-12: Mobile bottom nav hiển thị 5 mục trên 1 hàng (grid-cols-5) theo thứ tự ưu tiên Bác sĩ trước Gói khám', () => {
+    const { rerender } = render(<LandingHeader />);
+    const bottomNav = screen.getByRole('navigation', {
+      name: 'Thanh điều hướng di động chân trang',
+    });
+    const grid = bottomNav.firstElementChild;
+    expect(grid).toHaveClass('grid-cols-5');
+    expect(grid).not.toHaveClass('grid-cols-4');
+
+    const links = Array.from(bottomNav.querySelectorAll('a'));
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/',
+      '/doctors',
+      '/packages',
+      '/facilities',
+      '/contact',
+    ]);
+    expect(links.map((link) => link.querySelector('span[aria-hidden="true"]')?.textContent)).toEqual([
+      'Trang chủ',
+      'Bác sĩ',
+      'Gói khám',
+      'Cơ sở',
+      'Tư vấn',
+    ]);
+
+    rerender(<LandingHeader hideMobileBottomNav />);
+    expect(
+      screen.queryByRole('navigation', { name: 'Thanh điều hướng di động chân trang' })
+    ).not.toBeInTheDocument();
+  });
 });

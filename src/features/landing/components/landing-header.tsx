@@ -91,13 +91,6 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
       isActive: pathname === '/',
     },
     {
-      href: '/packages',
-      label: 'Gói khám',
-      ariaLabel: 'Danh mục gói khám FamiDoc',
-      icon: 'inventory_2',
-      isActive: pathname.startsWith('/packages'),
-    },
-    {
       href: '/doctors',
       label: 'Bác sĩ',
       ariaLabel: 'Đội ngũ bác sĩ gia đình FamiDoc',
@@ -105,8 +98,15 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
       isActive: pathname.startsWith('/doctors'),
     },
     {
+      href: '/packages',
+      label: 'Gói khám',
+      ariaLabel: 'Danh mục gói khám FamiDoc',
+      icon: 'inventory_2',
+      isActive: pathname.startsWith('/packages'),
+    },
+    {
       href: '/facilities',
-      label: 'Cơ sở y tế',
+      label: 'Cơ sở',
       ariaLabel: 'Mạng lưới cơ sở y tế FamiDoc',
       icon: 'apartment',
       isActive: pathname.startsWith('/facilities'),
@@ -516,23 +516,23 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
         )}
       </header>
 
-      {/* 2. App-like Bottom Navigation Bar (Phương án B - Mobile Only) */}
+      {/* 2. App-like Bottom Navigation Bar (Phương án A - 5 cột 1 hàng, Mobile Only) */}
       {!hideMobileBottomNav && (
         <nav
           aria-label="Thanh điều hướng di động chân trang"
-          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] px-2 py-1"
+          className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-2px_10px_rgba(0,0,0,0.05)] px-1.5 py-1"
         >
-          <div className="grid grid-cols-4 items-center h-14 max-w-md mx-auto">
+          <div className="grid grid-cols-5 items-center h-14 max-w-lg mx-auto">
             {bottomNavItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
                 aria-label={item.ariaLabel}
                 aria-current={item.isActive ? 'page' : undefined}
-                className={`flex flex-col items-center justify-center py-1 rounded-lg transition-colors cursor-pointer ${
+                className={`flex flex-col items-center justify-center min-w-0 min-h-[44px] px-1 py-1 rounded-lg transition-colors cursor-pointer ${
                   item.isActive
                     ? 'text-[#0046c0] font-semibold'
-                    : 'text-slate-500 hover:text-slate-800'
+                    : 'text-slate-600 hover:text-slate-800'
                 }`}
               >
                 <div className="relative flex items-center justify-center">
@@ -547,7 +547,10 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                     <span className="absolute -bottom-1 w-1.5 h-1.5 rounded-full bg-[#0046c0]" />
                   )}
                 </div>
-                <span className="text-[10px] mt-0.5 tracking-tight" aria-hidden="true">
+                <span
+                  className="text-[10px] mt-0.5 leading-tight tracking-tight max-w-full truncate text-center"
+                  aria-hidden="true"
+                >
                   {item.label}
                 </span>
               </Link>
