@@ -2,6 +2,7 @@ import { cache } from 'react';
 import { notFound, redirect } from 'next/navigation';
 import { DoctorDetailView, type Facility } from '@/features/doctors';
 import { publicApi, type PublicDoctorDetailDto } from '@/lib/api/public.api';
+import { ApiError } from '@/lib/http/errors';
 
 export const getDoctorDetail = cache(
   (() => {
@@ -38,7 +39,10 @@ export async function DoctorDetailPageContent({
 
   try {
     doctor = await getDoctorDetail(id);
-  } catch {
+  } catch (error) {
+    if (error instanceof ApiError && error.status >= 500) {
+      throw error;
+    }
     try {
       const facilityDetail = await publicApi.getFacilityDetail(id);
       if (facilityDetail && facilityDetail.id) {

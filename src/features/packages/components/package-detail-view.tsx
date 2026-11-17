@@ -770,7 +770,13 @@ export function PackageDetailView({ packageId = 'pkg-toan-dien' }: PackageDetail
 
                   <div className="px-6 pb-6 pt-2 border-t border-slate-100">
                     <Link
-                      href="/contact"
+                      href={
+                        post.id === 'blog-01'
+                          ? '/blog/bac-si-gia-dinh-rieng'
+                          : post.id === 'blog-02'
+                            ? '/blog/tu-van-telehealth-247'
+                            : '/blog/ho-so-benh-an-dien-tu-ehr'
+                      }
                       className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0046c0] group-hover:text-[#002d80] transition-colors"
                     >
                       <span>Đọc tiếp cẩm nang</span>

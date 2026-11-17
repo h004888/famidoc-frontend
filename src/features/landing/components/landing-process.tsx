@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 
 const PILLARS = [
   {
@@ -11,6 +12,7 @@ const PILLARS = [
     description:
       'Khám định kỳ tận nhà hàng tháng cho cả gia đình. Bác sĩ nắm rõ tiền sử bệnh lý, cơ địa và theo dõi sát sao tình trạng sức khỏe.',
     badge: 'Thăm khám tại gia',
+    href: '/blog/bac-si-gia-dinh-rieng',
   },
   {
     num: 'Bước 02',
@@ -20,6 +22,7 @@ const PILLARS = [
     description:
       'Kết nối video HD trực tiếp với bác sĩ phụ trách mọi lúc, giải đáp triệu chứng và hướng dẫn điều trị kịp thời mà không cần chờ đợi.',
     badge: 'Hỗ trợ 24/7',
+    href: '/blog/tu-van-telehealth-247',
   },
   {
     num: 'Bước 03',
@@ -29,6 +32,7 @@ const PILLARS = [
     description:
       'Xây dựng thực đơn dinh dưỡng và lối sống lành mạnh cho từng thành viên, tối ưu phòng ngừa các bệnh tim mạch và chuyển hóa.',
     badge: 'Cá nhân hóa',
+    href: '/blog/phac-do-dinh-duong-ca-nhan',
   },
   {
     num: 'Bước 04',
@@ -38,14 +42,13 @@ const PILLARS = [
     description:
       'Hồ sơ bệnh án điện tử tập trung liên thông tuyến trung ương. Lưu trữ trọn đời lịch sử khám chữa bệnh và theo dõi chỉ số sức khỏe của cả gia đình.',
     badge: 'Chuẩn HL7 FHIR',
+    href: '/blog/ho-so-benh-an-dien-tu-ehr',
   },
 ];
 
 export function LandingProcess() {
   return (
-    <section
-      className="py-20 bg-white border-b border-slate-200"
-    >
+    <section className="py-20 bg-white border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-2">
@@ -62,12 +65,13 @@ export function LandingProcess() {
           </p>
         </div>
 
-        {/* 4 Pillars Grid Cards with Interactive Hover */}
+        {/* 4 Pillars Grid Cards - Nhấn vào sẽ chuyển sang bài blog hướng dẫn đào tạo tương ứng */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {PILLARS.map((pillar) => (
-            <div
+            <Link
               key={pillar.title}
-              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-[#0046c0]/40 hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300 ease-out flex flex-col justify-between group cursor-default"
+              href={pillar.href}
+              className="bg-white rounded-xl p-5 border border-slate-200 hover:border-[#0046c0] hover:shadow-lg hover:-translate-y-1.5 transition-all duration-300 ease-out flex flex-col justify-between group cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500/20"
             >
               <div className="space-y-3">
                 <div className="w-11 h-11 rounded-lg bg-blue-50 text-[#0046c0] group-hover:bg-[#0046c0] group-hover:text-white flex items-center justify-center transition-colors duration-300 shadow-xs">
@@ -89,15 +93,18 @@ export function LandingProcess() {
                 </div>
               </div>
 
-              <div className="pt-3 mt-4 border-t border-slate-100 flex items-center justify-between text-xs font-medium text-slate-600">
-                <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-200 text-[11px]">
+              <div className="pt-3 mt-4 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-[#0046c0]">
+                <span className="px-2 py-0.5 rounded bg-slate-50 border border-slate-200 text-[11px] text-slate-600 font-medium">
                   {pillar.badge}
                 </span>
-                <span className="material-symbols-outlined text-sm text-[#0046c0] transition-transform duration-200 group-hover:translate-x-1">
-                  arrow_forward
+                <span className="inline-flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                  <span>Xem hướng dẫn</span>
+                  <span className="material-symbols-outlined text-sm">
+                    arrow_forward
+                  </span>
                 </span>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

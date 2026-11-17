@@ -678,4 +678,55 @@ export const contractsApi = {
       rejectionReason,
     });
   },
+
+  updateMedicalContract: async (
+    id: string,
+    payload: UpdateMedicalContractPayload
+  ): Promise<MedicalContractDetailDto> => {
+    const response = await httpClient.patch<unknown>(
+      `/api/v1/contracts/medical/${id}`,
+      payload
+    );
+    return unwrapEnvelope<MedicalContractDetailDto>(response);
+  },
+
+  updateStaffingContract: async (
+    id: string,
+    payload: UpdateStaffingContractPayload
+  ): Promise<unknown> => {
+    const cleanBody: Record<string, string | number> = {};
+    if (payload.status !== undefined) cleanBody.status = payload.status;
+    if (payload.facilitySharePercent !== undefined) {
+      cleanBody.facilityRevenueRate = Number(payload.facilitySharePercent);
+      cleanBody.platformCommissionRate = Number(
+        payload.platformSharePercent ?? 100 - payload.facilitySharePercent
+      );
+    }
+    if (payload.validFrom) cleanBody.startDate = payload.validFrom;
+    if (payload.validTo) cleanBody.endDate = payload.validTo;
+    if (payload.contractTerms !== undefined) cleanBody.contractTerms = payload.contractTerms;
+    if (payload.rejectionReason !== undefined) cleanBody.rejectionReason = payload.rejectionReason;
+    return httpClient.patch(`/api/v1/contracts/staffing/${id}`, cleanBody);
+  },
 };
+
+export interface UpdateMedicalContractPayload {
+  contractStatus?: BackendContractStatus;
+  doctorId?: string | null;
+  startDate?: string;
+  endDate?: string;
+  totalAmount?: number;
+  memberCount?: number;
+  additionalTerms?: string;
+  adminNote?: string;
+}
+
+export interface UpdateStaffingContractPayload {
+  status?: 'DRAFT' | 'ACTIVE' | 'TERMINATED';
+  facilitySharePercent?: number;
+  platformSharePercent?: number;
+  validFrom?: string;
+  validTo?: string;
+  contractTerms?: string;
+  rejectionReason?: string;
+}
