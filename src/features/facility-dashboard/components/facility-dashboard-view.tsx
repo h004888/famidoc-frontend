@@ -148,12 +148,6 @@ export function FacilityDashboardView() {
                   <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
                     {facilityName}
                   </h1>
-                  <Badge
-                    variant="outline"
-                    className="rounded-full border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700"
-                  >
-                    Đối tác Y tế Cấp 1
-                  </Badge>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
                   Mã định danh BYT: <span className="font-bold text-slate-700 tabular-nums">{facilityCode}</span> •

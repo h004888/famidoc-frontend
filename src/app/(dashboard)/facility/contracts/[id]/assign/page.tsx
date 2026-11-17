@@ -1,32 +1,35 @@
 import React, { Suspense } from 'react';
-import { FacilityDoctorAssignView } from '@/features/facility-coordination';
+import { redirect } from 'next/navigation';
 
 export const instant = false;
 
-export const metadata = {
-  title: 'Phân công Bác sĩ Gia đình & Ký số CSYT | FamiDoc',
-  description: 'Chỉ định bác sĩ gia đình phụ trách theo định biên quota và ký số hợp đồng 4 bên',
-};
-
-interface FacilityDoctorAssignPageProps {
+interface LegacyFacilityAssignRedirectProps {
   params: Promise<{ id: string }>;
 }
 
-async function FacilityDoctorAssignPageContent({ params }: FacilityDoctorAssignPageProps) {
+async function LegacyFacilityAssignRedirectContent({
+  params,
+}: LegacyFacilityAssignRedirectProps) {
   const { id } = await params;
-  return <FacilityDoctorAssignView contractId={id} />;
+  return redirect(`/facility/coordination/${id}`);
 }
 
-export default function FacilityDoctorAssignPage({ params }: FacilityDoctorAssignPageProps) {
+export default function FacilityDoctorAssignPage({
+  params,
+}: LegacyFacilityAssignRedirectProps) {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
-          <div className="w-8 h-8 border-3 border-[#2E37A4]/20 border-t-[#2E37A4] rounded-full animate-spin" />
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex min-h-[300px] items-center justify-center bg-[#f6f7f9] text-sm text-[#4a4f63]"
+        >
+          Đang chuyển hướng tới trang Hợp đồng Y tế 4 bên...
         </div>
       }
     >
-      <FacilityDoctorAssignPageContent params={params} />
+      <LegacyFacilityAssignRedirectContent params={params} />
     </Suspense>
   );
 }
