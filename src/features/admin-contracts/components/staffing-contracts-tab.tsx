@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { CheckCircle2, Clock, PenLine, Search, X } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle2, Clock, Pencil, PenLine, Search, X } from 'lucide-react';
 import type { StaffingContractItem } from '@/lib/api';
 import { EmptyState } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
@@ -287,6 +288,18 @@ export function StaffingContractsTab({
                           </Button>
                         )}
                         <Button
+                          asChild
+                          type="button"
+                          size="xs"
+                          variant="outline"
+                          className="rounded-lg font-semibold gap-1"
+                        >
+                          <Link href={`/admin/contracts/${item.id}/edit?type=staffing`}>
+                            <Pencil className="h-3 w-3" aria-hidden="true" />
+                            <span>Sửa</span>
+                          </Link>
+                        </Button>
+                        <Button
                           type="button"
                           size="xs"
                           variant="secondary"
@@ -342,6 +355,18 @@ export function StaffingContractsTab({
                       {signingStaffingId === item.id ? 'Đang ký...' : 'Ký Duyệt (SmartCA)'}
                     </Button>
                   )}
+                  <Button
+                    asChild
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl text-xs font-semibold gap-1"
+                  >
+                    <Link href={`/admin/contracts/${item.id}/edit?type=staffing`}>
+                      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>Sửa</span>
+                    </Link>
+                  </Button>
                   <Button
                     type="button"
                     size="sm"

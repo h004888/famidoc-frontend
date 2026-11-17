@@ -6,9 +6,13 @@ import { usePathname } from 'next/navigation';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAuthStandalone = pathname === '/login' || pathname === '/register';
+  const isAuthStandalone =
+    pathname === '/login' ||
+    pathname === '/register' ||
+    pathname.endsWith('/login') ||
+    pathname.endsWith('/register');
 
-  // Ở trang đăng nhập (/login) & đăng ký (/register): Hiển thị toàn màn hình, hỗ trợ cuộn mượt mà trên mọi kích thước màn hình laptop
+  // Ở các trang đăng nhập & đăng ký: Hiển thị toàn màn hình, hỗ trợ cuộn mượt mà trên mọi kích thước màn hình laptop
   if (isAuthStandalone) {
     return (
       <main className="min-h-screen w-full bg-[#f4f8fe] lg:bg-white p-0 m-0 overflow-x-hidden overflow-y-auto">

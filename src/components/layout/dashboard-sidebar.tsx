@@ -75,6 +75,7 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       },
       { href: '/admin/packages', label: 'Quản trị Gói dịch vụ', shortLabel: 'Gói DV', icon: 'inventory_2' },
       { href: '/admin/contracts', label: 'Hợp đồng & Pháp lý', shortLabel: 'Hợp đồng', icon: 'handshake' },
+      { href: '/admin/training', label: 'Đào tạo & Khóa học', shortLabel: 'Đào tạo', icon: 'school' },
       { href: '/admin/reconciliation', label: 'Đối soát SePay', shortLabel: 'Đối soát', icon: 'payments' },
       {
         href: '/admin/disputes',

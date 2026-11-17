@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Check, Clock, PenLine, Search, X } from 'lucide-react';
+import { Check, Clock, Pencil, PenLine, Search, X } from 'lucide-react';
 import type { FourPartyContract } from '@/features/four-party-contract';
 import { EmptyState } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
@@ -334,6 +334,17 @@ export function MedicalContractsTab({
                           <Button
                             asChild
                             size="xs"
+                            variant="outline"
+                            className="rounded-lg font-semibold gap-1"
+                          >
+                            <Link href={`/admin/contracts/${c.id}/edit?type=medical`}>
+                              <Pencil className="h-3 w-3" aria-hidden="true" />
+                              <span>Sửa</span>
+                            </Link>
+                          </Button>
+                          <Button
+                            asChild
+                            size="xs"
                             variant="secondary"
                             className="rounded-lg bg-accent text-primary hover:bg-accent/80 font-semibold"
                           >
@@ -413,6 +424,12 @@ export function MedicalContractsTab({
                   </div>
 
                   <div className="flex items-center gap-2 pt-1">
+                    <Button asChild size="sm" variant="outline" className="rounded-xl text-xs font-semibold gap-1">
+                      <Link href={`/admin/contracts/${c.id}/edit?type=medical`}>
+                        <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span>Sửa</span>
+                      </Link>
+                    </Button>
                     <Button asChild size="sm" variant="secondary" className="flex-1 rounded-xl text-xs font-semibold">
                       <Link href={`/admin/contracts/${c.id}/review`}>Thẩm định 4 Bên</Link>
                     </Button>

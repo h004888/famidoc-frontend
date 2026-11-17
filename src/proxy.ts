@@ -21,12 +21,20 @@ export function proxy(request: NextRequest) {
   const currentRole = roleCookie ? roleCookie.toUpperCase() : null;
   const isAuthenticated = Boolean(tokenCookie && currentRole);
 
-  // 2. Trang Auth: /login, /register, /forgot-password
+  // 2. Trang Auth: /login, /register, /forgot-password và các cổng riêng từng vai trò
   // Luôn cho phép truy cập để người dùng có thể đăng nhập đổi vai trò bất kỳ lúc nào
   const isAuthPage =
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
-    pathname.startsWith('/forgot-password');
+    pathname.startsWith('/forgot-password') ||
+    pathname === '/facilities/register' ||
+    pathname === '/admin/login' ||
+    pathname === '/facility/login' ||
+    pathname === '/facility/register' ||
+    pathname === '/doctor/login' ||
+    pathname === '/doctor/register' ||
+    pathname === '/family/login' ||
+    pathname === '/family/register';
 
   if (isAuthPage) {
     return NextResponse.next();
