@@ -17,7 +17,7 @@ function normalizePath(pathname: string | null | undefined): string {
 }
 
 /**
- * Toàn bộ phân hệ `/facility` và `/facility/*` (ngoại trừ `/facility/legal-profile` và `/facility/login`)
+ * Giai đoạn 1: Toàn bộ phân hệ `/facility` và `/facility/*` (ngoại trừ `/facility/legal-profile` và `/facility/login`)
  * bị khóa khi cơ sở y tế chưa được Admin duyệt pháp lý (`ACTIVE`).
  */
 export function isRestrictedFacilityPath(pathname: string | null | undefined): boolean {
@@ -32,18 +32,92 @@ export function isRestrictedFacilityPath(pathname: string | null | undefined): b
   return normalized === '/facility' || normalized.startsWith('/facility/');
 }
 
+/**
+ * Giai đoạn 2 (theo sơ đồ Step 8): Khi CSYT đã duyệt pháp lý (`ACTIVE`) nhưng chưa có Hợp đồng B2B `ACTIVE`,
+ * chỉ cho phép `/facility`, `/facility/legal-profile`, `/facility/contracts*`; khóa các phân hệ vận hành
+ * (`/facility/doctors*`, `/facility/staff*`, `/facility/coordination*`, `/facility/revenue*`).
+ * Nếu CSYT từng có HĐ B2B (`hasHistoricalStaffingContract = true`), vẫn mở `/facility/coordination*` và `/facility/revenue*`
+ * để bàn giao và tất toán tài chính.
+ */
+export function isFacilityB2bOperationalPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  const normalized = normalizePath(pathname);
+  return (
+    normalized === '/facility/doctors' ||
+    normalized.startsWith('/facility/doctors/') ||
+    normalized === '/facility/staff' ||
+    normalized.startsWith('/facility/staff/') ||
+    normalized === '/facility/coordination' ||
+    normalized.startsWith('/facility/coordination/') ||
+    normalized === '/facility/revenue' ||
+    normalized.startsWith('/facility/revenue/')
+  );
+}
+
 export function isFacilityProfileActive(profile: AdminFacilityItem | null): boolean {
   if (!profile) return false;
   return profile.verificationStatus === 'ACTIVE' || profile.status === 'ACTIVE';
+}
+
+export function isFacilityB2bActive(profile: AdminFacilityItem | null): boolean {
+  if (!profile || !isFacilityProfileActive(profile)) return false;
+  return Boolean(profile.hasActiveStaffingContract);
+}
+
+export function getFacilityPathLockInfo(
+  pathname: string | null | undefined,
+  profile: AdminFacilityItem | null,
+): { locked: boolean; stage: 'LEGAL' | 'B2B' | null; redirectTo: string } {
+  if (!profile) {
+    return { locked: false, stage: null, redirectTo: '/facility/legal-profile' };
+  }
+
+  if (!isFacilityProfileActive(profile)) {
+    const locked = isRestrictedFacilityPath(pathname);
+    return {
+      locked,
+      stage: locked ? 'LEGAL' : null,
+      redirectTo: '/facility/legal-profile',
+    };
+  }
+
+  if (profile.hasActiveStaffingContract) {
+    return { locked: false, stage: null, redirectTo: '/facility' };
+  }
+
+  const normalized = normalizePath(pathname);
+  const isPostTerminationAllowed =
+    Boolean(profile.hasHistoricalStaffingContract) &&
+    (normalized === '/facility/coordination' ||
+      normalized.startsWith('/facility/coordination/') ||
+      normalized === '/facility/revenue' ||
+      normalized.startsWith('/facility/revenue/'));
+
+  if (isPostTerminationAllowed) {
+    return { locked: false, stage: null, redirectTo: '/facility' };
+  }
+
+  if (isFacilityB2bOperationalPath(pathname)) {
+    return {
+      locked: true,
+      stage: 'B2B',
+      redirectTo: '/facility/contracts',
+    };
+  }
+
+  return { locked: false, stage: null, redirectTo: '/facility' };
 }
 
 export interface FacilityVerificationGateContextValue {
   hasProvider: boolean;
   facilityProfile: AdminFacilityItem | null;
   isLoadingFacilityGate: boolean;
+  isRefreshingFacilityGate: boolean;
   facilityGateError: string | null;
   isFacilityVerified: boolean;
+  isFacilityB2bReady: boolean;
   isFacilityLocked: boolean;
+  isFacilityB2bLocked: boolean;
   refreshFacilityGate: (options?: { silent?: boolean }) => Promise<void>;
 }
 
@@ -51,9 +125,12 @@ const DEFAULT_FACILITY_GATE_CONTEXT: FacilityVerificationGateContextValue = {
   hasProvider: false,
   facilityProfile: null,
   isLoadingFacilityGate: false,
+  isRefreshingFacilityGate: false,
   facilityGateError: null,
   isFacilityVerified: false,
+  isFacilityB2bReady: false,
   isFacilityLocked: false,
+  isFacilityB2bLocked: false,
   refreshFacilityGate: async () => {},
 };
 
@@ -73,6 +150,7 @@ function useFacilityVerificationGateInternal(
 
   const [facilityProfile, setFacilityProfile] = useState<AdminFacilityItem | null>(null);
   const [isLoadingFacilityGate, setIsLoadingFacilityGate] = useState<boolean>(false);
+  const [isRefreshingFacilityGate, setIsRefreshingFacilityGate] = useState<boolean>(false);
   const [facilityGateError, setFacilityGateError] = useState<string | null>(null);
 
   const refreshFacilityGate = useCallback(
@@ -81,11 +159,14 @@ function useFacilityVerificationGateInternal(
         setFacilityProfile(null);
         setFacilityGateError(null);
         setIsLoadingFacilityGate(false);
+        setIsRefreshingFacilityGate(false);
         return;
       }
 
       const silent = options?.silent ?? false;
-      if (!silent) {
+      if (silent) {
+        setIsRefreshingFacilityGate(true);
+      } else {
         setIsLoadingFacilityGate(true);
       }
       setFacilityGateError(null);
@@ -99,7 +180,9 @@ function useFacilityVerificationGateInternal(
             : 'Không thể kiểm tra trạng thái xác thực cơ sở y tế.';
         setFacilityGateError(message);
       } finally {
-        if (!silent) {
+        if (silent) {
+          setIsRefreshingFacilityGate(false);
+        } else {
           setIsLoadingFacilityGate(false);
         }
       }
@@ -113,6 +196,7 @@ function useFacilityVerificationGateInternal(
       setFacilityProfile(null);
       setFacilityGateError(null);
       setIsLoadingFacilityGate(false);
+      setIsRefreshingFacilityGate(false);
       return;
     }
 
@@ -158,6 +242,8 @@ function useFacilityVerificationGateInternal(
   const effectiveProfile = enabled && isFacility ? facilityProfile : null;
   const isFacilityVerified =
     enabled && isFacility && isFacilityProfileActive(effectiveProfile);
+  const isFacilityB2bReady =
+    enabled && isFacility && isFacilityB2bActive(effectiveProfile);
   const isFacilityLocked =
     enabled &&
     isFacility &&
@@ -165,15 +251,27 @@ function useFacilityVerificationGateInternal(
     !isLoadingFacilityGate &&
     effectiveProfile !== null &&
     !isFacilityVerified;
+  const isFacilityB2bLocked =
+    enabled &&
+    isFacility &&
+    !authLoading &&
+    !isLoadingFacilityGate &&
+    effectiveProfile !== null &&
+    isFacilityVerified &&
+    !isFacilityB2bReady;
 
   return {
     hasProvider: enabled,
     facilityProfile: effectiveProfile,
     isLoadingFacilityGate:
       enabled && isFacility ? authLoading || isLoadingFacilityGate : false,
+    isRefreshingFacilityGate:
+      enabled && isFacility ? isRefreshingFacilityGate : false,
     facilityGateError: enabled && isFacility ? facilityGateError : null,
     isFacilityVerified,
+    isFacilityB2bReady,
     isFacilityLocked,
+    isFacilityB2bLocked,
     refreshFacilityGate,
   };
 }
@@ -208,43 +306,88 @@ export function FacilityVerificationGateGuard({
   const {
     facilityProfile,
     isLoadingFacilityGate,
+    isRefreshingFacilityGate,
     facilityGateError,
     isFacilityVerified,
+    isFacilityB2bReady,
     refreshFacilityGate,
   } = useFacilityVerificationGateState();
 
   const isFacility = isAuthenticated && isFacilityRole(role);
-  const isRestricted = isFacility && isRestrictedFacilityPath(pathname);
-  const shouldBlock =
-    isRestricted &&
+  const normalized = normalizePath(pathname);
+  const isFacilityRoute =
+    isFacility &&
+    normalized !== '/facility/login' &&
+    (normalized === '/facility' || normalized.startsWith('/facility/'));
+
+  const currentPath = pathname ?? null;
+  const [settledPathname, setSettledPathname] = useState<string | null>(currentPath);
+  const isPathnameChanging = settledPathname !== currentPath;
+  const willRefreshOnPathnameChange =
+    isPathnameChanging &&
+    isFacility &&
+    !authLoading &&
+    (!isFacilityVerified || !isFacilityB2bReady);
+
+  const lockInfo = isFacilityRoute
+    ? getFacilityPathLockInfo(pathname, facilityProfile)
+    : { locked: false, stage: null, redirectTo: '/facility' };
+
+  const isTransitionPending =
+    isFacilityRoute &&
     !authLoading &&
     !isLoadingFacilityGate &&
-    facilityProfile !== null &&
-    !isFacilityVerified;
+    (isRefreshingFacilityGate || willRefreshOnPathnameChange);
 
-  const lastPathnameRef = React.useRef<string | null>(pathname ?? null);
+  const shouldBlock =
+    isFacilityRoute &&
+    !authLoading &&
+    !isLoadingFacilityGate &&
+    !isRefreshingFacilityGate &&
+    !willRefreshOnPathnameChange &&
+    facilityProfile !== null &&
+    lockInfo.locked;
 
   useEffect(() => {
-    const currentPath = pathname ?? null;
-    if (lastPathnameRef.current !== currentPath) {
-      lastPathnameRef.current = currentPath;
-      if (isFacility && !authLoading && !isFacilityVerified) {
-        void refreshFacilityGate({ silent: true });
-      }
+    if (settledPathname === currentPath) return;
+    if (isFacility && !authLoading && (!isFacilityVerified || !isFacilityB2bReady)) {
+      let active = true;
+      void refreshFacilityGate({ silent: true }).finally(() => {
+        if (active) {
+          setSettledPathname(currentPath);
+        }
+      });
+      return () => {
+        active = false;
+      };
     }
-  }, [pathname, isFacility, authLoading, isFacilityVerified, refreshFacilityGate]);
+    return undefined;
+  }, [
+    settledPathname,
+    currentPath,
+    isFacility,
+    authLoading,
+    isFacilityVerified,
+    isFacilityB2bReady,
+    refreshFacilityGate,
+  ]);
 
   useEffect(() => {
     if (shouldBlock) {
-      router.replace('/facility/legal-profile');
+      router.replace(lockInfo.redirectTo);
     }
-  }, [shouldBlock, router]);
+  }, [shouldBlock, lockInfo.redirectTo, router]);
 
-  if (!isRestricted) {
+  if (!isFacilityRoute) {
     return <>{children}</>;
   }
 
-  if (authLoading || isLoadingFacilityGate || (facilityProfile === null && !facilityGateError)) {
+  if (
+    authLoading ||
+    isLoadingFacilityGate ||
+    (facilityProfile === null && !facilityGateError) ||
+    (isTransitionPending && lockInfo.locked)
+  ) {
     return (
       <div
         className="min-h-[60vh] flex items-center justify-center p-6"
@@ -297,30 +440,37 @@ export function FacilityVerificationGateGuard({
   }
 
   if (shouldBlock) {
+    const isB2bStage = lockInfo.stage === 'B2B';
     return (
       <div
         className="min-h-[60vh] flex items-center justify-center p-6"
-        data-testid="facility-gate-blocked"
+        data-testid={isB2bStage ? 'facility-b2b-gate-blocked' : 'facility-gate-blocked'}
       >
         <div className="max-w-md w-full rounded-2xl border border-amber-200 bg-white p-6 text-center shadow-xs space-y-4">
           <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto">
-            <span className="material-symbols-outlined text-[24px]">lock</span>
+            <span className="material-symbols-outlined text-[24px]">
+              {isB2bStage ? 'handshake' : 'lock'}
+            </span>
           </div>
           <div className="space-y-1.5">
             <h2 className="text-base font-bold text-slate-900">
-              Cơ sở Y tế đang chờ duyệt Hồ sơ Pháp lý
+              {isB2bStage
+                ? 'Cần ký Hợp đồng Hợp tác B2B để mở khóa cổng vận hành'
+                : 'Cơ sở Y tế đang chờ duyệt Hồ sơ Pháp lý'}
             </h2>
             <p className="text-sm text-slate-600">
-              {facilityProfile?.legalRejectionReason
-                ? `Hồ sơ cần bổ sung: "${facilityProfile.legalRejectionReason}". Đang chuyển bạn đến trang Hồ sơ Pháp lý để cập nhật lại.`
-                : 'Tài khoản Cơ sở Y tế chỉ mở khóa các chức năng hợp đồng & nhân sự sau khi Admin phê duyệt hồ sơ pháp lý. Đang chuyển hướng về trang nộp hồ sơ pháp lý...'}
+              {isB2bStage
+                ? 'Hồ sơ pháp lý của bạn đã được duyệt. Vui lòng xem xét và hoàn tất ký số Hợp đồng Hợp tác B2B để mở khóa quản lý bác sĩ, điều phối và đối soát doanh thu.'
+                : facilityProfile?.legalRejectionReason
+                  ? `Hồ sơ cần bổ sung: "${facilityProfile.legalRejectionReason}". Đang chuyển bạn đến trang Hồ sơ Pháp lý để cập nhật lại.`
+                  : 'Tài khoản Cơ sở Y tế chỉ mở khóa các chức năng hợp đồng & nhân sự sau khi Admin phê duyệt hồ sơ pháp lý. Đang chuyển hướng về trang nộp hồ sơ pháp lý...'}
             </p>
           </div>
           <Link
-            href="/facility/legal-profile"
+            href={lockInfo.redirectTo}
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
           >
-            Nộp / Cập nhật Hồ sơ Pháp lý
+            {isB2bStage ? 'Đến trang Hợp đồng B2B' : 'Nộp / Cập nhật Hồ sơ Pháp lý'}
           </Link>
         </div>
       </div>

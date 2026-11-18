@@ -3,6 +3,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { FacilityStaffView } from '../facility-staff-view';
 import { doctorsApi } from '@/lib/api/doctors.api';
 
+const mockFacilityGateState = {
+  facilityProfile: {
+    id: 'FAC-1',
+    verificationStatus: 'ACTIVE',
+    hasActiveStaffingContract: true,
+  } as any,
+};
+
+vi.mock('@/components/layout/facility-verification-gate', () => ({
+  useFacilityVerificationGateState: () => mockFacilityGateState,
+}));
+
 vi.mock('@/lib/api/doctors.api', () => ({
   doctorsApi: {
     getFacilityDoctors: vi.fn(),
@@ -15,6 +27,11 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
   beforeEach(() => {
     localStorage.clear();
     vi.clearAllMocks();
+    mockFacilityGateState.facilityProfile = {
+      id: 'FAC-1',
+      verificationStatus: 'ACTIVE',
+      hasActiveStaffingContract: true,
+    };
     vi.mocked(doctorsApi.getFacilityDoctors).mockResolvedValue([
       {
         id: 'DOC-7901',
@@ -129,14 +146,69 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
     });
 
     // Doctor "ThS.BS Vũ Đình Trọng" has status PENDING_FACILITY_REVIEW
-    const approveBtn = screen.getByRole('button', { name: 'Duyệt Cấp 1' });
-    expect(approveBtn).toBeInTheDocument();
+    const approveBtns = screen.getAllByRole('button', { name: 'Duyệt Cấp 1' });
+    expect(approveBtns.length).toBeGreaterThan(0);
 
-    fireEvent.click(approveBtn);
+    fireEvent.click(approveBtns[0]);
 
     await waitFor(() => {
       expect(doctorsApi.facilityApproveCredentials).toHaveBeenCalledWith('DOC-7905', expect.any(Object));
       expect(screen.getByText(/Đã duyệt Cấp 1 \(Chờ Admin\)/i)).toBeInTheDocument();
     });
+  });
+
+  it('surfaces fetch error alert with retry button when getFacilityDoctors fails', async () => {
+    vi.mocked(doctorsApi.getFacilityDoctors)
+      .mockRejectedValueOnce(new Error('Không kết nối được danh sách bác sĩ'))
+      .mockResolvedValueOnce([]);
+
+    render(<FacilityStaffView />);
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/Không kết nối được danh sách bác sĩ/i);
+
+    fireEvent.click(screen.getByRole('button', { name: /Thử lại/i }));
+    await waitFor(() => {
+      expect(doctorsApi.getFacilityDoctors).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('displays B2B contract notice and disables "Thêm Bác Sĩ Mới" when hasActiveStaffingContract is false', async () => {
+    mockFacilityGateState.facilityProfile = {
+      id: 'FAC-1',
+      verificationStatus: 'ACTIVE',
+      hasActiveStaffingContract: false,
+    };
+
+    render(<FacilityStaffView />);
+
+    expect(
+      await screen.findByText(/Chưa có Hợp đồng Hợp tác B2B đang hiệu lực/i),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Thêm Bác Sĩ Mới/i })).toBeDisabled();
+  });
+
+  it('renders rejectionReason and mobile Tier-1 "Duyệt Cấp 1" actions for affiliated doctors', async () => {
+    vi.mocked(doctorsApi.getFacilityDoctors).mockResolvedValueOnce([
+      {
+        id: 'DOC-REJ',
+        doctorName: 'BS. Lê Văn Bị Từ Chối',
+        specialty: 'Khoa Nội Tổng quát',
+        onboardingStatus: 'PENDING_SUBMISSION',
+        rejectionReason: 'Ảnh CCHN bị mờ góc',
+      },
+      {
+        id: 'DOC-REV',
+        doctorName: 'BS. Nguyễn Thị Chờ Duyệt',
+        specialty: 'Khoa Y học Gia đình',
+        onboardingStatus: 'PENDING_FACILITY_REVIEW',
+      },
+    ]);
+
+    render(<FacilityStaffView />);
+
+    expect(await screen.findByText(/Ảnh CCHN bị mờ góc/i)).toBeInTheDocument();
+    const approveButtons = screen.getAllByRole('button', { name: 'Duyệt Cấp 1' });
+    expect(approveButtons.length).toBe(2);
   });
 });

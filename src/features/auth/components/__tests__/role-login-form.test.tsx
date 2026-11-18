@@ -5,9 +5,11 @@ import userEvent from '@testing-library/user-event';
 import { RoleAuthShell } from '../role-auth-shell';
 import { RoleLoginForm } from '../role-login-form';
 
+const mockSearchParams = { get: vi.fn<(key: string) => string | null>(() => null) };
+
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => mockSearchParams,
 }));
 
 vi.mock('@/features/auth/context/auth-context', () => ({
@@ -18,6 +20,7 @@ vi.mock('@/features/auth/context/auth-context', () => ({
 describe('RoleAuthShell & RoleLoginForm (ADMIN / FACILITY / DOCTOR)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockSearchParams.get.mockReturnValue(null);
   });
 
   it.each([
@@ -93,5 +96,21 @@ describe('RoleAuthShell & RoleLoginForm (ADMIN / FACILITY / DOCTOR)', () => {
     );
 
     expect(screen.getByRole('heading', { level: 1, name: 'Đăng ký Bác sĩ Gia đình' })).toBeInTheDocument();
+  });
+
+  it('displays facility-provisioned guidance when Doctor login is opened with ?from=provisioned-only', () => {
+    mockSearchParams.get.mockImplementation((key: string) =>
+      key === 'from' ? 'provisioned-only' : null
+    );
+
+    render(
+      <RoleAuthShell role="DOCTOR" mode="login">
+        <RoleLoginForm targetRole="DOCTOR" />
+      </RoleAuthShell>
+    );
+
+    expect(
+      screen.getByText(/Tài khoản Bác sĩ được cấp trực tiếp bởi Cơ sở Y tế đối tác/i)
+    ).toBeInTheDocument();
   });
 });

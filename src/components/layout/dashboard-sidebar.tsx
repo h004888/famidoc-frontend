@@ -8,9 +8,13 @@ import { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { getCurrentBrowserHost, getSubdomainPortal } from '@/lib/portal-routing';
 import { DashboardTopbarUser } from './dashboard-topbar-user';
 import {
-  isRestrictedFacilityPath,
+  getFacilityPathLockInfo,
   useFacilityVerificationGateState,
 } from './facility-verification-gate';
+import {
+  isRestrictedDoctorPath,
+  useDoctorVerificationGateState,
+} from './doctor-verification-gate';
 import {
   isRestrictedFamilyPath,
   useFamilySubscriptionGateState,
@@ -247,7 +251,8 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const pathname = usePathname() || '/family';
   const { role, isAuthenticated, logout } = useAuth();
   const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
-  const { isFacilityLocked } = useFacilityVerificationGateState();
+  const { facilityProfile, isFacilityLocked } = useFacilityVerificationGateState();
+  const { isDoctorLocked } = useDoctorVerificationGateState();
   const sidebar = useOptionalSidebar();
 
   const [mounted, setMounted] = useState(false);
@@ -274,13 +279,20 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const isFamilyAccount = effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT';
   const settingsLabel = isFamilyAccount ? 'Cài đặt & Hồ sơ BHYT' : 'Cài đặt tài khoản';
 
-  const isFacilityRestricted = (href: string) =>
-    effectiveRole === 'FACILITY' && isFacilityLocked && isRestrictedFacilityPath(href);
+  const getFacilityItemLock = (href: string) =>
+    effectiveRole === 'FACILITY'
+      ? getFacilityPathLockInfo(href, facilityProfile)
+      : { locked: false, stage: null, redirectTo: '/facility' };
+
+  const isDoctorRestricted = (href: string) =>
+    effectiveRole === 'DOCTOR' && isDoctorLocked && isRestrictedDoctorPath(href);
 
   const logoHref =
     effectiveRole === 'FACILITY' && isFacilityLocked
       ? '/facility/legal-profile'
-      : getDefaultPathForRole(effectiveRole);
+      : effectiveRole === 'DOCTOR' && isDoctorLocked
+        ? '/doctor/verification'
+        : getDefaultPathForRole(effectiveRole);
 
   const mobileMenuOpen = sidebar ? sidebar.openMobile : localMobileOpen;
   const setMobileMenuOpen = sidebar ? sidebar.setOpenMobile : setLocalMobileOpen;
@@ -332,14 +344,26 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
       <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
         <div className="space-y-1">
           {currentMenu.items.map((item) => {
-            const facilityItemLocked = isFacilityRestricted(item.href);
+            const facilityLock = getFacilityItemLock(item.href);
+            const doctorItemLocked = isDoctorRestricted(item.href);
             const isItemLocked =
               (isFamilyLocked && isRestrictedFamilyPath(item.href)) ||
-              facilityItemLocked;
-            const lockTooltip = facilityItemLocked
-              ? 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
-              : 'Cần kích hoạt gói chăm sóc để mở khóa';
-            const lockBadge = facilityItemLocked ? 'Chờ duyệt' : 'Cần gói';
+              facilityLock.locked ||
+              doctorItemLocked;
+            const lockTooltip = facilityLock.locked
+              ? facilityLock.stage === 'B2B'
+                ? 'Cần ký Hợp đồng Hợp tác B2B (ACTIVE) để mở khóa'
+                : 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
+              : doctorItemLocked
+                ? 'Cần hoàn tất xác thực CCHN 2 cấp để mở khóa'
+                : 'Cần kích hoạt gói chăm sóc để mở khóa';
+            const lockBadge = facilityLock.locked
+              ? facilityLock.stage === 'B2B'
+                ? 'Chờ HĐ B2B'
+                : 'Chờ duyệt'
+              : doctorItemLocked
+                ? 'Chờ duyệt'
+                : 'Cần gói';
             const isActive =
               !isItemLocked &&
               (item.exact ? pathname === item.href : pathname.startsWith(item.href));
@@ -644,13 +668,19 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
           )}
         >
           {primaryMobileTabs.map((item) => {
-            const facilityItemLocked = isFacilityRestricted(item.href);
+            const facilityLock = getFacilityItemLock(item.href);
+            const doctorItemLocked = isDoctorRestricted(item.href);
             const isItemLocked =
               (isFamilyLocked && isRestrictedFamilyPath(item.href)) ||
-              facilityItemLocked;
-            const lockTooltip = facilityItemLocked
-              ? 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
-              : 'Cần kích hoạt gói chăm sóc để mở khóa';
+              facilityLock.locked ||
+              doctorItemLocked;
+            const lockTooltip = facilityLock.locked
+              ? facilityLock.stage === 'B2B'
+                ? 'Cần ký Hợp đồng Hợp tác B2B (ACTIVE) để mở khóa'
+                : 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
+              : doctorItemLocked
+                ? 'Cần hoàn tất xác thực CCHN 2 cấp để mở khóa'
+                : 'Cần kích hoạt gói chăm sóc để mở khóa';
             const isActive =
               !isItemLocked &&
               (item.exact ? pathname === item.href : pathname.startsWith(item.href));

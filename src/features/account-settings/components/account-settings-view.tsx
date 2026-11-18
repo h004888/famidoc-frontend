@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { profileSettingsSchema, changePasswordSchema } from '../schemas/settings.schema';
-import { useAuth } from '@/features/auth/context/auth-context';
-import type { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { authApi } from '@/lib/api/auth.api';
+import { extractErrorMessage } from '@/lib/api';
+import { useAuth } from '@/features/auth/context/auth-context';
+import { profileSettingsSchema, changePasswordSchema } from '../schemas/settings.schema';
+import type { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { getCurrentBrowserHost, getSubdomainPortal } from '@/lib/portal-routing';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -81,6 +82,7 @@ const ROLE_SETTINGS_META: Record<
 export function AccountSettingsView() {
   const { user, role, isAuthenticated, applySession } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const { clearMustChangePassword } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'insurance'>('profile');
 
   useEffect(() => {
@@ -181,14 +183,31 @@ export function AccountSettingsView() {
         oldPassword: passwordData.currentPassword,
         newPassword: passwordData.newPassword,
       });
+      setIsUpdatingPassword(true);
+    try {
+      await authApi.changePassword({
+        oldPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      clearMustChangePassword?.();
       toast.success('Mật khẩu bảo mật đã được thay đổi thành công!');
-      setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+        setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
     } catch (err: unknown) {
       const msg =
         err instanceof Error && err.message.trim()
           ? err.message.trim()
           : 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.';
       setPasswordError(msg);
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+    } catch (err) {
+      const msg = extractErrorMessage(
+        err,
+        'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.',
+      );
+      setPasswordError(msg);
+      toast.error(msg);
     } finally {
       setIsUpdatingPassword(false);
     }

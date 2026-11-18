@@ -91,6 +91,7 @@ export function LoginForm() {
         phone: data.user?.phone || '0912345678',
         role,
         avatarText: (data.user?.fullName || email).slice(0, 2).toUpperCase(),
+        mustChangePassword: Boolean(data.user?.mustChangePassword),
       };
 
       applySession(role, authUser, data.accessToken, validData.rememberMe);
