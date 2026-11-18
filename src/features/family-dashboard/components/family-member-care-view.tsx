@@ -1,22 +1,12 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
-  encountersApi,
   extractErrorMessage,
   patientsApi,
-  type EncounterItem,
   type PatientAllergyDto,
   type PatientDocumentDto,
   type PatientDto,
@@ -213,45 +203,6 @@ const GENDER_LABELS: Record<string, string> = {
   OTHER: 'Khác',
 };
 
-const UPCOMING_ENCOUNTER_STATUSES = new Set([
-  'REQUESTED',
-  'PROPOSED',
-  'CONFIRMED',
-  'IN_PROGRESS',
-  'RESCHEDULE_REQUESTED',
-]);
-
-const ENCOUNTER_STATUS_META: Record<string, { label: string; className: string }> = {
-  REQUESTED: {
-    label: 'Chờ xác nhận',
-    className: 'bg-amber-50 text-amber-800 border-amber-200',
-  },
-  PROPOSED: {
-    label: 'Bác sĩ đề xuất lịch',
-    className: 'bg-indigo-50 text-indigo-800 border-indigo-200',
-  },
-  CONFIRMED: {
-    label: 'Đã xác nhận',
-    className: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  },
-  IN_PROGRESS: {
-    label: 'Đang diễn ra',
-    className: 'bg-sky-50 text-sky-800 border-sky-200',
-  },
-  COMPLETED: {
-    label: 'Đã hoàn thành',
-    className: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  },
-  CANCELLED: {
-    label: 'Đã hủy',
-    className: 'bg-slate-100 text-slate-600 border-slate-200',
-  },
-  RESCHEDULE_REQUESTED: {
-    label: 'Yêu cầu dời lịch',
-    className: 'bg-orange-50 text-orange-800 border-orange-200',
-  },
-};
-
 function getRelationLabel(code?: string | null): string {
   if (!code) return 'Thành viên gia đình';
   return RELATIONSHIP_LABELS[code] || code;
@@ -303,49 +254,15 @@ function calculateAge(dateOfBirth?: string | null): number | null {
   return age >= 0 ? age : null;
 }
 
-function formatEncounterTime(raw?: string | null): string {
-  if (!raw) return 'Chưa rõ giờ';
-  const isoTime = raw.match(/T(\d{2}:\d{2})/);
-  if (isoTime) return isoTime[1];
-  const plainTime = raw.match(/^(\d{2}:\d{2})/);
-  if (plainTime) return plainTime[1];
-  return raw;
-}
-
-function getEncounterDoctorName(encounter: EncounterItem): string {
-  return (
-    encounter.doctor?.doctorName?.trim() ||
-    encounter.doctor?.user?.name?.trim() ||
-    'Bác sĩ Gia đình phụ trách'
-  );
-}
-
-function getEncounterFacilityName(encounter: EncounterItem): string {
-  return (
-    encounter.doctor?.facility?.facilityName?.trim() ||
-    'Hệ thống Y tế FamiDoc'
-  );
-}
-
-function getEncounterSortKey(encounter: EncounterItem): string {
-  const datePart = encounter.scheduledDate ? encounter.scheduledDate.slice(0, 10) : '0000-00-00';
-  const timePart = formatEncounterTime(encounter.scheduledTime);
-  return `${datePart}T${timePart}`;
-}
-
 export function FamilyMemberCareView({ memberId }: { memberId: string }) {
   const [member, setMember] = useState<PatientDto | null>(null);
   const [familyMembers, setFamilyMembers] = useState<PatientDto[]>([]);
-  const [encounters, setEncounters] = useState<EncounterItem[]>([]);
   const [allergies, setAllergies] = useState<PatientAllergyDto[]>([]);
   const [documents, setDocuments] = useState<PatientDocumentDto[]>([]);
   const [vitalSigns, setVitalSigns] = useState<VitalSignDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
-
-  const [historyFilter, setHistoryFilter] = useState<'all' | 'home_visit' | 'telehealth'>('all');
-  const [guideEncounter, setGuideEncounter] = useState<EncounterItem | null>(null);
 
   useEffect(() => {
     let isCancelled = false;
@@ -354,10 +271,9 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
       setIsLoading(true);
       setErrorMessage(null);
 
-      const [memberRes, familyRes, timetableRes, vitalsRes] = await Promise.allSettled([
+      const [memberRes, familyRes, vitalsRes] = await Promise.allSettled([
         patientsApi.getMemberById(memberId),
         patientsApi.getFamilyMembers(),
-        encountersApi.getFamilyTimetable({ pageSize: 50 }),
         patientsApi.getMemberVitalSigns(memberId, 30),
       ]);
 
@@ -377,7 +293,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
             ? familyRes.value
             : []
         );
-        setEncounters([]);
         setAllergies([]);
         setDocuments([]);
         setVitalSigns([]);
@@ -392,10 +307,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
           ? familyRes.value.filter((fm) => !fm.status || fm.status === 'ACTIVE')
           : [];
       const loadedFamily = activeFamily.length > 0 ? activeFamily : [loadedMember];
-      const loadedEncounters =
-        timetableRes.status === 'fulfilled' && Array.isArray(timetableRes.value?.data)
-          ? timetableRes.value.data
-          : [];
       const loadedVitals =
         vitalsRes.status === 'fulfilled' && Array.isArray(vitalsRes.value)
           ? vitalsRes.value
@@ -403,7 +314,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
       setMember(loadedMember);
       setFamilyMembers(loadedFamily);
-      setEncounters(loadedEncounters);
       setAllergies(loadedMember.allergies ?? []);
       setDocuments(loadedMember.documents ?? []);
       setVitalSigns(loadedVitals);
@@ -416,39 +326,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
       isCancelled = true;
     };
   }, [memberId, reloadNonce]);
-
-  const memberEncounters = useMemo(
-    () => encounters.filter((item) => item.patientId === memberId),
-    [encounters, memberId]
-  );
-
-  const upcomingEncounters = useMemo(
-    () =>
-      memberEncounters
-        .filter((item) => UPCOMING_ENCOUNTER_STATUSES.has(item.encounterStatus))
-        .sort((a, b) => getEncounterSortKey(a).localeCompare(getEncounterSortKey(b))),
-    [memberEncounters]
-  );
-
-  const nextUpcomingEncounter = upcomingEncounters[0] ?? null;
-
-  const completedEncounters = useMemo(
-    () =>
-      memberEncounters
-        .filter((item) => item.encounterStatus === 'COMPLETED')
-        .sort((a, b) => getEncounterSortKey(b).localeCompare(getEncounterSortKey(a))),
-    [memberEncounters]
-  );
-
-  const filteredCompletedEncounters = useMemo(() => {
-    if (historyFilter === 'all') return completedEncounters;
-    if (historyFilter === 'home_visit') {
-      return completedEncounters.filter((item) => item.encounterType === 'HOME_VISIT');
-    }
-    return completedEncounters.filter(
-      (item) => item.encounterType === 'TELEMEDICINE' || item.encounterType === 'TELEHEALTH'
-    );
-  }, [completedEncounters, historyFilter]);
 
   if (isLoading) {
     return (
@@ -637,276 +514,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
         }
       />
 
-      {/* Upcoming Visit + Unimplemented Clinical Prescriptions Empty State */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming Encounter Card */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs flex flex-col justify-between space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-[#2E37A4]">
-                  event_upcoming
-                </span>
-                <span>Lịch khám sắp tới</span>
-              </h2>
-              {upcomingEncounters.length > 0 && (
-                <Badge variant="outline" className="text-xs">
-                  {upcomingEncounters.length} lịch hẹn
-                </Badge>
-              )}
-            </div>
-
-            {nextUpcomingEncounter ? (
-              <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-4 space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-semibold text-[#2E37A4]">
-                    {nextUpcomingEncounter.encounterType === 'HOME_VISIT'
-                      ? 'Khám Bác sĩ Tại Nhà'
-                      : 'Tư vấn Video (Telehealth)'}
-                  </span>
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[11px] font-semibold ${
-                      (
-                        ENCOUNTER_STATUS_META[nextUpcomingEncounter.encounterStatus] ||
-                        ENCOUNTER_STATUS_META.CONFIRMED
-                      ).className
-                    }`}
-                  >
-                    {
-                      (
-                        ENCOUNTER_STATUS_META[nextUpcomingEncounter.encounterStatus] || {
-                          label: nextUpcomingEncounter.encounterStatus,
-                        }
-                      ).label
-                    }
-                  </span>
-                </div>
-
-                <div>
-                  <p className="text-sm font-bold text-slate-900">
-                    {getEncounterDoctorName(nextUpcomingEncounter)}
-                  </p>
-                  <p className="text-xs text-slate-600">
-                    {getEncounterFacilityName(nextUpcomingEncounter)}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-slate-700 pt-1">
-                  <span className="inline-flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[15px] text-slate-500">
-                      calendar_today
-                    </span>
-                    {formatDateDisplay(nextUpcomingEncounter.scheduledDate)}
-                  </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="material-symbols-outlined text-[15px] text-slate-500">
-                      schedule
-                    </span>
-                    {formatEncounterTime(nextUpcomingEncounter.scheduledTime)}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-4 text-center space-y-2">
-                <span className="material-symbols-outlined text-[26px] text-slate-400">
-                  event_busy
-                </span>
-                <p className="text-sm font-medium text-slate-700">
-                  Hiện chưa có lịch khám sắp tới
-                </p>
-                <p className="text-xs text-slate-500">
-                  Bạn có thể đặt hoặc xem lịch khám của cả hộ gia đình tại Bảng điều khiển.
-                </p>
-              </div>
-            )}
-          </div>
-
-          <div className="pt-1 flex flex-wrap gap-2">
-            {nextUpcomingEncounter ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full"
-                onClick={() => setGuideEncounter(nextUpcomingEncounter)}
-              >
-                Hướng dẫn chuẩn bị buổi khám
-              </Button>
-            ) : (
-              <Button asChild variant="outline" size="sm" className="w-full">
-                <Link href="/family/appointments">Xem lịch gia đình</Link>
-              </Button>
-            )}
-          </div>
-        </section>
-
-        {/* Medications & Prescriptions Honest Empty State */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[20px] text-emerald-600">
-                medication
-              </span>
-              <span>Đơn thuốc &amp; Nhắc uống thuốc</span>
-            </h2>
-            <Badge variant="secondary" className="text-[11px]">
-              Chưa có dữ liệu
-            </Badge>
-          </div>
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-4 space-y-2">
-            <p className="text-sm font-semibold text-slate-800">
-              Chưa có đơn thuốc điện tử từ bác sĩ
-            </p>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              Phân hệ kê đơn điện tử và theo dõi lịch uống thuốc hàng ngày chưa được kích hoạt trên
-              hệ thống. Mọi đơn thuốc giấy bên ngoài có thể lưu tại mục Tài liệu y tế bên dưới.
-            </p>
-          </div>
-        </section>
-      </div>
-
-      {/* Completed Visit History Section */}
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <span className="material-symbols-outlined text-[22px] text-[#2E37A4]">
-                clinical_notes
-              </span>
-              <span>Lịch sử buổi khám đã hoàn thành</span>
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Dữ liệu đồng bộ trực tiếp từ lịch trình khám của gia đình cho {member.fullName}.
-            </p>
-          </div>
-
-          <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 p-1">
-            {(
-              [
-                { key: 'all', label: 'Tất cả' },
-                { key: 'home_visit', label: 'Khám tại nhà' },
-                { key: 'telehealth', label: 'Telehealth' },
-              ] as const
-            ).map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setHistoryFilter(tab.key)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                  historyFilter === tab.key
-                    ? 'bg-white text-[#2E37A4] shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {filteredCompletedEncounters.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center space-y-2">
-            <span className="material-symbols-outlined text-[28px] text-slate-400">
-              history
-            </span>
-            <p className="text-sm font-medium text-slate-700">
-              Chưa có lịch sử buổi khám đã hoàn thành
-            </p>
-            <p className="text-xs text-slate-500">
-              Khi các buổi khám tại nhà hoặc tư vấn trực tuyến hoàn tất, lịch sử sẽ tự động hiển
-              thị tại đây.
-            </p>
-            <div className="md:hidden pt-1 text-[11px] text-slate-400">
-              Chế độ xem di động
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Desktop Encounter Table */}
-            <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full text-sm text-left">
-                <thead className="bg-slate-50 text-xs font-semibold text-slate-600 uppercase">
-                  <tr>
-                    <th className="px-4 py-3">Ngày &amp; Giờ</th>
-                    <th className="px-4 py-3">Hình thức</th>
-                    <th className="px-4 py-3">Bác sĩ &amp; Cơ sở</th>
-                    <th className="px-4 py-3">Trạng thái</th>
-                    <th className="px-4 py-3">Ghi chú bệnh án</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredCompletedEncounters.map((enc) => (
-                    <tr key={enc.id} className="hover:bg-slate-50/60">
-                      <td className="px-4 py-3 font-medium text-slate-900 whitespace-nowrap">
-                        <div>{formatDateDisplay(enc.scheduledDate)}</div>
-                        <div className="text-xs text-slate-500">
-                          {formatEncounterTime(enc.scheduledTime)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant="outline" className="text-xs">
-                          {enc.encounterType === 'HOME_VISIT'
-                            ? 'Khám tại nhà'
-                            : 'Telehealth'}
-                        </Badge>
-                        <div className="text-[11px] text-slate-500 mt-1">
-                          {enc.category === 'PERIODIC_ROUTINE'
-                            ? 'Khám định kỳ'
-                            : 'Khám theo yêu cầu'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="font-semibold text-slate-900">
-                          {getEncounterDoctorName(enc)}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {getEncounterFacilityName(enc)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full border text-xs font-semibold bg-emerald-50 text-emerald-800 border-emerald-200">
-                          Đã hoàn thành
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">
-                        Bệnh án điện tử chi tiết (SOAP) đang chờ đồng bộ từ phân hệ lâm sàng.
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Mobile Encounter Cards */}
-            <div className="md:hidden space-y-3">
-              {filteredCompletedEncounters.map((enc) => (
-                <div
-                  key={enc.id}
-                  className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 space-y-2"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-slate-900">
-                      {formatDateDisplay(enc.scheduledDate)} •{' '}
-                      {formatEncounterTime(enc.scheduledTime)}
-                    </span>
-                    <Badge variant="outline" className="text-[11px]">
-                      {enc.encounterType === 'HOME_VISIT' ? 'Khám tại nhà' : 'Telehealth'}
-                    </Badge>
-                  </div>
-                  <p className="text-sm font-semibold text-slate-900">
-                    {getEncounterDoctorName(enc)}
-                  </p>
-                  <p className="text-xs text-slate-600">{getEncounterFacilityName(enc)}</p>
-                  <p className="text-[11px] text-slate-500">
-                    Bệnh án điện tử chi tiết (SOAP) đang chờ đồng bộ từ phân hệ lâm sàng.
-                  </p>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </section>
-
       {/* Medical Documents & File/Image Upload UI */}
       <MemberDocumentUploadSection
         memberId={member.id}
@@ -914,67 +521,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
         documents={documents}
         onDocumentAdded={(doc) => setDocuments((prev) => [doc, ...prev])}
       />
-
-      {/* Visit Preparation Guide Dialog */}
-      <Dialog
-        open={Boolean(guideEncounter)}
-        onOpenChange={(open) => {
-          if (!open) setGuideEncounter(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Hướng dẫn chuẩn bị buổi khám</DialogTitle>
-            <DialogDescription>
-              {guideEncounter
-                ? `${getEncounterDoctorName(guideEncounter)} • ${formatDateDisplay(
-                    guideEncounter.scheduledDate
-                  )} lúc ${formatEncounterTime(guideEncounter.scheduledTime)}`
-                : ''}
-            </DialogDescription>
-          </DialogHeader>
-          {guideEncounter && (
-            <div className="space-y-3 text-sm text-slate-700">
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-1 text-xs">
-                <div>
-                  <span className="text-slate-500">Bác sĩ phụ trách: </span>
-                  <strong className="text-slate-900">
-                    {getEncounterDoctorName(guideEncounter)}
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-slate-500">Đơn vị / Gói quản lý: </span>
-                  <strong className="text-slate-900">
-                    {getEncounterFacilityName(guideEncounter)}
-                  </strong>
-                </div>
-              </div>
-              <ul className="list-disc pl-5 space-y-1.5 text-xs sm:text-sm text-slate-600">
-                <li>
-                  Chuẩn bị sẵn các kết quả xét nghiệm và thông tin bệnh lý gần nhất của{' '}
-                  {member.fullName}.
-                </li>
-                {guideEncounter.encounterType === 'HOME_VISIT' ? (
-                  <>
-                    <li>Sắp xếp không gian thông thoáng, đủ ánh sáng để bác sĩ thăm khám tại nhà.</li>
-                    <li>Chuẩn bị danh sách các thuốc hoặc thực phẩm chức năng đang dùng hằng ngày.</li>
-                  </>
-                ) : (
-                  <>
-                    <li>Kiểm tra kết nối Internet, camera và micro trước giờ tư vấn 5–10 phút.</li>
-                    <li>Ghi chú trước các triệu chứng bất thường để trao đổi trực tiếp với bác sĩ.</li>
-                  </>
-                )}
-              </ul>
-            </div>
-          )}
-          <DialogFooter>
-            <Button type="button" onClick={() => setGuideEncounter(null)}>
-              Đã hiểu
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

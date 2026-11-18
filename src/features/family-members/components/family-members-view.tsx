@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -188,9 +188,9 @@ export function mapPatientDtoToMemberProfile(
   const chronicList =
     p.chronicDiseases && p.chronicDiseases.trim()
       ? p.chronicDiseases
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean)
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean)
       : ['Không có bệnh nền mạn tính'];
 
   return {
@@ -260,9 +260,9 @@ export function FamilyMembersView() {
 
         const emergencyFallback = gateData?.familyUnit
           ? {
-              name: gateData.familyUnit.representativeName,
-              phone: gateData.familyUnit.emergencyPhone,
-            }
+            name: gateData.familyUnit.representativeName,
+            phone: gateData.familyUnit.emergencyPhone,
+          }
           : undefined;
 
         if (membersResult.status === 'fulfilled') {
@@ -529,16 +529,14 @@ export function FamilyMembersView() {
                 </Badge>
                 <span
                   data-testid="member-quota-badge"
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums border ${
-                    isQuotaReached
-                      ? 'bg-amber-50 text-amber-800 border-amber-200/70'
-                      : 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
-                  }`}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums border ${isQuotaReached
+                    ? 'bg-amber-50 text-amber-800 border-amber-200/70'
+                    : 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
+                    }`}
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                      isQuotaReached ? 'bg-amber-500' : 'bg-emerald-500'
-                    }`}
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${isQuotaReached ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`}
                   />
                   <span>
                     {memberLimit !== null
@@ -553,14 +551,8 @@ export function FamilyMembersView() {
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
-                Sổ Hộ Tịch Y Tế &amp; Danh Sách Thành Viên
+                Danh Sách Thành Viên
               </h1>
-
-              <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                Quản lý tập trung hồ sơ sức khỏe người thân và kết nối dài hạn với{' '}
-                <strong className="text-slate-800 font-semibold">01 Bác sĩ Gia đình trực thuộc</strong>{' '}
-                phụ trách toàn bộ hộ gia đình.
-              </p>
             </div>
 
             {/* Cụm nút hành động tinh gọn */}
@@ -574,19 +566,6 @@ export function FamilyMembersView() {
                   <span className="material-symbols-outlined text-[19px]">history_edu</span>
                   <span>Hợp Đồng &amp; Gói Dịch Vụ</span>
                 </Link>
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  showToast('Đang chuẩn bị xuất file Sổ Hộ Tịch Y Tế PDF...');
-                  window.print();
-                }}
-                className="min-h-11 rounded-xl text-sm font-medium gap-2"
-              >
-                <span className="material-symbols-outlined text-[18px] text-slate-500">download</span>
-                <span>Xuất PDF</span>
               </Button>
             </div>
           </div>
@@ -657,18 +636,18 @@ export function FamilyMembersView() {
           </div>
 
           {/* Cột Phải (5 cols): 01 BÁC SĨ GIA ĐÌNH TRỰC THUỘC HỘ */}
-          <div className="lg:col-span-5 bg-gradient-to-br from-[#0037c1] to-[#00237a] rounded-2xl p-6 text-white shadow-md flex flex-col justify-between gap-5 relative overflow-hidden">
-            <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/10 blur-2xl pointer-events-none" />
+          <div className="lg:col-span-5 bg-gradient-to-br from-blue-300/80 via-sky-200/90 to-indigo-200/80 border border-blue-400/50 rounded-2xl p-6 text-slate-900 shadow-xs flex flex-col justify-between gap-5 relative overflow-hidden">
+            <div className="absolute -top-12 -right-12 w-44 h-44 rounded-full bg-white/45 blur-2xl pointer-events-none" />
 
             <div>
-              <div className="flex items-center justify-between gap-2 pb-3 border-b border-white/15">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-xs border border-white/20 text-blue-100 text-[11px] font-semibold">
-                  <span className="material-symbols-outlined text-[14px] text-emerald-400">verified</span>
+              <div className="flex items-center justify-between gap-2 pb-3 border-b border-blue-300/80">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/95 border border-blue-200 text-primary text-[11px] font-semibold">
+                  <span className="material-symbols-outlined text-[14px] text-emerald-600">verified</span>
                   <span>Bác Sĩ Gia Đình Trực Thuộc Hộ</span>
                 </div>
                 <Link
                   href="/contact"
-                  className="text-xs text-blue-200 hover:text-white underline"
+                  className="text-xs font-semibold text-blue-900 hover:text-blue-950 underline"
                 >
                   Yêu cầu đổi bác sĩ
                 </Link>
@@ -681,30 +660,30 @@ export function FamilyMembersView() {
                       <img
                         src={assignedDoctor.avatarUrl}
                         alt={assignedDoctor.fullName}
-                        className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white/60 shadow-md"
+                        className="w-16 h-16 rounded-2xl object-cover ring-2 ring-white shadow-sm"
                       />
                     ) : (
-                      <div className="w-16 h-16 rounded-2xl bg-white/20 text-white font-bold text-lg flex items-center justify-center ring-2 ring-white/60 shadow-md">
+                      <div className="w-16 h-16 rounded-2xl bg-white text-primary font-bold text-lg flex items-center justify-center border border-blue-200 ring-2 ring-white shadow-xs">
                         {getInitials(assignedDoctor.fullName)}
                       </div>
                     )}
-                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-[#0037c1] flex items-center justify-center">
+                    <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white flex items-center justify-center">
                       <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                     </span>
                   </div>
 
                   <div className="min-w-0">
-                    <h3 className="font-bold text-base sm:text-lg text-white leading-tight truncate">
+                    <h3 className="font-bold text-base sm:text-lg text-slate-900 leading-tight truncate">
                       {assignedDoctor.fullName}
                     </h3>
-                    <p className="text-xs text-blue-100 mt-0.5 truncate">{assignedDoctor.title}</p>
-                    <p className="text-[11px] text-blue-200/80 truncate mt-0.5">
+                    <p className="text-xs font-medium text-slate-800 mt-0.5 truncate">{assignedDoctor.title}</p>
+                    <p className="text-[11px] font-medium text-slate-700 truncate mt-0.5">
                       {assignedDoctor.hospitalName} · {assignedDoctor.experienceYears} năm kinh nghiệm
                     </p>
                   </div>
                 </div>
               ) : (
-                <div className="mt-4 p-3 rounded-xl bg-white/10 border border-white/15 text-xs text-blue-100">
+                <div className="mt-4 p-3 rounded-xl bg-white/90 border border-blue-200/80 text-xs text-slate-600">
                   {activeContract
                     ? 'Cơ sở y tế đang hoàn tất phân công bác sĩ phụ trách chính thức cho hợp đồng.'
                     : 'Đang tải thông tin bác sĩ phụ trách từ hợp đồng hiệu lực.'}
@@ -713,15 +692,15 @@ export function FamilyMembersView() {
             </div>
 
             <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-white/10 border border-white/15 text-xs text-blue-100 flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[18px] text-emerald-300 shrink-0">
+              <div className="p-3 rounded-xl bg-white/90 border border-blue-200/80 text-xs text-slate-700 flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-[18px] text-emerald-600 shrink-0">
                   verified_user
                 </span>
                 <div className="min-w-0">
-                  <span className="text-[10px] uppercase tracking-wider text-blue-200/70 block font-semibold">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-500 block font-semibold">
                     Phạm vi phục vụ hợp đồng
                   </span>
-                  <span className="font-medium text-white truncate block">
+                  <span className="font-semibold text-slate-900 truncate block">
                     {activeContract
                       ? `Tối đa ${activeContract.memberCount} thành viên thuộc hộ gia đình`
                       : 'Theo dõi đồng bộ theo hợp đồng hiện hành'}
@@ -732,7 +711,7 @@ export function FamilyMembersView() {
               <div className="grid grid-cols-2 gap-2.5 pt-1">
                 <a
                   href={assignedDoctor?.phone ? `tel:${assignedDoctor.phone.replace(/\s+/g, '')}` : 'tel:19008821'}
-                  className="py-2.5 px-3 rounded-xl bg-white text-primary hover:bg-blue-50 text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-xs"
+                  className="py-2.5 px-3 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold transition-colors inline-flex items-center justify-center gap-1.5 shadow-xs"
                 >
                   <span className="material-symbols-outlined text-[16px]">call</span>
                   <span>Hotline 24/7</span>
@@ -740,7 +719,7 @@ export function FamilyMembersView() {
 
                 <Link
                   href="/family/appointments"
-                  className="py-2.5 px-3 rounded-xl bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
+                  className="py-2.5 px-3 rounded-xl bg-white hover:bg-blue-50 border border-blue-200 text-primary text-xs font-semibold transition-colors inline-flex items-center justify-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">event_available</span>
                   <span>Đặt lịch khám</span>
@@ -903,11 +882,10 @@ export function FamilyMembersView() {
                             {m.name}
                           </Link>
                           <span
-                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${
-                              m.isHouseholdHead
-                                ? 'bg-primary/10 text-primary border border-primary/20'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${m.isHouseholdHead
+                              ? 'bg-primary/10 text-primary border border-primary/20'
+                              : 'bg-slate-100 text-slate-700'
+                              }`}
                           >
                             {m.relationship}
                           </span>
@@ -987,21 +965,6 @@ export function FamilyMembersView() {
             )}
           </div>
         </section>
-
-        {/* 4. CHÂN TRANG BẢO MẬT & ĐỒNG BỘ DỮ LIỆU */}
-        <footer className="p-5 rounded-2xl bg-white border border-slate-200/70 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-500">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-100">
-              <span className="material-symbols-outlined text-[18px]">verified_user</span>
-            </div>
-            <span>
-              Dữ liệu hộ tịch &amp; bệnh án điện tử được bảo mật và mã hóa theo tiêu chuẩn HIPAA &amp; Nghị định 13/2023/NĐ-CP.
-            </span>
-          </div>
-          <span className="font-semibold text-slate-600 shrink-0 self-start sm:self-auto">
-            Hệ thống Quản lý Bác sĩ Gia đình FamiDoc Pro
-          </span>
-        </footer>
       </main>
 
       {/* MODAL 1: THÊM THÀNH VIÊN MỚI */}
@@ -1097,33 +1060,30 @@ export function FamilyMembersView() {
                   <button
                     type="button"
                     onClick={() => setNewGender('Nam')}
-                    className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
-                      newGender === 'Nam'
-                        ? 'bg-primary/10 border-primary text-primary'
-                        : 'border-slate-200 text-slate-600'
-                    }`}
+                    className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${newGender === 'Nam'
+                      ? 'bg-primary/10 border-primary text-primary'
+                      : 'border-slate-200 text-slate-600'
+                      }`}
                   >
                     Nam
                   </button>
                   <button
                     type="button"
                     onClick={() => setNewGender('Nữ')}
-                    className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
-                      newGender === 'Nữ'
-                        ? 'bg-rose-50 border-rose-500 text-rose-600'
-                        : 'border-slate-200 text-slate-600'
-                    }`}
+                    className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${newGender === 'Nữ'
+                      ? 'bg-rose-50 border-rose-500 text-rose-600'
+                      : 'border-slate-200 text-slate-600'
+                      }`}
                   >
                     Nữ
                   </button>
                   <button
                     type="button"
                     onClick={() => setNewGender('Khác')}
-                    className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
-                      newGender === 'Khác'
-                        ? 'bg-slate-100 border-slate-500 text-slate-800'
-                        : 'border-slate-200 text-slate-600'
-                    }`}
+                    className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${newGender === 'Khác'
+                      ? 'bg-slate-100 border-slate-500 text-slate-800'
+                      : 'border-slate-200 text-slate-600'
+                      }`}
                   >
                     Khác
                   </button>

@@ -343,7 +343,7 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     expect(container.querySelector('.md\\:hidden')).not.toBeNull();
   });
 
-  it('renders real profile details, switcher links, and unimplemented prescription empty state without legacy mocks', async () => {
+  it('renders real profile details and switcher links without legacy mocks or removed sections', async () => {
     render(<FamilyMemberCareView memberId="mem-real-1" />);
 
     await waitFor(() => {
@@ -362,7 +362,9 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     expect(otherMemberLink).toHaveAttribute('href', '/family/members/mem-real-2');
     expect(screen.queryByRole('link', { name: /Thành viên Đã Tách/i })).not.toBeInTheDocument();
 
-    expect(screen.getByText('Chưa có đơn thuốc điện tử từ bác sĩ')).toBeInTheDocument();
+    expect(screen.queryByText('Lịch khám sắp tới')).not.toBeInTheDocument();
+    expect(screen.queryByText('Đơn thuốc & Nhắc uống thuốc')).not.toBeInTheDocument();
+    expect(screen.queryByText('Lịch sử buổi khám đã hoàn thành')).not.toBeInTheDocument();
 
     expect(screen.queryByText(/Nguyễn Văn Phúc/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/PGS\.TS Nguyễn Trọng Nghĩa/i)).not.toBeInTheDocument();
@@ -502,50 +504,6 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
       '/family/members'
     );
     expect(screen.queryByText(/Nguyễn Văn Phúc/i)).not.toBeInTheDocument();
-  });
-
-  it('filters encounters by patientId === memberId for upcoming visit and completed history tabs', async () => {
-    render(<FamilyMemberCareView memberId="mem-real-1" />);
-
-    await waitFor(() => {
-      expect(screen.getAllByText('BS.CKI Trần Văn Hùng').length).toBeGreaterThan(0);
-    });
-
-    expect(screen.getByText('20/12/2026')).toBeInTheDocument();
-    expect(screen.getByText('08:30')).toBeInTheDocument();
-    expect(screen.getByText('Khám Bác sĩ Tại Nhà')).toBeInTheDocument();
-    expect(screen.getByText('Đã xác nhận')).toBeInTheDocument();
-
-    expect(screen.getAllByText('Phòng khám Đa khoa Tâm An').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('ThS.BS Đặng Lan Anh').length).toBeGreaterThan(0);
-    expect(screen.queryByText('BS. Lê Thị Bích')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Telehealth' }));
-    expect(screen.getAllByText('ThS.BS Đặng Lan Anh').length).toBeGreaterThan(0);
-    expect(screen.queryByText('05/10/2026')).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Khám tại nhà' }));
-    expect(screen.getAllByText('05/10/2026').length).toBeGreaterThan(0);
-    expect(screen.queryByText('18/09/2026')).not.toBeInTheDocument();
-  });
-
-  it('shows empty states for upcoming and completed encounters when member has no encounters', async () => {
-    mockGetFamilyTimetable.mockResolvedValueOnce({
-      data: [],
-      pagination: { total: 0, page: 1, pageSize: 50, totalPages: 0 },
-    });
-
-    render(<FamilyMemberCareView memberId="mem-real-1" />);
-
-    await waitFor(() => {
-      expect(screen.getByText('Hiện chưa có lịch khám sắp tới')).toBeInTheDocument();
-    });
-
-    expect(screen.getByRole('link', { name: 'Xem lịch gia đình' })).toHaveAttribute(
-      'href',
-      '/family/appointments'
-    );
-    expect(screen.getByText('Chưa có lịch sử buổi khám đã hoàn thành')).toBeInTheDocument();
   });
 
   it('supports local image/PDF preview without saving blob URLs and persists external URL via addMemberDocument', async () => {
