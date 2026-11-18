@@ -17,19 +17,37 @@ export const metadata: Metadata = {
 async function DoctorsDirectoryWithSearchParams({
   searchParams,
 }: {
-  searchParams: Promise<{ packageId?: string | string[] }>;
+  searchParams: Promise<{
+    packageId?: string | string[];
+    members?: string | string[];
+  }>;
 }) {
   const resolvedSearchParams = await searchParams;
   const rawPackageId = resolvedSearchParams?.packageId;
   const packageId = Array.isArray(rawPackageId) ? rawPackageId[0] : rawPackageId;
+  const rawMembers = resolvedSearchParams?.members;
+  const membersStr = Array.isArray(rawMembers) ? rawMembers[0] : rawMembers;
+  const parsedMembers = membersStr ? Number(membersStr) : undefined;
 
-  return <DoctorDirectoryView packageId={packageId ?? null} />;
+  return (
+    <DoctorDirectoryView
+      packageId={packageId ?? null}
+      initialMembers={
+        parsedMembers && Number.isFinite(parsedMembers)
+          ? Math.trunc(parsedMembers)
+          : null
+      }
+    />
+  );
 }
 
 export default function DoctorsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ packageId?: string | string[] }>;
+  searchParams: Promise<{
+    packageId?: string | string[];
+    members?: string | string[];
+  }>;
 }) {
   return (
     <>

@@ -13,10 +13,14 @@ import {
 } from '@/components/ui/accordion';
 import {
   contractsApi,
+  matchingApi,
+  patientsApi,
   publicApi,
+  type PatientDto,
   type PublicDoctorCarePackageDto,
   type PublicDoctorDetailDto,
 } from '@/lib/api';
+import { ApiError } from '@/lib/http/errors';
 import { calculatePackagePrice } from '@/features/doctors/components/doctor-package-selector';
 import { useBookingNavigationOptional } from '@/features/booking/components/booking-navigation-context';
 
@@ -24,11 +28,20 @@ export interface DoctorContractInitiationPanelProps {
   packageId?: string;
   doctorId?: string;
   facilityId?: string;
+  matchSessionId?: string;
+  queueId?: string;
   /** Hợp đồng hiện có cần tái dựng ngữ cảnh khi quay lại Bước 1. */
   contractId?: string;
   requestedMembers: number;
   /** Đường dẫn trang theo dõi ký hợp đồng sau khi khởi tạo (mặc định `/booking/tracking`). */
   trackingPath?: string;
+}
+
+interface SourceMeta {
+  kind: 'TRACK_A' | 'TRACK_B' | 'ADMIN_QUEUE' | 'EXISTING_CONTRACT';
+  badgeText: string;
+  rationale?: string | null;
+  compositeScore?: number | null;
 }
 
 interface ExistingContractContext {
@@ -47,6 +60,8 @@ export function DoctorContractInitiationPanel({
   packageId: packageIdProp,
   doctorId: doctorIdProp,
   facilityId: facilityIdProp,
+  matchSessionId,
+  queueId,
   contractId,
   requestedMembers,
   trackingPath = '/booking/tracking',
@@ -58,31 +73,135 @@ export function DoctorContractInitiationPanel({
     useState<PublicDoctorCarePackageDto | null>(null);
   const [existingContract, setExistingContract] =
     useState<ExistingContractContext | null>(null);
+  const [familyMembers, setFamilyMembers] = useState<PatientDto[]>([]);
+  const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
+  const [sourceMeta, setSourceMeta] = useState<SourceMeta>({
+    kind: 'TRACK_A',
+    badgeText: 'Track A · Bác sĩ gia đình đã chọn',
+  });
   const [memberCount, setMemberCount] = useState<number>(1);
   const [additionalTerms, setAdditionalTerms] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSlotConflict, setIsSlotConflict] = useState(false);
   const [confirmAction, setConfirmAction] = useState<
     null | 'replace' | 'cancel_reselect'
   >(null);
 
-  const resolvedDoctorId = doctorIdProp ?? existingContract?.doctorId;
-  const resolvedFacilityId = facilityIdProp ?? existingContract?.facilityId;
+  const resolvedDoctorId = doctorIdProp ?? doctor?.id ?? existingContract?.doctorId;
+  const resolvedFacilityId =
+    doctor?.facility?.id ?? facilityIdProp ?? existingContract?.facilityId;
 
   useEffect(() => {
     let active = true;
 
     async function loadInitiationContext() {
       try {
-        // Khi chỉ có contractId (quay lại từ Bước 2/3) phải đọc hợp đồng trước để biết ngữ cảnh.
+        let resolvedPackageId = packageIdProp;
+        let targetDoctorId = doctorIdProp;
+        let desiredMembersInput = requestedMembers;
+        let nextSourceMeta: SourceMeta = {
+          kind: 'TRACK_A',
+          badgeText: 'Track A · Bác sĩ gia đình đã chọn',
+        };
+        let fallbackFacilityFromSource: PublicDoctorDetailDto['facility'] = null;
+        let fallbackPkgFromSource: PublicDoctorCarePackageDto | null = null;
+
+        // 1. Khởi tạo từ hợp đồng nháp hiện có (quay lại từ Bước 2/3)
         const contract = contractId
           ? await contractsApi.getMedicalContractDetail(contractId)
           : null;
 
-        const resolvedPackageId = packageIdProp ?? contract?.servicePackage?.id;
-        const targetDoctorId = doctorIdProp ?? contract?.doctor?.id;
+        if (contract) {
+          resolvedPackageId = resolvedPackageId ?? contract.servicePackage?.id;
+          targetDoctorId = targetDoctorId ?? contract.doctor?.id;
+          desiredMembersInput = contract.memberCount ?? desiredMembersInput;
+          nextSourceMeta = {
+            kind: 'EXISTING_CONTRACT',
+            badgeText: `Hợp đồng #${contract.contractNumber}`,
+          };
+        } else if (matchSessionId) {
+          // 2. Ngữ cảnh Track B (TypeSafe Jev Matching)
+          const session = await matchingApi.getMatchingSession(matchSessionId);
+          if (!session.doctor) {
+            throw new Error(
+              'Phiên gợi ý chưa có bác sĩ phù hợp để xác nhận hợp đồng.'
+            );
+          }
+          resolvedPackageId = session.package.id;
+          targetDoctorId = session.doctor.id;
+          desiredMembersInput = session.memberCount;
+          fallbackFacilityFromSource = session.facility
+            ? {
+                id: session.facility.id,
+                facilityName: session.facility.facilityName,
+                address: session.facility.address,
+                verificationStatus: 'ACTIVE',
+              }
+            : null;
+          fallbackPkgFromSource = {
+            id: session.package.id,
+            packageCode: session.package.packageCode,
+            packageName: session.package.packageName,
+            durationMonths: session.package.durationMonths,
+            basePrice: session.package.basePrice,
+            periodicVisitsQuota: session.package.periodicVisitsQuota,
+            telehealthQuota: session.package.telehealthQuota,
+            includedMembers: session.package.includedMembers,
+            maxMembers: session.package.maxMembers,
+            additionalMemberMonthlyPrice:
+              session.package.additionalMemberMonthlyPrice,
+          };
+          nextSourceMeta = {
+            kind: 'TRACK_B',
+            badgeText: 'Track B · Hệ thống gợi ý bác sĩ phù hợp',
+            rationale: session.rationale,
+            compositeScore: session.compositeScore,
+          };
+        } else if (queueId) {
+          // 3. Ngữ cảnh Hàng chờ điều phối Admin đã gán bác sĩ
+          const queue = await matchingApi.getQueueRequestDetail(queueId);
+          if (queue.status !== 'ASSIGNED' || !queue.doctor) {
+            throw new Error(
+              'Yêu cầu hàng chờ chưa được Quản trị viên phân công bác sĩ hoặc đã hết hiệu lực.'
+            );
+          }
+          resolvedPackageId = queue.package?.id ?? queue.packageId;
+          targetDoctorId = queue.doctor.id;
+          desiredMembersInput = queue.memberCount;
+          fallbackFacilityFromSource = queue.facility
+            ? {
+                id: queue.facility.id,
+                facilityName: queue.facility.facilityName,
+                address: queue.facility.address,
+                verificationStatus: 'ACTIVE',
+              }
+            : null;
+          if (queue.package) {
+            fallbackPkgFromSource = {
+              id: queue.package.id,
+              packageCode: queue.package.packageCode,
+              packageName: queue.package.packageName,
+              durationMonths: queue.package.durationMonths,
+              basePrice: queue.package.basePrice,
+              periodicVisitsQuota: queue.package.periodicVisitsQuota,
+              telehealthQuota: queue.package.telehealthQuota,
+              includedMembers: queue.package.includedMembers,
+              maxMembers: queue.package.maxMembers,
+              additionalMemberMonthlyPrice:
+                queue.package.additionalMemberMonthlyPrice,
+            };
+          }
+          nextSourceMeta = {
+            kind: 'ADMIN_QUEUE',
+            badgeText: 'Điều phối từ Hàng chờ Quản trị viên',
+            rationale: queue.adminNote
+              ? `Ghi chú điều phối: ${queue.adminNote}`
+              : null,
+          };
+        }
 
         if (!resolvedPackageId || !targetDoctorId) {
           throw new Error(
@@ -90,11 +209,22 @@ export function DoctorContractInitiationPanel({
           );
         }
 
-        const doctorDetail = await publicApi.getDoctorDetail(targetDoctorId);
+        const [doctorDetail, membersList] = await Promise.all([
+          publicApi.getDoctorDetail(targetDoctorId),
+          typeof patientsApi.getFamilyMembers === 'function'
+            ? patientsApi.getFamilyMembers().catch(() => [] as PatientDto[])
+            : Promise.resolve([] as PatientDto[]),
+        ]);
         if (!active) return;
+
+        const effectiveDoctor: PublicDoctorDetailDto = {
+          ...doctorDetail,
+          facility: doctorDetail.facility ?? fallbackFacilityFromSource,
+        };
 
         const matchedPackage =
           doctorDetail.carePackages.find((pkg) => pkg.id === resolvedPackageId) ??
+          fallbackPkgFromSource ??
           doctorDetail.carePackages[0] ??
           null;
 
@@ -107,7 +237,11 @@ export function DoctorContractInitiationPanel({
               contractStatus: contract.contractStatus,
               packageId: resolvedPackageId,
               doctorId: targetDoctorId,
-              facilityId: contract.facility?.id ?? facilityIdProp ?? '',
+              facilityId:
+                contract.facility?.id ??
+                effectiveDoctor.facility?.id ??
+                facilityIdProp ??
+                '',
               memberCount: Math.max(1, contract.memberCount ?? 1),
               additionalTerms: contract.additionalTerms ?? '',
               familyRepSigned: Boolean(
@@ -118,9 +252,10 @@ export function DoctorContractInitiationPanel({
 
         const desiredMembers =
           contractContext?.memberCount ??
-          (!Number.isFinite(requestedMembers) || Math.trunc(requestedMembers) < 1
+          (!Number.isFinite(desiredMembersInput) ||
+          Math.trunc(desiredMembersInput) < 1
             ? 1
-            : Math.trunc(requestedMembers));
+            : Math.trunc(desiredMembersInput));
 
         const minMembers = Math.min(
           Math.max(1, matchedPackage?.includedMembers ?? 1),
@@ -131,9 +266,18 @@ export function DoctorContractInitiationPanel({
           packageCap
         );
 
-        setDoctor(doctorDetail);
+        const activePatients = (Array.isArray(membersList) ? membersList : []).filter(
+          (m) => m.status !== 'INACTIVE'
+        );
+
+        setDoctor(effectiveDoctor);
         setSelectedPackage(matchedPackage);
         setExistingContract(contractContext);
+        setFamilyMembers(activePatients);
+        setSelectedPatientIds(
+          activePatients.slice(0, clampedMembers).map((m) => m.id)
+        );
+        setSourceMeta(nextSourceMeta);
         setMemberCount(clampedMembers);
         setAdditionalTerms(contractContext?.additionalTerms ?? '');
         setLoadError(null);
@@ -155,7 +299,15 @@ export function DoctorContractInitiationPanel({
     return () => {
       active = false;
     };
-  }, [contractId, doctorIdProp, facilityIdProp, packageIdProp, requestedMembers]);
+  }, [
+    contractId,
+    doctorIdProp,
+    facilityIdProp,
+    matchSessionId,
+    packageIdProp,
+    queueId,
+    requestedMembers,
+  ]);
 
   // Đồng bộ ngữ cảnh điều hướng để shell dựng nút Quay lại và khóa bước khi đã ACTIVE.
   const syncNavigation = bookingNavigation?.update;
@@ -251,15 +403,23 @@ export function DoctorContractInitiationPanel({
     }
 
     setSubmitError(null);
+    setIsSlotConflict(false);
     setConfirmAction(null);
     setIsSubmitting(true);
     try {
       const trimmedTerms = additionalTerms.trim();
+      const validPatientIds =
+        selectedPatientIds.length > 0 && selectedPatientIds.length === effectiveCount
+          ? selectedPatientIds
+          : undefined;
       const created = await contractsApi.initiateFourPartyContract({
         packageId: selectedPackage.id,
-        facilityId: doctor?.facility?.id || resolvedFacilityId || '',
+        ...(resolvedFacilityId ? { facilityId: resolvedFacilityId } : {}),
         doctorId: resolvedDoctorId,
         memberCount: effectiveCount,
+        ...(validPatientIds ? { patientIds: validPatientIds } : {}),
+        ...(matchSessionId ? { matchingSessionId: matchSessionId } : {}),
+        ...(queueId ? { queueRequestId: queueId } : {}),
         ...(existingContract ? { replaceContractId: existingContract.id } : {}),
         ...(trimmedTerms ? { additionalTerms: trimmedTerms } : {}),
       });
@@ -270,6 +430,13 @@ export function DoctorContractInitiationPanel({
 
       goToTracking(created.id);
     } catch (err) {
+      const conflict =
+        (err instanceof ApiError && err.status === 409) ||
+        (typeof err === 'object' &&
+          err !== null &&
+          'status' in err &&
+          (err as { status?: number }).status === 409);
+      setIsSlotConflict(Boolean(conflict));
       setSubmitError(
         err instanceof Error
           ? err.message
@@ -411,7 +578,7 @@ export function DoctorContractInitiationPanel({
         <div className="space-y-4 rounded-2xl border border-blue-200/80 bg-white p-5 shadow-xs sm:p-6">
           <div className="border-b border-slate-100 pb-4">
             <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
-              Đăng ký gói theo bác sĩ đã chọn
+              {sourceMeta.badgeText}
             </span>
             <h1 className="mt-2 text-xl font-bold text-slate-900">
               Xác Nhận Gói Chăm Sóc &amp; Ký Hợp Đồng 4 Bên Trên Documenso
@@ -426,13 +593,23 @@ export function DoctorContractInitiationPanel({
               {doctor.facility?.facilityName && (
                 <>
                   {' '}
-                  · Cơ sở:{' '}
+                  · Cơ sở y tế (tự suy ra):{' '}
                   <span className="font-semibold text-slate-900">
                     {doctor.facility.facilityName}
                   </span>
                 </>
               )}
             </p>
+            {sourceMeta.rationale && (
+              <p className="mt-2 rounded-lg bg-blue-50/70 border border-blue-200/80 px-3 py-2 text-xs text-blue-950">
+                {sourceMeta.rationale}
+                {typeof sourceMeta.compositeScore === 'number' && (
+                  <span className="ml-1.5 font-semibold tabular-nums text-[#0037c1]">
+                    (Điểm phù hợp tổng hợp: {Math.round(sourceMeta.compositeScore * 100)}%)
+                  </span>
+                )}
+              </p>
+            )}
           </div>
 
           {clampNotice && (
@@ -499,6 +676,86 @@ export function DoctorContractInitiationPanel({
               <strong className="text-slate-900">Quản lý thành viên</strong> ngay sau khi hợp
               đồng hoàn tất ký 4 bên và kích hoạt thanh toán.
             </p>
+          </div>
+
+          {/* Danh sách thành viên hộ gia đình thật (pre-select tối đa effectiveCount) */}
+          <div
+            data-testid="family-members-preview"
+            className="space-y-3 rounded-xl border border-slate-200 bg-white p-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-bold text-slate-900">
+                Thành viên hộ gia đình tham gia ({selectedPatientIds.length}/{effectiveCount} suất)
+              </p>
+              <Link
+                href="/family/members"
+                className="text-xs font-semibold text-[#0037c1] hover:underline"
+              >
+                Quản lý hồ sơ thành viên →
+              </Link>
+            </div>
+
+            {familyMembers.length === 0 ? (
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Hộ gia đình chưa có hồ sơ thành viên nào. Bạn vẫn có thể xác nhận khởi tạo hợp đồng theo số suất ({effectiveCount} người) và bổ sung hồ sơ tại{' '}
+                <Link href="/family/members" className="font-semibold text-[#0037c1] underline">
+                  /family/members
+                </Link>
+                .
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {familyMembers.map((member) => {
+                    const checked = selectedPatientIds.includes(member.id);
+                    const disabled = !checked && selectedPatientIds.length >= effectiveCount;
+                    return (
+                      <label
+                        key={member.id}
+                        className={`flex items-center gap-2.5 rounded-lg border p-2.5 text-xs cursor-pointer transition-colors ${
+                          checked
+                            ? 'border-[#0037c1] bg-blue-50/50'
+                            : 'border-slate-200 bg-slate-50/40'
+                        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          disabled={disabled}
+                          onChange={() => {
+                            setSelectedPatientIds((prev) =>
+                              prev.includes(member.id)
+                                ? prev.filter((id) => id !== member.id)
+                                : prev.length < effectiveCount
+                                  ? [...prev, member.id]
+                                  : prev
+                            );
+                          }}
+                          className="h-4 w-4 accent-[#0037c1]"
+                        />
+                        <div className="min-w-0">
+                          <div className="font-semibold text-slate-900 truncate">
+                            {member.fullName}
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            {member.relationshipToHead}
+                          </div>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+                {familyMembers.length < effectiveCount && (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                    Hộ gia đình hiện có {familyMembers.length} hồ sơ, ít hơn {effectiveCount} suất đã chọn. Bạn có thể bổ sung thêm tại{' '}
+                    <Link href="/family/members" className="font-bold underline">
+                      /family/members
+                    </Link>{' '}
+                    hoặc điều chỉnh lại số suất thành viên ở trên.
+                  </p>
+                )}
+              </>
+            )}
           </div>
 
           {/* Quyền lợi gói */}
@@ -659,9 +916,26 @@ export function DoctorContractInitiationPanel({
           {submitError && (
             <div
               role="alert"
-              className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-800"
+              data-testid={isSlotConflict ? 'slot-conflict-alert' : 'submit-error-alert'}
+              className="rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-sm text-rose-800 space-y-2"
             >
-              {submitError}
+              <p>{submitError}</p>
+              {isSlotConflict && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Link
+                    href={`/doctors?packageId=${encodeURIComponent(selectedPackage.id)}&members=${effectiveCount}`}
+                    className="inline-flex items-center px-2.5 py-1 rounded-md bg-white border border-rose-300 text-xs font-semibold text-rose-800 hover:bg-rose-100"
+                  >
+                    Chọn bác sĩ trẻ còn slot (Track A)
+                  </Link>
+                  <Link
+                    href={`/doctors/matching?packageId=${encodeURIComponent(selectedPackage.id)}&members=${effectiveCount}`}
+                    className="inline-flex items-center px-2.5 py-1 rounded-md bg-[#0037c1] text-xs font-semibold text-white hover:bg-[#002c9a]"
+                  >
+                    Ghép bác sĩ tự động (Track B)
+                  </Link>
+                </div>
+              )}
             </div>
           )}
 

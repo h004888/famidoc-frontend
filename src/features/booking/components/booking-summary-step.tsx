@@ -7,26 +7,36 @@ export interface BookingSummaryStepProps {
   packageId?: string;
   doctorId?: string;
   facilityId?: string;
+  matchSessionId?: string;
+  queueId?: string;
   /** Mã hợp đồng đang có để tái dựng ngữ cảnh Bước 1 (khi quay lại từ Bước 2/3). */
   contractId?: string;
   requestedMembers?: number;
+  trackingPath?: string;
 }
 
 /**
- * Bước 1 của luồng `/booking`: xác nhận bác sĩ, gói chăm sóc và khởi tạo hợp đồng 4 bên.
- * Thiếu tham số bắt buộc thì không hiển thị dữ liệu mẫu mà hướng dẫn quay về `/doctors`.
- * Khi có `contractId`, panel tự tải chi tiết hợp đồng để dựng lại ngữ cảnh.
+ * Bước 1 của luồng `/booking` và `/family/subscription/new`:
+ * Hỗ trợ ngữ cảnh Track A (`packageId + doctorId`), Track B (`matchSessionId`),
+ * Hàng chờ Admin (`queueId`), hoặc `contractId` hiện có.
  */
 export function BookingSummaryStep({
   packageId,
   doctorId,
   facilityId,
+  matchSessionId,
+  queueId,
   contractId,
   requestedMembers,
+  trackingPath = '/booking/tracking',
 }: BookingSummaryStepProps) {
-  const hasBookingContext = Boolean(packageId && doctorId && facilityId);
+  const hasTrackAContext = Boolean(packageId && doctorId);
+  const hasTrackBContext = Boolean(matchSessionId);
+  const hasQueueContext = Boolean(queueId);
+  const hasBookingContext =
+    hasTrackAContext || hasTrackBContext || hasQueueContext || Boolean(contractId);
 
-  if (!hasBookingContext && !contractId) {
+  if (!hasBookingContext) {
     return (
       <section
         data-testid="booking-missing-context"
@@ -40,17 +50,25 @@ export function BookingSummaryStep({
             Chưa chọn bác sĩ và gói chăm sóc
           </h1>
           <p className="mx-auto max-w-md text-xs sm:text-sm text-slate-600 leading-relaxed">
-            Đường dẫn đặt gói cần có đủ thông tin bác sĩ, cơ sở y tế và gói chăm sóc. Vui lòng chọn
-            bác sĩ gia đình và gói phù hợp để bắt đầu.
+            Đường dẫn đặt gói cần có gói dịch vụ và bác sĩ (Track A), phiên gợi ý bác sĩ (Track B), hoặc yêu cầu hàng chờ đã được gán bác sĩ.
           </p>
         </div>
-        <Link
-          href="/doctors"
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs sm:text-sm font-semibold text-white transition-colors hover:bg-primary/90"
-        >
-          <span className="material-symbols-outlined text-[18px]">search</span>
-          <span>Chọn bác sĩ &amp; gói chăm sóc</span>
-        </Link>
+        <div className="flex flex-wrap items-center justify-center gap-2.5">
+          <Link
+            href="/doctors"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-xs sm:text-sm font-semibold text-white transition-colors hover:bg-primary/90"
+          >
+            <span className="material-symbols-outlined text-[18px]">search</span>
+            <span>Chọn bác sĩ &amp; gói chăm sóc</span>
+          </Link>
+          <Link
+            href="/doctors/matching"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-blue-50 px-4 py-2.5 text-xs sm:text-sm font-semibold text-primary transition-colors hover:bg-blue-100"
+          >
+            <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+            <span>Hệ thống gợi ý bác sĩ (Track B)</span>
+          </Link>
+        </div>
       </section>
     );
   }
@@ -60,11 +78,13 @@ export function BookingSummaryStep({
       packageId={packageId}
       doctorId={doctorId}
       facilityId={facilityId}
+      matchSessionId={matchSessionId}
+      queueId={queueId}
       contractId={contractId}
       requestedMembers={
         typeof requestedMembers === 'number' ? requestedMembers : 1
       }
-      trackingPath="/booking/tracking"
+      trackingPath={trackingPath}
     />
   );
 }

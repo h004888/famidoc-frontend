@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
+import { getCurrentBrowserHost, getSubdomainPortal } from '@/lib/portal-routing';
+import { DashboardTopbarUser } from './dashboard-topbar-user';
 import {
   isRestrictedFacilityPath,
   useFacilityVerificationGateState,
@@ -76,6 +78,12 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         label: 'Thẩm định Bác sĩ CCHN',
         shortLabel: 'Bác sĩ',
         icon: 'stethoscope',
+      },
+      {
+        href: '/admin/matching-config',
+        label: 'Cấu hình AI Matching',
+        shortLabel: 'AI Match',
+        icon: 'tune',
       },
       { href: '/admin/packages', label: 'Quản trị Gói dịch vụ', shortLabel: 'Gói DV', icon: 'inventory_2' },
       { href: '/admin/contracts', label: 'Hợp đồng & Pháp lý', shortLabel: 'Hợp đồng', icon: 'handshake' },
@@ -237,7 +245,7 @@ export const getRoleFromPathname = (path: string): LoginRole | null => {
 
 function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const pathname = usePathname() || '/family';
-  const { role, user } = useAuth();
+  const { role, isAuthenticated, logout } = useAuth();
   const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
   const { isFacilityLocked } = useFacilityVerificationGateState();
   const sidebar = useOptionalSidebar();
@@ -259,8 +267,12 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   }, [sidebar]);
 
   const pathRole = getRoleFromPathname(pathname);
-  const effectiveRole: LoginRole = pathRole || initialRole || (mounted ? role : 'FAMILY');
+  const hostPortalRole = mounted ? getSubdomainPortal(getCurrentBrowserHost()) : null;
+  const effectiveRole: LoginRole =
+    pathRole || hostPortalRole || initialRole || (isAuthenticated ? role : mounted ? role : 'FAMILY');
   const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
+  const isFamilyAccount = effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT';
+  const settingsLabel = isFamilyAccount ? 'Cài đặt & Hồ sơ BHYT' : 'Cài đặt tài khoản';
 
   const isFacilityRestricted = (href: string) =>
     effectiveRole === 'FACILITY' && isFacilityLocked && isRestrictedFacilityPath(href);
@@ -269,8 +281,6 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
     effectiveRole === 'FACILITY' && isFacilityLocked
       ? '/facility/legal-profile'
       : getDefaultPathForRole(effectiveRole);
-
-  const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
 
   const mobileMenuOpen = sidebar ? sidebar.openMobile : localMobileOpen;
   const setMobileMenuOpen = sidebar ? sidebar.setOpenMobile : setLocalMobileOpen;
@@ -503,8 +513,8 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
               <Link
                 href="/settings"
                 onClick={() => setMobileMenuOpen(false)}
-                title={isCollapsedState ? 'Cài đặt & Hồ sơ BHYT' : undefined}
-                aria-label="Cài đặt & Hồ sơ BHYT"
+                title={isCollapsedState ? settingsLabel : undefined}
+                aria-label={settingsLabel}
                 className={cn(
                   'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
                   pathname === '/settings'
@@ -521,17 +531,47 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                 >
                   settings
                 </span>
-                {!isCollapsedState && <span>Cài đặt &amp; Hồ sơ BHYT</span>}
+                {!isCollapsedState && <span>{settingsLabel}</span>}
               </Link>
             );
 
             return isCollapsedState ? (
               <Tooltip>
                 <TooltipTrigger asChild>{settingsEl}</TooltipTrigger>
-                <TooltipContent side="right">Cài đặt &amp; Hồ sơ BHYT</TooltipContent>
+                <TooltipContent side="right">{settingsLabel}</TooltipContent>
               </Tooltip>
             ) : (
               settingsEl
+            );
+          })()}
+
+          {(() => {
+            const logoutEl = (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+                title={isCollapsedState ? 'Đăng xuất' : undefined}
+                aria-label="Đăng xuất"
+                className={cn(
+                  'group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 outline-hidden sm:text-sm',
+                  isCollapsedState && 'justify-center px-2'
+                )}
+              >
+                <span className="material-symbols-outlined shrink-0 text-[20px]">logout</span>
+                {!isCollapsedState && <span>Đăng xuất</span>}
+              </button>
+            );
+
+            return isCollapsedState ? (
+              <Tooltip>
+                <TooltipTrigger asChild>{logoutEl}</TooltipTrigger>
+                <TooltipContent side="right">Đăng xuất</TooltipContent>
+              </Tooltip>
+            ) : (
+              logoutEl
             );
           })()}
         </div>
@@ -588,14 +628,7 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
             <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
           </Link>
 
-          <Link
-            href="/settings"
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground outline-hidden"
-            aria-label="Hồ sơ tài khoản & Cài đặt"
-            suppressHydrationWarning
-          >
-            <span suppressHydrationWarning>{avatarText}</span>
-          </Link>
+          <DashboardTopbarUser compact />
         </div>
       </div>
 

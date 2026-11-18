@@ -1,23 +1,68 @@
 import type { Metadata } from 'next';
 import { Suspense } from 'react';
-import FamilyContractOnboardingView from '@/features/subscription-contract/components/family-contract-onboarding-view';
+import { BookingSummaryStep } from '@/features/booking';
 
 export const metadata: Metadata = {
-  title: 'Đăng Ký Bác Sĩ Gia Đình & Ký Hợp Đồng Y Tế 4 Bên | FamiDoc Pro',
+  title: 'Xác Nhận Gói & Khởi Tạo Hợp Đồng 4 Bên | FamiDoc Pro',
   description:
-    'Quy trình chọn Bác sĩ gia đình uy tín, chọn gói chăm sóc sức khỏe và ký kết hợp đồng y tế điện tử 4 bên theo chuẩn Bộ Y Tế.',
+    'Xác nhận 1 bác sĩ gia đình, cơ sở y tế phụ trách và thành viên trước khi khởi tạo hợp đồng y tế điện tử 4 bên.',
 };
 
-export default function FamilySubscriptionNewPage() {
+type SearchParams = Promise<{
+  [key: string]: string | string[] | undefined;
+}>;
+
+function readParam(
+  params: { [key: string]: string | string[] | undefined },
+  key: string
+): string | undefined {
+  const raw = params[key];
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : undefined;
+}
+
+async function FamilySubscriptionNewLoader({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const rawMembers = readParam(params, 'members');
+  const parsedMembers = rawMembers !== undefined ? Number(rawMembers) : undefined;
+
+  return (
+    <main className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 lg:px-8">
+      <BookingSummaryStep
+        packageId={readParam(params, 'packageId')}
+        doctorId={readParam(params, 'doctorId')}
+        facilityId={readParam(params, 'facilityId')}
+        matchSessionId={readParam(params, 'matchSessionId')}
+        queueId={readParam(params, 'queueId')}
+        contractId={readParam(params, 'contractId')}
+        requestedMembers={
+          parsedMembers !== undefined && Number.isFinite(parsedMembers)
+            ? Math.trunc(parsedMembers)
+            : undefined
+        }
+        trackingPath="/family/subscription/tracking"
+      />
+    </main>
+  );
+}
+
+export default function FamilySubscriptionNewPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center p-8 text-slate-500 font-sans">
-          Đang khởi tạo quy trình chọn Bác sĩ &amp; Gói chăm sóc...
+        <div className="min-h-screen flex items-center justify-center p-8 text-slate-500 font-sans text-xs">
+          Đang tải thông tin xác nhận gói chăm sóc...
         </div>
       }
     >
-      <FamilyContractOnboardingView />
+      <FamilySubscriptionNewLoader searchParams={searchParams} />
     </Suspense>
   );
 }

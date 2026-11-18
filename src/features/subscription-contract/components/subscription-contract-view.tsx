@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ContractSigningWizard } from './contract-signing-wizard';
 import { DoctorContractInitiationPanel } from './doctor-contract-initiation-panel';
+import { FamilyMatchingQueuePanel } from './family-matching-queue-panel';
 import {
   useContractWorkflow,
   updateContractStep,
@@ -129,8 +130,10 @@ export function SubscriptionContractView() {
   const requestedMembersValue = Number.isFinite(parsedMembersParam)
     ? Math.trunc(parsedMembersParam)
     : 0;
+  const matchSessionParam = searchParams?.get('matchSessionId');
+  const queueParam = searchParams?.get('queueId');
   const hasDoctorBookingContext = Boolean(
-    packageParam && doctorParam && facilityParam
+    (packageParam && doctorParam) || matchSessionParam || queueParam
   );
   const activePackageInfo =
     !hasDoctorBookingContext && packageParam
@@ -148,14 +151,16 @@ export function SubscriptionContractView() {
     }
   }, [activePackageInfo]);
 
-  if (hasDoctorBookingContext && packageParam && doctorParam && facilityParam) {
+  if (hasDoctorBookingContext) {
     return (
       <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
         <main className="w-full max-w-4xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8">
           <DoctorContractInitiationPanel
-            packageId={packageParam}
-            doctorId={doctorParam}
-            facilityId={facilityParam}
+            packageId={packageParam ?? undefined}
+            doctorId={doctorParam ?? undefined}
+            facilityId={facilityParam ?? undefined}
+            matchSessionId={matchSessionParam ?? undefined}
+            queueId={queueParam ?? undefined}
             requestedMembers={requestedMembersValue}
           />
         </main>
@@ -349,6 +354,7 @@ export function SubscriptionContractView() {
         </header>
 
         {/* 1.5. BANNER ĐIỀU HƯỚNG THEO TRẠNG THÁI LUỒNG TUẦN TỰ 4 BÊN (FLOW 2.2) */}
+        <FamilyMatchingQueuePanel />
         {workflow?.step === 'PENDING_PAYMENT' && (
           <div className="p-5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xs">
             <div className="flex items-center gap-3">

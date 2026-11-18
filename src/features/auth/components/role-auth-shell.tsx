@@ -1,11 +1,15 @@
 'use client';
 
-import React from 'react';
-import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
 import { Building2, ShieldCheck, Stethoscope } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import {
+  getCurrentBrowserHost,
+  getCurrentBrowserProto,
+  getPortalOrigin,
+} from '@/lib/portal-routing';
 
 export type AuthTargetRole = 'ADMIN' | 'FACILITY' | 'DOCTOR';
 
@@ -79,6 +83,14 @@ interface RoleAuthShellProps {
 export function RoleAuthShell({ role, mode = 'login', children }: RoleAuthShellProps) {
   const config = ROLE_AUTH_CONFIGS[role];
   const heading = mode === 'register' ? config.registerTitle : config.loginTitle;
+  const [mainHomeHref, setMainHomeHref] = useState('/');
+
+  useEffect(() => {
+    const host = getCurrentBrowserHost();
+    if (host) {
+      setMainHomeHref(`${getPortalOrigin('FAMILY', host, getCurrentBrowserProto())}/`);
+    }
+  }, []);
 
   return (
     <div
@@ -116,8 +128,8 @@ export function RoleAuthShell({ role, mode = 'login', children }: RoleAuthShellP
           <CardContent className="space-y-6 p-7 sm:p-10">
             {/* Brand Logo căn giữa ở đầu bảng */}
             <div className="flex items-center justify-center">
-              <Link
-                href="/"
+              <a
+                href={mainHomeHref}
                 className="inline-flex items-center rounded-lg outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <img
@@ -125,7 +137,7 @@ export function RoleAuthShell({ role, mode = 'login', children }: RoleAuthShellP
                   alt="FamiDoc Logo"
                   className="h-10 sm:h-12 w-auto object-contain transition-transform hover:scale-[1.03]"
                 />
-              </Link>
+              </a>
             </div>
 
             {/* Role Badge & Heading */}

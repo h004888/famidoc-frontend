@@ -4,15 +4,20 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { loginSchema, LoginRole } from '../schemas/auth.schema';
-import { getDefaultPathForRole, useAuth } from '../context/auth-context';
-import { saveAuthSession, AuthUser } from '@/lib/auth-storage';
-import { httpClient } from '@/lib/api/http-client';
+import { useAuth } from '../context/auth-context';
+import { AuthUser } from '@/lib/auth-storage';
 import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
 import { useRouter } from 'next/navigation';
 import { resolveReturnUrl } from '../return-url';
+import {
+  getCurrentBrowserHost,
+  getCurrentBrowserProto,
+  getLoginUrlForRole,
+  getPortalDisplayLabel,
+  isFamilyPortalRole,
+} from '@/lib/portal-routing';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,11 +33,16 @@ export function LoginForm() {
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [wrongPortalTarget, setWrongPortalTarget] = useState<{
+    label: string;
+    href: string;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setWrongPortalTarget(null);
 
     const validation = loginSchema.safeParse({ email, password, rememberMe });
     if (!validation.success) {
@@ -58,6 +68,22 @@ export function LoginForm() {
 
       const rawRole = (data.user?.role || data.role || 'FAMILY').toUpperCase();
       const role: LoginRole = (mapBackendRoleToFrontendRole(rawRole) as LoginRole) || 'FAMILY';
+
+      if (!isFamilyPortalRole(role)) {
+        const portalHref = getLoginUrlForRole(
+          role,
+          getCurrentBrowserHost(),
+          getCurrentBrowserProto(),
+        );
+        const portalLabel = getPortalDisplayLabel(role);
+        setLoading(false);
+        setWrongPortalTarget({ label: portalLabel, href: portalHref });
+        setErrors({
+          global: `Tài khoản của bạn thuộc ${portalLabel}. Trang đăng nhập này chỉ dành riêng cho Khách hàng Gia đình.`,
+        });
+        return;
+      }
+
       const authUser: AuthUser = {
         id: data.user?.id || 'usr-1',
         name: data.user?.fullName || email,
@@ -70,11 +96,11 @@ export function LoginForm() {
       applySession(role, authUser, data.accessToken, validData.rememberMe);
       setLoading(false);
 
-      const isFamilyRole = role === 'FAMILY' || role === 'PATIENT';
       // Quay lại đúng trang người dùng định vào; chỉ nhận đường dẫn nội bộ hợp lệ.
-      const returnUrl = resolveReturnUrl(searchParams.get('redirect'));
-      const redirectPath =
-        returnUrl ?? (isFamilyRole ? '/' : getDefaultPathForRole(role));
+      const returnUrl = resolveReturnUrl(
+        searchParams.get('returnUrl') ?? searchParams.get('redirect')
+      );
+      const redirectPath = returnUrl ?? '/';
       router.replace(redirectPath);
     } catch (err: unknown) {
       setLoading(false);
@@ -274,11 +300,22 @@ export function LoginForm() {
             <form onSubmit={handleSubmit} className="space-y-4" data-purpose="login-form">
               {errors.global && (
                 <Alert variant="destructive" className="rounded-2xl border-red-200 bg-red-50 text-red-700">
-                  <AlertDescription className="flex items-center gap-2.5 text-xs font-semibold text-red-700">
-                    <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-xs shrink-0 font-bold">
-                      !
-                    </span>
-                    <span>{errors.global}</span>
+                  <AlertDescription className="flex flex-col gap-2 text-xs font-semibold text-red-700">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-red-600 text-white flex items-center justify-center text-xs shrink-0 font-bold">
+                        !
+                      </span>
+                      <span>{errors.global}</span>
+                    </div>
+                    {wrongPortalTarget && (
+                      <a
+                        href={wrongPortalTarget.href}
+                        className="inline-flex w-fit items-center gap-1 rounded-lg border border-red-300 bg-white px-3 py-1.5 text-xs font-bold text-red-700 hover:bg-red-100/60 transition-colors"
+                      >
+                        <span>Chuyển tới {wrongPortalTarget.label}</span>
+                        <span aria-hidden="true">→</span>
+                      </a>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
