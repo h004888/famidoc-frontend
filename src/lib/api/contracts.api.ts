@@ -188,6 +188,27 @@ export interface DocumensoSyncResultDto {
   signedPdfUrl: string | null;
 }
 
+export interface PaymentActivationStateDto {
+  activated: boolean;
+  blockingReasons: string[];
+}
+
+export interface PaymentLatestTransactionDto {
+  id: string;
+  outcome: 'MATCHED' | 'REVIEW_REQUIRED' | 'IGNORED';
+  reason: string | null;
+  referenceCode: string | null;
+  amountVnd?: number;
+  receivedAt: string;
+}
+
+export interface PaymentRecheckActivationResultDto {
+  contractId?: string;
+  status?: 'PENDING' | 'ACTIVE' | 'CANCELLED';
+  activated: boolean;
+  blockingReasons: string[];
+}
+
 export interface VietQRPaymentRequestDto {
   id: string;
   contractId: string;
@@ -207,6 +228,8 @@ export interface VietQRPaymentRequestDto {
   expiresAt: string;
   paidAt: string | null;
   acceptedTransactionId: string | null;
+  activation?: PaymentActivationStateDto | null;
+  latestTransaction?: PaymentLatestTransactionDto | null;
 }
 
 export interface FamilyGateDoctorSummaryDto {
@@ -746,6 +769,15 @@ export const contractsApi = {
   getPaymentStatus: async (paymentId: string): Promise<VietQRPaymentRequestDto> => {
     const response = await httpClient.get<unknown>(`/api/v1/payments/requests/${paymentId}`);
     return unwrapEnvelope<VietQRPaymentRequestDto>(response);
+  },
+
+  recheckPaymentActivation: async (
+    paymentId: string
+  ): Promise<PaymentRecheckActivationResultDto> => {
+    const response = await httpClient.post<unknown>(
+      `/api/v1/payments/requests/${paymentId}/recheck-activation`
+    );
+    return unwrapEnvelope<PaymentRecheckActivationResultDto>(response);
   },
 
   /**
