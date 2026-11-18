@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
 import { NextRequest } from 'next/server';
-import { proxy } from '../proxy';
+import { config, proxy } from '../proxy';
+import { COOKIE_KEYS } from '@/lib/auth-storage';
 
 function makeRequest(
   url: string,
@@ -49,21 +50,53 @@ describe('proxy - giữ URL đích khi chuyển sang đăng nhập', () => {
     expect(loginRedirectTarget(response)).toBe('/family/members');
   });
 
-  it('áp dụng cho phân hệ bác sĩ, cơ sở y tế và admin trên localhost sang cổng login riêng', () => {
-    const doctorRes = proxy(makeRequest('/doctor/contracts/abc/review'));
+  it('áp dụng cho phân hệ bác sĩ, cơ sở y tế và admin trên IP thuần (127.0.0.1:3000) sang cổng login nội bộ', () => {
+    const doctorRes = proxy(
+      makeRequest('/doctor/contracts/abc/review', {}, { host: '127.0.0.1:3000', proto: 'http' }),
+    );
     expect(doctorRes.status).toBe(307);
     expect(new URL(doctorRes.headers.get('location')!).pathname).toBe('/doctor/login');
     expect(loginRedirectTarget(doctorRes)).toBe('/doctor/contracts/abc/review');
 
-    const facilityRes = proxy(makeRequest('/facility/coordination?tab=inbox'));
+    const facilityRes = proxy(
+      makeRequest('/facility/coordination?tab=inbox', {}, { host: '127.0.0.1:3000', proto: 'http' }),
+    );
     expect(facilityRes.status).toBe(307);
     expect(new URL(facilityRes.headers.get('location')!).pathname).toBe('/facility/login');
     expect(loginRedirectTarget(facilityRes)).toBe('/facility/coordination?tab=inbox');
 
-    const adminRes = proxy(makeRequest('/admin/users'));
+    const adminRes = proxy(
+      makeRequest('/admin/users', {}, { host: '127.0.0.1:3000', proto: 'http' }),
+    );
     expect(adminRes.status).toBe(307);
     expect(new URL(adminRes.headers.get('location')!).pathname).toBe('/admin/login');
     expect(loginRedirectTarget(adminRes)).toBe('/admin/users');
+  });
+
+  it('chuyển hướng /admin*, /facility*, /doctor* trên localhost:3000 sang subdomain *.localhost:3000', () => {
+    const adminLoginRes = proxy(makeRequest('/admin/login'));
+    expect(adminLoginRes.status).toBe(307);
+    expect(adminLoginRes.headers.get('location')).toBe('http://admin.localhost:3000/login');
+
+    const adminUsersRes = proxy(makeRequest('/admin/users?page=2'));
+    expect(adminUsersRes.status).toBe(307);
+    expect(adminUsersRes.headers.get('location')).toBe(
+      'http://admin.localhost:3000/admin/users?page=2',
+    );
+
+    const facilityRes = proxy(makeRequest('/facility/coordination?tab=inbox'));
+    expect(facilityRes.status).toBe(307);
+    expect(facilityRes.headers.get('location')).toBe(
+      'http://csyt.localhost:3000/facility/coordination?tab=inbox',
+    );
+
+    const doctorRes = proxy(makeRequest('/doctor/contracts'));
+    expect(doctorRes.status).toBe(307);
+    expect(doctorRes.headers.get('location')).toBe('http://bacsi.localhost:3000/doctor/contracts');
+
+    const doctorRegRes = proxy(makeRequest('/doctor/register'));
+    expect(doctorRegRes.status).toBe(307);
+    expect(doctorRegRes.headers.get('location')).toBe('http://bacsi.localhost:3000/register');
   });
 
   it('giữ nguyên ngữ cảnh đặt gói khi chưa đăng nhập mở /booking', () => {
@@ -117,19 +150,47 @@ describe('proxy - bảo vệ luồng /booking theo vai trò hộ gia đình', ()
     ['DOCTOR', '/doctor'],
     ['FACILITY', '/facility'],
     ['ADMIN', '/admin'],
-  ])('đẩy vai trò %s về trang mặc định khi vào /booking', (role, homePath) => {
+  ])('đẩy vai trò %s về trang mặc định khi vào /booking trên IP thuần (127.0.0.1:3000)', (role, homePath) => {
     const response = proxy(
-      makeRequest('/booking/tracking?contractId=ctr-1', {
-        famidoc_token: 'jwt',
-        famidoc_role: role,
-      }),
+      makeRequest(
+        '/booking/tracking?contractId=ctr-1',
+        {
+          famidoc_token: 'jwt',
+          famidoc_role: role,
+        },
+        { host: '127.0.0.1:3000', proto: 'http' },
+      ),
     );
 
     expect(response.status).toBe(307);
     expect(
-      new URL(response.headers.get('location')!, 'http://localhost:3000').pathname,
+      new URL(response.headers.get('location')!, 'http://127.0.0.1:3000').pathname,
     ).toBe(homePath);
   });
+
+  it.each(['DOCTOR', 'FACILITY', 'ADMIN'])(
+    'vô hiệu hóa phiên %s và xóa cookie khi vào /booking trên localhost:3000 hoặc famidoc.online',
+    (role) => {
+      const response = proxy(
+        makeRequest(
+          '/booking/tracking?contractId=ctr-1',
+          {
+            famidoc_token: 'jwt',
+            famidoc_role: role,
+            famidoc_user: encodeURIComponent(JSON.stringify({ id: '1', name: 'Staff' })),
+          },
+          { host: 'localhost:3000', proto: 'http' },
+        ),
+      );
+
+      expect(response.status).toBe(307);
+      expect(new URL(response.headers.get('location')!).pathname).toBe('/login');
+      const setCookie = response.headers.get('set-cookie') || '';
+      expect(setCookie).toContain(`${COOKIE_KEYS.ROLE}=`);
+      expect(setCookie).toContain(`${COOKIE_KEYS.TOKEN}=`);
+      expect(setCookie).toContain(`${COOKIE_KEYS.USER}=`);
+    },
+  );
 });
 
 describe('proxy - định tuyến và cô lập 3 subdomain', () => {
@@ -264,15 +325,109 @@ describe('proxy - không đổi hành vi cũ', () => {
     expect(response.headers.get('location')).toBeNull();
   });
 
-  it('vẫn đẩy về trang mặc định của vai trò khi sai phân hệ', () => {
+  it('vẫn đẩy về trang mặc định của vai trò khi sai phân hệ trên IP thuần 127.0.0.1:3000', () => {
     const response = proxy(
-      makeRequest('/doctor/contracts', {
-        famidoc_token: 'jwt',
-        famidoc_role: 'FAMILY',
-      }),
+      makeRequest(
+        '/doctor/contracts',
+        {
+          famidoc_token: 'jwt',
+          famidoc_role: 'FAMILY',
+        },
+        { host: '127.0.0.1:3000', proto: 'http' },
+      ),
     );
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toContain('/family');
+  });
+});
+
+describe('proxy - dọn cookie sai cổng trên trang khách hàng và matcher công khai', () => {
+  it.each(['ADMIN', 'FACILITY', 'DOCTOR'])(
+    'xóa cookie %s khi truy cập trang chủ famidoc.online/',
+    (role) => {
+      const response = proxy(
+        makeRequest(
+          '/',
+          {
+            [COOKIE_KEYS.ROLE]: role,
+            [COOKIE_KEYS.TOKEN]: 'stale-jwt',
+            [COOKIE_KEYS.USER]: encodeURIComponent(JSON.stringify({ id: 'u1', name: 'Staff' })),
+          },
+          { host: 'famidoc.online', proto: 'https' },
+        ),
+      );
+
+      expect(response.status).toBe(200);
+      const setCookie = response.headers.get('set-cookie') || '';
+      expect(setCookie).toContain(`${COOKIE_KEYS.ROLE}=;`);
+      expect(setCookie).toContain(`${COOKIE_KEYS.TOKEN}=;`);
+      expect(setCookie).toContain(`${COOKIE_KEYS.USER}=;`);
+    },
+  );
+
+  it.each(['ADMIN', 'FACILITY', 'DOCTOR'])(
+    'xóa cookie %s khi truy cập localhost:3000/packages',
+    (role) => {
+      const response = proxy(
+        makeRequest(
+          '/packages',
+          {
+            [COOKIE_KEYS.ROLE]: role,
+            [COOKIE_KEYS.TOKEN]: 'stale-jwt',
+          },
+          { host: 'localhost:3000', proto: 'http' },
+        ),
+      );
+
+      expect(response.status).toBe(200);
+      const setCookie = response.headers.get('set-cookie') || '';
+      expect(setCookie).toContain(`${COOKIE_KEYS.ROLE}=;`);
+      expect(setCookie).toContain(`${COOKIE_KEYS.TOKEN}=;`);
+      expect(setCookie).toContain(`${COOKIE_KEYS.USER}=;`);
+    },
+  );
+
+  it('không xóa cookie FAMILY trên trang công khai và không xóa cookie ADMIN trên 127.0.0.1:3000/', () => {
+    const familyRes = proxy(
+      makeRequest(
+        '/packages',
+        {
+          [COOKIE_KEYS.ROLE]: 'FAMILY',
+          [COOKIE_KEYS.TOKEN]: 'family-jwt',
+        },
+        { host: 'famidoc.online', proto: 'https' },
+      ),
+    );
+    expect(familyRes.status).toBe(200);
+    expect(familyRes.headers.get('set-cookie')).toBeNull();
+
+    const ipAdminRes = proxy(
+      makeRequest(
+        '/',
+        {
+          [COOKIE_KEYS.ROLE]: 'ADMIN',
+          [COOKIE_KEYS.TOKEN]: 'admin-jwt',
+        },
+        { host: '127.0.0.1:3000', proto: 'http' },
+      ),
+    );
+    expect(ipAdminRes.status).toBe(200);
+    expect(ipAdminRes.headers.get('set-cookie')).toBeNull();
+  });
+
+  it('phủ các tuyến công khai khách hàng trong config.matcher', () => {
+    expect(config.matcher).toEqual(
+      expect.arrayContaining([
+        '/packages',
+        '/doctors',
+        '/facilities',
+        '/onboarding',
+        '/contact',
+        '/blog',
+        '/privacy',
+        '/terms',
+      ]),
+    );
   });
 });

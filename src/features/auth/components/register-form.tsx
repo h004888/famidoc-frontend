@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { registerFamilySchema } from '../schemas/auth.schema';
 import { resolveReturnUrl } from '../return-url';
 import { useAuth } from '../context/auth-context';
+import { isFamilyPortalRole } from '@/lib/portal-routing';
 import { authApi, mapRegistrationErrorToFields } from '@/lib/api/auth.api';
 import { ApiError } from '@/lib/http/errors';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,32 +22,20 @@ export function RegisterForm() {
   const searchParams = useSearchParams();
   const preselectedPackage = searchParams.get('packageId');
   const redirectTarget = resolveReturnUrl(searchParams.get('redirect'));
-  const { isAuthenticated, isLoading, role, getDefaultPathForRole } = useAuth();
+  const { isAuthenticated, isLoading, role } = useAuth();
 
-  // Khi đã đăng nhập, tự động chuyển thẳng sang phân hệ phù hợp thay vì đăng ký lại.
-  // Tài khoản hộ gia đình chưa kích hoạt gói không bị đưa vào `/family/subscription*`
-  // mà quay về `/doctors` (kèm packageId nếu có) để chọn bác sĩ và bắt đầu luồng `/booking`.
+  // Khi đã đăng nhập bằng tài khoản khách hàng (FAMILY/FAMILY_REP/PATIENT),
+  // tự động chuyển thẳng sang luồng chọn bác sĩ / URL đích thay vì đăng ký lại.
+  // Tài khoản ADMIN/FACILITY/DOCTOR vẫn thấy biểu mẫu đăng ký khách hàng bình thường.
   useEffect(() => {
-    if (!isLoading && isAuthenticated) {
-      if (role === 'FAMILY' || role === 'PATIENT') {
-        if (redirectTarget) {
-          router.replace(redirectTarget);
-          return;
-        }
-        router.replace('/doctors');
-      } else {
-        router.replace(getDefaultPathForRole(role));
+    if (!isLoading && isAuthenticated && isFamilyPortalRole(role)) {
+      if (redirectTarget) {
+        router.replace(redirectTarget);
+        return;
       }
+      router.replace('/doctors');
     }
-  }, [
-    isAuthenticated,
-    isLoading,
-    role,
-    preselectedPackage,
-    redirectTarget,
-    router,
-    getDefaultPathForRole,
-  ]);
+  }, [isAuthenticated, isLoading, role, redirectTarget, router]);
 
   const [formData, setFormData] = useState({
     fullName: '',
