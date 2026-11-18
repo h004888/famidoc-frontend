@@ -51,7 +51,9 @@ export function AdminReconciliationView() {
   const [ledger, setLedger] = useState<PaymentTransactionsPage | null>(null);
   const [page, setPage] = useState(1);
   const [outcome, setOutcome] = useState<PaymentTransactionItem['outcome'] | ''>('');
+  const [transferType, setTransferType] = useState<'in' | 'out' | ''>('');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [refresh, setRefresh] = useState(0);
   const [ledgerError, setLedgerError] = useState('');
   const [environment, setEnvironment] = useState<'LIVE' | 'TEST'>('LIVE');
@@ -72,14 +74,28 @@ export function AdminReconciliationView() {
   }
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      setPage(1);
+      setDebouncedSearch(search.trim());
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
     let active = true;
-    void paymentsApi.listTransactions({ page, limit: pageSize, outcome: outcome || undefined })
+    void paymentsApi.listTransactions({
+      page,
+      limit: pageSize,
+      outcome: outcome || undefined,
+      transferType: transferType || undefined,
+      search: debouncedSearch || undefined,
+    })
       .then((data) => { if (active) setLedger(data); })
       .catch((error: unknown) => {
         if (active) setLedgerError(errorMessage(error, 'Không tải được giao dịch SePay.'));
       });
     return () => { active = false; };
-  }, [page, outcome, refresh]);
+  }, [page, outcome, transferType, debouncedSearch, refresh]);
 
   useEffect(() => {
     let active = true;
@@ -156,11 +172,56 @@ export function AdminReconciliationView() {
         <Button variant="outline" onClick={reload}>Làm mới</Button>
       </header>
 
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card className="p-4">
+          <p className="text-xs font-medium text-slate-500">Tổng tiền vào</p>
+          <p className="mt-1 text-lg font-semibold text-emerald-700">
+            {vnd.format(
+              ledger?.summary?.totalInVnd ??
+                transactions
+                  .filter((t) => (t.transferType ?? 'in') === 'in')
+                  .reduce((s, t) => s + t.amountVnd, 0),
+            )}
+          </p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-medium text-slate-500">Tổng tiền ra</p>
+          <p className="mt-1 text-lg font-semibold text-slate-700">
+            {vnd.format(
+              ledger?.summary?.totalOutVnd ??
+                transactions
+                  .filter((t) => t.transferType === 'out')
+                  .reduce((s, t) => s + t.amountVnd, 0),
+            )}
+          </p>
+        </Card>
+        <Card className="p-4">
+          <p className="text-xs font-medium text-slate-500">Giao dịch cần kiểm tra</p>
+          <p className="mt-1 text-lg font-semibold text-amber-700">
+            {ledger?.summary?.reviewRequiredCount ??
+              transactions.filter((t) => t.outcome === 'REVIEW_REQUIRED').length}
+          </p>
+        </Card>
+      </div>
+
       <Card className="gap-0 overflow-hidden py-0">
         <div className="flex flex-wrap items-end gap-3 border-b p-4">
           <label className="min-w-0 flex-1 basis-52 space-y-1 text-sm">
-            <span className="block">Tìm trên trang hiện tại</span>
-            <Input placeholder="Mã giao dịch hoặc mã thanh toán" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <span className="block">Tìm kiếm toàn sổ</span>
+            <Input placeholder="Mã giao dịch, mã thanh toán hoặc nội dung CK" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="block">Chiều tiền</span>
+            <select className="h-9 rounded-md border bg-white px-2" value={transferType} onChange={(event) => {
+              setLedger(null);
+              setLedgerError('');
+              setPage(1);
+              setTransferType(event.target.value as typeof transferType);
+            }}>
+              <option value="">Tất cả</option>
+              <option value="in">Tiền vào</option>
+              <option value="out">Tiền ra</option>
+            </select>
           </label>
           <label className="space-y-1 text-sm">
             <span className="block">Kết quả xử lý</span>
@@ -190,7 +251,10 @@ export function AdminReconciliationView() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Giao dịch</TableHead>
-                        <TableHead>Mã thanh toán</TableHead>
+                        <TableHead>Loại</TableHead>
+                        <TableHead>Số TK & Ngân hàng</TableHead>
+                        <TableHead>Nội dung CK gốc</TableHead>
+                        <TableHead>Hợp đồng / Chủ hộ</TableHead>
                         <TableHead>Số tiền</TableHead>
                         <TableHead>Nguồn nhận</TableHead>
                         <TableHead>Kết quả</TableHead>
@@ -206,8 +270,33 @@ export function AdminReconciliationView() {
                               <p className="text-xs font-normal text-muted-foreground">{dateTime.format(new Date(transaction.receivedAt))}</p>
                             </TableCell>
                             <TableCell>
-                              {transaction.paymentCode || '—'}
+                              <Badge
+                                variant="outline"
+                                className={
+                                  transaction.transferType === 'out'
+                                    ? 'border-slate-300 bg-slate-100 text-slate-700'
+                                    : 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                                }
+                              >
+                                {transaction.transferType === 'out' ? 'Tiền ra' : 'Tiền vào'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="whitespace-normal">
+                              <span>{transaction.accountNumber || '—'}</span>
                               {transaction.gateway && <p className="text-xs text-muted-foreground">{transaction.gateway}</p>}
+                            </TableCell>
+                            <TableCell className="max-w-xs whitespace-normal text-xs">
+                              {transaction.transferContent || '—'}
+                              {transaction.paymentCode && <p className="mt-1 font-medium text-slate-700">Mã: <span>{transaction.paymentCode}</span></p>}
+                            </TableCell>
+                            <TableCell className="whitespace-normal text-xs">
+                              {transaction.contractNumber || '—'}
+                              {transaction.payerName && (
+                                <p className="text-muted-foreground">
+                                  {transaction.payerName}
+                                  {transaction.payerPhoneLast4 ? ` (****${transaction.payerPhoneLast4})` : ''}
+                                </p>
+                              )}
                             </TableCell>
                             <TableCell>{vnd.format(transaction.amountVnd)}</TableCell>
                             <TableCell><TransactionSource transaction={transaction} /></TableCell>
@@ -225,12 +314,32 @@ export function AdminReconciliationView() {
                   {transactions.map((transaction) => (
                     <div key={transaction.id} className="space-y-2 p-4 text-sm">
                       <div className="flex flex-wrap items-start justify-between gap-2 font-semibold">
-                        <span>{transaction.sepayWebhookTransactionId || transaction.providerTransactionId}</span>
+                        <div className="flex items-center gap-2">
+                          <span>{transaction.sepayWebhookTransactionId || transaction.providerTransactionId}</span>
+                          <Badge
+                            variant="outline"
+                            className={
+                              transaction.transferType === 'out'
+                                ? 'border-slate-300 bg-slate-100 text-slate-700'
+                                : 'border-emerald-300 bg-emerald-50 text-emerald-700'
+                            }
+                          >
+                            {transaction.transferType === 'out' ? 'Tiền ra' : 'Tiền vào'}
+                          </Badge>
+                        </div>
                         <span>{vnd.format(transaction.amountVnd)}</span>
                       </div>
                       <p className="break-all text-xs text-muted-foreground">
-                        {[transaction.paymentCode, transaction.referenceCode, transaction.gateway].filter(Boolean).join(' · ')}
+                        {[transaction.accountNumber, transaction.gateway, transaction.paymentCode, transaction.referenceCode].filter(Boolean).join(' · ')}
                       </p>
+                      {transaction.transferContent && (
+                        <p className="break-words text-xs text-slate-700">Nội dung CK: {transaction.transferContent}</p>
+                      )}
+                      {(transaction.contractNumber || transaction.payerName) && (
+                        <p className="text-xs text-slate-600">
+                          HĐ: {transaction.contractNumber || '—'} · {transaction.payerName || '—'}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         Nhận lúc {dateTime.format(new Date(transaction.receivedAt))}
                       </p>
@@ -263,7 +372,7 @@ export function AdminReconciliationView() {
       </Card>
 
       <Card className="gap-0 py-0">
-        <details>
+        <details open>
           <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-slate-900 sm:px-5">Đồng bộ giao dịch từ SePay</summary>
           <CardContent className="space-y-4 border-t border-slate-200 p-4 sm:p-5">
             <div className="flex flex-wrap items-end justify-between gap-3">
