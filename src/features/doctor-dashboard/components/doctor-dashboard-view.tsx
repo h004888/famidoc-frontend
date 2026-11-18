@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
 import { doctorsApi, contractsApi, type DoctorProfileDto, type MedicalContractListItem } from '@/lib/api';
 import { useDoctorVerificationGate } from '@/components/layout/doctor-verification-gate';
 import { KpiStatCard } from '@/components/dashboard';
@@ -11,14 +10,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Pagination } from '@/components/ui/pagination';
@@ -135,11 +126,9 @@ const INITIAL_PATIENTS: DoctorQueuePatient[] = [
 
 export function DoctorDashboardView() {
   const router = useRouter();
-  const [patients, setPatients] = useState<DoctorQueuePatient[]>(INITIAL_PATIENTS);
+  const patients = INITIAL_PATIENTS;
   const [activeQueue, setActiveQueue] = useState<QueueStatus>('pending');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('PT-01');
-  const [showSignModal, setShowSignModal] = useState<boolean>(false);
-  const [isSigning, setIsSigning] = useState<boolean>(false);
   const [queuePage, setQueuePage] = useState<number>(1);
 
   const {
@@ -200,20 +189,6 @@ export function DoctorDashboardView() {
     }
   };
 
-  const handleConfirmSignature = () => {
-    setIsSigning(true);
-    setTimeout(() => {
-      setIsSigning(false);
-      setShowSignModal(false);
-      setPatients((prev) =>
-        prev.map((p) => (p.id === currentPatient.id ? { ...p, status: 'signed' } : p))
-      );
-      toast.success(
-        `Đã ký số HSM Viettel-CA và phát hành đơn thuốc điện tử cho bệnh nhân ${currentPatient.name}!`
-      );
-    }, 700);
-  };
-
   const clinicalKpis = [
     {
       title: 'Ca khám trong ngày',
@@ -234,7 +209,7 @@ export function DoctorDashboardView() {
       badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
     },
     {
-      title: 'Chờ ký số Viettel-CA',
+      title: 'Phiếu khám đang xử lý',
       value: '5 đơn',
       sub: 'Đơn điện tử cần ký trước 18h',
       icon: 'draw',
@@ -421,7 +396,7 @@ export function DoctorDashboardView() {
               <h3 className="text-xs font-bold text-slate-900 transition-colors group-hover:text-primary">
                 Khám SOAP &amp; Kê Đơn
               </h3>
-              <p className="mt-0.5 text-[11px] text-slate-500">Ký số HSM Viettel-CA</p>
+              <p className="mt-0.5 text-[11px] text-slate-500">Phiếu khám</p>
             </div>
           </Link>
 
@@ -488,7 +463,7 @@ export function DoctorDashboardView() {
                     Đang khám
                   </TabsTrigger>
                   <TabsTrigger value="signed" className="rounded-lg text-xs font-semibold">
-                    Đã ký số
+                    Hoàn tất
                   </TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -643,113 +618,19 @@ export function DoctorDashboardView() {
                 />
               </div>
 
-              <div className="flex flex-col items-start justify-between gap-3 border-t border-slate-100 pt-2 sm:flex-row sm:items-center">
-                <Link
-                  href={`/doctor/encounters?patientId=${currentPatient.id}`}
-                  className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-                >
-                  <span>Mở giao diện Kê đơn chuyên sâu</span>
-                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-                </Link>
-                <div className="flex w-full items-center gap-2 sm:w-auto">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      toast.success(`Đã lưu nháp hồ sơ SOAP cho bệnh nhân ${currentPatient.name}`)
-                    }
-                    className="flex-1 rounded-xl text-xs font-semibold sm:flex-none"
-                  >
-                    Lưu nháp
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => setShowSignModal(true)}
-                    className="flex-1 cursor-pointer rounded-xl text-xs font-bold sm:flex-none"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">verified</span>
-                    <span>Ký số HSM &amp; Hoàn tất</span>
-                  </Button>
-                </div>
+              <div className="flex items-center justify-end border-t border-slate-100 pt-3">
+                <Button asChild>
+                  <Link href="/doctor/encounters">
+                    <span className="material-symbols-outlined text-[16px]" aria-hidden="true">clinical_notes</span>
+                    <span>Mở trang kê đơn thuốc</span>
+                  </Link>
+                </Button>
               </div>
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* Accessible shadcn Dialog xác thực ký số Viettel-CA */}
-      <Dialog open={showSignModal} onOpenChange={setShowSignModal}>
-        <DialogContent className="rounded-3xl border-slate-200 sm:max-w-md">
-          <DialogHeader className="border-b border-slate-100 pb-3">
-            <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
-              <span className="material-symbols-outlined text-[24px] text-primary">verified_user</span>
-              <span>Xác Thực Ký Số Viettel-CA Cloud HSM</span>
-            </DialogTitle>
-            <DialogDescription className="text-xs text-slate-500">
-              Kiểm tra thông tin hồ sơ trước khi phát hành đơn thuốc điện tử ký số
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-2 rounded-2xl border border-blue-100 bg-blue-50/60 p-4 text-xs text-slate-700">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Bệnh nhân tiếp nhận:</span>
-              <strong className="text-slate-900">{currentPatient.name}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Mã bệnh án điện tử:</span>
-              <span className="font-bold text-primary tabular-nums">{currentPatient.emr}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Bác sĩ ký số:</span>
-              <strong className="text-slate-900">{displayDoctorName}</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Chứng thư CCHN:</span>
-              <span className="font-semibold text-emerald-700 tabular-nums">
-                {displayCchn} (Viettel-CA Level 2)
-              </span>
-            </div>
-            <div className="border-t border-blue-200/60 pt-2 text-[11px] text-slate-600">
-              <span className="font-semibold text-slate-800">Chẩn đoán: </span>
-              {currentPatient.assessment}
-            </div>
-          </div>
-
-          <p className="text-xs italic text-slate-500">
-            Đơn thuốc điện tử sau khi ký số sẽ được tự động đồng bộ lên Hệ thống Đơn thuốc Quốc gia (Bộ Y tế) và gửi đến ứng dụng của người nhà.
-          </p>
-
-          <DialogFooter className="flex-row gap-3 pt-1">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowSignModal(false)}
-              disabled={isSigning}
-              className="flex-1 rounded-xl text-xs font-semibold text-slate-600"
-            >
-              Hủy / Xem lại
-            </Button>
-            <Button
-              type="button"
-              onClick={handleConfirmSignature}
-              disabled={isSigning}
-              className="flex-1 rounded-xl text-xs font-bold"
-            >
-              {isSigning ? (
-                <>
-                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                  <span>Đang ký số HSM...</span>
-                </>
-              ) : (
-                <>
-                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                  <span>Xác nhận Ký số</span>
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

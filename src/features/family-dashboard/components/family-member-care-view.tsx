@@ -36,13 +36,6 @@ export interface MemberHealthData {
   glucose: string;
   glucoseStatus: string;
   lastUpdated: string;
-  medicines: {
-    id: string;
-    name: string;
-    dosage: string;
-    time: string;
-    status: 'taken' | 'pending';
-  }[];
   upcomingVisit?: {
     doctor: string;
     specialty: string;
@@ -74,22 +67,6 @@ export const INITIAL_FAMILY_MEMBERS_DATA: Record<string, MemberHealthData> = {
     glucose: '6.8 mmol/L',
     glucoseStatus: 'Ổn định sau ăn',
     lastUpdated: '07:30 Sáng hôm nay',
-    medicines: [
-      {
-        id: 'med-1',
-        name: 'Amlodipine 5mg (Hạ huyết áp)',
-        dosage: '1 viên nén • Uống sau ăn sáng',
-        time: '08:00 Sáng mỗi ngày',
-        status: 'taken',
-      },
-      {
-        id: 'med-2',
-        name: 'Metformin 500mg (Đường huyết)',
-        dosage: '1 viên • Uống ngay sau bữa tối',
-        time: '19:00 Tối mỗi ngày',
-        status: 'pending',
-      },
-    ],
     upcomingVisit: {
       doctor: 'PGS.TS Nguyễn Trọng Nghĩa',
       specialty: 'Bác sĩ Gia đình & Tim mạch',
@@ -119,15 +96,6 @@ export const INITIAL_FAMILY_MEMBERS_DATA: Record<string, MemberHealthData> = {
     glucose: '5.2 mmol/L',
     glucoseStatus: 'Bình thường',
     lastUpdated: '07:00 Sáng hôm nay',
-    medicines: [
-      {
-        id: 'med-3',
-        name: 'Canxi & Vitamin D3 hữu cơ',
-        dosage: '1 viên nang mềm • Uống cùng nhiều nước',
-        time: '08:30 Sau bữa sáng',
-        status: 'taken',
-      },
-    ],
     upcomingVisit: {
       doctor: 'ThS.BS Võ Thị Phương Thảo',
       specialty: 'Tư vấn Sản Phụ Khoa',
@@ -157,15 +125,6 @@ export const INITIAL_FAMILY_MEMBERS_DATA: Record<string, MemberHealthData> = {
     glucose: '4.8 mmol/L',
     glucoseStatus: 'Bình thường',
     lastUpdated: '06:45 Sáng hôm nay',
-    medicines: [
-      {
-        id: 'med-4',
-        name: 'Xịt mũi thảo dược FamiCare',
-        dosage: 'Xịt mỗi bên mũi 1 nhát',
-        time: 'Buổi sáng & tối khi trời lạnh',
-        status: 'taken',
-      },
-    ],
     upcomingVisit: {
       doctor: 'BS.CKII Trần Mai Phương',
       specialty: 'Chuyên gia Nhi & Dinh dưỡng',
@@ -508,7 +467,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
 
   const [vitalsToast, setVitalsToast] = useState<string | null>(null);
   const [showHomeVisitGuide, setShowHomeVisitGuide] = useState(false);
-  const [showPrescriptionQrModal, setShowPrescriptionQrModal] = useState<string | null>(null);
   const [ehrFilter, setEhrFilter] = useState<'all' | 'home_visit' | 'telehealth' | 'lab_result'>('all');
   const [expandedEhrId, setExpandedEhrId] = useState<string | null>('ehr-01');
 
@@ -524,7 +482,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
   const [docNote, setDocNote] = useState('');
   const [docFileName, setDocFileName] = useState('');
   const [externalDocToast, setExternalDocToast] = useState<string | null>(null);
-  const [deliveryToast, setDeliveryToast] = useState<string | null>(null);
 
   const memberDocsList = externalDocs[activeId] || [];
 
@@ -721,23 +678,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
     return item.type === ehrFilter;
   });
 
-  const toggleMedicineStatus = (medId: string) => {
-    setMembersData((prev) => {
-      const updated = { ...prev };
-      const member = { ...updated[activeId] };
-      member.medicines = member.medicines.map((m) =>
-        m.id === medId
-          ? { ...m, status: m.status === 'taken' ? 'pending' : 'taken' }
-          : m
-      );
-      updated[activeId] = member;
-      return updated;
-    });
-  };
-
-
   const initials = getMemberInitials(currentMember.name);
-  const takenCount = currentMember.medicines.filter((m) => m.status === 'taken').length;
   const isWarning = currentMember.status === 'warning';
 
   return (
@@ -1248,7 +1189,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
           </div>
         </section>
 
-        {/* 4. LƯỚI 2 CỘT: LỊCH HẸN KHÁM SẮP TỚI & LỊCH DÙNG THUỐC HÔM NAY */}
+        {/* 4. LƯỚI 2 CỘT: LỊCH HẸN KHÁM VÀ ĐƠN THUỐC */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 items-stretch">
           {/* Cột 1: Lịch Hẹn Khám Sắp Tới */}
           <section className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-6">
@@ -1364,97 +1305,17 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
             )}
           </section>
 
-          {/* Cột 2: Lịch Dùng Thuốc Hôm Nay */}
-          <section className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs flex flex-col justify-between gap-6">
-            <div className="space-y-5">
-              <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0">
-                    <span className="material-symbols-outlined text-[20px]">medication</span>
-                  </div>
-                  <div>
-                    <h2 className="font-bold text-base text-slate-900">
-                      Lịch Dùng Thuốc Hôm Nay
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      Đơn thuốc điều trị đang áp dụng cho {currentMember.name}
-                    </p>
-                  </div>
-                </div>
-
-                <span className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums bg-slate-100 text-slate-700 shrink-0">
-                  Đã dùng {takenCount}/{currentMember.medicines.length}
-                </span>
-              </div>
-
-              <div className="space-y-3">
-                {currentMember.medicines.map((med) => {
-                  const isTaken = med.status === 'taken';
-                  return (
-                    <div
-                      key={med.id}
-                      className={`p-4 rounded-xl border transition-all flex items-center justify-between gap-4 ${
-                        isTaken
-                          ? 'bg-emerald-50/50 border-emerald-200/90'
-                          : 'bg-slate-50/70 border-slate-200/70 hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3.5 min-w-0">
-                        <div
-                          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                            isTaken
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-white border border-slate-200 text-primary'
-                          }`}
-                        >
-                          <span className="material-symbols-outlined text-[18px]">
-                            {isTaken ? 'check' : 'medication'}
-                          </span>
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="font-semibold text-sm text-slate-900 truncate">
-                            {med.name}
-                          </div>
-                          <div className="text-xs text-slate-600 mt-0.5">{med.dosage}</div>
-                          <div className="text-xs text-slate-500 flex items-center gap-1 mt-0.5">
-                            <span className="material-symbols-outlined text-[14px] text-slate-400">
-                              schedule
-                            </span>
-                            <span>{med.time}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        aria-pressed={isTaken}
-                        onClick={() => toggleMedicineStatus(med.id)}
-                        className={`min-h-9 px-4 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition-all cursor-pointer whitespace-nowrap outline-hidden ${
-                          isTaken
-                            ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/90'
-                            : 'bg-white hover:bg-slate-100 text-primary border border-slate-300 shadow-2xs'
-                        }`}
-                      >
-                        {isTaken ? 'Đã uống' : 'Bấm đã uống'}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
+          <section className="flex flex-col items-start gap-4 rounded-2xl border border-slate-200/70 bg-white p-6 shadow-xs">
+            <span className="flex size-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-700">
+              <span className="material-symbols-outlined" aria-hidden="true">medication</span>
+            </span>
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Đơn thuốc</h2>
+              <p className="mt-1 text-sm text-slate-600">Xem lại đơn thuốc và lời dặn bác sĩ đã gửi.</p>
             </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <span className="material-symbols-outlined text-[16px] text-emerald-600">
-                  verified
-                </span>
-                <span>Đơn thuốc điện tử ký số bởi Bác sĩ gia đình</span>
-              </span>
-              <span className="font-medium text-slate-600">
-                Hiệu lực theo hồ sơ khám
-              </span>
-            </div>
+            <Button asChild size="sm" variant="outline">
+              <Link href={`/family/medical-book?patientId=${encodeURIComponent(memberId)}`}>Mở sổ khám</Link>
+            </Button>
           </section>
         </div>
 
@@ -1595,46 +1456,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
                           </div>
                         )}
 
-                        {/* Đơn thuốc điều trị */}
-                        {entry.prescriptions && entry.prescriptions.length > 0 && (
-                          <div className="space-y-2.5">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-bold text-slate-700 block uppercase tracking-wider text-[11px]">
-                                Toa thuốc điều trị chỉ định (Mã đơn quốc gia: <span className="text-primary font-bold tabular-nums">RX-2026-0088219</span>):
-                              </span>
-                              <div className="flex items-center gap-2">
-                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
-                                  <span className="material-symbols-outlined text-[13px]">verified</span>
-                                  Đã ký số Viettel-CA
-                                </span>
-                                <Button
-                                  type="button"
-                                  variant="outline"
-                                  size="xs"
-                                  onClick={() => setShowPrescriptionQrModal(entry.id)}
-                                  className="text-xs font-bold text-primary bg-primary/10 hover:bg-primary/15 border-primary/20 rounded-xl gap-1"
-                                  title="Xem mã QR để mang ra quầy thuốc mua"
-                                >
-                                  <span className="material-symbols-outlined text-[15px]">qr_code_2</span>
-                                  <span>Mã QR Đơn Thuốc</span>
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="divide-y divide-slate-100 rounded-xl border border-slate-200/80 bg-white p-3 space-y-2">
-                              {entry.prescriptions.map((rx, rIdx) => (
-                                <div
-                                  key={rIdx}
-                                  className="pt-2 first:pt-0 flex flex-col sm:flex-row sm:items-center justify-between gap-1"
-                                >
-                                  <strong className="text-slate-900 font-semibold">{rx.name}</strong>
-                                  <span className="text-slate-600">
-                                    Liều: <strong className="text-slate-800">{rx.dosage}</strong> · {rx.frequency} ({rx.duration})
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+
                       </div>
                     )}
                   </div>
@@ -2086,118 +1908,6 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* MODAL 3: MÃ QR ĐƠN THUỐC QUỐC GIA (THÔNG TƯ 04/2022/TT-BYT) */}
-      <Dialog
-        open={Boolean(showPrescriptionQrModal)}
-        onOpenChange={(open) => !open && setShowPrescriptionQrModal(null)}
-      >
-        <DialogContent className="sm:max-w-md rounded-3xl p-6 sm:p-7 space-y-4">
-          <DialogHeader className="border-b border-slate-100 pb-3.5">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[24px]">qr_code_2</span>
-              </div>
-              <div>
-                <DialogTitle className="font-bold text-base text-slate-900">
-                  Đơn Thuốc Điện Tử Quốc Gia
-                </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500">
-                  Mã liên thông: <span className="font-bold tabular-nums text-primary">RX-2026-0088219</span>
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-
-          {/* QR Code Container */}
-          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200/80 text-center space-y-3">
-            <div className="w-44 h-44 mx-auto bg-white p-3 rounded-2xl border-2 border-primary/20 shadow-xs flex flex-col items-center justify-center">
-              {/* Visual SVG QR Representation */}
-              <svg className="w-full h-full" viewBox="0 0 100 100" fill="none">
-                <rect width="100" height="100" fill="white" />
-                <path
-                  d="M10 10h28v28h-28z M16 16v16h16v-16z M62 10h28v28h-28z M68 16v16h16v-16z M10 62h28v28h-28z M16 68v16h16v-16z"
-                  fill="#0037c1"
-                />
-                <rect x="22" y="22" width="4" height="4" fill="#0037c1" />
-                <rect x="74" y="22" width="4" height="4" fill="#0037c1" />
-                <rect x="22" y="74" width="4" height="4" fill="#0037c1" />
-                <rect x="44" y="10" width="8" height="8" fill="#0037c1" />
-                <rect x="44" y="24" width="8" height="8" fill="#0037c1" />
-                <rect x="44" y="38" width="8" height="8" fill="#0037c1" />
-                <rect x="10" y="44" width="8" height="8" fill="#0037c1" />
-                <rect x="24" y="44" width="8" height="8" fill="#0037c1" />
-                <rect x="62" y="44" width="12" height="6" fill="#0037c1" />
-                <rect x="80" y="44" width="10" height="6" fill="#0037c1" />
-                <rect x="44" y="62" width="8" height="8" fill="#0037c1" />
-                <rect x="44" y="76" width="8" height="8" fill="#0037c1" />
-                <rect x="62" y="62" width="8" height="8" fill="#0037c1" />
-                <rect x="76" y="62" width="14" height="8" fill="#0037c1" />
-                <rect x="62" y="76" width="14" height="8" fill="#0037c1" />
-                <rect x="82" y="86" width="8" height="4" fill="#0037c1" />
-              </svg>
-            </div>
-
-            <div className="space-y-1">
-              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-                Cổng Đơn Thuốc Quốc Gia (Bộ Y Tế)
-              </span>
-              <p className="text-xs text-slate-600 leading-snug">
-                Quét mã QR tại bất kỳ quầy thuốc GPP trên toàn quốc (Long Châu, An Khang, Pharmacity...) để mua đúng thuốc theo phác đồ bác sĩ.
-              </p>
-            </div>
-          </div>
-
-          <div className="p-3.5 bg-slate-50 rounded-2xl space-y-1.5 text-xs text-slate-600 border border-slate-200/80">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Bác sĩ kê đơn:</span>
-              <strong className="text-slate-900">BS.CKII Trần Mai Phương</strong>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Chứng thư số:</span>
-              <span className="font-bold text-emerald-700">Viettel-CA (SHA-256)</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Thời hạn mua thuốc:</span>
-              <span className="font-bold tabular-nums text-slate-800">30 ngày kể từ ngày ký</span>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <DialogFooter className="flex-col sm:flex-row gap-2.5 pt-2">
-            <Button
-              type="button"
-              onClick={() => {
-                toast.success('Đã gửi yêu cầu cấp phát & giao thuốc tận nhà (2h) tới nhà thuốc liên kết GPP!');
-                setShowPrescriptionQrModal(null);
-              }}
-              className="flex-1 rounded-xl font-bold text-xs gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[16px]">local_shipping</span>
-              <span>Yêu Cầu Giao Thuốc Tận Nhà</span>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowPrescriptionQrModal(null)}
-              className="rounded-xl font-semibold text-xs"
-            >
-              Đóng
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Realtime Delivery Toast */}
-      {deliveryToast && (
-        <div
-          role="status"
-          className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs sm:text-sm font-bold shadow-lg animate-in slide-in-from-bottom-3 flex items-center gap-2.5"
-        >
-          <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-          <span>{deliveryToast}</span>
         </div>
       )}
 

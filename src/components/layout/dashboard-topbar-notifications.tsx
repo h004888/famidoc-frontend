@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/context/auth-context';
+import { getNotificationAction, getNotificationTime, markFamilyNotificationsRead, useFamilyNotificationOwner, useFamilyNotifications } from '@/features/notifications/hooks/use-family-notifications';
 
 export interface TopbarNotificationItem {
   id: string;
@@ -65,6 +67,8 @@ const GENERAL_TOPBAR_NOTIFICATIONS: TopbarNotificationItem[] = [
 
 export function DashboardTopbarNotifications() {
   const { role } = useAuth();
+  const familyOwner = useFamilyNotificationOwner();
+  const familyNotifications = useFamilyNotifications(familyOwner, 1, 8);
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<TopbarNotificationItem[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -99,13 +103,46 @@ export function DashboardTopbarNotifications() {
     };
   }, [isOpen]);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const visibleNotifications = familyOwner
+    ? (familyNotifications.data?.items ?? []).map((item): TopbarNotificationItem => {
+        const action = getNotificationAction(item);
+        return {
+          id: item.id,
+          type: 'GENERAL',
+          typeLabel: action?.type ?? 'Cập nhật',
+          title: item.title,
+          message: item.content,
+          timestamp: getNotificationTime(item),
+          isRead: item.isRead,
+          actionHref: action?.href ?? '/notifications',
+          actionLabel: action?.label ?? 'Xem thông báo',
+          icon: action?.icon ?? 'notifications',
+          badgeClass: 'bg-teal-50 text-teal-800 border-teal-200',
+        };
+      })
+    : notifications;
+  const unreadCount = familyOwner
+    ? familyNotifications.data?.unreadCount ?? 0
+    : notifications.filter((n) => !n.isRead).length;
+  const hasVisibleUnread = visibleNotifications.some((item) => !item.isRead);
+
+  function markFamilyRead(ids: string[]) {
+    void markFamilyNotificationsRead(ids).catch((error: Error) => toast.error(error.message));
+  }
 
   const markAllAsRead = () => {
+    if (familyOwner) {
+      markFamilyRead(visibleNotifications.filter((item) => !item.isRead).map((item) => item.id));
+      return;
+    }
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
 
   const markItemAsRead = (id: string) => {
+    if (familyOwner) {
+      if (visibleNotifications.some((item) => item.id === id && !item.isRead)) markFamilyRead([id]);
+      return;
+    }
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   };
 
@@ -113,7 +150,10 @@ export function DashboardTopbarNotifications() {
     <div className="relative" ref={menuRef}>
       <button
         type="button"
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={() => {
+          if (familyOwner && !isOpen) familyNotifications.reload();
+          setIsOpen(!isOpen);
+        }}
         aria-label="Thông báo hệ thống"
         title="Thông báo hệ thống"
         aria-haspopup="menu"
@@ -130,7 +170,7 @@ export function DashboardTopbarNotifications() {
         <div
           role="menu"
           aria-label="Danh sách thông báo"
-          className="absolute right-0 mt-2 w-84 sm:w-96 rounded-2xl bg-white border border-slate-200/90 shadow-xl shadow-slate-900/10 z-50 overflow-hidden"
+          className="absolute right-0 z-50 mt-2 w-[min(21rem,calc(100vw-4.5rem))] overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-xl shadow-slate-900/10 sm:w-96"
         >
           {/* Header */}
           <div className="p-3.5 border-b border-slate-100 bg-slate-50/70 flex items-center justify-between">
@@ -148,13 +188,13 @@ export function DashboardTopbarNotifications() {
               )}
             </div>
 
-            {unreadCount > 0 && (
+            {hasVisibleUnread && (
               <button
                 type="button"
                 onClick={markAllAsRead}
                 className="text-[11px] font-semibold text-slate-500 hover:text-[#0046c0] transition-colors cursor-pointer"
               >
-                Đọc tất cả
+                {familyOwner ? 'Đọc các tin này' : 'Đọc tất cả'}
               </button>
             )}
           </div>
@@ -168,12 +208,16 @@ export function DashboardTopbarNotifications() {
 
           {/* Danh sách thông báo */}
           <div className="divide-y divide-slate-100 max-h-96 overflow-y-auto">
-            {notifications.length === 0 ? (
+            {visibleNotifications.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-400">
-                Không có thông báo mới.
+                {familyOwner && familyNotifications.error
+                  ? familyNotifications.error
+                  : familyOwner && !familyNotifications.data
+                    ? 'Đang tải thông báo…'
+                    : 'Không có thông báo mới.'}
               </div>
             ) : (
-              notifications.map((item) => (
+              visibleNotifications.map((item) => (
                 <div
                   key={item.id}
                   className={`p-3.5 transition-colors hover:bg-slate-50/80 ${

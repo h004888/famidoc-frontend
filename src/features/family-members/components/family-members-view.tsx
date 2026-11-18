@@ -919,7 +919,14 @@ export function FamilyMembersView() {
                     </div>
 
                     {/* Cột 3: Nút xem hồ sơ và thao tác */}
-                    <div className="flex items-center gap-2 shrink-0 self-end lg:self-center">
+                    <div className="flex flex-wrap justify-end items-center gap-2 self-end lg:self-center">
+                      <Link
+                        href={`/family/medical-book?patientId=${encodeURIComponent(m.id)}`}
+                        className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold text-teal-800 hover:bg-teal-50"
+                      >
+                        <span className="material-symbols-outlined text-[15px]" aria-hidden="true">clinical_notes</span>
+                        Sổ khám
+                      </Link>
                       <Link
                         href={`/family/members/${m.id}`}
                         className="px-3.5 py-2 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-semibold text-xs transition-all inline-flex items-center gap-1"

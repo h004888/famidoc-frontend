@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import { useContractWorkflow } from '@/lib/contract-workflow-storage';
 import { contractsApi, patientsApi, type MedicalContractListItem, type PatientDto } from '@/lib/api';
 import { getStoredAuthSession } from '@/lib/auth-storage';
@@ -14,20 +13,7 @@ import { KpiStatCard } from '@/components/dashboard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-
-interface FamilyMedicationItem {
-  id: string;
-  memberId: string;
-  memberName: string;
-  relation: string;
-  medName: string;
-  dosage: string;
-  time: string;
-  timeGroup: 'morning' | 'noon' | 'evening';
-  status: 'taken' | 'pending';
-}
+import { Card } from '@/components/ui/card';
 
 function calculateAge(dob?: string): number {
   if (!dob) return 45;
@@ -94,43 +80,6 @@ function convertPatientsToMembersData(
     const isChild = age < 18;
     const memberId = p.id || `mem-${idx + 1}`;
 
-    const medicines = isElderly
-      ? [
-          {
-            id: `med-${memberId}-1`,
-            name: 'Amlodipine 5mg (Hạ huyết áp)',
-            dosage: '1 viên nén • Uống sau ăn sáng',
-            time: '08:00 Sáng mỗi ngày',
-            status: 'taken' as const,
-          },
-          {
-            id: `med-${memberId}-2`,
-            name: 'Metformin 500mg (Đường huyết)',
-            dosage: '1 viên • Uống sau ăn tối',
-            time: '19:30 Tối mỗi ngày',
-            status: 'pending' as const,
-          },
-        ]
-      : isChild
-      ? [
-          {
-            id: `med-${memberId}-1`,
-            name: 'Vitamin D3 + K2 & Canxi sinh học',
-            dosage: '1 ống uống sau ăn sáng',
-            time: '08:00 Sáng mỗi ngày',
-            status: 'taken' as const,
-          },
-        ]
-      : [
-          {
-            id: `med-${memberId}-1`,
-            name: 'Omega-3 & Multivitamin',
-            dosage: '1 viên sau ăn trưa',
-            time: '12:30 Trưa mỗi ngày',
-            status: 'taken' as const,
-          },
-        ];
-
     const upcomingVisit = contract?.doctorName
       ? {
           doctor: `${contract.doctorTitle ? contract.doctorTitle + ' ' : 'BSCKI. '}${contract.doctorName}`,
@@ -166,7 +115,6 @@ function convertPatientsToMembersData(
       glucose: isElderly ? '6.8 mmol/L' : '5.4 mmol/L',
       glucoseStatus: isElderly ? 'Ổn định sau ăn' : 'Bình thường',
       lastUpdated: '07:30 Sáng hôm nay',
-      medicines: medicines,
       upcomingVisit: upcomingVisit,
     };
   });
@@ -264,48 +212,6 @@ export function FamilyDashboardView() {
     ? Math.ceil((new Date(activeContract.endDate).getTime() - currentTimestamp) / (1000 * 60 * 60 * 24))
     : null;
 
-  // Tổng hợp danh sách thuốc hôm nay của cả gia đình
-  const familyMedicines: FamilyMedicationItem[] = membersList.flatMap((m) =>
-    m.medicines.map((med) => {
-      const isEvening =
-        med.time.toLowerCase().includes('tối') ||
-        med.time.includes('19:00') ||
-        med.time.includes('20:00');
-      const isNoon = med.time.toLowerCase().includes('trưa') || med.time.includes('12:00');
-      return {
-        id: `${m.id}-${med.id}`,
-        memberId: m.id,
-        memberName: m.name,
-        relation: m.relation,
-        medName: med.name,
-        dosage: med.dosage,
-        time: med.time,
-        timeGroup: isEvening ? 'evening' : isNoon ? 'noon' : 'morning',
-        status: med.status,
-      };
-    })
-  );
-
-  const totalMedicines = familyMedicines.length;
-  const takenMedicines = familyMedicines.filter((item) => item.status === 'taken').length;
-  const medPercent = totalMedicines > 0 ? Math.round((takenMedicines / totalMedicines) * 100) : 0;
-
-  const handleToggleMedStatus = (memberId: string, medOriginalId: string) => {
-    setMembersData((prev) => {
-      const updated = { ...prev };
-      const member = { ...updated[memberId] };
-      member.medicines = member.medicines.map((m) =>
-        m.id === medOriginalId
-          ? { ...m, status: m.status === 'taken' ? 'pending' : 'taken' }
-          : m
-      );
-      updated[memberId] = member;
-      return updated;
-    });
-
-    toast.success('Đã cập nhật trạng thái uống thuốc hôm nay của gia đình!');
-  };
-
   return (
     <div className="min-h-full bg-[#f5f6f8] font-sans text-slate-900 antialiased">
       <div className="mx-auto w-full max-w-7xl space-y-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -343,7 +249,7 @@ export function FamilyDashboardView() {
               </h1>
 
               <p className="max-w-3xl text-sm leading-relaxed text-slate-600">
-                Trung tâm điều hành sức khỏe hằng ngày · Theo dõi chỉ số sức khỏe, nhắc lịch uống thuốc và lịch khám bác sĩ tại nhà
+                Trung tâm điều hành sức khỏe hằng ngày · Theo dõi chỉ số sức khỏe, đơn thuốc và lịch khám bác sĩ tại nhà
               </p>
             </div>
 
@@ -656,36 +562,13 @@ export function FamilyDashboardView() {
             }
           />
 
-          {/* KPI 2 */}
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Uống thuốc hôm nay
-              </span>
-              <span className="material-symbols-outlined text-slate-400 text-[20px]">medication</span>
+          <Link href="/family/prescriptions" className="space-y-3 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-xs transition-colors hover:border-teal-400 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-slate-800">Đơn thuốc</span>
+              <span className="material-symbols-outlined text-[20px] text-teal-700" aria-hidden="true">medication</span>
             </div>
-            <div className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
-              Đã uống {takenMedicines}/{totalMedicines} lần
-            </div>
-            <div className="space-y-1.5 pt-1">
-              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                  style={{ width: `${medPercent}%` }}
-                />
-                <div className="flex items-center justify-between text-xs font-medium text-emerald-800">
-                  <span>Đạt {medPercent}%</span>
-                  <span className="font-normal text-slate-500">
-                    Còn {totalMedicines - takenMedicines} cữ tối
-                  </span>
-                </div>
-              </div>
-              <div className="text-xs font-medium text-emerald-800 flex items-center justify-between">
-                <span>Đạt {medPercent}%</span>
-                <span className="text-slate-500 font-normal">Còn {totalMedicines - takenMedicines} lần chưa uống</span>
-              </div>
-            </div>
-          </div>
+            <p className="text-sm text-slate-600">Xem các đơn và lời dặn bác sĩ đã chia sẻ.</p>
+          </Link>
 
           {/* KPI 3 */}
           <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
@@ -733,9 +616,6 @@ export function FamilyDashboardView() {
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             {membersList.map((m) => {
               const isWarning = m.status === 'warning';
-              const memberMeds = membersData[m.id]?.medicines || [];
-              const medTaken = memberMeds.filter((x) => x.status === 'taken').length;
-              const medTotal = memberMeds.length;
 
               return (
                 <Link key={m.id} href={`/family/members/${m.id}`} className="group block outline-hidden">
@@ -816,7 +696,7 @@ export function FamilyDashboardView() {
 
                     <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
                       <span className="truncate">
-                        Thuốc {medTaken}/{medTotal} liều thuốc · {m.lastUpdated}
+                        {m.lastUpdated}
                       </span>
                       <span className="inline-flex shrink-0 items-center gap-0.5 font-semibold text-primary transition-transform group-hover:translate-x-0.5">
                         <span>Chi tiết</span>
@@ -830,78 +710,7 @@ export function FamilyDashboardView() {
           </div>
         </section>
 
-        {/* 5. LƯỚI BẤT ĐỐI XỨNG: LỊCH UỐNG THUỐC (2/3) + BÁC SĨ QUẢN NHIỆM (1/3) */}
-        <div className="grid grid-cols-1 items-start gap-6 sm:gap-8 lg:grid-cols-3">
-          <Card className="gap-5 rounded-2xl border-slate-200/70 bg-white p-5 shadow-xs sm:p-6 lg:col-span-2">
-            <CardHeader className="flex flex-col justify-between gap-3 border-b border-slate-100 p-0 pb-3 sm:flex-row sm:items-center">
-              <div>
-                <CardTitle className="text-base font-bold text-slate-900 sm:text-lg">
-                  Lịch Uống Thuốc Hôm Nay Của Cả Gia Đình
-                </CardTitle>
-                <CardDescription className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                  Nhắc nhở và kiểm tra nhanh việc dùng thuốc của từng thành viên trong ngày
-                </CardDescription>
-              </div>
-
-              <Badge
-                variant="secondary"
-                className="shrink-0 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 tabular-nums sm:self-auto"
-              >
-                Tiến độ: {medPercent}% ({takenMedicines}/{totalMedicines})
-              </Badge>
-            </CardHeader>
-
-            <CardContent className="space-y-3 p-0">
-              {familyMedicines.map((item) => {
-                const isTaken = item.status === 'taken';
-                const originalMedId = item.id.replace(`${item.memberId}-`, '');
-
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-4 transition-colors hover:border-slate-200 hover:bg-slate-50/60"
-                  >
-                    <div className="flex min-w-0 items-center gap-3.5">
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                          isTaken ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-primary'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[18px]">
-                          {isTaken ? 'check' : 'medication'}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-900">
-                          {item.medName}
-                        </div>
-                        <div className="mt-0.5 truncate text-xs text-slate-500">
-                          <span className="font-medium text-slate-700">{item.memberName}</span> ({item.relation}) ·{' '}
-                          {item.time} · {item.dosage}
-                        </div>
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleToggleMedStatus(item.memberId, originalMedId)}
-                      className={`min-h-9 shrink-0 cursor-pointer whitespace-nowrap rounded-xl px-4 text-xs font-semibold ${
-                        isTaken
-                          ? 'border-emerald-200/80 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                          : 'border-slate-300 bg-white text-primary hover:bg-slate-100'
-                      }`}
-                    >
-                      {isTaken ? 'Đã uống' : 'Bấm đã uống'}
-                    </Button>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          {/* Cột phải (1/3): Bác sĩ gia đình phụ trách & Hạn mức khám */}
+        <div className="max-w-3xl">
           <aside className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-5">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-bold text-base text-slate-900">

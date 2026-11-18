@@ -140,9 +140,9 @@ export function DoctorTelemedicineView() {
               </div>
 
               <Button asChild className="rounded-xl text-xs sm:text-sm font-bold gap-1.5">
-                <Link href="/doctor/encounters?patientId=PT-01&encounterId=TELE-88219">
+                <Link href="/doctor/encounters">
                   <span className="material-symbols-outlined text-[17px]">clinical_notes</span>
-                  <span>Kê Đơn Thuốc &amp; Ký Số EMR</span>
+                  <span>Kê đơn thuốc</span>
                 </Link>
               </Button>
             </div>
@@ -439,7 +439,7 @@ export function DoctorTelemedicineView() {
                   </div>
 
                   <Link
-                    href="/doctor/encounters?patientId=PT-01&encounterId=TELE-88219"
+                    href="/doctor/encounters"
                     className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[16px] text-slate-600">open_in_new</span>
@@ -581,7 +581,7 @@ export function DoctorTelemedicineView() {
           </DialogHeader>
 
           <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            Bạn có muốn kết thúc phiên gọi video trực tuyến và chuyển thẳng sang màn hình <strong>Kê đơn thuốc điện tử chuẩn 1NF &amp; Ký số EMR Viettel-CA</strong> cho bệnh nhân này không?
+            Kết thúc cuộc gọi và mở trang kê đơn để chọn buổi khám vừa thực hiện?
           </p>
 
           <DialogFooter className="pt-2 sm:justify-stretch gap-2.5">
@@ -597,12 +597,12 @@ export function DoctorTelemedicineView() {
               type="button"
               onClick={() => {
                 setShowEndConsultModal(false);
-                router.push('/doctor/encounters?patientId=PT-01&encounterId=TELE-88219');
+                router.push('/doctor/encounters');
               }}
               className="flex-1 rounded-xl font-bold text-xs gap-1.5"
             >
               <span className="material-symbols-outlined text-[16px]">check</span>
-              Chuyển Sang Kê Đơn EMR
+              Mở trang kê đơn
             </Button>
           </DialogFooter>
         </DialogContent>

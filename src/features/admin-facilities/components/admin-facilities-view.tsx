@@ -518,7 +518,7 @@ export function AdminFacilitiesView() {
     },
     {
       key: 'PENDING_LEGAL',
-      label: 'Chờ nộp pháp lý',
+      label: 'Chờ Nộp Pháp Lý',
       value: countPendingLegal,
       description: 'Đã cấp tài khoản, chờ CSYT gửi GPHĐ',
       pill: 'Chờ hồ sơ',
@@ -530,8 +530,8 @@ export function AdminFacilitiesView() {
       key: 'LEGAL_SUBMITTED',
       label: 'Chờ Duyệt Pháp Lý',
       value: countLegalSubmitted,
-      description: 'Cần đối soát GPHĐ & MST',
-      pill: 'Pháp lý GPHĐ',
+      description: 'Cần đối soát GPHĐ & MST CSDL Quốc gia',
+      pill: 'Cần duyệt gấp',
       pillClass: 'border-indigo-200 bg-indigo-50 text-indigo-800',
       icon: <ShieldCheck className="h-5 w-5" aria-hidden="true" />,
       iconBoxClass: 'bg-indigo-50 text-indigo-600',
@@ -557,7 +557,7 @@ export function AdminFacilitiesView() {
   ];
 
   return (
-    <div className="min-h-full bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+    <div className="min-h-full bg-[#f8fafc] font-sans text-slate-900 antialiased">
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Standardized Page Header */}
         <PageHeader
@@ -584,7 +584,7 @@ export function AdminFacilitiesView() {
                 size="sm"
                 onClick={handleRefreshAll}
                 disabled={isLoading || isDoctorsLoading}
-                className="cursor-pointer rounded-xl bg-white text-xs font-semibold"
+                className="cursor-pointer rounded-xl bg-white text-xs font-semibold shadow-xs"
               >
                 <RefreshCw
                   className={cn('h-3.5 w-3.5 text-slate-500', (isLoading || isDoctorsLoading) && 'animate-spin')}
@@ -607,23 +607,23 @@ export function AdminFacilitiesView() {
                 aria-pressed={isSelected}
                 onClick={() => selectFacilityFilter(card.key)}
                 className={cn(
-                  'group flex flex-col justify-between rounded-2xl border bg-white p-4 text-left shadow-xs transition-all cursor-pointer outline-hidden focus-visible:ring-2 focus-visible:ring-primary/50',
+                  'group flex flex-col justify-between rounded-2xl border bg-white p-4.5 text-left shadow-xs transition-all cursor-pointer outline-hidden hover:border-slate-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary/50',
                   isSelected
-                    ? 'border-primary/60 ring-2 ring-primary/15'
-                    : 'border-slate-200/90 hover:border-slate-300 hover:shadow-sm'
+                    ? 'border-primary/60 ring-2 ring-primary/15 bg-gradient-to-br from-white to-blue-50/30'
+                    : 'border-slate-200/90'
                 )}
               >
                 <div className="flex w-full items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span
                       className={cn(
-                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105',
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105',
                         card.iconBoxClass
                       )}
                     >
                       {card.icon}
                     </span>
-                    <span className="truncate text-xs font-semibold text-slate-600">{card.label}</span>
+                    <span className="truncate text-xs font-bold text-slate-700">{card.label}</span>
                   </div>
                   {card.pill && (
                     <Badge
@@ -636,7 +636,7 @@ export function AdminFacilitiesView() {
                 </div>
 
                 <div className="mt-3 flex items-baseline justify-between gap-2">
-                  <span className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
+                  <span className="text-2xl font-black tracking-tight text-slate-900 tabular-nums">
                     {card.value}
                   </span>
                   <span className="text-[11px] font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
@@ -644,7 +644,7 @@ export function AdminFacilitiesView() {
                   </span>
                 </div>
 
-                <p className="mt-1 text-[11px] text-slate-500">{card.description}</p>
+                <p className="mt-1 text-xs text-slate-500 line-clamp-1">{card.description}</p>
               </button>
             );
           })}
@@ -832,17 +832,24 @@ export function AdminFacilitiesView() {
                         {paginatedFacilities.map((fac) => (
                           <TableRow key={fac.id} className="hover:bg-slate-50/70 transition-colors">
                             <TableCell className="max-w-[290px] px-4 py-3.5 whitespace-normal">
-                              <div className="font-bold text-slate-900 text-xs sm:text-sm truncate" title={fac.facilityName}>
-                                {fac.facilityName}
-                              </div>
-                              <div className="mt-0.5 truncate text-[11px] text-slate-500" title={fac.address}>
-                                {fac.address}
-                              </div>
-                              <div
-                                className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 tabular-nums"
-                                title={fac.id}
-                              >
-                                ID: {formatShortId(fac.id)}
+                              <div className="flex items-start gap-2.5">
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-primary mt-0.5" aria-hidden="true">
+                                  <Building2 className="h-3.5 w-3.5" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-slate-900 text-xs sm:text-sm truncate" title={fac.facilityName}>
+                                    {fac.facilityName}
+                                  </div>
+                                  <div className="mt-0.5 truncate text-[11px] text-slate-500" title={fac.address}>
+                                    {fac.address}
+                                  </div>
+                                  <div
+                                    className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 font-mono"
+                                    title={fac.id}
+                                  >
+                                    ID: {formatShortId(fac.id)}
+                                  </div>
+                                </div>
                               </div>
                             </TableCell>
 
@@ -1347,27 +1354,27 @@ export function AdminFacilitiesView() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3.5 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs sm:grid-cols-2">
                       <div>
-                        <span className="block text-xs text-slate-500">Đại diện pháp luật:</span>
-                        <span className="font-semibold text-slate-900">
+                        <span className="block text-xs font-medium text-slate-500">Đại diện pháp luật:</span>
+                        <span className="font-bold text-slate-900">
                           {selectedFacility.representativeName || '—'}
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500">Số điện thoại liên hệ:</span>
+                        <span className="block text-xs font-medium text-slate-500">Số điện thoại liên hệ:</span>
                         <span className="font-semibold text-slate-900 tabular-nums">
                           {selectedFacility.phone || '—'}
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500">Email Portal:</span>
-                        <span className="font-semibold text-slate-900 break-all">
+                        <span className="block text-xs font-medium text-slate-500">Email Portal:</span>
+                        <span className="font-semibold text-slate-900 break-all font-mono text-xs">
                           {selectedFacility.email || '—'}
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500 mb-1">Trạng thái hiện tại:</span>
+                        <span className="block text-xs font-medium text-slate-500 mb-1">Trạng thái hiện tại:</span>
                         <FacilityStatusBadge facility={selectedFacility} compact />
                       </div>
                     </div>
@@ -1397,12 +1404,12 @@ export function AdminFacilitiesView() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3.5 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs sm:grid-cols-2">
                       <div>
-                        <span className="block text-xs text-slate-500">Mã số thuế (MST):</span>
+                        <span className="block text-xs font-medium text-slate-500">Mã số thuế (MST):</span>
                         <span
                           className={cn(
-                            'font-semibold tabular-nums',
+                            'font-bold tabular-nums text-primary font-mono',
                             selectedFacility.taxCode ? 'text-slate-900' : 'text-slate-400 italic font-normal'
                           )}
                         >
@@ -1410,10 +1417,10 @@ export function AdminFacilitiesView() {
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500">Giấy phép hoạt động KCB (GPHĐ):</span>
+                        <span className="block text-xs font-medium text-slate-500">Giấy phép hoạt động KCB (GPHĐ):</span>
                         <span
                           className={cn(
-                            'font-semibold tabular-nums',
+                            'font-bold tabular-nums text-primary font-mono',
                             selectedFacility.operatingLicense ? 'text-slate-900' : 'text-slate-400 italic font-normal'
                           )}
                         >
@@ -1422,12 +1429,12 @@ export function AdminFacilitiesView() {
                       </div>
                       {selectedFacility.licenseIssuer && (
                         <div className="sm:col-span-2">
-                          <span className="block text-xs text-slate-500">Cơ quan cấp GPHĐ:</span>
+                          <span className="block text-xs font-medium text-slate-500">Cơ quan cấp GPHĐ:</span>
                           <span className="font-semibold text-slate-900">{selectedFacility.licenseIssuer}</span>
                         </div>
                       )}
                       <div>
-                        <span className="block text-xs text-slate-500">Ngân hàng thụ hưởng đối soát:</span>
+                        <span className="block text-xs font-medium text-slate-500">Ngân hàng thụ hưởng đối soát:</span>
                         <span
                           className={cn(
                             'font-semibold',
@@ -1438,10 +1445,10 @@ export function AdminFacilitiesView() {
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500">Tài khoản &amp; Chủ tài khoản:</span>
+                        <span className="block text-xs font-medium text-slate-500">Tài khoản &amp; Chủ tài khoản:</span>
                         <span
                           className={cn(
-                            'font-semibold tabular-nums',
+                            'font-semibold tabular-nums font-mono',
                             selectedFacility.bankAccount ? 'text-slate-900' : 'text-slate-400 italic font-normal'
                           )}
                         >
