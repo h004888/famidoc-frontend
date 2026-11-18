@@ -33,6 +33,7 @@ export function B2bDocumensoSignPanel({
   const [session, setSession] = useState<StaffingSigningSessionDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  const [fallbackSigning, setFallbackSigning] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -84,6 +85,30 @@ export function B2bDocumensoSignPanel({
       setPdfError(extractErrorMessage(err, 'Không thể tải bản PDF đã ký từ Documenso.'));
     } finally {
       setDownloadingPdf(false);
+    }
+  };
+
+  const handleFallbackSign = async () => {
+    if (!session) return;
+    setFallbackSigning(true);
+    try {
+      await contractsApi.signStaffingContract(
+        contractId,
+        session.signerRole === 'ADMIN'
+          ? { signedPdfUrl: `https://sign.famidoc.online/contracts/staffing/${contractId}/signed.pdf` }
+          : {}
+      );
+      toast.success(
+        session.signerRole === 'ADMIN'
+          ? 'Đã ký xác nhận Bước 2 và kích hoạt hợp đồng B2B!'
+          : 'Đã ký xác nhận Bước 1 — chuyển sang chờ Admin ký kích hoạt!'
+      );
+      await loadSession();
+      onSyncCompleted?.();
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Không thể ký xác nhận hợp đồng B2B.'));
+    } finally {
+      setFallbackSigning(false);
     }
   };
 
@@ -205,6 +230,22 @@ export function B2bDocumensoSignPanel({
           Phiên ký Documenso hiện chưa khả dụng cho hợp đồng này (chưa có envelope trên Documenso).
         </p>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            size="xs"
+            disabled={fallbackSigning}
+            onClick={() => void handleFallbackSign()}
+            className="gap-1.5"
+          >
+            <CheckCircle2 className="h-3 w-3" />
+            <span>
+              {fallbackSigning
+                ? 'Đang ký xác nhận...'
+                : session.signerRole === 'HEALTHCARE_FACILITY'
+                  ? 'Ký xác nhận Bước 1 (Nội bộ)'
+                  : 'Ký kích hoạt Bước 2 (Nội bộ)'}
+            </span>
+          </Button>
           <Button
             type="button"
             size="xs"

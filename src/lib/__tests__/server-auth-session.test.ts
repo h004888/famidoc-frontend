@@ -23,6 +23,7 @@ describe('readServerAuthSession', () => {
       email: 'lan@famidoc.vn',
       role: 'FAMILY',
       avatarText: 'NL',
+      mustChangePassword: true,
     };
 
     mockGet.mockImplementation((key: string) => {
