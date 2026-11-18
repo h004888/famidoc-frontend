@@ -26,6 +26,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AdminQuotaProposalsPanel } from '@/features/admin-doctors/components/admin-quota-proposals-panel';
+import { AdminMatchingQueuePanel } from '@/features/admin-doctors/components/admin-matching-queue-panel';
 
 type StatPeriod = 'monthly' | 'weekly' | 'yearly';
 type SeverityFilter = 'all' | 'high' | 'medium' | 'low';
@@ -658,6 +660,9 @@ export function AdminDashboardView() {
             </div>
           </div>
         </div>
+
+        <AdminQuotaProposalsPanel />
+        <AdminMatchingQueuePanel />
       </div>
 
       {/* Sheet xem nhanh hồ sơ tranh chấp Escrow */}

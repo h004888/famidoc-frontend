@@ -33,6 +33,8 @@ vi.mock('@/features/subscription-contract/components/doctor-contract-initiation-
     packageId,
     doctorId,
     facilityId,
+    matchSessionId,
+    queueId,
     contractId,
     requestedMembers,
     trackingPath,
@@ -40,6 +42,8 @@ vi.mock('@/features/subscription-contract/components/doctor-contract-initiation-
     packageId?: string;
     doctorId?: string;
     facilityId?: string;
+    matchSessionId?: string;
+    queueId?: string;
     contractId?: string;
     requestedMembers: number;
     trackingPath?: string;
@@ -49,6 +53,8 @@ vi.mock('@/features/subscription-contract/components/doctor-contract-initiation-
       data-package-id={packageId ?? ''}
       data-doctor-id={doctorId ?? ''}
       data-facility-id={facilityId ?? ''}
+      data-match-session-id={matchSessionId ?? ''}
+      data-queue-id={queueId ?? ''}
       data-contract-id={contractId ?? ''}
       data-members={requestedMembers}
       data-tracking-path={trackingPath ?? ''}
@@ -122,11 +128,24 @@ describe('BookingSummaryStep', () => {
   });
 
   it('hướng dẫn về /doctors khi thiếu tham số bắt buộc', () => {
-    render(<BookingSummaryStep packageId="pkg-1" doctorId="doc-1" />);
+    render(<BookingSummaryStep packageId="pkg-1" />);
 
     expect(screen.queryByTestId('initiation-panel')).toBeNull();
     expect(screen.getByTestId('booking-missing-context')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Chọn bác sĩ/i })).toHaveAttribute('href', '/doctors');
+  });
+
+  it('hỗ trợ ngữ cảnh Track A không cần facilityId, Track B matchSessionId và Hàng chờ queueId', () => {
+    const first = render(<BookingSummaryStep packageId="pkg-1" doctorId="doc-1" requestedMembers={4} />);
+    expect(screen.getByTestId('initiation-panel')).toHaveAttribute('data-doctor-id', 'doc-1');
+    first.unmount();
+
+    const second = render(<BookingSummaryStep matchSessionId="sess-1" />);
+    expect(screen.getByTestId('initiation-panel')).toHaveAttribute('data-match-session-id', 'sess-1');
+    second.unmount();
+
+    render(<BookingSummaryStep queueId="queue-1" />);
+    expect(screen.getByTestId('initiation-panel')).toHaveAttribute('data-queue-id', 'queue-1');
   });
 
   it('nhận và truyền contractId xuống panel khi quay lại Bước 1 từ Bước 2/3', () => {

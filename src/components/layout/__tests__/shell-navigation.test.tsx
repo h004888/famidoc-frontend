@@ -275,7 +275,7 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
 
     expect(screen.queryByRole('link', { name: /Danh mục Gói Dịch vụ/i })).not.toBeInTheDocument();
 
-    const userMenuBtn = screen.getByRole('button', { name: 'Mở menu tài khoản người dùng' });
+    const [userMenuBtn] = screen.getAllByRole('button', { name: 'Mở menu tài khoản' });
     await user.click(userMenuBtn);
 
     const logoutItem = await screen.findByRole('menuitem', { name: /Đăng xuất/i });

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { doctorsApi, type DoctorProfileDto } from '@/lib/api/doctors.api';
+import { useAuth } from '@/features/auth/context/auth-context';
 import { DashboardPageShell, DoctorCredentialsList } from '@/components/shared';
 
 export function DoctorProfileView() {

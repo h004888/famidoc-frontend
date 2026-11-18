@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DoctorContractInitiationPanel } from '../doctor-contract-initiation-panel';
-import { contractsApi, patientsApi, publicApi } from '@/lib/api';
+import { contractsApi, matchingApi, patientsApi, publicApi } from '@/lib/api';
+import { ApiError } from '@/lib/http/errors';
 
 const pushMock = vi.fn();
 
@@ -57,11 +58,48 @@ describe('DoctorContractInitiationPanel', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     pushMock.mockReset();
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValue([]);
   });
 
-  it('không tải danh sách thành viên trước khi ký, khởi tạo hợp đồng với memberCount và chuyển tới trang ký Documenso', async () => {
+  it('nạp danh sách thành viên thật, pre-select tối đa memberCount, suy ra facility và khởi tạo hợp đồng 4 bên', async () => {
     vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
-    const patientsSpy = vi.spyOn(patientsApi, 'getFamilyMembers');
+    const patientsSpy = vi
+      .spyOn(patientsApi, 'getFamilyMembers')
+      .mockResolvedValueOnce([
+        {
+          id: 'pat-1',
+          familyId: 'fam-1',
+          fullName: 'Nguyễn Văn A',
+          dateOfBirth: '1985-01-01',
+          gender: 'MALE',
+          relationshipToHead: 'SELF',
+          status: 'ACTIVE',
+          createdAt: '2026-01-01',
+          updatedAt: '2026-01-01',
+        },
+        {
+          id: 'pat-2',
+          familyId: 'fam-1',
+          fullName: 'Trần Thị B',
+          dateOfBirth: '1988-01-01',
+          gender: 'FEMALE',
+          relationshipToHead: 'SPOUSE',
+          status: 'ACTIVE',
+          createdAt: '2026-01-01',
+          updatedAt: '2026-01-01',
+        },
+        {
+          id: 'pat-3',
+          familyId: 'fam-1',
+          fullName: 'Nguyễn Bé C',
+          dateOfBirth: '2020-01-01',
+          gender: 'MALE',
+          relationshipToHead: 'CHILD',
+          status: 'ACTIVE',
+          createdAt: '2026-01-01',
+          updatedAt: '2026-01-01',
+        },
+      ]);
     const initiateSpy = vi
       .spyOn(contractsApi, 'initiateFourPartyContract')
       .mockResolvedValueOnce({
@@ -75,7 +113,6 @@ describe('DoctorContractInitiationPanel', () => {
       <DoctorContractInitiationPanel
         packageId="pkg-3m"
         doctorId="doc-1"
-        facilityId="fac-1"
         requestedMembers={3}
       />
     );
@@ -84,8 +121,9 @@ describe('DoctorContractInitiationPanel', () => {
       expect(screen.getAllByText(/ThS\. BS Trương Hán Siêu/i).length).toBeGreaterThanOrEqual(1);
     });
 
-    expect(patientsSpy).not.toHaveBeenCalled();
-    expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
+    expect(patientsSpy).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('family-members-preview')).toHaveTextContent('Nguyễn Văn A');
+    expect(screen.getAllByRole('checkbox').filter((c) => (c as HTMLInputElement).checked)).toHaveLength(3);
     expect(screen.getByTestId('contract-legal-preview')).toBeInTheDocument();
     expect(screen.getByTestId('selected-member-count')).toHaveTextContent('3 người');
 
@@ -104,6 +142,7 @@ describe('DoctorContractInitiationPanel', () => {
         facilityId: 'fac-1',
         doctorId: 'doc-1',
         memberCount: 3,
+        patientIds: ['pat-1', 'pat-2', 'pat-3'],
         additionalTerms: 'Ưu tiên thăm khám buổi sáng',
       });
       expect(pushMock).toHaveBeenCalledWith(
@@ -341,6 +380,121 @@ describe('DoctorContractInitiationPanel', () => {
         'Hủy bản nháp để chọn lại gói chăm sóc'
       );
       expect(pushMock).toHaveBeenCalledWith('/doctors/doc-1');
+    });
+  });
+
+  it('hiển thị cảnh báo 409 Conflict kèm link Track A / Track B khi slot bác sĩ vừa hết', async () => {
+    vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([]);
+    vi.spyOn(contractsApi, 'initiateFourPartyContract').mockRejectedValueOnce(
+      new ApiError('Bác sĩ đã đạt giới hạn tối đa số hộ gia đình phụ trách (30/30).', 409)
+    );
+
+    render(
+      <DoctorContractInitiationPanel
+        packageId="pkg-3m"
+        doctorId="doc-1"
+        requestedMembers={3}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/ThS\. BS Trương Hán Siêu/i).length).toBeGreaterThanOrEqual(1);
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Xác nhận khởi tạo hợp đồng 4 bên/i })
+    );
+
+    await waitFor(() => {
+      const alert = screen.getByTestId('slot-conflict-alert');
+      expect(alert).toHaveTextContent(/30\/30/);
+      expect(
+        screen.getByRole('link', { name: /Chọn bác sĩ trẻ còn slot/i })
+      ).toHaveAttribute('href', '/doctors?packageId=pkg-3m&members=3');
+      expect(
+        screen.getByRole('link', { name: /Ghép bác sĩ tự động/i })
+      ).toHaveAttribute('href', '/doctors/matching?packageId=pkg-3m&members=3');
+    });
+  });
+
+  it('tải ngữ cảnh Track B (matchSessionId) và truyền matchingSessionId khi xác nhận tạo hợp đồng', async () => {
+    vi.spyOn(matchingApi, 'getMatchingSession').mockResolvedValueOnce({
+      id: 'sess-track-b-1',
+      status: 'MATCHED',
+      memberCount: 4,
+      rationale: 'Chuyên sâu tim mạch người cao tuổi',
+      jevModelVersion: 'jev-1.14.0',
+      jevFitScore: 0.88,
+      vacancyScore: 0.9,
+      compositeScore: 0.886,
+      expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+      contractId: null,
+      package: {
+        id: 'pkg-3m',
+        packageCode: 'DONG_HANH_V2',
+        packageName: 'Đồng hành',
+        durationMonths: 3,
+        basePrice: 2850000,
+        includedMembers: 3,
+        maxMembers: 6,
+        additionalMemberMonthlyPrice: 75000,
+        periodicVisitsQuota: 3,
+        telehealthQuota: 4,
+      },
+      doctor: {
+        id: 'doc-1',
+        doctorName: 'Trương Hán Siêu',
+        specialty: 'Cơ Xương Khớp',
+        academicTitle: 'ThS. BS',
+        experienceYears: 21,
+        clinicalTier: 'SENIOR',
+        ratingAvg: 4.99,
+        totalReviews: 128,
+        remainingSlots: 20,
+        maxPanelCapacity: 30,
+        avatarUrl: null,
+      },
+      facility: {
+        id: 'fac-1',
+        facilityName: 'Bệnh viện Nhi Đồng 1',
+        address: '341 Sư Vạn Hạnh',
+        hotline: '1900 1234',
+      },
+    });
+    vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([]);
+    const initiateSpy = vi
+      .spyOn(contractsApi, 'initiateFourPartyContract')
+      .mockResolvedValueOnce({ id: 'ctr-track-b-1' } as never);
+
+    render(
+      <DoctorContractInitiationPanel
+        matchSessionId="sess-track-b-1"
+        requestedMembers={1}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Track B · Hệ thống gợi ý bác sĩ phù hợp/i)).toBeInTheDocument();
+      expect(screen.getByText(/Chuyên sâu tim mạch người cao tuổi/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /Xác nhận khởi tạo hợp đồng 4 bên/i })
+    );
+
+    await waitFor(() => {
+      expect(initiateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          packageId: 'pkg-3m',
+          doctorId: 'doc-1',
+          facilityId: 'fac-1',
+          memberCount: 4,
+          matchingSessionId: 'sess-track-b-1',
+        })
+      );
+      expect(pushMock).toHaveBeenCalledWith('/booking/tracking?contractId=ctr-track-b-1');
     });
   });
 

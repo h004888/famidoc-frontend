@@ -178,7 +178,7 @@ describe('DoctorPackageSelector', () => {
       screen.getByRole('button', { name: /Đăng ký dịch vụ với bác sĩ/i })
     ).toBeDisabled();
     expect(
-      screen.getByText('Bác sĩ hiện đã đủ hộ gia đình phụ trách.')
+      screen.getByText(/Bác sĩ hiện đã kín lịch nhận hộ gia đình mới/i)
     ).toBeInTheDocument();
 
     rerender(

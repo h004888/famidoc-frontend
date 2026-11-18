@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { doctorsApi } from '@/lib/api/doctors.api';
 import { Pagination } from '@/components/ui/pagination';
 import { DashboardPageShell } from '@/components/shared';
+import { AdminQuotaProposalsPanel } from './admin-quota-proposals-panel';
+import { AdminMatchingQueuePanel } from './admin-matching-queue-panel';
 
 interface DoctorRow {
   id: string;
@@ -370,6 +372,9 @@ export function AdminDoctorsView() {
           </div>
         )}
       </div>
+
+      <AdminQuotaProposalsPanel />
+      <AdminMatchingQueuePanel />
     </DashboardPageShell>
   );
 }

@@ -246,7 +246,7 @@ const unwrapEnvelope = unwrapApiEnvelope;
 
 export interface CreateFourPartyContractPayload {
   packageId: string;
-  facilityId: string;
+  facilityId?: string;
   doctorId?: string;
   patientIds?: string[];
   familyId?: string;
@@ -256,6 +256,10 @@ export interface CreateFourPartyContractPayload {
   additionalTerms?: string;
   /** ID hợp đồng nháp chưa thanh toán cần hủy nguyên tử trước khi tạo hợp đồng mới. */
   replaceContractId?: string;
+  /** ID phiên gợi ý bác sĩ tự động (Track B) đã khớp thành công. */
+  matchingSessionId?: string;
+  /** ID yêu cầu hàng chờ điều phối Admin đã được phân công bác sĩ. */
+  queueRequestId?: string;
 }
 
 export interface SignContractPayload {

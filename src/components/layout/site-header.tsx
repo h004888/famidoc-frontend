@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
+import { getCurrentBrowserHost, getSubdomainPortal } from '@/lib/portal-routing';
 import { ROLE_MENUS, getRoleFromPathname } from './dashboard-sidebar';
 import { DashboardTopbarUser } from './dashboard-topbar-user';
 import { useFamilySubscriptionGateState } from './family-subscription-gate';
@@ -34,7 +35,7 @@ export interface SiteHeaderProps {
  */
 export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
   const pathname = usePathname() || '/family';
-  const { role } = useAuth();
+  const { role, isAuthenticated } = useAuth();
   const { isFamilyLocked, gateStatus, unlockTargetHref } = useFamilySubscriptionGateState();
   const [mounted, setMounted] = useState(false);
 
@@ -43,8 +44,11 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
   }, []);
 
   const pathRole = getRoleFromPathname(pathname);
-  const effectiveRole: LoginRole = pathRole || initialRole || (mounted ? role : 'FAMILY');
+  const hostPortalRole = mounted ? getSubdomainPortal(getCurrentBrowserHost()) : null;
+  const effectiveRole: LoginRole =
+    pathRole || hostPortalRole || initialRole || (isAuthenticated ? role : mounted ? role : 'FAMILY');
   const menuConfig = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
+  const isFamilyAccount = effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT';
   /**
    * Khi tài khoản gia đình chưa kích hoạt gói và đang ở khung dashboard, breadcrumb
    * "Trang chủ" trỏ về `/onboarding` của vai trò. Nếu đang chờ ký/thanh toán thì trỏ
@@ -62,7 +66,13 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
       .filter((item) => !item.exact && pathname.startsWith(item.href))
       .sort((a, b) => b.href.length - a.href.length)[0];
 
-  const currentLabel = matchedItem?.label || EXTRA_ROUTE_LABELS[pathname] || menuConfig.title;
+  const settingsBreadcrumbLabel = isFamilyAccount
+    ? 'Cài đặt & Hồ sơ BHYT'
+    : 'Cài đặt tài khoản';
+  const currentLabel =
+    matchedItem?.label ||
+    (pathname === '/settings' ? settingsBreadcrumbLabel : EXTRA_ROUTE_LABELS[pathname]) ||
+    menuConfig.title;
 
   return (
     <header className="sticky top-0 z-30 hidden h-16 shrink-0 items-center justify-between border-b border-slate-200/90 bg-white px-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)] sm:px-6 lg:flex lg:px-8">

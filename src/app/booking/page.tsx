@@ -5,7 +5,7 @@ import { BookingSummaryStep } from '@/features/booking';
 export const metadata: Metadata = {
   title: 'Xác nhận gói chăm sóc | FamiDoc',
   description:
-    'Xác nhận bác sĩ gia đình, gói chăm sóc và số suất thành viên trước khi khởi tạo hợp đồng 4 bên.',
+    'Xác nhận bác sĩ gia đình, cơ sở y tế phụ trách, gói chăm sóc và thành viên trước khi khởi tạo hợp đồng 4 bên.',
 };
 
 type BookingSearchParams = Promise<{
@@ -38,6 +38,8 @@ async function BookingSummaryLoader({
       packageId={readParam(params, 'packageId')}
       doctorId={readParam(params, 'doctorId')}
       facilityId={readParam(params, 'facilityId')}
+      matchSessionId={readParam(params, 'matchSessionId')}
+      queueId={readParam(params, 'queueId')}
       contractId={readParam(params, 'contractId')}
       requestedMembers={
         parsedMembers !== undefined && Number.isFinite(parsedMembers)

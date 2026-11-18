@@ -5,8 +5,26 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/features/auth/context/auth-context';
 import { contractsApi, type FamilyGateStatusDto } from '@/lib/api/contracts.api';
+import { ApiError } from '@/lib/http/errors';
 
 export const FAMILY_GATE_REFRESH_EVENT = 'famidoc:family-gate-refresh';
+
+export function isUnauthorizedOrForbiddenError(error: unknown): boolean {
+  if (error instanceof ApiError) {
+    return error.status === 401 || error.status === 403;
+  }
+  if (typeof error === 'object' && error !== null) {
+    const candidate = error as { status?: unknown; statusCode?: unknown };
+    const status =
+      typeof candidate.status === 'number'
+        ? candidate.status
+        : typeof candidate.statusCode === 'number'
+          ? candidate.statusCode
+          : null;
+    return status === 401 || status === 403;
+  }
+  return false;
+}
 
 export function isFamilyRole(role: string | null | undefined): boolean {
   return role === 'FAMILY' || role === 'PATIENT' || role === 'FAMILY_REP';
@@ -90,6 +108,7 @@ export interface FamilySubscriptionGateContextValue {
   gateStatus: FamilyGateStatusDto | null;
   isLoadingGate: boolean;
   gateError: string | null;
+  isPermissionDenied: boolean;
   isFamilyLocked: boolean;
   unlockTargetHref: string;
   refreshGateStatus: (options?: { silent?: boolean }) => Promise<void>;
@@ -100,6 +119,7 @@ const DEFAULT_GATE_CONTEXT: FamilySubscriptionGateContextValue = {
   gateStatus: null,
   isLoadingGate: false,
   gateError: null,
+  isPermissionDenied: false,
   isFamilyLocked: false,
   unlockTargetHref: '/doctors',
   refreshGateStatus: async () => {},
@@ -119,11 +139,13 @@ function useFamilySubscriptionGateInternal(enabled: boolean): FamilySubscription
   const [gateStatus, setGateStatus] = useState<FamilyGateStatusDto | null>(null);
   const [isLoadingGate, setIsLoadingGate] = useState<boolean>(false);
   const [gateError, setGateError] = useState<string | null>(null);
+  const [isPermissionDenied, setIsPermissionDenied] = useState<boolean>(false);
 
   const refreshGateStatus = useCallback(async (options?: { silent?: boolean }) => {
     if (!enabled || !isFamily) {
       setGateStatus(null);
       setGateError(null);
+      setIsPermissionDenied(false);
       setIsLoadingGate(false);
       return;
     }
@@ -133,10 +155,18 @@ function useFamilySubscriptionGateInternal(enabled: boolean): FamilySubscription
       setIsLoadingGate(true);
     }
     setGateError(null);
+    setIsPermissionDenied(false);
     try {
       const status = await contractsApi.getFamilyGateStatus();
       setGateStatus(status);
+      setIsPermissionDenied(false);
     } catch (error) {
+      if (isUnauthorizedOrForbiddenError(error)) {
+        setIsPermissionDenied(true);
+        setGateStatus(null);
+        setGateError(null);
+        return;
+      }
       const message =
         error instanceof Error ? error.message : 'Không thể kiểm tra trạng thái hợp đồng gia đình.';
       setGateError(message);
@@ -148,7 +178,11 @@ function useFamilySubscriptionGateInternal(enabled: boolean): FamilySubscription
   }, [enabled, isFamily]);
 
   useEffect(() => {
-    if (!enabled || authLoading || !isFamily) return;
+    if (!enabled || !isFamily) {
+      setIsPermissionDenied(false);
+      return;
+    }
+    if (authLoading) return;
     let active = true;
     async function loadInitialGateStatus() {
       try {
@@ -156,8 +190,15 @@ function useFamilySubscriptionGateInternal(enabled: boolean): FamilySubscription
         if (!active) return;
         setGateStatus(status);
         setGateError(null);
+        setIsPermissionDenied(false);
       } catch (error) {
         if (!active) return;
+        if (isUnauthorizedOrForbiddenError(error)) {
+          setIsPermissionDenied(true);
+          setGateStatus(null);
+          setGateError(null);
+          return;
+        }
         const message =
           error instanceof Error ? error.message : 'Không thể kiểm tra trạng thái hợp đồng gia đình.';
         setGateError(message);
@@ -186,6 +227,7 @@ function useFamilySubscriptionGateInternal(enabled: boolean): FamilySubscription
 
   const effectiveGateStatus = enabled && isFamily ? gateStatus : null;
   const effectiveGateError = enabled && isFamily ? gateError : null;
+  const effectivePermissionDenied = enabled && isFamily ? isPermissionDenied : false;
   const isFamilyLocked =
     enabled && isFamily && !authLoading && !isLoadingGate && effectiveGateStatus !== null && !effectiveGateStatus.hasActiveContract;
 
@@ -194,6 +236,7 @@ function useFamilySubscriptionGateInternal(enabled: boolean): FamilySubscription
     gateStatus: effectiveGateStatus,
     isLoadingGate: enabled && isFamily ? authLoading || isLoadingGate : false,
     gateError: effectiveGateError,
+    isPermissionDenied: effectivePermissionDenied,
     isFamilyLocked,
     unlockTargetHref: resolveBlockedFamilyRedirect(effectiveGateStatus),
     refreshGateStatus,
@@ -215,15 +258,46 @@ export function FamilySubscriptionGateProvider({ children }: { children: React.R
   );
 }
 
+/**
+ * Ẩn toàn bộ shell dashboard (sidebar, header, footer, nội dung) và chuyển hướng
+ * sang `/403` khi kiểm tra quyền/gói ở route `/family/*` bị 401 hoặc 403.
+ */
+export function DashboardShellGate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { role, isAuthenticated } = useAuth();
+  const { isPermissionDenied } = useFamilySubscriptionGateState();
+
+  const shouldDenyAccess =
+    isPermissionDenied &&
+    isAuthenticated &&
+    isFamilyRole(role) &&
+    isRestrictedFamilyPath(pathname);
+
+  useEffect(() => {
+    if (shouldDenyAccess) {
+      router.replace('/403');
+    }
+  }, [shouldDenyAccess, router]);
+
+  if (shouldDenyAccess) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
 export function FamilySubscriptionGateGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { role, isAuthenticated, isLoading: authLoading } = useAuth();
-  const { gateStatus, isLoadingGate, gateError, refreshGateStatus } = useFamilySubscriptionGateState();
+  const { gateStatus, isLoadingGate, gateError, isPermissionDenied, refreshGateStatus } =
+    useFamilySubscriptionGateState();
 
   const isFamily = isAuthenticated && isFamilyRole(role);
   const isRestricted = isFamily && isRestrictedFamilyPath(pathname);
+  const isPermissionDeniedForRoute = isRestricted && isPermissionDenied;
   const shouldBlock = isRestricted && !authLoading && !isLoadingGate && gateStatus !== null && !gateStatus.hasActiveContract;
   const currentSearch = searchParams?.toString() ?? '';
   const redirectTarget = resolveBlockedFamilyRedirect(gateStatus, {
@@ -241,21 +315,29 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
     const currentPath = pathname ?? null;
     if (lastPathnameRef.current !== currentPath) {
       lastPathnameRef.current = currentPath;
-      if (isFamily && !authLoading && !gateStatus?.hasActiveContract) {
+      if (isFamily && !authLoading && !gateStatus?.hasActiveContract && !isPermissionDenied) {
         void refreshGateStatus();
       }
     }
-  }, [pathname, isFamily, authLoading, gateStatus?.hasActiveContract, refreshGateStatus]);
+  }, [pathname, isFamily, authLoading, gateStatus?.hasActiveContract, isPermissionDenied, refreshGateStatus]);
 
   useEffect(() => {
+    if (isPermissionDeniedForRoute) {
+      router.replace('/403');
+      return;
+    }
     if (shouldBlock) {
       router.replace(redirectTarget);
     }
-  }, [shouldBlock, redirectTarget, router]);
+  }, [isPermissionDeniedForRoute, shouldBlock, redirectTarget, router]);
 
   // Đợi mount xong trên client để lần render đầu khớp hoàn toàn HTML từ SSR, tránh hydration mismatch khi AuthProvider đọc localStorage.
   if (!hasMounted || !isRestricted) {
     return <>{children}</>;
+  }
+
+  if (isPermissionDeniedForRoute) {
+    return null;
   }
 
   if (authLoading || isLoadingGate || (gateStatus === null && !gateError)) {
