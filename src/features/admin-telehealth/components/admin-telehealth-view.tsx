@@ -599,7 +599,7 @@ export function AdminTelehealthView() {
                           <span className="text-slate-400">•</span>
                           <span className="text-slate-500 tabular-nums">{item.durationMinutes} phút</span>
                         </div>
-                        <div className="mt-1 text-[10px] text-slate-400 font-mono">
+                        <div className="mt-1 text-[10px] text-slate-400 tabular-nums">
                           Mã: {item.id}
                         </div>
                       </TableCell>
@@ -628,7 +628,7 @@ export function AdminTelehealthView() {
                             <span className="tabular-nums"> ({item.contract.familyUnit.representativeUser.phone})</span>
                           )}
                         </div>
-                        <div className="mt-1 text-[10px] text-slate-400 font-mono truncate">
+                        <div className="mt-1 text-[10px] text-slate-400 tabular-nums truncate">
                           HĐ: {item.contract?.contractNumber || item.contractId}
                         </div>
                       </TableCell>
@@ -693,7 +693,7 @@ export function AdminTelehealthView() {
                       <div className="font-bold text-slate-900 text-sm tabular-nums">
                         {formatDateTimeVN(item.scheduledDate, item.scheduledTime)}
                       </div>
-                      <div className="text-xs text-slate-500 font-mono mt-0.5">Mã: {item.id}</div>
+                      <div className="text-xs text-slate-500 tabular-nums mt-0.5">Mã: {item.id}</div>
                     </div>
                     <StatusBadge status={item.encounterStatus} />
                   </div>
@@ -770,7 +770,7 @@ export function AdminTelehealthView() {
                   <div className="flex flex-wrap items-center gap-2 pr-8 text-xs font-medium text-blue-100">
                     <span>Hồ Sơ Ca Khám Trực Tuyến</span>
                     <span aria-hidden="true">•</span>
-                    <span className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[11px] text-white">
+                    <span className="rounded bg-white/15 px-1.5 py-0.5 tabular-nums text-[11px] text-white">
                       {selectedEncounter.id}
                     </span>
                   </div>
@@ -910,7 +910,7 @@ export function AdminTelehealthView() {
                         <span className="font-semibold text-slate-900">
                           {selectedEncounter.contract?.servicePackage?.name || 'Gói Bác sĩ gia đình'}
                         </span>{' '}
-                        <span className="text-slate-500 font-mono">
+                        <span className="text-slate-500 tabular-nums">
                           ({selectedEncounter.contract?.contractNumber || selectedEncounter.contractId})
                         </span>
                       </div>

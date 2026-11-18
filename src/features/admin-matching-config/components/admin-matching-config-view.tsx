@@ -502,7 +502,7 @@ export function AdminMatchingConfigView() {
                           }))
                         }
                         placeholder="http://localhost:11434/v1/systemone"
-                        className="font-mono text-xs sm:text-sm"
+                        className="tabular-nums text-xs sm:text-sm"
                         required
                       />
                       <Button
@@ -541,7 +541,7 @@ export function AdminMatchingConfigView() {
                         }))
                       }
                       placeholder="d3:4b"
-                      className="font-mono text-xs sm:text-sm"
+                      className="tabular-nums text-xs sm:text-sm"
                       required
                     />
                     {discoveredModels.length > 0 && (
@@ -561,7 +561,7 @@ export function AdminMatchingConfigView() {
                                 modelName: m.name,
                               }))
                             }
-                            className={`h-6 px-2 text-[11px] font-mono rounded-md ${
+                            className={`h-6 px-2 text-[11px] tabular-nums rounded-md ${
                               form.modelName === m.name
                                 ? 'bg-blue-600 text-white'
                                 : 'bg-white hover:bg-blue-50 text-slate-700'
@@ -620,7 +620,7 @@ export function AdminMatchingConfigView() {
                       <Label htmlFor="systemone-api-key" className="text-xs font-semibold text-slate-700">
                         Bearer API Key (Không bắt buộc cho Ollama local)
                       </Label>
-                      <span className="text-xs text-slate-500 font-mono">
+                      <span className="text-xs text-slate-500 tabular-nums">
                         {form.clearApiKey
                           ? 'Sẽ xóa key và chạy chế độ không xác thực'
                           : savedConfig?.hasApiKey
@@ -645,7 +645,7 @@ export function AdminMatchingConfigView() {
                             ? 'Để trống nếu giữ nguyên key đang lưu'
                             : 'Để trống khi dùng Ollama local'
                         }
-                        className="font-mono text-xs sm:text-sm"
+                        className="tabular-nums text-xs sm:text-sm"
                       />
                       {savedConfig?.hasApiKey && !form.clearApiKey && (
                         <Button
@@ -748,7 +748,7 @@ export function AdminMatchingConfigView() {
                           timeoutMs: e.target.value,
                         }))
                       }
-                      className="tabular-nums font-mono text-xs sm:text-sm"
+                      className="tabular-nums text-xs sm:text-sm"
                     />
                     <p className="text-[11px] text-slate-500">
                       Local nên đặt 20000–30000
@@ -771,7 +771,7 @@ export function AdminMatchingConfigView() {
                           maxCandidates: e.target.value,
                         }))
                       }
-                      className="tabular-nums font-mono text-xs sm:text-sm"
+                      className="tabular-nums text-xs sm:text-sm"
                     />
                     <p className="text-[11px] text-slate-500">
                       Khuyến nghị 8–10 cho local
@@ -795,7 +795,7 @@ export function AdminMatchingConfigView() {
                           minFitThreshold: e.target.value,
                         }))
                       }
-                      className="tabular-nums font-mono text-xs sm:text-sm"
+                      className="tabular-nums text-xs sm:text-sm"
                     />
                     <p className="text-[11px] text-slate-500">
                       Dưới ngưỡng vào Hàng chờ Admin
@@ -824,7 +824,7 @@ export function AdminMatchingConfigView() {
                             : {}),
                         }));
                       }}
-                      className="tabular-nums font-mono text-xs sm:text-sm font-semibold text-blue-700"
+                      className="tabular-nums text-xs sm:text-sm font-semibold text-blue-700"
                     />
                     <p className="text-[11px] text-blue-700/80">Mặc định 0.70</p>
                   </div>
@@ -846,7 +846,7 @@ export function AdminMatchingConfigView() {
                           vacancyWeight: e.target.value,
                         }))
                       }
-                      className="tabular-nums font-mono text-xs sm:text-sm font-semibold text-teal-700"
+                      className="tabular-nums text-xs sm:text-sm font-semibold text-teal-700"
                     />
                     <p
                       className={`text-[11px] tabular-nums ${
@@ -923,7 +923,7 @@ export function AdminMatchingConfigView() {
                             {testResult.httpStatus !== null && (
                               <Badge
                                 variant="outline"
-                                className="tabular-nums bg-white font-mono text-[11px]"
+                                className="tabular-nums bg-white text-[11px]"
                               >
                                 HTTP {testResult.httpStatus}
                               </Badge>
@@ -932,13 +932,13 @@ export function AdminMatchingConfigView() {
                           <div className="flex items-center gap-3 text-xs text-slate-600 tabular-nums">
                             <span>
                               Model phản hồi:{' '}
-                              <strong className="font-semibold text-slate-900 font-mono">
+                              <strong className="font-semibold text-slate-900 tabular-nums">
                                 {testResult.resolvedModel ?? testResult.modelName}
                               </strong>
                             </span>
                             <span>
                               Độ trễ:{' '}
-                              <strong className="font-semibold text-slate-900 font-mono">
+                              <strong className="font-semibold text-slate-900 tabular-nums">
                                 {testResult.latencyMs} ms
                               </strong>
                             </span>
@@ -972,7 +972,7 @@ export function AdminMatchingConfigView() {
                                       )}
                                     </div>
                                     <div className="text-right tabular-nums shrink-0">
-                                      <span className="text-base font-bold text-[#00258b] font-mono">
+                                      <span className="text-base font-bold text-[#00258b] tabular-nums">
                                         {s.fitScore.toFixed(4)}
                                       </span>
                                       <div className="text-[10px] text-slate-400">

@@ -297,7 +297,7 @@ function ComplaintList({
               <CardContent className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
                 <div className="min-w-0 flex-1 space-y-1.5 text-sm">
                   <div className="flex items-center gap-2">
-                    <h2 className="font-bold text-slate-900 font-mono">{item.complaintCode}</h2>
+                    <h2 className="font-bold text-slate-900 tabular-nums">{item.complaintCode}</h2>
                     <Badge variant="outline" className={cn('text-xs font-semibold', statusStyles[item.status])}>
                       {complaintStatusLabel[item.status]}
                     </Badge>
@@ -351,7 +351,7 @@ function ComplaintList({
                   >
                     <div className="min-w-0 flex-1 basis-64 space-y-1.5 text-sm">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-bold text-slate-900 font-mono text-xs sm:text-sm">
+                        <h3 className="font-bold text-slate-900 tabular-nums text-xs sm:text-sm">
                           {item.complaintCode}
                         </h3>
 
@@ -406,7 +406,7 @@ function ComplaintList({
                           <span>CSYT: {item.contract.facility.facilityName}</span>
                         )}
                         {item.contract?.contractNumber && (
-                          <span className="font-mono text-slate-400">HĐ: {item.contract.contractNumber}</span>
+                          <span className="tabular-nums text-slate-400">HĐ: {item.contract.contractNumber}</span>
                         )}
                         <time dateTime={item.createdAt} className="tabular-nums text-slate-400">
                           {dateFormat.format(new Date(item.createdAt))}
@@ -549,7 +549,7 @@ function ComplaintDialog({
           <div className="flex flex-wrap items-center gap-2 pr-8 text-xs font-medium text-blue-100">
             <span>Hồ sơ xử lý khiếu nại</span>
             <span aria-hidden="true">•</span>
-            <span className="rounded bg-white/15 px-1.5 py-0.5 font-mono text-[11px] text-white">
+            <span className="rounded bg-white/15 px-1.5 py-0.5 tabular-nums text-[11px] text-white">
               {item.complaintCode}
             </span>
           </div>
@@ -669,7 +669,7 @@ function ComplaintDialog({
                         Giải trình chuyên môn từ {data.contract?.facility?.facilityName || 'CSYT'}:
                       </span>
                       {data.facilityReviewedAt && (
-                        <span className="text-[11px] text-indigo-700 font-mono">
+                        <span className="text-[11px] text-indigo-700 tabular-nums">
                           {dateFormat.format(new Date(data.facilityReviewedAt))}
                         </span>
                       )}

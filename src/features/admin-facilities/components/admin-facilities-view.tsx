@@ -636,7 +636,7 @@ export function AdminFacilitiesView() {
                 </div>
 
                 <div className="mt-3 flex items-baseline justify-between gap-2">
-                  <span className="text-2xl font-black tracking-tight text-slate-900 tabular-nums">
+                  <span className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
                     {card.value}
                   </span>
                   <span className="text-[11px] font-medium text-primary opacity-0 transition-opacity group-hover:opacity-100">
@@ -844,7 +844,7 @@ export function AdminFacilitiesView() {
                                     {fac.address}
                                   </div>
                                   <div
-                                    className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 font-mono"
+                                    className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 tabular-nums"
                                     title={fac.id}
                                   >
                                     ID: {formatShortId(fac.id)}
@@ -1369,7 +1369,7 @@ export function AdminFacilitiesView() {
                       </div>
                       <div>
                         <span className="block text-xs font-medium text-slate-500">Email Portal:</span>
-                        <span className="font-semibold text-slate-900 break-all font-mono text-xs">
+                        <span className="font-semibold text-slate-900 break-all tabular-nums text-xs">
                           {selectedFacility.email || '—'}
                         </span>
                       </div>
@@ -1409,7 +1409,7 @@ export function AdminFacilitiesView() {
                         <span className="block text-xs font-medium text-slate-500">Mã số thuế (MST):</span>
                         <span
                           className={cn(
-                            'font-bold tabular-nums text-primary font-mono',
+                            'font-bold tabular-nums text-primary',
                             selectedFacility.taxCode ? 'text-slate-900' : 'text-slate-400 italic font-normal'
                           )}
                         >
@@ -1420,7 +1420,7 @@ export function AdminFacilitiesView() {
                         <span className="block text-xs font-medium text-slate-500">Giấy phép hoạt động KCB (GPHĐ):</span>
                         <span
                           className={cn(
-                            'font-bold tabular-nums text-primary font-mono',
+                            'font-bold tabular-nums text-primary',
                             selectedFacility.operatingLicense ? 'text-slate-900' : 'text-slate-400 italic font-normal'
                           )}
                         >
@@ -1448,7 +1448,7 @@ export function AdminFacilitiesView() {
                         <span className="block text-xs font-medium text-slate-500">Tài khoản &amp; Chủ tài khoản:</span>
                         <span
                           className={cn(
-                            'font-semibold tabular-nums font-mono',
+                            'font-semibold tabular-nums',
                             selectedFacility.bankAccount ? 'text-slate-900' : 'text-slate-400 italic font-normal'
                           )}
                         >
