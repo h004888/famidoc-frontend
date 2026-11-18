@@ -1,466 +1,271 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { financeApi, type FinanceAnalyticsDto } from '@/lib/api';
-import { PageHeader } from '@/components/shared';
+import { financeApi, type FinanceAnalyticsDto, type FacilitySettlementDto, type ReviewSettlementPayload } from '@/lib/api/finance.api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Textarea } from '@/components/ui/textarea';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-interface RevenueCycle {
-  id: string;
-  monthYear: string;
-  totalEncounters: number;
-  grossAmount: number;
-  facilityShareRate: number; // e.g. 70%
-  facilityShareAmount: number;
-  escrowStatus: 'paid' | 'pending_signature' | 'processing';
-  reconcileDate: string;
-}
-
-const REVENUE_CYCLES: RevenueCycle[] = [
-  {
-    id: 'REV-2026-10-YDUOC',
-    monthYear: 'Tháng 10/2026 (Trọn kỳ)',
-    totalEncounters: 1420,
-    grossAmount: 489714000,
-    facilityShareRate: 85,
-    facilityShareAmount: 416256900,
-    escrowStatus: 'pending_signature',
-    reconcileDate: '05/11/2026',
-  },
-  {
-    id: 'REV-2026-09-YDUOC',
-    monthYear: 'Tháng 09/2026 (Trọn kỳ)',
-    totalEncounters: 1280,
-    grossAmount: 441000000,
-    facilityShareRate: 85,
-    facilityShareAmount: 374850000,
-    escrowStatus: 'paid',
-    reconcileDate: '05/10/2026',
-  },
-  {
-    id: 'REV-2026-08-YDUOC',
-    monthYear: 'Tháng 08/2026 (Trọn kỳ)',
-    totalEncounters: 1150,
-    grossAmount: 395000000,
-    facilityShareRate: 85,
-    facilityShareAmount: 335750000,
-    escrowStatus: 'paid',
-    reconcileDate: '05/09/2026',
-  },
-];
+const amount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+const settlementStatus: Record<FacilitySettlementDto['disbursementStatus'], string> = {
+  PENDING: 'Chờ chi trả',
+  CONFIRMED: 'Đã xác nhận',
+  FAILED: 'Chi trả thất bại',
+  SETTLED: 'Đã chi trả',
+};
 
 export function FacilityRevenueView() {
-  const [cycles, setCycles] = useState<RevenueCycle[]>(REVENUE_CYCLES);
-  const [analytics, setAnalytics] = useState<FinanceAnalyticsDto | null>({
-    totalGmv: 489714000,
-    platformCommission: 73457100,
-    facilityPayouts: 416256900,
-    activeContractsCount: 86,
-    gmvTotalVnd: 489714000,
-    escrowBalanceVnd: 280000000,
-    facilityShareVnd: 416256900,
-    platformShareVnd: 73457100,
-    contractsCount: 86,
-  });
-  const [isSignModalOpen, setIsSignModalOpen] = useState(false);
-  const [signingCycle, setSigningCycle] = useState<RevenueCycle | null>(null);
-  const [digitalCertificatePin, setDigitalCertificatePin] = useState('');
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [isSettling, setIsSettling] = useState(false);
+  const [analytics, setAnalytics] = useState<FinanceAnalyticsDto | null>(null);
+  const [period, setPeriod] = useState('');
+  const [environment, setEnvironment] = useState<'LIVE' | 'TEST'>('LIVE');
+  const [refresh, setRefresh] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [review, setReview] = useState<{
+    item: FacilitySettlementDto;
+    action: ReviewSettlementPayload['action'];
+  } | null>(null);
+  const [reason, setReason] = useState('');
+  const [reviewError, setReviewError] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
-    let isMounted = true;
-    financeApi
-      .getAnalytics()
-      .then((data) => {
-        if (!isMounted) return;
-        if (data) setAnalytics(data);
-      })
-      .catch((err) => {
-        console.warn('Finance analytics fetch fallback:', err);
-      });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    let active = true;
+    const [year, month] = period.split('-').map(Number);
+    void financeApi.getAnalytics({ environment, ...(period ? { year, month } : {}) }).then((data) => {
+      if (active) setAnalytics(data);
+    }).catch((cause: unknown) => {
+      if (active) {
+        setAnalytics(null);
+        setError(cause instanceof Error ? cause.message : 'Không tải được báo cáo doanh thu.');
+      }
+    }).finally(() => {
+      if (active) setIsLoading(false);
+    });
+    return () => { active = false; };
+  }, [environment, period, refresh]);
 
-  const handleRunSettlement = async () => {
-    setIsSettling(true);
+  const metrics = analytics && [
+    ['Doanh thu ghi nhận', amount.format(analytics.grossVnd)],
+    ['Phần doanh thu CSYT (85%)', amount.format(analytics.facilityShareVnd)],
+    ['Phí nền tảng (15%)', amount.format(analytics.platformFeeVnd)],
+    ['Số hóa đơn', analytics.invoiceCount.toLocaleString('vi-VN')],
+  ];
+
+  const openReview = (item: FacilitySettlementDto, action: ReviewSettlementPayload['action']) => {
+    setReason('');
+    setReviewError('');
+    setReview({ item, action });
+  };
+
+  const submitReview = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!review || isSubmittingReview) return;
+    const { item, action } = review;
+    const { reviewVersion } = item;
+    if (reviewVersion === undefined) return;
+    const note = reason.trim();
+    if (action === 'REPORT_DISCREPANCY' && note.length < 10) {
+      setReviewError('Vui lòng mô tả sai lệch ít nhất 10 ký tự.');
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    setReviewError('');
     try {
-      await financeApi.runMonthlySettlement();
-      toast.success('Đã tạo yêu cầu quyết toán chu kỳ tháng thành công và kích hoạt quy trình giải ngân Escrow!');
-    } catch {
-      toast.success('Đã tạo yêu cầu quyết toán chu kỳ tháng thành công và kích hoạt quy trình giải ngân Escrow!');
+      const payload = { environment: item.environment, reviewVersion };
+      const updated = await financeApi.reviewSettlement(item.id, action === 'CONFIRM'
+        ? { ...payload, action }
+        : { ...payload, action, reason: note });
+      setAnalytics((current) => current ? {
+        ...current,
+        settlements: current.settlements.map((entry) => entry.id === updated.id ? updated : entry),
+      } : current);
+      toast.success(action === 'CONFIRM' ? 'Đã xác nhận bảng đối soát.' : 'Đã gửi sai lệch cho Admin.');
+      setReview(null);
+    } catch (cause) {
+      setReviewError(cause instanceof Error ? cause.message : 'Không lưu được kết quả đối soát.');
     } finally {
-      setIsSettling(false);
+      setIsSubmittingReview(false);
     }
   };
 
-  const formatVND = (num: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
-  };
+  const renderReview = (item: FacilitySettlementDto) => {
+    const settled = item.disbursementStatus === 'SETTLED';
+    const canReview = !settled && item.reviewStatus === 'PENDING' && item.reviewVersion !== undefined;
+    const status = item.reviewStatus === 'CONFIRMED' ? 'CSYT đã xác nhận'
+      : item.reviewStatus === 'DISPUTED' ? 'Đã báo sai lệch'
+      : canReview ? 'Chờ CSYT xác nhận' : '—';
 
-  const handleOpenSignModal = (cycle: RevenueCycle) => {
-    setSigningCycle(cycle);
-    setIsSignModalOpen(true);
-    setIsSuccess(false);
-    setDigitalCertificatePin('');
-  };
-
-  const handleExecuteSign = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!signingCycle || !digitalCertificatePin) return;
-
-    setCycles((prev) =>
-      prev.map((c) =>
-        c.id === signingCycle.id ? { ...c, escrowStatus: 'paid' as const } : c
-      )
+    return (
+      <div className="space-y-2">
+        <Badge variant="outline">{status}</Badge>
+        {item.reviewDisputeReason && (
+          <p className="max-w-xs whitespace-normal break-words text-xs text-amber-800">
+            Sai lệch đã báo gần nhất: {item.reviewDisputeReason}
+          </p>
+        )}
+        {canReview && (
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" size="sm" onClick={() => openReview(item, 'CONFIRM')}>Xác nhận bảng</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => openReview(item, 'REPORT_DISCREPANCY')}>Báo sai lệch</Button>
+          </div>
+        )}
+      </div>
     );
-    setIsSuccess(true);
-    toast.success(`Đã ký số B2B và giải ngân kỳ ${signingCycle.monthYear}.`);
-    setTimeout(() => {
-      setIsSignModalOpen(false);
-      setIsSuccess(false);
-    }, 1500);
   };
 
   return (
-    <div className="min-h-full bg-[#f5f6f8] text-[#0f172a] font-sans antialiased">
-      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-              Đối soát Doanh thu B2B &amp; Giải ngân Escrow
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1">
-              Phân bổ doanh thu theo tỷ lệ cam kết 85% Cơ sở y tế - 15% Nền tảng (CFG-03, BR-14) với đối soát tự động ngày 05 hàng tháng
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleRunSettlement}
-              disabled={isSettling}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#2E37A4] hover:bg-[#222982] text-white text-xs sm:text-sm font-bold shadow-xs transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-              <span>{isSettling ? 'Đang quyết toán...' : 'Tạo yêu cầu quyết toán chu kỳ'}</span>
-            </button>
-
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold">
-              <span className="material-symbols-outlined text-[16px]">verified</span>
-              <span>Tỷ lệ phân chia: 85% CSYT / 15% Nền tảng</span>
-            </div>
-          </div>
+    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold">Đối soát doanh thu B2B</h1>
+          <p className="mt-1 text-sm text-slate-600">Doanh thu ghi nhận theo ngày phục vụ trong kỳ.</p>
         </div>
-
-        {/* Revenue KPI Summary */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Tổng doanh số dịch vụ</span>
-            <div className="text-2xl font-bold text-slate-900 mt-2">
-              {formatVND(analytics?.gmvTotalVnd ?? 489714000)}
-            </div>
-            <div className="text-xs text-slate-500 mt-1 font-medium">{analytics?.contractsCount ?? 86} hợp đồng y tế</div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-blue-200 shadow-xs bg-linear-to-br from-white to-blue-50/30">
-            <span className="text-xs font-bold text-blue-600 uppercase">Doanh thu CSYT thực nhận (85%)</span>
-            <div className="text-2xl font-bold text-blue-700 mt-2">
-              {formatVND(analytics?.facilityShareVnd ?? Math.round((analytics?.gmvTotalVnd ?? 489714000) * 0.85))}
-            </div>
-            <div className="text-xs text-blue-600/80 mt-1 font-semibold">Quyết toán ngày 05 hàng tháng</div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Doanh thu tạm giữ Escrow</span>
-            <div className="text-2xl font-bold text-emerald-600 mt-2">
-              {formatVND(analytics?.escrowBalanceVnd ?? 280000000)}
-            </div>
-            <div className="text-xs text-slate-500 mt-1 font-medium">Đảm bảo an toàn tài chính 100%</div>
-          </div>
-
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-            <span className="text-xs font-semibold text-slate-500 uppercase">Phí duy trì nền tảng (15%)</span>
-            <div className="text-2xl font-bold text-amber-600 mt-2">
-              {formatVND(analytics?.platformShareVnd ?? Math.round((analytics?.gmvTotalVnd ?? 489714000) * 0.15))}
-            </div>
-            <div className="text-xs text-amber-700 mt-1 font-semibold">Bao gồm hạ tầng WebRTC &amp; EMR</div>
-          </div>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="space-y-1 text-sm">
+            <span className="block">Kỳ báo cáo</span>
+            <input
+              type="month"
+              className="h-9 rounded-md border bg-white px-2"
+              value={period}
+              onChange={(event) => {
+                setError('');
+                setIsLoading(true);
+                setPeriod(event.target.value);
+              }}
+            />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="block">Môi trường</span>
+            <select className="h-9 rounded-md border bg-white px-2" value={environment} onChange={(event) => {
+              setError('');
+              setIsLoading(true);
+              setEnvironment(event.target.value as typeof environment);
+            }}>
+              <option value="LIVE">LIVE</option>
+              <option value="TEST">TEST</option>
+            </select>
+          </label>
+          <Button variant="outline" disabled={isLoading} onClick={() => {
+            setError('');
+            setIsLoading(true);
+            setRefresh((value) => value + 1);
+          }}>Làm mới</Button>
         </div>
-
-        {/* B2B Contract Details & Escrow Explanation */}
-        <Card className="bg-white py-6 rounded-2xl border-slate-200 shadow-xs">
-          <CardContent className="px-6">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-100 pb-4 mb-4">
-              <div>
-                <h2 className="text-base font-bold text-slate-900">Cơ chế Phân bổ &amp; Quỹ Ký quỹ Đảm bảo (Escrow)</h2>
-                <p className="text-xs text-slate-500 mt-0.5">Bảo vệ quyền lợi tài chính minh bạch giữa Bệnh viện và Hộ gia đình</p>
-              </div>
-              <div className="text-xs tabular-nums font-medium bg-slate-100 px-3 py-1.5 rounded-lg text-slate-700">
-                Tài khoản nhận: BIDV - 119000288819 (BV ĐH Y DƯỢC TP.HCM)
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600">
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="font-bold text-slate-900 block mb-1">1. Thu tiền tạm giữ</span>
-                Khi gia đình thanh toán gói qua VietQR, tiền được giữ trong Quỹ Escrow độc lập để đảm bảo SLA khám bệnh.
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="font-bold text-slate-900 block mb-1">2. Tự động đối soát</span>
-                Mỗi ca khám hoàn tất và phiếu SOAP được ký mã hóa, hệ thống tự động ghi nhận tỷ lệ 85% vào doanh thu cơ sở.
-              </div>
-              <div className="p-3 bg-slate-50 rounded-xl">
-                <span className="font-bold text-slate-900 block mb-1">3. Giải ngân định kỳ</span>
-                Giải ngân vào ngày 15 và 30 hàng tháng sau khi người đại diện tài chính bệnh viện ký số biên bản đối soát.
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Cycles Table */}
-        <Card className="bg-white rounded-2xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
-          <div className="p-5 border-b border-slate-100 flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900">Lịch sử Kỳ Đối soát Doanh thu B2B</h2>
-            <Button
-              type="button"
-              variant="link"
-              size="xs"
-              onClick={() => toast.info('Đang kết xuất bảng tổng hợp đối soát Excel (.xlsx) B2B...')}
-              className="text-xs font-semibold text-primary cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px]">download</span>
-              <span>Xuất Excel (.xlsx)</span>
-            </Button>
-          </div>
-
-          <div className="hidden md:block">
-          <Table className="text-xs sm:text-sm">
-            <TableHeader>
-              <TableRow className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider hover:bg-slate-50/80">
-                <TableHead className="py-3.5 px-4 text-slate-600">Kỳ đối soát &amp; Mã</TableHead>
-                <TableHead className="py-3.5 px-4 text-center text-slate-600">Ca khám</TableHead>
-                <TableHead className="py-3.5 px-4 text-right text-slate-600">Tổng doanh số</TableHead>
-                <TableHead className="py-3.5 px-4 text-right text-slate-600">Tỷ lệ cơ sở</TableHead>
-                <TableHead className="py-3.5 px-4 text-right text-slate-600">Thực nhận (85%)</TableHead>
-                <TableHead className="py-3.5 px-4 text-center text-slate-600">Trạng thái Escrow</TableHead>
-                <TableHead className="py-3.5 px-4 text-right text-slate-600">Biên bản đối soát</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-slate-100">
-              {cycles.map((c) => (
-                <TableRow key={c.id} className="hover:bg-slate-50/70">
-                  <TableCell className="py-3.5 px-4">
-                    <div className="font-bold text-slate-900">{c.monthYear}</div>
-                    <div className="tabular-nums text-[11px] text-slate-400">{c.id}</div>
-                  </TableCell>
-                  <TableCell className="py-3.5 px-4 text-center font-medium text-slate-700 tabular-nums">
-                    {c.totalEncounters}
-                  </TableCell>
-                  <TableCell className="py-3.5 px-4 text-right font-medium text-slate-600 tabular-nums">
-                    {formatVND(c.grossAmount)}
-                  </TableCell>
-                  <TableCell className="py-3.5 px-4 text-right font-semibold text-slate-700 tabular-nums">
-                    {c.facilityShareRate}%
-                  </TableCell>
-                  <TableCell className="py-3.5 px-4 text-right font-bold text-primary tabular-nums">
-                    {formatVND(c.facilityShareAmount)}
-                  </TableCell>
-                  <TableCell className="py-3.5 px-4 text-center">
-                    {c.escrowStatus === 'paid' && (
-                      <Badge variant="outline" className="rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">
-                        Đã giải ngân
-                      </Badge>
-                    )}
-                    {c.escrowStatus === 'pending_signature' && (
-                      <Badge variant="outline" className="rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border-amber-200">
-                        Chờ ký số biên bản
-                      </Badge>
-                    )}
-                    {c.escrowStatus === 'processing' && (
-                      <Badge variant="outline" className="rounded-full text-[11px] font-semibold bg-blue-50 text-primary border-blue-200">
-                        Đang xử lý ngân hàng
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="py-3.5 px-4 text-right">
-                    {c.escrowStatus === 'pending_signature' ? (
-                      <Button
-                        type="button"
-                        size="xs"
-                        onClick={() => handleOpenSignModal(c)}
-                        className="rounded-lg text-xs font-semibold ml-auto cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">draw</span>
-                        <span>Ký số B2B</span>
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        size="xs"
-                        variant="secondary"
-                        onClick={() => toast.info(`Đang tải biên bản đã ký số cho kỳ ${c.id}...`)}
-                        className="rounded-lg text-xs font-semibold ml-auto cursor-pointer"
-                      >
-                        <span className="material-symbols-outlined text-[15px]">picture_as_pdf</span>
-                        <span>Tải PDF</span>
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          </div>
-          <div className="divide-y divide-slate-100 md:hidden">
-            {cycles.map((c) => (
-              <div key={c.id} className="space-y-2.5 p-4 text-xs">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-bold text-slate-900">{c.monthYear}</div>
-                    <div className="text-[11px] text-slate-500 tabular-nums">{c.id} • {c.totalEncounters} ca khám</div>
-                  </div>
-                  <span className="font-bold text-primary tabular-nums">{formatVND(c.facilityShareAmount)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="rounded-full text-[11px] font-semibold">
-                    {c.escrowStatus === 'paid'
-                      ? 'Đã giải ngân'
-                      : c.escrowStatus === 'pending_signature'
-                      ? 'Chờ ký số'
-                      : 'Đang xử lý'}
-                  </Badge>
-                  {c.escrowStatus === 'pending_signature' ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => handleOpenSignModal(c)}
-                      className="rounded-lg text-xs font-semibold cursor-pointer"
-                    >
-                      Ký số B2B
-                    </Button>
-                  ) : (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => toast.info(`Đang tải biên bản đã ký số cho kỳ ${c.id}...`)}
-                      className="rounded-lg text-xs font-semibold cursor-pointer"
-                    >
-                      Tải PDF
-                    </Button>
-                  )}
-                </div>
-              </div>
+      </header>
+      {isLoading && <p role="status" className="text-sm">Đang tải báo cáo doanh thu…</p>}
+      {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+      {analytics && !isLoading && (
+        <>
+          <p className="text-sm font-semibold">Tháng {analytics.month}/{analytics.year} · {analytics.environment}</p>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {metrics?.map(([label, value]) => (
+              <Card key={label}>
+                <CardContent className="space-y-1">
+                  <p className="text-sm text-slate-600">{label}</p>
+                  <p className="text-xl font-bold tabular-nums">{value}</p>
+                </CardContent>
+              </Card>
             ))}
           </div>
-        </Card>
-
-        {/* Dialog: Ký số biên bản đối soát B2B */}
-        <Dialog open={isSignModalOpen && Boolean(signingCycle)} onOpenChange={setIsSignModalOpen}>
-          <DialogContent className="rounded-2xl border-slate-200 sm:max-w-md">
-            {signingCycle && (
-              <>
-                <DialogHeader className="border-b border-slate-100 pb-3">
-                  <DialogTitle className="flex items-center gap-2 font-bold text-slate-900 text-base">
-                    <span className="material-symbols-outlined text-primary text-[22px]">verified_user</span>
-                    <span>Ký số Biên bản Đối soát B2B</span>
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-slate-500">
-                    Xác thực PIN chữ ký số USB Token / SmartCA của cơ sở y tế
-                  </DialogDescription>
-                </DialogHeader>
-
-                {isSuccess ? (
-                  <div className="py-6 text-center space-y-2">
-                    <span className="material-symbols-outlined text-[48px] text-emerald-500">check_circle</span>
-                    <h4 className="font-bold text-slate-900 text-base">Ký số Thành công!</h4>
-                    <p className="text-xs text-slate-500 tabular-nums">
-                      Lệnh giải ngân số tiền {formatVND(signingCycle.facilityShareAmount)} đã được chuyển đến Quỹ Escrow BIDV.
-                    </p>
+          <Card className="gap-0 overflow-hidden py-0">
+            <h2 className="border-b p-4 font-semibold">Bảng quyết toán của kỳ</h2>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Mã quyết toán</TableHead>
+                    <TableHead>Phần chi trả CSYT</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Mã chuyển khoản</TableHead>
+                    <TableHead>Đối soát CSYT</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {analytics.settlements.map((item) => (
+                    <TableRow key={item.id}>
+                      <TableCell>{item.settlementCode}</TableCell>
+                      <TableCell>{amount.format(item.facilityPayoutAmount)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{settlementStatus[item.disbursementStatus]}</Badge>
+                        {item.failureReason && <p className="mt-1 text-xs">{item.failureReason}</p>}
+                      </TableCell>
+                      <TableCell>{item.bankTransferOrderId || '—'}</TableCell>
+                      <TableCell>{renderReview(item)}</TableCell>
+                    </TableRow>
+                  ))}
+                  {analytics.settlements.length === 0 && (
+                    <TableRow><TableCell colSpan={5} className="py-8 text-center">Chưa có bảng quyết toán cho kỳ này.</TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <div className="divide-y divide-slate-100 md:hidden">
+              {analytics.settlements.map((item) => (
+                <div key={item.id} className="space-y-2 p-4 text-sm">
+                  <div className="flex flex-wrap justify-between gap-2 font-semibold">
+                    <span>{item.settlementCode}</span>
+                    <span>{amount.format(item.facilityPayoutAmount)}</span>
                   </div>
-                ) : (
-                  <form onSubmit={handleExecuteSign} className="space-y-4">
-                    <div className="p-3 bg-slate-50 rounded-xl space-y-1 text-xs text-slate-600">
-                      <div>
-                        Kỳ đối soát: <span className="font-bold text-slate-800">{signingCycle.monthYear}</span>
-                      </div>
-                      <div>
-                        Số tiền thực nhận (85%):{' '}
-                        <span className="font-bold text-primary tabular-nums">
-                          {formatVND(signingCycle.facilityShareAmount)}
-                        </span>
-                      </div>
-                      <div>
-                        Chứng thư số: <span className="tabular-nums text-slate-700">CA-BV-YDUOC-TOKEN-01</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label htmlFor="b2b-pin" className="text-xs font-semibold text-slate-700">
-                        Nhập mã PIN Chữ ký số USB Token / SmartCA <span className="text-rose-500">*</span>
-                      </Label>
-                      <Input
-                        id="b2b-pin"
-                        type="password"
-                        required
-                        placeholder="Nhập mã PIN bảo mật..."
-                        value={digitalCertificatePin}
-                        onChange={(e) => setDigitalCertificatePin(e.target.value)}
-                        className="rounded-xl text-xs sm:text-sm tabular-nums"
-                      />
-                      <p className="text-[11px] text-slate-400">
-                        Chữ ký số hợp lệ theo Luật Giao dịch điện tử số 20/2023/QH15.
-                      </p>
-                    </div>
-
-                    <DialogFooter className="border-t border-slate-100 pt-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setIsSignModalOpen(false)}
-                        className="rounded-xl text-xs sm:text-sm font-semibold cursor-pointer"
-                      >
-                        Hủy bỏ
-                      </Button>
-                      <Button
-                        type="submit"
-                        className="rounded-xl text-xs sm:text-sm font-semibold cursor-pointer"
-                      >
-                        Xác nhận Ký số
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                )}
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
+                  <Badge variant="outline">{settlementStatus[item.disbursementStatus]}</Badge>
+                  {item.failureReason && <p className="text-xs">{item.failureReason}</p>}
+                  {item.bankTransferOrderId && (
+                    <p className="text-xs text-muted-foreground">Mã chuyển khoản {item.bankTransferOrderId}</p>
+                  )}
+                  {renderReview(item)}
+                </div>
+              ))}
+              {analytics.settlements.length === 0 && (
+                <p className="p-8 text-center text-sm">Chưa có bảng quyết toán cho kỳ này.</p>
+              )}
+            </div>
+          </Card>
+        </>
+      )}
+      <Dialog open={review !== null} onOpenChange={(open) => {
+        if (!open && !isSubmittingReview) setReview(null);
+      }}>
+        <DialogContent>
+          {review && (
+            <form onSubmit={submitReview} className="space-y-4">
+              <DialogHeader>
+                <DialogTitle>{review.action === 'CONFIRM' ? 'Xác nhận bảng đối soát' : 'Báo sai lệch bảng đối soát'}</DialogTitle>
+                <DialogDescription>
+                  {review.item.settlementCode} · Tháng {review.item.month}/{review.item.year} · Phần CSYT {amount.format(review.item.facilityPayoutAmount)}
+                </DialogDescription>
+              </DialogHeader>
+              {review.action === 'REPORT_DISCREPANCY' && (
+                <div className="space-y-2">
+                  <Label htmlFor="settlement-review-reason">Nội dung sai lệch</Label>
+                  <Textarea
+                    id="settlement-review-reason"
+                    required
+                    minLength={10}
+                    maxLength={1000}
+                    value={reason}
+                    disabled={isSubmittingReview}
+                    onChange={(event) => setReason(event.target.value)}
+                    placeholder="Ghi kỳ, hóa đơn hoặc số tiền chưa khớp"
+                  />
+                </div>
+              )}
+              {reviewError && <p role="alert" className="text-sm text-destructive">{reviewError}</p>}
+              <DialogFooter>
+                <Button type="button" variant="outline" disabled={isSubmittingReview} onClick={() => setReview(null)}>Hủy</Button>
+                <Button type="submit" disabled={isSubmittingReview}>
+                  {isSubmittingReview ? 'Đang gửi…' : review.action === 'CONFIRM' ? 'Xác nhận số liệu' : 'Gửi sai lệch'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

@@ -485,12 +485,9 @@ export function AdminFacilitiesView() {
     try {
       await doctorsApi.platformApproveCredentials(docId, {
         approved: true,
-        backgroundCheckConsent: true,
       });
       setDoctorsList((prev) => prev.filter((d) => d.id !== docId));
-      toast.success(
-        `Đã hậu kiểm CSDL Quốc gia & kích hoạt ACTIVE cho Bác sĩ ${docName} (${docId}). Bác sĩ đã có thể mở lịch khám!`
-      );
+      toast.success(`Đã phê duyệt CCHN và kích hoạt Bác sĩ ${docName}.`);
     } catch (err: any) {
       toast.error(extractErrorMessage(err, 'Không thể duyệt cấp 2 cho Bác sĩ.'));
     } finally {
@@ -565,7 +562,7 @@ export function AdminFacilitiesView() {
         {/* Standardized Page Header */}
         <PageHeader
           breadcrumbs={[
-            { label: 'Admin Backoffice', href: '/admin' },
+            { label: 'Quản trị hệ thống', href: '/admin' },
             { label: 'Quản trị & Thẩm định Cơ sở Y tế' },
           ]}
           title="Quản trị & Thẩm định Cơ sở Y tế"
@@ -1457,6 +1454,14 @@ export function AdminFacilitiesView() {
                       </div>
                     </div>
 
+                    {selectedFacility.legalRejectionReason && (
+                      <p className="text-sm text-rose-700">Lý do yêu cầu bổ sung: {selectedFacility.legalRejectionReason}</p>
+                    )}
+                    {selectedFacility.hasLegalDocument && (
+                      <Link className="text-sm font-medium text-primary underline" href={`/admin/facilities/${selectedFacility.id}`}>
+                        Mở hồ sơ để tải bản scan trong tab pháp lý
+                      </Link>
+                    )}
                     {/* Danh sách tài liệu pháp lý đính kèm */}
                     {(selectedFacility.hasLegalDocument ||
                       (selectedFacility.licenseFiles && selectedFacility.licenseFiles.length > 0)) && (

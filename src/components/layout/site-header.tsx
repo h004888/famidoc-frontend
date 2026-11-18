@@ -7,6 +7,7 @@ import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-con
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { getCurrentBrowserHost, getSubdomainPortal } from '@/lib/portal-routing';
 import { ROLE_MENUS, getRoleFromPathname } from './dashboard-sidebar';
+import { DashboardTopbarNotifications } from './dashboard-topbar-notifications';
 import { DashboardTopbarUser } from './dashboard-topbar-user';
 import { useFamilySubscriptionGateState } from './family-subscription-gate';
 import { SidebarTrigger } from '@/components/ui/sidebar';
@@ -22,7 +23,7 @@ import {
 
 const EXTRA_ROUTE_LABELS: Record<string, string> = {
   '/notifications': 'Thông báo hệ thống',
-  '/settings': 'Cài đặt & Hồ sơ BHYT',
+  '/settings': 'Cài đặt',
   '/packages': 'Danh mục Gói Dịch vụ',
 };
 
@@ -55,10 +56,12 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
    * về đúng bước `/booking/...` để người dùng tiếp tục luồng nghiệp vụ.
    */
   const familyGateHomePath = gateStatus?.pendingContract?.id ? unlockTargetHref : '/onboarding';
-  const homePath =
-    isFamilyLocked && (effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT')
-      ? familyGateHomePath
-      : getDefaultPathForRole(effectiveRole);
+  const isFamilyLockedAccount =
+    isFamilyLocked && (effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT');
+  const roleHomePath = isFamilyLockedAccount
+    ? familyGateHomePath
+    : getDefaultPathForRole(effectiveRole);
+  const breadcrumbHomeHref = isFamilyLockedAccount ? familyGateHomePath : '/';
 
   const matchedItem =
     menuConfig.items.find((item) => item.href === pathname) ||
@@ -87,7 +90,7 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
           <BreadcrumbList className="text-xs" suppressHydrationWarning>
             <BreadcrumbItem suppressHydrationWarning>
               <BreadcrumbLink asChild suppressHydrationWarning>
-                <Link href={homePath} className="font-medium text-slate-500 hover:text-primary" suppressHydrationWarning>
+                <Link href={breadcrumbHomeHref} className="font-medium text-slate-500 hover:text-primary" suppressHydrationWarning>
                   Trang chủ
                 </Link>
               </BreadcrumbLink>
@@ -95,7 +98,7 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
             <BreadcrumbSeparator />
             <BreadcrumbItem suppressHydrationWarning>
               <BreadcrumbLink asChild suppressHydrationWarning>
-                <Link href={homePath} className="font-medium text-slate-500 hover:text-primary" suppressHydrationWarning>
+                <Link href={roleHomePath} className="font-medium text-slate-500 hover:text-primary" suppressHydrationWarning>
                   {menuConfig.roleLabel}
                 </Link>
               </BreadcrumbLink>
@@ -109,15 +112,9 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
-        <Link
-          href="/notifications"
-          className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-600 transition-colors hover:bg-accent hover:text-primary outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Thông báo hệ thống"
-          title="Trung tâm thông báo đa kênh"
-        >
-          <span className="material-symbols-outlined text-[20px]">notifications</span>
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
-        </Link>
+        <React.Suspense fallback={<div className="h-9 w-9 rounded-xl bg-slate-100" />}>
+          <DashboardTopbarNotifications />
+        </React.Suspense>
 
         <React.Suspense fallback={<div className="h-9 w-9 rounded-full bg-slate-100" />}>
           <DashboardTopbarUser />

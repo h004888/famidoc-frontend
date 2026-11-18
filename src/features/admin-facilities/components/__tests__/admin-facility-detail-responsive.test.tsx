@@ -129,6 +129,7 @@ describe('AdminFacilityDetailView Responsive Contracts Table', () => {
         total: 1,
       });
     vi.mocked(contractsApi.createStaffingContract).mockResolvedValue({
+      success: true,
       data: createdDto,
     });
 

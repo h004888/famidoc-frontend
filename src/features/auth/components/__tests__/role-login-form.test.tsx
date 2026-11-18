@@ -57,7 +57,7 @@ describe('RoleAuthShell & RoleLoginForm (ADMIN / FACILITY / DOCTOR)', () => {
     expect(screen.getByLabelText(/^Mật khẩu$/i)).toBeInTheDocument();
 
     // Removed elements per design feedback
-    expect(screen.queryByText(/Admin Backoffice|Bệnh viện \/ Phòng khám|^Bác sĩ CCHN$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Admin Backoffice|Quản trị hệ thống|Bệnh viện \/ Phòng khám|^Bác sĩ CCHN$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Hệ thống điều phối nền tảng|Cổng B2B quản lý nhân sự|Không gian lâm sàng/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('complementary', { name: 'Thông tin phân hệ' })).not.toBeInTheDocument();
     expect(screen.queryByText(/Bạn là Hộ gia đình\?/i)).not.toBeInTheDocument();

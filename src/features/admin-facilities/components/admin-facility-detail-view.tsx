@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
+import { adminApi } from '@/lib/api/admin.api';
+import { useAdminQuery } from '@/hooks/use-admin-query';
+import { AdminPageNavigation } from '@/components/shared/admin-page-navigation';
 import {
   contractsApi,
   normalizeStaffingContract,
@@ -24,12 +27,48 @@ function formatContractDate(value?: string): string {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN');
 }
 
+function FacilityAuditTimeline({ id }: { id: string }) {
+  const [page, setPage] = useState(1);
+  const load = useCallback(() => adminApi.auditLogs({ page, resourceName: 'HealthcareFacility', resourceId: id }), [page, id]);
+  const { data, loading, error, refresh } = useAdminQuery(load);
+  const labels: Record<string, string> = {
+    FACILITY_REGISTRATION_SUBMITTED: 'Đã nộp đăng ký hợp tác',
+    FACILITY_ACCOUNT_APPROVED: 'Đã duyệt tài khoản',
+    FACILITY_ACCOUNT_REJECTED: 'Đã từ chối đăng ký',
+    FACILITY_INVITE_RESENT: 'Đã gửi lại mã đặt mật khẩu',
+    FACILITY_LEGAL_PROFILE_SUBMITTED: 'Đã nộp hồ sơ pháp lý',
+    FACILITY_LEGAL_VERIFIED: 'Đã duyệt hồ sơ pháp lý',
+    FACILITY_LEGAL_REJECTED: 'Đã yêu cầu bổ sung hồ sơ pháp lý',
+  };
+  return (
+    <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
+      <h3 className="font-semibold">Lịch sử thẩm định</h3>
+      {loading && <p role="status">Đang tải lịch sử…</p>}
+      {error && <p role="alert">{error} <button className="underline" onClick={refresh}>Thử lại</button></p>}
+      {data?.items.length === 0 && <p className="text-sm text-slate-500">Chưa có sự kiện trong nhật ký.</p>}
+      {data && data.items.length > 0 && (
+        <>
+          <ol className="divide-y divide-slate-200">
+            {data.items.map((event) => <li key={event.id} className="space-y-1 py-3 text-sm">
+              <p className="font-medium">{labels[event.action] ?? event.action}</p>
+              <p className="text-slate-500">{new Date(event.timestamp).toLocaleString('vi-VN')} · {event.actorUser?.fullName ?? 'Hệ thống'}</p>
+              {event.details?.reason && <p>{event.details.reason}</p>}
+            </li>)}
+          </ol>
+          <AdminPageNavigation page={page} total={data.total} limit={data.limit} onPage={setPage} />
+        </>
+      )}
+    </section>
+  );
+}
+
 export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewProps) {
   const router = useRouter();
   const [facility, setFacility] = useState<AdminFacilityItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'LEGAL' | 'BANK' | 'TIMELINE' | 'CONTRACTS'>('GENERAL');
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string>();
 
   // Danh sách hợp đồng B2B của CSYT này
   const [staffingContracts, setStaffingContracts] = useState<StaffingContractItem[]>([]);
@@ -50,7 +89,17 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
-  const fetchStaffingContracts = useCallback(async (_targetFacilityName?: string) => {
+  const handleOpenSignedContract = async (contractId: string) => {
+    try {
+      const url = await contractsApi.fetchStaffingSignedPdfBlobUrl(contractId);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      toast.error(extractErrorMessage(error, 'Không thể mở hợp đồng đã ký.'));
+    }
+  };
+
+  const fetchStaffingContracts = useCallback(async () => {
     setIsContractsLoading(true);
     try {
       const res = await contractsApi.getStaffingContracts({ facilityId });
@@ -71,19 +120,18 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     let isMounted = true;
     async function loadData() {
       setIsLoading(true);
+      setLoadError(undefined);
       try {
         const data = await facilitiesApi.getAdminFacilityDetail(facilityId);
         if (isMounted) {
-          if (data && data.facilityName) {
-            setFacility(data);
-            fetchStaffingContracts(data.facilityName);
-          } else {
-            setFacility(data || null);
-            fetchStaffingContracts();
-          }
+          setFacility(data || null);
+          void fetchStaffingContracts();
         }
       } catch (err) {
-        console.warn('Lỗi khi tải chi tiết CSYT Admin:', err);
+        if (isMounted) {
+          setFacility(null);
+          setLoadError(extractErrorMessage(err, 'Không thể tải hồ sơ CSYT.'));
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -169,18 +217,16 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
         ...(contractTerms.trim() ? { contractTerms: contractTerms.trim() } : {}),
       });
 
-      const rawCreated = unwrapApiEnvelope<any>(res);
-      const newlyCreated = normalizeStaffingContract(rawCreated);
-
-      setStaffingContracts((prev) => [newlyCreated, ...prev]);
-      void fetchStaffingContracts(facility.facilityName);
+      const rawCreated = unwrapApiEnvelope<{ id?: string } | null>(res);
+      const contractNumber = rawCreated?.id ? normalizeStaffingContract(rawCreated).contractNumber : null;
       setShowCreateContractModal(false);
       setContractTerms('');
       setActiveTab('CONTRACTS');
       toast.success(
-        `Đã khởi tạo dự thảo hợp đồng ${newlyCreated.contractNumber} thành công! Hệ thống đã gửi thông báo tới đại diện CSYT (${facility.email}) để ký Bước 1.`
+        contractNumber ? `Đã tạo dự thảo hợp đồng ${contractNumber}.` : 'Đã tạo dự thảo hợp đồng B2B.',
       );
-    } catch (err: any) {
+      void fetchStaffingContracts();
+    } catch (err) {
       toast.error(extractErrorMessage(err, 'Không thể thiết lập hợp đồng B2B trên máy chủ.'));
     } finally {
       setIsCreatingContract(false);
@@ -232,7 +278,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   if (!facility) {
     return (
       <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
-        <p className="text-slate-600 font-medium">Không tìm thấy thông tin cơ sở y tế với mã {facilityId}.</p>
+        <p className="text-slate-600 font-medium">{loadError ?? 'Không tìm thấy thông tin cơ sở y tế.'}</p>
         <Link
           href="/admin/facilities"
           className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium"
@@ -258,7 +304,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-            <Link href="/admin" className="hover:text-primary transition-colors">Admin Backoffice</Link>
+            <Link href="/admin" className="hover:text-primary transition-colors">Quản trị hệ thống</Link>
             <span>/</span>
             <Link href="/admin/facilities" className="hover:text-primary transition-colors">Cơ sở y tế</Link>
             <span>/</span>
@@ -496,7 +542,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             <div>
               <label className="text-xs text-slate-500 block">Cơ quan cấp phép</label>
               <p className="text-sm font-medium text-slate-900 mt-1">
-                {facility.licenseIssuer || 'Bộ Y Tế / Sở Y Tế địa phương'}
+                {facility.licenseIssuer || 'Chưa cập nhật'}
               </p>
             </div>
             <div>
@@ -624,13 +670,13 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             <div>
               <label className="text-xs text-slate-500 block">Chủ tài khoản thụ hưởng</label>
               <p className="text-sm font-medium text-slate-900 mt-0.5 uppercase">
-                {facility.bankAccountHolder || facility.facilityName}
+                {facility.bankAccountHolder || 'Chưa cập nhật'}
               </p>
             </div>
             <div className="pt-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
                 <span className="material-symbols-outlined text-sm">lock</span>
-                Tài khoản này được dùng để quyết toán 85% doanh thu định kỳ ngày 05 hàng tháng.
+                Tài khoản thụ hưởng cho kỳ đối soát doanh thu.
               </span>
             </div>
           </div>
@@ -774,7 +820,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                       <th className="py-3 px-4">Số hợp đồng</th>
                       <th className="py-3 px-4">Tỷ lệ phân chia</th>
                       <th className="py-3 px-4">Thời hạn hiệu lực</th>
-                      <th className="py-3 px-4">Tiến trình Ký số</th>
+                      <th className="py-3 px-4">Hồ sơ hợp đồng</th>
                       <th className="py-3 px-4">Trạng thái</th>
                       <th className="py-3 px-4 text-right">Thao tác</th>
                     </tr>
@@ -827,6 +873,15 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                                   ? 'Tới lượt Admin ký'
                                   : 'Chờ CSYT ký trước'}
                             </div>
+                            {c.signedPdfUrl && (
+                              <button
+                                type="button"
+                                onClick={() => void handleOpenSignedContract(c.id)}
+                                className="text-xs text-primary underline"
+                              >
+                                Mở bản đã ký
+                              </button>
+                            )}
                           </div>
                         </td>
 
@@ -985,8 +1040,8 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                     <strong>Email tiếp nhận:</strong> {facility.email}
                   </span>
                   <span>
-                    <strong>Tài khoản thụ hưởng:</strong> {facility.bankAccount || '0071001234567'} (
-                    {facility.bankName || 'Vietcombank'})
+                    <strong>Tài khoản thụ hưởng:</strong> {facility.bankAccount || 'Chưa cập nhật'} (
+                    {facility.bankName || 'Chưa cập nhật'})
                   </span>
                 </div>
               </div>

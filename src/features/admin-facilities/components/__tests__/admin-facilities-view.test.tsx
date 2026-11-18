@@ -192,7 +192,7 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
     render(<AdminFacilitiesView />);
 
     await waitFor(() => {
-      expect(screen.getByText('Admin Backoffice')).toBeInTheDocument();
+      expect(screen.getByText('Quản trị hệ thống')).toBeInTheDocument();
       expect(screen.getAllByText(/Quản trị & Thẩm định Cơ sở Y tế/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText(/Quy trình hợp tác nền tảng B2B/i)).toBeInTheDocument();
     });
@@ -337,7 +337,9 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
         ],
       },
     ] as any);
-    vi.mocked(doctorsApi.platformApproveCredentials).mockResolvedValue({ statusCode: 200 });
+    vi.mocked(doctorsApi.platformApproveCredentials).mockResolvedValue({
+      id: 'DOC-001', doctorName: 'BS. Phạm Thị Hoa', onboardingStatus: 'ACTIVE',
+    } as Awaited<ReturnType<typeof doctorsApi.platformApproveCredentials>>);
 
     render(<AdminFacilitiesView />);
 
@@ -363,7 +365,6 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
     await waitFor(() => {
       expect(doctorsApi.platformApproveCredentials).toHaveBeenCalledWith('DOC-001', {
         approved: true,
-        backgroundCheckConsent: true,
       });
     });
   });

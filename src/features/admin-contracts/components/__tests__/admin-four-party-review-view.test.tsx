@@ -161,6 +161,19 @@ describe('AdminFourPartyReviewView (Documenso Platform Review & Sign)', () => {
 
   it('triggers Documenso sync when Admin completes signing on Documenso embed', async () => {
     const handleSignSuccess = vi.fn();
+    vi.mocked(contractsApi.getMedicalContractById).mockResolvedValueOnce({
+      ...mockContract,
+      status: 'PLATFORM_SIGNED',
+      signatures: {
+        ...mockContract.signatures,
+        platform: {
+          signerRole: 'PLATFORM',
+          signedBy: 'Người ký nền tảng',
+          signedAt: '2026-11-17T01:00:00.000Z',
+          sha256Hash: 'platform-signature-from-api',
+        },
+      },
+    });
     render(
       <AdminFourPartyReviewView
         contract={mockContract}
@@ -188,7 +201,7 @@ describe('AdminFourPartyReviewView (Documenso Platform Review & Sign)', () => {
     });
 
     expect(
-      screen.getByText(/Đã đồng bộ chữ ký Nền tảng trên Documenso \(2\/4 bên\)/i)
+      screen.getByText(/Đã đồng bộ trạng thái trên Documenso \(2\/4 bên\)/i)
     ).toBeInTheDocument();
   });
 

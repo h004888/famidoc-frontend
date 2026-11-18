@@ -637,6 +637,12 @@ describe('BookingTrackingStep', () => {
 describe('BookingPaymentStep', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
+    vi.mocked(contractsApi.getMedicalContractDetail).mockReset().mockResolvedValue({
+      ...contractDetailFixture,
+      contractStatus: 'PENDING_PAYMENT',
+    } as never);
+    vi.mocked(contractsApi.getPaymentStatus).mockReset().mockResolvedValue(pendingPayment);
     vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue(pendingPayment as never);
     vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
       hasActiveContract: false,
@@ -694,6 +700,81 @@ describe('BookingPaymentStep', () => {
       expect(screen.getByTestId('booking-payment-missing-contract')).toBeInTheDocument();
     });
     expect(contractsApi.createVietQRPayment).not.toHaveBeenCalled();
+  });
+
+  it('hiển thị đã nhận tiền khi hóa đơn PAID và hợp đồng còn PENDING_PAYMENT', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockResolvedValueOnce({
+      ...pendingPayment,
+      status: 'PAID',
+    } as never);
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValueOnce({
+      id: 'ctr-1',
+      contractStatus: 'PENDING_PAYMENT',
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('payment-paid-pending-activation')).toBeInTheDocument();
+    expect(screen.queryByTestId('booking-payment-success')).not.toBeInTheDocument();
+  });
+
+  it('đọc lại hóa đơn đã thanh toán sau khi tải lại trang thay vì yêu cầu chuyển tiền lần nữa', async () => {
+    sessionStorage.setItem('famidoc:payment-request:ctr-1:', pendingPayment.id);
+    vi.mocked(contractsApi.createVietQRPayment).mockRejectedValueOnce(new Error('Contract payment has already been recorded'));
+    vi.mocked(contractsApi.getPaymentStatus).mockResolvedValueOnce({ ...pendingPayment, status: 'PAID' });
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValueOnce({
+      id: 'ctr-1',
+      contractStatus: 'PENDING_PAYMENT',
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('payment-paid-pending-activation')).toBeInTheDocument();
+    expect(contractsApi.getPaymentStatus).toHaveBeenCalledWith(pendingPayment.id);
+  });
+
+  it('giữ trạng thái chờ kích hoạt khi hộ gia đình có một hợp đồng ACTIVE khác', async () => {
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValueOnce({
+      hasActiveContract: true,
+      activeContract: { id: 'ctr-other' },
+    } as never);
+    vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue({
+      ...pendingPayment,
+      status: 'PAID',
+    });
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      id: 'ctr-1',
+      contractStatus: 'PENDING_PAYMENT',
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('payment-paid-pending-activation')).toBeInTheDocument();
+    expect(screen.queryByTestId('booking-payment-success')).not.toBeInTheDocument();
+  });
+
+  it('xác nhận đã thanh toán phụ lục từ hóa đơn khôi phục và ẩn mã QR', async () => {
+    const addendumId = 'addendum-1';
+    sessionStorage.setItem(`famidoc:payment-request:ctr-1:${addendumId}`, pendingPayment.id);
+    vi.mocked(contractsApi.createVietQRPayment).mockRejectedValueOnce(
+      new Error('Addendum payment has already been recorded'),
+    );
+    vi.mocked(contractsApi.getPaymentStatus).mockResolvedValueOnce({
+      ...pendingPayment,
+      addendumId,
+      status: 'PAID',
+      qrUrl: 'https://vietqr.app/img?template=qr_only',
+      activation: { activated: true, blockingReasons: [] },
+    });
+
+    render(<BookingPaymentStep contractId="ctr-1" addendumId={addendumId} pollingIntervalMs={0} />);
+
+    expect(await screen.findByRole('heading', { name: 'Đã ghi nhận thanh toán phụ lục' })).toBeInTheDocument();
+    expect(contractsApi.createVietQRPayment).toHaveBeenCalledWith('ctr-1', addendumId);
+    expect(contractsApi.getPaymentStatus).toHaveBeenCalledWith(pendingPayment.id);
+    expect(screen.queryByTestId('booking-payment-success')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('payment-recheck-activation')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('payment-qr-zoom')).not.toBeInTheDocument();
   });
 
   it('chuyển sang màn hình chúc mừng khi createVietQRPayment lỗi nhưng hợp đồng đã ACTIVE', async () => {
@@ -877,6 +958,7 @@ describe('BookingPaymentStep', () => {
       /hồ sơ bác sĩ phải được xác minh/i
     );
     expect(screen.queryByTestId('booking-payment-success')).toBeNull();
+    expect(screen.queryByTestId('payment-qr-zoom')).not.toBeInTheDocument();
   });
 
   it('hiển thị banner soát xét thủ công kèm mã tham chiếu khi latestTransaction là REVIEW_REQUIRED', async () => {
@@ -953,7 +1035,7 @@ describe('BookingPaymentStep', () => {
     expect(contractsApi.recheckPaymentActivation).toHaveBeenCalledTimes(2);
   });
 
-  it('polling nền chỉ kích hoạt màn hình chúc mừng khi hasActiveContract hoặc activation.activated=true', async () => {
+  it('polling nền mở màn hình chúc mừng sau khi backend xác nhận kích hoạt', async () => {
     vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue({
       ...pendingPayment,
       expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
@@ -965,9 +1047,6 @@ describe('BookingPaymentStep', () => {
         activated: false,
         blockingReasons: ['DOCTOR_VERIFICATION_REQUIRED'],
       },
-    } as never);
-    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValueOnce({
-      hasActiveContract: false,
     } as never);
 
     render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={30} />);
@@ -982,9 +1061,6 @@ describe('BookingPaymentStep', () => {
         activated: true,
         blockingReasons: [],
       },
-    } as never);
-    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValueOnce({
-      hasActiveContract: true,
     } as never);
 
     expect(

@@ -84,7 +84,9 @@ export function resolveBlockedFamilyRedirect(
       return `/booking/tracking?contractId=${encodedContractId}`;
     }
     if (pathname === '/family/billing') {
-      return `/booking/payment?contractId=${encodedContractId}`;
+      const addendumId = params.get('addendumId');
+      const suffix = addendumId ? `&addendumId=${encodeURIComponent(addendumId)}` : '';
+      return `/booking/payment?contractId=${encodedContractId}${suffix}`;
     }
     if (pathname === '/family/subscription' || pathname === '/family/subscription/contract') {
       return `/booking/tracking?contractId=${encodedContractId}`;

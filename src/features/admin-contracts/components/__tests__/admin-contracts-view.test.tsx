@@ -150,7 +150,7 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
     render(<AdminContractsView />);
 
     await waitFor(() => {
-      expect(contractsApi.getMedicalContracts).toHaveBeenCalledWith({ limit: 50 });
+      expect(contractsApi.getMedicalContracts).toHaveBeenCalledWith({ all: true });
       expect(screen.getAllByText(/CTR-2026-888/).length).toBeGreaterThan(0);
       expect(screen.getAllByText('Phạm Hoàng Minh').length).toBeGreaterThan(0);
     });

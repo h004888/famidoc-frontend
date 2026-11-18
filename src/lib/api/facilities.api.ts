@@ -1,4 +1,6 @@
 import { httpClient } from './http-client';
+import { unwrapApiEnvelope } from './envelope';
+import { fetchPaginatedList } from './paginated-list';
 
 export interface CreateFacilityByAdminPayload {
   facilityName: string;
@@ -176,73 +178,14 @@ export const facilitiesApi = {
     page?: number;
     limit?: number;
   }): Promise<{ data: AdminFacilityItem[]; total: number }> => {
-    try {
-      const res = await httpClient.get<any>('/api/v1/admin/facilities', params);
-      let rawList: any[] = [];
-      let totalCount = 0;
-
-      if (res && typeof res === 'object') {
-        if (Array.isArray(res.data)) {
-          rawList = res.data;
-          totalCount = res.pagination?.total || res.data.length;
-        } else if (res.data && Array.isArray(res.data.items)) {
-          rawList = res.data.items;
-          totalCount = res.data.total || res.data.items.length;
-        } else if (Array.isArray(res.items)) {
-          rawList = res.items;
-          totalCount = res.total || res.items.length;
-        } else if (Array.isArray(res)) {
-          rawList = res;
-          totalCount = res.length;
-        }
-      }
-
-      if (rawList.length > 0) {
-        return {
-          data: rawList.map(normalizeFacility),
-          total: totalCount,
-        };
-      }
-    } catch {
-      // Fallback sang public API nếu không phải phiên Admin
-    }
-
-    try {
-      const publicRes = await httpClient.get<any>('/api/v1/public/facilities');
-      let publicItems: any[] = [];
-      if (publicRes && typeof publicRes === 'object') {
-        if (Array.isArray(publicRes.data)) publicItems = publicRes.data;
-        else if (publicRes.data && Array.isArray(publicRes.data.items)) publicItems = publicRes.data.items;
-        else if (Array.isArray(publicRes.items)) publicItems = publicRes.items;
-        else if (Array.isArray(publicRes)) publicItems = publicRes;
-      }
-
-      if (publicItems.length > 0) {
-        const mappedFromDb = publicItems.map((item) => normalizeFacility(item));
-        return {
-          data: mappedFromDb,
-          total: mappedFromDb.length,
-        };
-      }
-    } catch {
-      // Ignore
-    }
-
-    return { data: [], total: 0 };
+    const result = await fetchPaginatedList('/api/v1/admin/facilities', params);
+    return { data: result.data.map(normalizeFacility), total: result.total };
   },
 
   // Admin xem chi tiết 1 CSYT
   getAdminFacilityDetail: async (id: string): Promise<AdminFacilityItem | null> => {
-    try {
-      const res = await httpClient.get<any>(`/api/v1/admin/facilities/${id}`);
-      if (res && typeof res === 'object') {
-        if (res.data) return normalizeFacility(res.data);
-        return normalizeFacility(res);
-      }
-    } catch {
-      // Ignore
-    }
-    return null;
+    const item = unwrapApiEnvelope(await httpClient.get<unknown>(`/api/v1/admin/facilities/${id}`));
+    return item ? normalizeFacility(item) : null;
   },
 
   // Admin thẩm định & kích hoạt hoặc từ chối hồ sơ pháp lý CSYT
