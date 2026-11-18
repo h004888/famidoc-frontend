@@ -35,6 +35,7 @@ export interface AuthUserData {
 
 export interface LoginResponseData {
   accessToken: string;
+  refreshToken?: string;
   role: string;
   user: AuthUserData;
 }
@@ -188,15 +189,29 @@ export const authApi = {
     return httpClient.patch<{ message: string }>('/api/v1/auth/change-password', dto);
   },
 
-  // Đăng xuất và thu hồi JWT trên Redis blacklist (best-effort)
-  logout: async (token?: string | null): Promise<{ message?: string; success?: boolean }> => {
+  refresh: async (refreshToken: string): Promise<LoginResponseData> => {
+    const res = await httpClient.post<UnifiedResponse<LoginResponseData> | LoginResponseData>(
+      '/api/v1/auth/refresh',
+      { refreshToken }
+    );
+    if (res && typeof res === 'object' && 'data' in res && res.data) {
+      return res.data;
+    }
+    return res as LoginResponseData;
+  },
+
+  // Đăng xuất và thu hồi JWT trên PostgreSQL/Redis (best-effort)
+  logout: async (
+    token?: string | null,
+    refreshToken?: string | null,
+  ): Promise<{ message?: string; success?: boolean }> => {
     const headers: Record<string, string> = {};
     if (token) {
       headers.Authorization = `Bearer ${token}`;
     }
     return httpClient.post<{ message?: string; success?: boolean }>(
       '/api/v1/auth/logout',
-      undefined,
+      refreshToken ? { refreshToken } : undefined,
       {
         keepalive: true,
         headers,

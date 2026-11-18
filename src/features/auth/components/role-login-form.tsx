@@ -123,7 +123,13 @@ export function RoleLoginForm({ targetRole }: RoleLoginFormProps) {
         mustChangePassword: Boolean(data.user?.mustChangePassword),
       };
 
-      applySession(userRole, authUser, data.accessToken, rememberMe);
+      applySession(
+        userRole,
+        authUser,
+        data.accessToken,
+        rememberMe,
+        data.refreshToken,
+      );
       toast.success(`Đăng nhập thành công! Chào mừng ${authUser.name}.`);
 
       const defaultDestination = getDefaultPathForRole(userRole);

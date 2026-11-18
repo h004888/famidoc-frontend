@@ -3,14 +3,45 @@ import { LoginRole } from '@/features/auth/schemas/auth.schema';
 export const COOKIE_KEYS = {
   ROLE: 'famidoc_role',
   TOKEN: 'famidoc_token',
+  REFRESH_TOKEN: 'famidoc_refresh_token',
   USER: 'famidoc_user',
 } as const;
 
 const REMEMBER_ME_DAYS = 7;
 
+export function parseJwtExpMs(token: string | null | undefined): number | null {
+  if (!token || typeof token !== 'string') return null;
+  const parts = token.split('.');
+  if (parts.length !== 3 || !parts[1]) return null;
+  try {
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    const decoded =
+      typeof atob === 'function'
+        ? atob(padded)
+        : Buffer.from(padded, 'base64').toString('utf8');
+    const payload = JSON.parse(decoded) as { exp?: unknown };
+    return typeof payload.exp === 'number' && Number.isFinite(payload.exp)
+      ? payload.exp * 1000
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function isJwtExpired(
+  token: string | null | undefined,
+  skewMs = 5000,
+): boolean {
+  const expMs = parseJwtExpMs(token);
+  if (expMs === null) return false;
+  return Date.now() + skewMs >= expMs;
+}
+
 function clearStorageKeys(storage: Storage): void {
   storage.removeItem(COOKIE_KEYS.ROLE);
   storage.removeItem(COOKIE_KEYS.TOKEN);
+  storage.removeItem(COOKIE_KEYS.REFRESH_TOKEN);
   storage.removeItem(COOKIE_KEYS.USER);
 }
 
@@ -98,6 +129,7 @@ export function saveAuthSession(
   user?: AuthUser,
   token?: string,
   rememberMe = true,
+  refreshToken?: string,
 ): void {
   const finalUser = user || DEFAULT_USERS[role];
   const finalToken = token || `jwt-token-${role.toLowerCase()}-${Date.now()}`;
@@ -107,6 +139,11 @@ export function saveAuthSession(
   setCookie(COOKIE_KEYS.ROLE, role, days);
   setCookie(COOKIE_KEYS.TOKEN, finalToken, days);
   setCookie(COOKIE_KEYS.USER, userJson, days);
+  if (refreshToken) {
+    setCookie(COOKIE_KEYS.REFRESH_TOKEN, refreshToken, days);
+  } else {
+    removeCookie(COOKIE_KEYS.REFRESH_TOKEN);
+  }
 
   if (typeof window !== 'undefined') {
     const targetStorage = rememberMe ? localStorage : sessionStorage;
@@ -115,6 +152,11 @@ export function saveAuthSession(
     targetStorage.setItem(COOKIE_KEYS.ROLE, role);
     targetStorage.setItem(COOKIE_KEYS.TOKEN, finalToken);
     targetStorage.setItem(COOKIE_KEYS.USER, userJson);
+    if (refreshToken) {
+      targetStorage.setItem(COOKIE_KEYS.REFRESH_TOKEN, refreshToken);
+    } else {
+      targetStorage.removeItem(COOKIE_KEYS.REFRESH_TOKEN);
+    }
 
     clearStorageKeys(staleStorage);
   }
@@ -123,6 +165,7 @@ export function saveAuthSession(
 export function clearAuthSession(): void {
   removeCookie(COOKIE_KEYS.ROLE);
   removeCookie(COOKIE_KEYS.TOKEN);
+  removeCookie(COOKIE_KEYS.REFRESH_TOKEN);
   removeCookie(COOKIE_KEYS.USER);
 
   if (typeof window !== 'undefined') {
@@ -134,7 +177,9 @@ export function clearAuthSession(): void {
 export function getStoredAuthSession(): {
   role: LoginRole | null;
   token: string | null;
+  refreshToken: string | null;
   user: AuthUser | null;
+  isAccessTokenExpired: boolean;
 } {
   const readValue = (key: string): string | null => {
     const cookieValue = getCookie(key);
@@ -145,6 +190,20 @@ export function getStoredAuthSession(): {
 
   const role = (readValue(COOKIE_KEYS.ROLE) as LoginRole) || null;
   const token = readValue(COOKIE_KEYS.TOKEN) || null;
+  const refreshToken = readValue(COOKIE_KEYS.REFRESH_TOKEN) || null;
+  const isAccessTokenExpired = Boolean(token && isJwtExpired(token));
+
+  if (isAccessTokenExpired && !refreshToken) {
+    clearAuthSession();
+    return {
+      role: null,
+      token: null,
+      refreshToken: null,
+      user: null,
+      isAccessTokenExpired: true,
+    };
+  }
+
   const rawUser = readValue(COOKIE_KEYS.USER);
 
   let user: AuthUser | null = null;
@@ -160,6 +219,6 @@ export function getStoredAuthSession(): {
     user = DEFAULT_USERS[role] || null;
   }
 
-  return { role, token, user };
+  return { role, token, refreshToken, user, isAccessTokenExpired };
 }
 

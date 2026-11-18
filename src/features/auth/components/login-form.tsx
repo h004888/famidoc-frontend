@@ -94,7 +94,13 @@ export function LoginForm() {
         mustChangePassword: Boolean(data.user?.mustChangePassword),
       };
 
-      applySession(role, authUser, data.accessToken, validData.rememberMe);
+      applySession(
+        role,
+        authUser,
+        data.accessToken,
+        validData.rememberMe,
+        data.refreshToken,
+      );
       setLoading(false);
 
       // Quay lại đúng trang người dùng định vào; chỉ nhận đường dẫn nội bộ hợp lệ.

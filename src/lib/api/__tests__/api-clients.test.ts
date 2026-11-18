@@ -396,4 +396,78 @@ describe('Task 3: Typed API Client Services (Patients, Contracts, Auth)', () => 
       expect(httpClient.getToken()).toBe('from-memory');
     });
   });
+
+  describe('Single-flight 401 refresh interceptor', () => {
+    it('deduplicates concurrent 401 responses into a single /api/v1/auth/refresh call and retries both requests', async () => {
+      httpClient.setToken('expired-at');
+      (httpClient as any).setRefreshToken('valid-rt');
+      const onRefreshed = vi.fn();
+      (httpClient as any).setTokenRefreshedHandler(onRefreshed);
+
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.endsWith('/api/v1/auth/refresh')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              success: true,
+              data: { accessToken: 'fresh-at', refreshToken: 'fresh-rt' },
+            }),
+          } as Response;
+        }
+        if (url.includes('/api/v1/payments/requests/p-1')) {
+          return {
+            ok: fetchSpy.mock.calls.filter((c) => String(c[0]).includes('p-1')).length > 1,
+            status: fetchSpy.mock.calls.filter((c) => String(c[0]).includes('p-1')).length > 1 ? 200 : 401,
+            json: async () => ({ id: 'p-1' }),
+          } as Response;
+        }
+        return {
+          ok: fetchSpy.mock.calls.filter((c) => String(c[0]).includes('gate-status')).length > 1,
+          status: fetchSpy.mock.calls.filter((c) => String(c[0]).includes('gate-status')).length > 1 ? 200 : 401,
+          json: async () => ({ activeContract: null }),
+        } as Response;
+      });
+
+      const [r1, r2] = await Promise.all([
+        httpClient.get<{ id: string }>('/api/v1/payments/requests/p-1'),
+        httpClient.get<{ activeContract: null }>('/api/v1/contracts/family/gate-status'),
+      ]);
+
+      expect(r1.id).toBe('p-1');
+      expect(r2.activeContract).toBeNull();
+      const refreshCalls = fetchSpy.mock.calls.filter((c) =>
+        String(c[0]).endsWith('/api/v1/auth/refresh'),
+      );
+      expect(refreshCalls).toHaveLength(1);
+      expect(onRefreshed).toHaveBeenCalledWith(
+        expect.objectContaining({ accessToken: 'fresh-at', refreshToken: 'fresh-rt' }),
+      );
+
+      httpClient.clearToken();
+      (httpClient as any).setTokenRefreshedHandler(null);
+      fetchSpy.mockRestore();
+    });
+
+    it('invokes onUnauthorized once when refresh fails on 401', async () => {
+      httpClient.setToken('expired-at');
+      (httpClient as any).setRefreshToken('bad-rt');
+      const onUnauthorized = vi.fn();
+      (httpClient as any).setUnauthorizedHandler(onUnauthorized);
+
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: async () => ({ message: 'Unauthorized' }),
+      } as Response);
+
+      await expect(httpClient.get('/api/v1/payments/requests/p-1')).rejects.toThrow();
+      expect(onUnauthorized).toHaveBeenCalledTimes(1);
+
+      httpClient.clearToken();
+      (httpClient as any).setUnauthorizedHandler(null);
+      fetchSpy.mockRestore();
+    });
+  });
 });

@@ -1,6 +1,6 @@
 import { cookies, headers } from 'next/headers';
 import type { LoginRole } from '@/features/auth/schemas/auth.schema';
-import { COOKIE_KEYS, DEFAULT_USERS, type AuthUser } from './auth-storage';
+import { COOKIE_KEYS, DEFAULT_USERS, isJwtExpired, type AuthUser } from './auth-storage';
 import { getPortalFromHost, isRoleAllowedOnPortal, type PortalRole } from './portal-routing';
 
 export interface ServerAuthSession {
@@ -42,9 +42,15 @@ export async function readServerAuthSession(
   const cookieStore = await cookies();
   const rawRole = cookieStore.get(COOKIE_KEYS.ROLE)?.value;
   const rawToken = cookieStore.get(COOKIE_KEYS.TOKEN)?.value;
+  const rawRefreshToken = cookieStore.get(COOKIE_KEYS.REFRESH_TOKEN)?.value;
   const rawUser = cookieStore.get(COOKIE_KEYS.USER)?.value;
 
   if (!rawRole || !rawToken) {
+    return null;
+  }
+
+  const token = decodeURIComponent(rawToken);
+  if (isJwtExpired(token) && !rawRefreshToken) {
     return null;
   }
 
@@ -61,7 +67,6 @@ export async function readServerAuthSession(
     return null;
   }
 
-  const token = decodeURIComponent(rawToken);
   let user: AuthUser | null = null;
 
   if (rawUser) {

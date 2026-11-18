@@ -241,3 +241,43 @@ describe('Task 2: AuthContext integration with authApi.login and session sync', 
     });
   });
 });
+
+describe('AuthProvider session expiration & unauthorized handling', () => {
+  it('clears session and sets isAuthenticated=false when httpClient triggers onUnauthorized', async () => {
+    let capturedUnauthorized: (() => void) | null = null;
+    const spy = vi
+      .spyOn(httpClient as any, 'setUnauthorizedHandler')
+      .mockImplementation((fn: any) => {
+        capturedUnauthorized = fn;
+      });
+
+    const wrapper = ({ children }: { children: React.ReactNode }) => (
+      <AuthProvider>{children}</AuthProvider>
+    );
+    const { result } = renderHook(() => useAuth(), { wrapper });
+
+    act(() => {
+      result.current.applySession(
+        'FAMILY',
+        {
+          id: 'u-1',
+          name: 'Hùng',
+          phone: '0912345678',
+          role: 'FAMILY',
+          avatarText: 'HU',
+        },
+        'valid-token',
+        true,
+      );
+    });
+    expect(result.current.isAuthenticated).toBe(true);
+
+    act(() => {
+      capturedUnauthorized?.();
+    });
+
+    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.user).toBeNull();
+    spy.mockRestore();
+  });
+});
