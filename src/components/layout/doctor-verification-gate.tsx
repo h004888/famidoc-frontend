@@ -231,9 +231,9 @@ export function DoctorVerificationGateGuard({
   const isDoctor = isAuthenticated && isDoctorRole(role);
   const isRestricted = isDoctor && isRestrictedDoctorPath(pathname);
 
-  const lastPathnameRef = React.useRef<string | null>(pathname ?? null);
   const currentPath = pathname ?? null;
-  const isPathnameChanging = lastPathnameRef.current !== currentPath;
+  const [settledPathname, setSettledPathname] = useState<string | null>(currentPath);
+  const isPathnameChanging = settledPathname !== currentPath;
   const willRefreshOnPathnameChange =
     isPathnameChanging && isDoctor && !authLoading && !isDoctorVerified;
 
@@ -247,13 +247,27 @@ export function DoctorVerificationGateGuard({
     !isDoctorVerified;
 
   useEffect(() => {
-    if (lastPathnameRef.current !== currentPath) {
-      lastPathnameRef.current = currentPath;
-      if (isDoctor && !authLoading && !isDoctorVerified) {
-        void refreshDoctorGate({ silent: true });
-      }
+    if (settledPathname === currentPath) return;
+    if (isDoctor && !authLoading && !isDoctorVerified) {
+      let active = true;
+      void refreshDoctorGate({ silent: true }).finally(() => {
+        if (active) {
+          setSettledPathname(currentPath);
+        }
+      });
+      return () => {
+        active = false;
+      };
     }
-  }, [currentPath, isDoctor, authLoading, isDoctorVerified, refreshDoctorGate]);
+    return undefined;
+  }, [
+    settledPathname,
+    currentPath,
+    isDoctor,
+    authLoading,
+    isDoctorVerified,
+    refreshDoctorGate,
+  ]);
 
   useEffect(() => {
     if (shouldBlock) {

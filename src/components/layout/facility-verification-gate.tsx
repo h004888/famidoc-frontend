@@ -320,9 +320,9 @@ export function FacilityVerificationGateGuard({
     normalized !== '/facility/login' &&
     (normalized === '/facility' || normalized.startsWith('/facility/'));
 
-  const lastPathnameRef = React.useRef<string | null>(pathname ?? null);
   const currentPath = pathname ?? null;
-  const isPathnameChanging = lastPathnameRef.current !== currentPath;
+  const [settledPathname, setSettledPathname] = useState<string | null>(currentPath);
+  const isPathnameChanging = settledPathname !== currentPath;
   const willRefreshOnPathnameChange =
     isPathnameChanging &&
     isFacility &&
@@ -349,13 +349,21 @@ export function FacilityVerificationGateGuard({
     lockInfo.locked;
 
   useEffect(() => {
-    if (lastPathnameRef.current !== currentPath) {
-      lastPathnameRef.current = currentPath;
-      if (isFacility && !authLoading && (!isFacilityVerified || !isFacilityB2bReady)) {
-        void refreshFacilityGate({ silent: true });
-      }
+    if (settledPathname === currentPath) return;
+    if (isFacility && !authLoading && (!isFacilityVerified || !isFacilityB2bReady)) {
+      let active = true;
+      void refreshFacilityGate({ silent: true }).finally(() => {
+        if (active) {
+          setSettledPathname(currentPath);
+        }
+      });
+      return () => {
+        active = false;
+      };
     }
+    return undefined;
   }, [
+    settledPathname,
     currentPath,
     isFacility,
     authLoading,
