@@ -3,17 +3,8 @@ import path from 'node:path';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { toast } from 'sonner';
 import { FamilyDashboardView } from '../family-dashboard-view';
 import { contractsApi, patientsApi } from '@/lib/api';
-
-vi.mock('sonner', () => ({
-  toast: {
-    success: vi.fn(),
-    error: vi.fn(),
-  },
-}));
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -53,23 +44,10 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
     }
   });
 
-  it('renders health warning Alert and updates adherence progress + calls toast.success when toggling medication', async () => {
-    vi.clearAllMocks();
-    const user = userEvent.setup();
+  it('renders the health warning and links to shared prescriptions', () => {
     render(<FamilyDashboardView />);
-
-    const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent('Lưu ý sức khỏe hôm nay: Bác Nguyễn Văn Phúc (Huyết áp 135/85 mmHg)');
-
-    // Initial state has 3/4 taken (75%) and 1 pending ("Bấm đã uống")
-    expect(screen.getByText('Tiến độ: 75% (3/4)')).toBeInTheDocument();
-    const pendingButton = screen.getByRole('button', { name: 'Bấm đã uống' });
-
-    await user.click(pendingButton);
-
-    expect(screen.getByText('Tiến độ: 100% (4/4)')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Bấm đã uống' })).not.toBeInTheDocument();
-    expect(toast.success).toHaveBeenCalledWith('Đã cập nhật trạng thái uống thuốc hôm nay của gia đình!');
+    expect(screen.getByRole('alert')).toHaveTextContent('Lưu ý sức khỏe hôm nay: Bác Nguyễn Văn Phúc (Huyết áp 135/85 mmHg)');
+    expect(screen.getByRole('link', { name: /Đơn thuốc/i })).toHaveAttribute('href', '/family/prescriptions');
   });
 
   it('renders FamilyDashboardView without nested <main> landmark', () => {

@@ -18,8 +18,8 @@ export interface EncounterPatient {
   gender?: string;
   phone?: string;
   address?: string;
-  allergies?: string[];
-  chronicDiseases?: string[];
+  allergies?: (string | { allergen: string })[];
+  chronicDiseases?: string | string[] | null;
 }
 
 export interface EncounterContract {
@@ -29,6 +29,7 @@ export interface EncounterContract {
     id: string;
     familyName?: string;
     address?: string;
+    homeAddress?: string;
     representativeUser?: {
       name?: string;
       phone?: string;

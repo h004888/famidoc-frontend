@@ -4,7 +4,6 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { toast } from 'sonner';
 import { DoctorDashboardView } from '../doctor-dashboard-view';
 
 vi.mock('sonner', () => ({
@@ -111,7 +110,7 @@ describe('UT-CMP-QueuePagination: Patient queue pagination on Doctor Dashboard',
   });
 });
 
-describe('DoctorDashboardView Queue Tabs & HSM Signing Dialog', () => {
+describe('DoctorDashboardView Queue Tabs and Prescriptions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -126,34 +125,15 @@ describe('DoctorDashboardView Queue Tabs & HSM Signing Dialog', () => {
     expect(screen.getByText('1 ca chờ')).toBeInTheDocument();
     expect(screen.getAllByText('Trần Thị Bích (66 tuổi)').length).toBeGreaterThan(0);
 
-    await user.click(screen.getByRole('tab', { name: 'Đã ký số' }));
+    await user.click(screen.getByRole('tab', { name: 'Hoàn tất' }));
     expect(screen.getByText('1 ca chờ')).toBeInTheDocument();
     expect(screen.getAllByText('Phạm Minh Khôi (9 tuổi)').length).toBeGreaterThan(0);
   });
 
-  it('opens HSM signing Dialog, dismisses on Escape, and fires toast.success on confirm', async () => {
-    const user = userEvent.setup();
+  it('links to the real prescription workflow', () => {
     render(<DoctorDashboardView />);
-
-    await user.click(screen.getByRole('button', { name: /Ký số HSM & Hoàn tất/i }));
-    expect(await screen.findByText('Xác Thực Ký Số Viettel-CA Cloud HSM')).toBeInTheDocument();
-
-    await user.keyboard('{Escape}');
-    await waitFor(() => {
-      expect(screen.queryByText('Xác Thực Ký Số Viettel-CA Cloud HSM')).not.toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('button', { name: /Ký số HSM & Hoàn tất/i }));
-    await user.click(await screen.findByRole('button', { name: /Xác nhận Ký số/i }));
-
-    await waitFor(
-      () => {
-        expect(toast.success).toHaveBeenCalledWith(
-          expect.stringContaining('Đã ký số HSM Viettel-CA'),
-        );
-      },
-      { timeout: 1500 },
-    );
+    expect(screen.getByRole('link', { name: /Mở trang kê đơn thuốc/i }))
+      .toHaveAttribute('href', '/doctor/encounters');
   });
 
   it('renders without nested <main> landmark', () => {

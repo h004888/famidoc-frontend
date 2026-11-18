@@ -35,13 +35,6 @@ export interface MemberHealthData {
   glucose: string;
   glucoseStatus: string;
   lastUpdated: string;
-  medicines: {
-    id: string;
-    name: string;
-    dosage: string;
-    time: string;
-    status: 'taken' | 'pending';
-  }[];
   upcomingVisit?: {
     doctor: string;
     specialty: string;
@@ -73,22 +66,6 @@ export const INITIAL_FAMILY_MEMBERS_DATA: Record<string, MemberHealthData> = {
     glucose: '6.8 mmol/L',
     glucoseStatus: 'Ổn định sau ăn',
     lastUpdated: '07:30 Sáng hôm nay',
-    medicines: [
-      {
-        id: 'med-1',
-        name: 'Amlodipine 5mg (Hạ huyết áp)',
-        dosage: '1 viên nén • Uống sau ăn sáng',
-        time: '08:00 Sáng mỗi ngày',
-        status: 'taken',
-      },
-      {
-        id: 'med-2',
-        name: 'Metformin 500mg (Đường huyết)',
-        dosage: '1 viên • Uống ngay sau bữa tối',
-        time: '19:00 Tối mỗi ngày',
-        status: 'pending',
-      },
-    ],
     upcomingVisit: {
       doctor: 'PGS.TS Nguyễn Trọng Nghĩa',
       specialty: 'Bác sĩ Gia đình & Tim mạch',
@@ -118,15 +95,6 @@ export const INITIAL_FAMILY_MEMBERS_DATA: Record<string, MemberHealthData> = {
     glucose: '5.2 mmol/L',
     glucoseStatus: 'Bình thường',
     lastUpdated: '07:00 Sáng hôm nay',
-    medicines: [
-      {
-        id: 'med-3',
-        name: 'Canxi & Vitamin D3 hữu cơ',
-        dosage: '1 viên nang mềm • Uống cùng nhiều nước',
-        time: '08:30 Sau bữa sáng',
-        status: 'taken',
-      },
-    ],
     upcomingVisit: {
       doctor: 'ThS.BS Võ Thị Phương Thảo',
       specialty: 'Tư vấn Sản Phụ Khoa',
@@ -156,15 +124,6 @@ export const INITIAL_FAMILY_MEMBERS_DATA: Record<string, MemberHealthData> = {
     glucose: '4.8 mmol/L',
     glucoseStatus: 'Bình thường',
     lastUpdated: '06:45 Sáng hôm nay',
-    medicines: [
-      {
-        id: 'med-4',
-        name: 'Xịt mũi thảo dược FamiCare',
-        dosage: 'Xịt mỗi bên mũi 1 nhát',
-        time: 'Buổi sáng & tối khi trời lạnh',
-        status: 'taken',
-      },
-    ],
     upcomingVisit: {
       doctor: 'BS.CKII Trần Mai Phương',
       specialty: 'Chuyên gia Nhi & Dinh dưỡng',
@@ -482,6 +441,12 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
               </div>
             </div>
           </div>
+          <Button asChild variant="outline">
+            <Link href={`/family/medical-book?patientId=${encodeURIComponent(member.id)}`}>
+              <span className="material-symbols-outlined text-[17px]" aria-hidden="true">clinical_notes</span>
+              Mở sổ khám
+            </Link>
+          </Button>
         </div>
 
         {/* Level-1 Pathology Self-Management */}

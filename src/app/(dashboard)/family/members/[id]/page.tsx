@@ -7,7 +7,7 @@ export const instant = false;
 export const metadata: Metadata = {
   title: 'Chăm Sóc Sức Khỏe Hằng Ngày Của Thành Viên | FamiDoc',
   description:
-    'Theo dõi chỉ số sinh hiệu hôm nay, lịch hẹn khám bác sĩ và lịch dùng thuốc hằng ngày của từng thành viên trong gia đình.',
+    'Xem chỉ số sinh hiệu, lịch hẹn khám và đơn thuốc đã được chia sẻ.',
 };
 
 async function FamilyMemberCarePageContent({
