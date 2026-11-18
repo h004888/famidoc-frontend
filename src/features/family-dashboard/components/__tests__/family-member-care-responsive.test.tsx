@@ -198,7 +198,11 @@ const SAMPLE_ENCOUNTERS = [
 
 function buildSampleVitals() {
   const now = new Date();
-  const earlierToday = new Date(now.getTime() - 2 * 3_600_000);
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const latestToday = new Date(Math.max(now.getTime(), startOfToday.getTime() + 60_000));
+  const earlierToday = new Date(
+    Math.max(startOfToday.getTime() + 1_000, latestToday.getTime() - 2 * 3_600_000)
+  );
   const threeDaysAgo = new Date(now.getTime() - 3 * 86_400_000);
   const tenDaysAgo = new Date(now.getTime() - 10 * 86_400_000);
 
@@ -215,7 +219,7 @@ function buildSampleVitals() {
       respiratoryRate: 18,
       bloodGlucose: 6.1,
       isAbnormalAlert: true,
-      recordedAt: now.toISOString(),
+      recordedAt: latestToday.toISOString(),
     },
     {
       id: 'vit-today-earlier',

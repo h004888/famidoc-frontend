@@ -19,6 +19,14 @@ vi.mock('@/lib/api/auth.api', () => ({
 describe('UT-CMP-14: AccountSettingsView BHYT Skeleton & Accessibility', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    mockUseAuth.mockReturnValue({
+      role: 'FAMILY',
+      user: null,
+      isAuthenticated: true,
+      isLoading: false,
+      applySession: vi.fn(),
+      clearMustChangePassword: vi.fn(),
+    });
   });
 
   it('displays loading skeleton with aria-busy when switching to BHYT tab', async () => {

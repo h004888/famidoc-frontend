@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogOut } from 'lucide-react';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { getCurrentBrowserHost, getSubdomainPortal } from '@/lib/portal-routing';
@@ -38,7 +37,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export interface NavItem {
@@ -265,12 +263,12 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
     pathRole || hostPortalRole || initialRole || (isAuthenticated ? role : mounted ? role : 'FAMILY');
   const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
   const isFamilyAccount = effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT';
-  const settingsLabel = isFamilyAccount ? 'Cài đặt & Hồ sơ BHYT' : 'Cài đặt tài khoản';
   const isAdminSidebar = effectiveRole === 'ADMIN';
-  const sidebarUtilities = [
-    ...(!isAdminSidebar ? [{ href: '/packages', label: 'Danh mục Gói Dịch vụ', icon: 'inventory_2' }] : []),
-    { href: '/settings', label: isAdminSidebar ? 'Cài đặt' : settingsLabel, icon: 'settings' },
-  ];
+  const settingsLabel = isAdminSidebar
+    ? 'Cài đặt'
+    : isFamilyAccount
+      ? 'Cài đặt & Hồ sơ BHYT'
+      : 'Cài đặt tài khoản';
 
   const getFacilityItemLock = (href: string) =>
     effectiveRole === 'FACILITY'
@@ -560,25 +558,6 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
           })()}
         </div>
       </div>
-
-      {isAdminSidebar && (
-        <div className="shrink-0 border-t border-slate-200 p-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={logout}
-            aria-label="Đăng xuất"
-            title={isCollapsedState ? 'Đăng xuất' : undefined}
-            className={cn(
-              'h-10 w-full text-destructive hover:bg-destructive/10 hover:text-destructive',
-              isCollapsedState ? 'justify-center px-0' : 'justify-start'
-            )}
-          >
-            <LogOut aria-hidden="true" />
-            {!isCollapsedState && 'Đăng xuất'}
-          </Button>
-        </div>
-      )}
     </div>
   );
 

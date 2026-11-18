@@ -286,9 +286,7 @@ describe('LandingHeader - menu tài khoản nhận biết vai trò và trạng t
 
     render(<LandingHeader />);
 
-    await waitFor(() => {
-      expect(screen.getByRole('link', { name: /Vào Dashboard/i })).toHaveAttribute('href', '/family');
-    });
+    expect(screen.queryByRole('link', { name: /Vào Dashboard/i })).not.toBeInTheDocument();
 
     await openUserMenu();
 

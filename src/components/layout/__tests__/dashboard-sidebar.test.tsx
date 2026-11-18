@@ -123,7 +123,7 @@ describe('DashboardSidebar Navigation', () => {
     render(<DashboardSidebar initialRole="FACILITY" />);
     expect(screen.getAllByText('Hợp đồng Hợp tác B2B').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Hợp đồng Y tế 4 bên').length).toBeGreaterThan(0);
-    expect(screen.queryByRole('button', { name: 'Đăng xuất' })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Đăng xuất' }).length).toBeGreaterThan(0);
   });
 
   it('excludes training and package catalog from ADMIN sidebar and shows "Cài đặt" without BHYT', () => {
@@ -155,10 +155,10 @@ describe('DashboardSidebar Navigation', () => {
     render(<DashboardSidebar />);
 
     const aside = within(screen.getByRole('complementary'));
-    expect(aside.getByRole('link', { name: 'Danh mục Gói Dịch vụ' })).toHaveAttribute('href', '/packages');
+    expect(aside.queryByRole('link', { name: 'Danh mục Gói Dịch vụ' })).not.toBeInTheDocument();
     const settingsLabel = role === 'FAMILY' || role === 'PATIENT' ? 'Cài đặt & Hồ sơ BHYT' : 'Cài đặt tài khoản';
     expect(aside.getByRole('link', { name: settingsLabel })).toHaveAttribute('href', '/settings');
-    expect(aside.queryByRole('button', { name: 'Đăng xuất' })).not.toBeInTheDocument();
+    expect(aside.getByRole('button', { name: 'Đăng xuất' })).toBeInTheDocument();
   });
 
   it('uses the admin sidebar on shared settings when signed in as an admin', () => {
