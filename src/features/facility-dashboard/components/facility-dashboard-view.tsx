@@ -29,6 +29,8 @@ const channelChartConfig = {
 export function FacilityDashboardView() {
   const [facilityName, setFacilityName] = useState<string>('Cơ sở Y tế Đối tác');
   const [facilityCode, setFacilityCode] = useState<string>('CSYT-VN');
+  const [isFacilityActive, setIsFacilityActive] = useState<boolean | null>(null);
+  const [legalRejectionReason, setLegalRejectionReason] = useState<string | null>(null);
   const [pendingContract, setPendingContract] = useState<StaffingContractItem | null>(null);
 
   useEffect(() => {
@@ -39,16 +41,26 @@ export function FacilityDashboardView() {
         if (!isMounted) return;
         if (data?.facilityName) setFacilityName(data.facilityName);
         if (data?.id) setFacilityCode(data.id);
-      })
-      .catch(() => {});
-
-    contractsApi
-      .getStaffingContracts()
-      .then((res) => {
-        if (!isMounted) return;
-        if (res && Array.isArray(res.data)) {
-          const draft = res.data.find((c) => c.status === 'DRAFT');
-          setPendingContract(draft || null);
+        const active = Boolean(
+          data && (data.verificationStatus === 'ACTIVE' || data.status === 'ACTIVE')
+        );
+        if (data) {
+          setIsFacilityActive(active);
+          setLegalRejectionReason(data.legalRejectionReason ?? null);
+        }
+        if (active) {
+          contractsApi
+            .getStaffingContracts()
+            .then((res) => {
+              if (!isMounted) return;
+              if (res && Array.isArray(res.data)) {
+                const draft = res.data.find(
+                  (c) => c.rawStatus === 'PENDING_FACILITY_SIGNATURE' || c.status === 'DRAFT'
+                );
+                setPendingContract(draft || null);
+              }
+            })
+            .catch(() => {});
         }
       })
       .catch(() => {});
@@ -157,25 +169,60 @@ export function FacilityDashboardView() {
             </div>
 
             <div className="flex w-full items-center gap-2.5 md:w-auto">
-              <Button asChild className="flex-1 rounded-xl px-4 py-2.5 text-xs font-bold sm:text-sm md:flex-none">
-                <Link href="/facility/staff">
-                  <span className="material-symbols-outlined text-[18px]">person_add</span>
-                  <span>Tiếp nhận Bác sĩ</span>
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="flex-1 rounded-xl border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm md:flex-none"
-              >
-                <Link href="/facility/coordination">
-                  <span className="material-symbols-outlined text-[18px] text-primary">rule_settings</span>
-                  <span>Điều phối viện</span>
-                </Link>
-              </Button>
+              {isFacilityActive === true ? (
+                <>
+                  <Button asChild className="flex-1 rounded-xl px-4 py-2.5 text-xs font-bold sm:text-sm md:flex-none">
+                    <Link href="/facility/staff">
+                      <span className="material-symbols-outlined text-[18px]">person_add</span>
+                      <span>Tiếp nhận Bác sĩ</span>
+                    </Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="flex-1 rounded-xl border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm md:flex-none"
+                  >
+                    <Link href="/facility/coordination">
+                      <span className="material-symbols-outlined text-[18px] text-primary">rule_settings</span>
+                      <span>Điều phối viện</span>
+                    </Link>
+                  </Button>
+                </>
+              ) : (
+                <Button asChild className="flex-1 rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-amber-700 sm:text-sm md:flex-none">
+                  <Link href="/facility/legal-profile">
+                    <span className="material-symbols-outlined text-[18px]">policy</span>
+                    <span>Hoàn thiện Hồ sơ Pháp lý</span>
+                  </Link>
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
+
+        {/* Action Banner: Hoàn thiện hồ sơ pháp lý khi chưa ACTIVE */}
+        {isFacilityActive === false && (
+          <div className="p-4 sm:p-5 rounded-2xl border border-amber-300 bg-amber-50 text-amber-950 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800">
+                <span className="material-symbols-outlined text-base">policy</span>
+                <span>Tài khoản cơ sở y tế đang chờ duyệt pháp lý</span>
+              </div>
+              <p className="text-xs sm:text-sm text-amber-900 leading-relaxed">
+                {legalRejectionReason
+                  ? `Hồ sơ pháp lý cần bổ sung: "${legalRejectionReason}". Vui lòng cập nhật và nộp lại để Admin kích hoạt.`
+                  : 'Vui lòng hoàn thiện và nộp hồ sơ pháp lý (GPHĐ, Mã số thuế, Tài khoản ngân hàng và bản scan PDF/Ảnh). Các chức năng B2B & quản lý bác sĩ sẽ tự động mở khóa sau khi Admin duyệt.'}
+              </p>
+            </div>
+            <Link
+              href="/facility/legal-profile"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all shrink-0 self-start md:self-auto"
+            >
+              <span>Nộp / Cập nhật Hồ sơ Pháp lý</span>
+              <span className="material-symbols-outlined text-sm">arrow_forward</span>
+            </Link>
+          </div>
+        )}
 
         {/* Action Banner: Hợp đồng B2B chờ ký kết (Flow 2.1) - CHỈ HIỂN THỊ KHI CÓ DỰ THẢO THỰC SỰ */}
         {pendingContract && (
@@ -236,13 +283,15 @@ export function FacilityDashboardView() {
                   Ca bệnh vượt tuyến hoặc can thiệp kỹ thuật cao được bác sĩ gia đình giới thiệu
                 </CardDescription>
               </div>
-              <Link
-                href="/facility/coordination"
-                className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-              >
-                <span>Xem tất cả</span>
-                <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
-              </Link>
+              {isFacilityActive === true && (
+                <Link
+                  href="/facility/coordination"
+                  className="flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                >
+                  <span>Xem tất cả</span>
+                  <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
+                </Link>
+              )}
             </CardHeader>
 
             <CardContent className="divide-y divide-slate-100 p-0">
@@ -408,9 +457,15 @@ export function FacilityDashboardView() {
               </p>
               <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
                 <span className="text-slate-400 tabular-nums">B2B-YDUOC-2026</span>
-                <Link href="/facility/revenue" className="font-bold text-[#00D3C7] hover:underline">
-                  Kiểm tra sao kê
-                </Link>
+                {isFacilityActive === true ? (
+                  <Link href="/facility/revenue" className="font-bold text-[#00D3C7] hover:underline">
+                    Kiểm tra sao kê
+                  </Link>
+                ) : (
+                  <Link href="/facility/legal-profile" className="font-bold text-amber-300 hover:underline">
+                    Chờ duyệt pháp lý
+                  </Link>
+                )}
               </div>
             </div>
           </div>

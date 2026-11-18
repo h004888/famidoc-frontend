@@ -25,6 +25,7 @@ interface AuthContextType {
     token?: string,
     rememberMe?: boolean,
   ) => void;
+  clearMustChangePassword?: () => void;
   login: (
     roleOrIdentifier: string,
     passwordOrPhone?: string,
@@ -137,12 +138,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         phone: data.user?.phone || '0912345678',
         role: assignedRole,
         avatarText: (data.user?.fullName || email).slice(0, 2).toUpperCase(),
+        mustChangePassword: Boolean(data.user?.mustChangePassword),
       };
 
       applySession(assignedRole, assignedUser, data.accessToken, isRemember);
 
-      const isInitialPassword = pwd.startsWith('FamiDoc@');
-      const redirectPath = isInitialPassword ? '/change-password' : getDefaultPathForRole(assignedRole);
+      const redirectPath = getDefaultPathForRole(assignedRole);
       if (typeof window !== 'undefined') {
         window.location.replace(redirectPath);
       } else {
@@ -152,6 +153,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
       throw err;
     }
+  };
+
+  const clearMustChangePassword = () => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated: AuthUser = { ...prev, mustChangePassword: false };
+      saveAuthSession(role, updated, httpClient.getToken() || undefined, true);
+      return updated;
+    });
   };
 
   const logout = () => {
@@ -174,6 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated,
         isLoading,
         applySession,
+        clearMustChangePassword,
         login,
         logout,
         getDefaultPathForRole,
@@ -196,6 +207,7 @@ const fallbackAuthContext: AuthContextType = {
     }
     saveAuthSession(nextRole, nextUser, token, rememberMe);
   },
+  clearMustChangePassword: () => {},
   login: async () => {},
   logout: () => {},
   getDefaultPathForRole: () => '/family',

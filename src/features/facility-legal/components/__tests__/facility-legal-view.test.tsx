@@ -18,9 +18,9 @@ vi.mock('@/lib/api/facilities.api', () => ({
     getMyFacilityProfile: vi.fn(),
     updateLegalProfile: vi.fn(),
     getAdminFacilities: vi.fn(),
-    approveAccount: vi.fn(),
+    createFacilityByAdmin: vi.fn(),
     verifyLegal: vi.fn(),
-    rejectFacility: vi.fn(),
+    fetchLegalDocumentBlobUrl: vi.fn().mockResolvedValue('blob:legal-doc'),
   },
 }));
 
@@ -49,37 +49,71 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
 
     // Điền form với đúng placeholder
     const licenseInput = screen.getByPlaceholderText(/08921\/BYT-GPHĐ/i);
+    const issuerInput = screen.getByPlaceholderText(/Cục Quản lý Khám chữa bệnh/i);
+    const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
+    const addressInput = screen.getByPlaceholderText(/Số nhà, tên đường/i);
     const taxInput = screen.getByPlaceholderText(/0315892019/i);
     const bankNameInput = screen.getByPlaceholderText(/Vietcombank/i);
     const bankAccountInput = screen.getByPlaceholderText(/0071000889922/i);
     const bankHolderInput = screen.getByPlaceholderText(/CTCP BENH VIEN QUOC TE FAMICARE/i);
 
     fireEvent.change(licenseInput, { target: { value: '09988/BYT-GPHĐ' } });
+    fireEvent.change(issuerInput, { target: { value: 'Bộ Y tế' } });
+    if (dateInput) {
+      fireEvent.change(dateInput, { target: { value: '2024-05-15' } });
+    }
+    fireEvent.change(addressInput, { target: { value: '10 Trần Huy Liệu, Quận Phú Nhuận, TP.HCM' } });
     fireEvent.change(taxInput, { target: { value: '0315999888' } });
     fireEvent.change(bankNameInput, { target: { value: 'Vietcombank' } });
     fireEvent.change(bankAccountInput, { target: { value: '9988776655' } });
     fireEvent.change(bankHolderInput, { target: { value: 'CONG TY CP Y TE AN SINH' } });
 
-    // Attach file
-    const file = new File(['dummy'], 'gphd.pdf', { type: 'application/pdf' });
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-    if (fileInput) {
-      fireEvent.change(fileInput, { target: { files: [file] } });
-    }
+    // Attach both separate files
+    const operatingFile = new File(['dummy-gphd'], 'gphd.pdf', { type: 'application/pdf' });
+    const businessFile = new File(['dummy-dkkd'], 'dkkd.pdf', { type: 'application/pdf' });
+    const operatingInput = screen.getByTestId('operating-license-input') as HTMLInputElement;
+    const businessInput = screen.getByTestId('business-license-input') as HTMLInputElement;
+    fireEvent.change(operatingInput, { target: { files: [operatingFile] } });
+    fireEvent.change(businessInput, { target: { files: [businessFile] } });
 
-    const submitBtn = screen.getByRole('button', { name: /Gửi Hồ Sơ Pháp Lý Thẩm Định Cấp 2/i });
+    const submitBtn = screen.getByRole('button', { name: /Gửi Hồ Sơ Pháp Lý Thẩm Định/i });
     fireEvent.click(submitBtn);
 
     await waitFor(() => {
       expect(facilitiesApi.updateLegalProfile).toHaveBeenCalledWith(
         expect.objectContaining({
           licenseNumber: '09988/BYT-GPHĐ',
+          licenseIssuer: 'Bộ Y tế',
+          licenseDate: '2024-05-15',
+          address: '10 Trần Huy Liệu, Quận Phú Nhuận, TP.HCM',
           taxCode: '0315999888',
           bankAccountNumber: '9988776655',
           bankAccountHolder: 'CONG TY CP Y TE AN SINH',
+          operatingLicenseFile: operatingFile,
+          businessLicenseFile: businessFile,
         })
       );
     });
+  });
+
+  it('Hiển thị lý do từ chối pháp lý (legalRejectionReason) khi Admin yêu cầu CSYT bổ sung', async () => {
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValue({
+      id: 'fac-123',
+      facilityName: 'Bệnh viện Đa khoa An Sinh',
+      representativeName: 'TS. Nguyễn Văn A',
+      email: 'ansinh@famidoc.vn',
+      phone: '0903456789',
+      address: '10 Trần Huy Liệu, TP.HCM',
+      onboardingStatus: 'REJECTED',
+      status: 'PENDING',
+      legalRejectionReason: 'Ảnh chụp GPHĐ bị mờ góc phải, vui lòng upload lại bản rõ nét.',
+      createdAt: '2026-11-13T10:00:00.000Z',
+    });
+
+    render(<FacilityLegalView />);
+    expect(
+      await screen.findByText(/Ảnh chụp GPHĐ bị mờ góc phải, vui lòng upload lại bản rõ nét./i)
+    ).toBeInTheDocument();
   });
 
   it('Khi Admin mở màn hình quản trị, hồ sơ CSYT nộp xuất hiện ở Tab "Chờ Pháp Lý Cấp 2" kèm nút duyệt ACTIVE', async () => {

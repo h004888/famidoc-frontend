@@ -91,6 +91,7 @@ export function RoleLoginForm({ targetRole }: RoleLoginFormProps) {
         phone: data.user?.phone || '',
         role: userRole,
         avatarText: (data.user?.fullName || email).slice(0, 2).toUpperCase(),
+        mustChangePassword: Boolean(data.user?.mustChangePassword),
       };
 
       applySession(userRole, authUser, data.accessToken, rememberMe);

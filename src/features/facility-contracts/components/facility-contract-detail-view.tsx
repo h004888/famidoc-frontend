@@ -23,6 +23,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { B2bDocumensoSignPanel } from '@/features/admin-contracts/components/b2b-documenso-sign-panel';
+import {
+  B2B_LEGAL_BASIS_ITEMS,
+  buildB2bStandardArticles,
+} from '../b2b-standard-terms';
 
 interface FacilityContractDetailViewProps {
   contractId: string;
@@ -49,6 +54,8 @@ export function FacilityContractDetailView({
   const [isSigning, setIsSigning] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [showTermReqModal, setShowTermReqModal] = useState(false);
+  const [termReqReason, setTermReqReason] = useState('');
   const requestSeqRef = useRef(0);
 
   const loadContract = useCallback(async () => {
@@ -88,40 +95,6 @@ export function FacilityContractDetailView({
     };
   }, [loadContract]);
 
-  const handleExecuteSign = async () => {
-    if (!contract) return;
-    setIsSigning(true);
-    try {
-      await contractsApi.signStaffingContract(contract.id, {
-        confirmed: true,
-        signedPdfUrl:
-          contract.signedPdfUrl ||
-          `https://cdn.famidoc.vn/contracts/staffing/${contract.contractNumber}-signed.pdf`,
-        signatureHash:
-          'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      });
-      setContract((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'ACTIVE',
-              adminSigned: true,
-              facilitySigned: true,
-            }
-          : null
-      );
-      toast.success(
-        'Ký số điện tử thành công! Hợp đồng Hợp tác B2B đã có hiệu lực pháp lý.'
-      );
-    } catch (err) {
-      toast.error(
-        extractErrorMessage(err, 'Không thể thực hiện ký số điện tử.')
-      );
-    } finally {
-      setIsSigning(false);
-    }
-  };
-
   const handleExecuteReject = async () => {
     const trimmed = rejectionReason.trim();
     if (!contract || trimmed.length < 5 || trimmed.length > 500) return;
@@ -130,7 +103,12 @@ export function FacilityContractDetailView({
       await contractsApi.rejectStaffingContract(contract.id, trimmed);
       setContract((prev) =>
         prev
-          ? { ...prev, status: 'TERMINATED', rejectionReason: trimmed }
+          ? {
+              ...prev,
+              rawStatus: 'REVISION_REQUESTED',
+              revisionReason: trimmed,
+              rejectionReason: trimmed,
+            }
           : null
       );
       toast.success(
@@ -139,9 +117,44 @@ export function FacilityContractDetailView({
       setShowRejectModal(false);
       setRejectionReason('');
     } catch (err) {
-      toast.error(extractErrorMessage(err, 'Không thể từ chối hợp đồng.'));
+      toast.error(extractErrorMessage(err, 'Không thể gửi yêu cầu chỉnh sửa hợp đồng.'));
     } finally {
       setIsSigning(false);
+    }
+  };
+
+  const handleRequestTermination = async () => {
+    const trimmed = termReqReason.trim();
+    if (!contract || trimmed.length < 5) return;
+    setIsSigning(true);
+    try {
+      await contractsApi.requestStaffingTermination(contract.id, trimmed);
+      setContract((prev) =>
+        prev
+          ? {
+              ...prev,
+              terminationRequestStatus: 'PENDING',
+              terminationRequestReason: trimmed,
+            }
+          : null
+      );
+      toast.success('Đã gửi đề nghị chấm dứt hợp đồng B2B tới Quản trị viên.');
+      setShowTermReqModal(false);
+      setTermReqReason('');
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Không thể gửi yêu cầu chấm dứt hợp đồng.'));
+    } finally {
+      setIsSigning(false);
+    }
+  };
+
+  const handleDownloadProtectedSignedPdf = async () => {
+    if (!contract) return;
+    try {
+      const url = await contractsApi.fetchStaffingSignedPdfBlobUrl(contract.id);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Không thể tải PDF hợp đồng đã ký.'));
     }
   };
 
@@ -214,9 +227,10 @@ export function FacilityContractDetailView({
     );
   }
 
-  const pdfHref =
-    contract.signedPdfUrl ||
-    `https://cdn.famidoc.vn/contracts/staffing/${contract.contractNumber}-signed.pdf`;
+  const externalPdfHref =
+    contract.signedPdfUrl && /^https?:\/\//i.test(contract.signedPdfUrl)
+      ? contract.signedPdfUrl
+      : null;
 
   return (
     <div className="min-h-screen bg-[#f6f7f9] p-4 font-sans text-[#131b2f] antialiased sm:p-6 lg:p-8">
@@ -302,11 +316,10 @@ export function FacilityContractDetailView({
                 </div>
               </div>
               <div className="text-2xl font-bold text-[#20283d] tabular-nums">
-                Ngày 05 hằng tháng
+                Ngày 01–05 hằng tháng
               </div>
               <p className="text-xs leading-snug text-[#4a4f63]">
-                Lập bảng quyết toán chuyển khoản về tài khoản thụ hưởng của Cơ
-                sở Y tế.
+                Chốt bảng quyết toán định kỳ và chuyển khoản về tài khoản thụ hưởng của Cơ sở Y tế.
               </p>
             </CardContent>
           </Card>
@@ -350,11 +363,11 @@ export function FacilityContractDetailView({
                 variant="outline"
                 className="h-6 w-fit rounded-full border-[#e4e8ed] bg-[#f6f7f9] px-3 text-xs font-semibold text-[#4a4f63]"
               >
-                Luật Giao dịch điện tử &amp; NĐ 130/2018/NĐ-CP
+                Luật Giao dịch điện tử 20/2023/QH15
               </Badge>
             </div>
 
-            <div className="max-h-[460px] space-y-4 overflow-y-auto rounded-xl border border-[#e4e8ed] bg-[#f6f7f9] p-6 text-sm leading-relaxed text-[#2f364a]">
+            <div className="max-h-[520px] space-y-4 overflow-y-auto rounded-xl border border-[#e4e8ed] bg-[#f6f7f9] p-6 text-sm leading-relaxed text-[#2f364a]">
               <div className="space-y-1 border-b border-[#e4e8ed] pb-4 text-center">
                 <p className="text-sm font-bold text-[#20283d]">
                   CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
@@ -363,37 +376,86 @@ export function FacilityContractDetailView({
                   Độc lập - Tự do - Hạnh phúc
                 </p>
                 <p className="pt-2 text-base font-bold text-[#00258b]">
-                  HỢP ĐỒNG NGUYÊN TẮC CUNG ỨNG NGUỒN NHÂN LỰC Y TẾ B2B
+                  HỢP ĐỒNG NGUYÊN TẮC HỢP TÁC CUNG ỨNG NHÂN LỰC &amp; DỊCH VỤ Y TẾ B2B
                 </p>
                 <p className="text-xs text-[#4a4f63]">
-                  Giữa Nền tảng Y tế Gia đình FamiDoc và Cơ sở Y tế Đối tác
+                  Giữa {contract.platformLegal?.companyName || 'Nền tảng Y tế Gia đình FamiDoc'} và {contract.facilityName}
                 </p>
               </div>
 
-              <div className="space-y-3 pt-2">
-                <div>
+              <div className="rounded-lg border border-[#e4e8ed] bg-white p-3.5 text-xs">
+                <p className="font-bold uppercase text-[#20283d] mb-1.5">Căn cứ pháp lý</p>
+                <ul className="list-disc pl-4 space-y-0.5 text-[#4a4f63]">
+                  {B2B_LEGAL_BASIS_ITEMS.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="rounded-lg border border-[#e4e8ed] bg-white p-3.5 text-xs space-y-1">
                   <p className="font-bold text-[#20283d]">
-                    BÊN A (NỀN TẢNG CÔNG NGHỆ): CÔNG TY CỔ PHẦN Y TẾ SỐ FAMIDOC
+                    BÊN A (NỀN TẢNG CÔNG NGHỆ):{' '}
+                    {contract.platformLegal?.companyName || 'Nền tảng Y tế Gia đình FamiDoc'}
                   </p>
-                  <p className="text-xs text-[#4a4f63]">
-                    Đại diện: Ban Giám Đốc Nền Tảng
+                  <p className="text-[#4a4f63]">
+                    MST: {contract.platformLegal?.taxCode || '0109998888'} · Đại diện:{' '}
+                    {contract.platformLegal?.representative || 'Ban Quản trị Nền tảng FamiDoc'}
+                  </p>
+                  <p className="text-[#4a4f63]">
+                    Địa chỉ: {contract.platformLegal?.address || 'Việt Nam (https://famidoc.online)'}
+                  </p>
+                  <p className="text-[#4a4f63]">
+                    Liên hệ: {contract.platformLegal?.supportContact || 'support@famidoc.online'}
                   </p>
                 </div>
 
-                <div>
+                <div className="rounded-lg border border-[#e4e8ed] bg-white p-3.5 text-xs space-y-1">
                   <p className="font-bold text-[#20283d]">
-                    BÊN B (ĐỐI TÁC CUNG ỨNG Y TẾ): {contract.facilityName}
+                    BÊN B (CƠ SỞ Y TẾ ĐỐI TÁC): {contract.facilityName}
                   </p>
-                  {contract.facilityId && (
-                    <p className="text-xs text-[#4a4f63] tabular-nums">
+                  {contract.facilitySummary?.licenseNumber && (
+                    <p className="text-[#4a4f63]">
+                      GPHĐ KBCB: {contract.facilitySummary.licenseNumber}
+                      {contract.facilitySummary.licenseIssuer
+                        ? ` (${contract.facilitySummary.licenseIssuer})`
+                        : ''}
+                    </p>
+                  )}
+                  {contract.facilitySummary?.taxCode && (
+                    <p className="text-[#4a4f63]">MST: {contract.facilitySummary.taxCode}</p>
+                  )}
+                  {contract.facilitySummary?.address && (
+                    <p className="text-[#4a4f63]">Địa chỉ: {contract.facilitySummary.address}</p>
+                  )}
+                  {contract.facilityId && !contract.facilitySummary && (
+                    <p className="text-[#4a4f63] tabular-nums">
                       Mã định danh cơ sở: {contract.facilityId}
                     </p>
                   )}
                 </div>
+              </div>
 
-                <div className="whitespace-pre-line border-t border-[#e4e8ed] pt-3 text-sm text-[#2f364a]">
-                  {contract.contractTerms}
-                </div>
+              <div className="space-y-2.5 border-t border-[#e4e8ed] pt-3">
+                {buildB2bStandardArticles({
+                  facilitySharePercent: contract.facilitySharePercent,
+                  platformSharePercent: contract.platformSharePercent,
+                  endDateText: formatDateVi(contract.validTo),
+                }).map((article) => (
+                  <div key={article.title} className="text-xs leading-relaxed">
+                    <p className="font-bold text-[#20283d]">{article.title}</p>
+                    <p className="text-[#2f364a]">{article.body}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="rounded-lg border border-[#d9dfe5] bg-white p-3.5 text-xs space-y-1">
+                <p className="font-bold uppercase text-[#20283d]">
+                  Điều khoản bổ sung / Thỏa thuận đặc thù
+                </p>
+                <p className="whitespace-pre-line text-[#2f364a]">
+                  {contract.contractTerms?.trim() || 'Không có thỏa thuận bổ sung nào khác.'}
+                </p>
               </div>
             </div>
 
@@ -476,16 +538,21 @@ export function FacilityContractDetailView({
 
         {/* Action Panel */}
         <Card className="rounded-2xl border-[#e4e8ed] bg-white p-6 shadow-sm">
-          <CardContent className="p-0">
-            {contract.status === 'TERMINATED' ? (
+          <CardContent className="space-y-4 p-0">
+            {contract.status === 'TERMINATED' || contract.rawStatus === 'REVISION_REQUESTED' ? (
               <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
                 <div className="space-y-1">
                   <div className="text-base font-semibold text-[#d92d20]">
                     Hợp đồng đã từ chối / đang chờ điều chỉnh
                   </div>
-                  {contract.rejectionReason && (
+                  {(contract.revisionReason || contract.rejectionReason) && (
                     <p className="text-sm text-[#4a4f63]">
-                      Lý do: {contract.rejectionReason}
+                      Lý do: {contract.revisionReason || contract.rejectionReason}
+                    </p>
+                  )}
+                  {contract.terminatedReason && (
+                    <p className="text-sm text-[#4a4f63]">
+                      Lý do chấm dứt: {contract.terminatedReason}
                     </p>
                   )}
                 </div>
@@ -498,86 +565,167 @@ export function FacilityContractDetailView({
                 </Button>
               </div>
             ) : contract.facilitySigned ? (
-              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-base font-bold text-[#039855]">
-                    <span className="material-symbols-outlined text-xl">
-                      check_circle
-                    </span>
-                    <span>Hợp đồng Hợp tác B2B đang có hiệu lực</span>
+              <div className="space-y-4">
+                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-base font-bold text-[#039855]">
+                      <span className="material-symbols-outlined text-xl">
+                        check_circle
+                      </span>
+                      <span>
+                        {contract.status === 'ACTIVE'
+                          ? 'Hợp đồng Hợp tác B2B đang có hiệu lực'
+                          : 'Cơ sở y tế đã hoàn tất ký bước 1 — Chờ Admin ký kích hoạt'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-[#4a4f63]">
+                      {contract.status === 'ACTIVE'
+                        ? 'Cơ sở y tế đã hoàn tất ký kết và có thể quản lý danh sách bác sĩ gia đình.'
+                        : 'FamiDoc sẽ hoàn tất chữ ký bước 2 để kích hoạt hợp đồng trên hệ thống.'}
+                    </p>
                   </div>
-                  <p className="text-sm text-[#4a4f63]">
-                    Cơ sở y tế đã hoàn tất ký kết và có thể quản lý danh sách
-                    bác sĩ gia đình.
-                  </p>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    {externalPdfHref ? (
+                      <a
+                        href={externalPdfHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#acc0f3] bg-[#f0fbff] px-4 text-sm font-semibold text-[#0037c1] transition-colors hover:bg-[#eaeffa]"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          download
+                        </span>
+                        <span>Tải bản PDF đã ký</span>
+                      </a>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleDownloadProtectedSignedPdf()}
+                        className="inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg border-[#acc0f3] bg-[#f0fbff] px-4 text-sm font-semibold text-[#0037c1] transition-colors hover:bg-[#eaeffa]"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">download</span>
+                        <span>Tải bản PDF đã ký</span>
+                      </Button>
+                    )}
+                    {contract.status === 'ACTIVE' && (
+                      <>
+                        {contract.terminationRequestStatus !== 'PENDING' && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowTermReqModal(true)}
+                            className="min-h-[44px] cursor-pointer rounded-lg border-rose-200 bg-rose-50 px-4 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+                          >
+                            Đề nghị chấm dứt hợp đồng
+                          </Button>
+                        )}
+                        <Button
+                          asChild
+                          className="min-h-[44px] rounded-lg bg-[#0046c0] px-5 text-sm font-semibold text-white hover:bg-[#003899]"
+                        >
+                          <Link href="/facility/doctors">
+                            <span>Quản lý Bác sĩ &amp; CCHN</span>
+                            <span className="material-symbols-outlined text-[18px]">
+                              arrow_forward
+                            </span>
+                          </Link>
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <a
-                    href={pdfHref}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[#acc0f3] bg-[#f0fbff] px-4 text-sm font-semibold text-[#0037c1] transition-colors hover:bg-[#eaeffa]"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      download
-                    </span>
-                    <span>Tải bản PDF đã ký</span>
-                  </a>
-                  <Button
-                    asChild
-                    className="min-h-[44px] rounded-lg bg-[#0046c0] px-5 text-sm font-semibold text-white hover:bg-[#003899]"
-                  >
-                    <Link href="/facility/doctors">
-                      <span>Quản lý Bác sĩ &amp; CCHN</span>
-                      <span className="material-symbols-outlined text-[18px]">
-                        arrow_forward
-                      </span>
-                    </Link>
-                  </Button>
-                </div>
+                {contract.terminationRequestStatus === 'PENDING' && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-950">
+                    <strong>Đã gửi đề nghị chấm dứt hợp đồng</strong> — Đang chờ Quản trị viên xem xét bàn giao. Lý do: {contract.terminationRequestReason}
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-                <div className="space-y-1">
-                  <h3 className="text-base font-semibold text-[#20283d]">
-                    Xác nhận chấp thuận điều khoản &amp; Ký số điện tử
-                  </h3>
-                  <p className="text-sm text-[#4a4f63] tabular-nums">
-                    Bằng việc ký số, đại diện cơ sở y tế xác nhận tỷ lệ phân
-                    chia {contract.facilitySharePercent}% CSYT /{' '}
-                    {contract.platformSharePercent}% FamiDoc và quy chuẩn chuyên
-                    môn.
-                  </p>
-                </div>
+              <div className="space-y-4">
+                <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+                  <div className="space-y-1">
+                    <h3 className="text-base font-semibold text-[#20283d]">
+                      Xác nhận chấp thuận điều khoản &amp; Ký số tuần tự (Bước 1)
+                    </h3>
+                    <p className="text-sm text-[#4a4f63] tabular-nums">
+                      Cơ sở y tế xác nhận tỷ lệ phân chia {contract.facilitySharePercent}% CSYT /{' '}
+                      {contract.platformSharePercent}% FamiDoc trước khi Admin ký kích hoạt bước 2.
+                    </p>
+                  </div>
 
-                <div className="flex flex-wrap items-center gap-3 shrink-0">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => setShowRejectModal(true)}
-                    className="min-h-[44px] cursor-pointer rounded-lg border-[#ffa39e] bg-[#fff1f0] px-4 text-sm font-semibold text-[#d92d20] hover:bg-[#ffdad6]"
+                    className="min-h-[44px] shrink-0 cursor-pointer rounded-lg border-[#ffa39e] bg-[#fff1f0] px-4 text-sm font-semibold text-[#d92d20] hover:bg-[#ffdad6]"
                   >
                     Yêu cầu sửa điều khoản
                   </Button>
-                  <Button
-                    type="button"
-                    disabled={isSigning}
-                    onClick={() => void handleExecuteSign()}
-                    className="min-h-[44px] cursor-pointer rounded-lg bg-[#0046c0] px-5 text-sm font-semibold text-white hover:bg-[#003899] disabled:opacity-50"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      draw
-                    </span>
-                    <span>
-                      {isSigning ? 'Đang ký số...' : 'Ký số điện tử ngay'}
-                    </span>
-                  </Button>
                 </div>
+
+                <B2bDocumensoSignPanel
+                  contractId={contract.id}
+                  onSyncCompleted={() => void loadContract()}
+                />
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Dialog: Đề nghị chấm dứt hợp đồng B2B đang hiệu lực */}
+        <Dialog
+          open={showTermReqModal}
+          onOpenChange={(open) => {
+            if (isSigning) return;
+            setShowTermReqModal(open);
+            if (!open) setTermReqReason('');
+          }}
+        >
+          <DialogContent className="rounded-2xl border-[#e4e8ed] sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-semibold text-[#20283d]">
+                Đề nghị chấm dứt Hợp đồng B2B
+              </DialogTitle>
+              <DialogDescription className="text-sm text-[#4a4f63]">
+                Hợp đồng vẫn tiếp tục có hiệu lực cho tới khi Quản trị viên FamiDoc kiểm tra ràng buộc và phê duyệt chấm dứt.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="detail-term-reason" className="text-xs font-semibold text-[#20283d]">
+                Lý do đề nghị chấm dứt <span className="text-rose-500">*</span>
+              </Label>
+              <textarea
+                id="detail-term-reason"
+                rows={3}
+                value={termReqReason}
+                onChange={(e) => setTermReqReason(e.target.value)}
+                placeholder="Nhập lý do tối thiểu 5 ký tự..."
+                className="w-full rounded-lg border border-[#d9dfe5] bg-white p-3 text-sm text-[#131b2f]"
+              />
+            </div>
+            <DialogFooter className="gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSigning}
+                onClick={() => setShowTermReqModal(false)}
+              >
+                Hủy
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                disabled={isSigning || termReqReason.trim().length < 5}
+                onClick={() => void handleRequestTermination()}
+              >
+                {isSigning ? 'Đang gửi...' : 'Gửi đề nghị chấm dứt'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* shadcn Dialog: Yêu cầu đàm phán sửa đổi */}
         <Dialog

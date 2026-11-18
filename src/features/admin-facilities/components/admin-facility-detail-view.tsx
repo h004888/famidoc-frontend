@@ -38,28 +38,12 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   const [validTo, setValidTo] = useState<string>(
     () => new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)
   );
-  const [contractTerms, setContractTerms] = useState<string>(
-    'HỢP ĐỒNG NGUYÊN TẮC CUNG ỨNG NGUỒN NHÂN LỰC Y TẾ & CHĂM SÓC SỨC KHỎE GIA ĐÌNH B2B\n\n' +
-      'Điều 1. Phạm vi hợp tác:\n' +
-      'Cơ sở y tế cam kết cung ứng bác sĩ gia đình có Chứng chỉ hành nghề (CCHN) hợp lệ để thực hiện khám chữa bệnh gia đình và tư vấn từ xa trên nền tảng số FamiDoc.\n\n' +
-      'Điều 2. Tỷ lệ phân chia doanh thu & Cơ chế quyết toán:\n' +
-      '- Cơ sở y tế hưởng 85% trên tổng doanh thu các gói dịch vụ y tế phát sinh.\n' +
-      '- Nền tảng FamiDoc hưởng 15% phí vận hành công nghệ, tổng đài điều phối và hạ tầng hồ sơ bệnh án điện tử.\n' +
-      '- Kỳ quyết toán: Định kỳ ngày 05 hàng tháng, FamiDoc tự động lập bảng đối soát chuyển khoản về tài khoản ngân hàng thụ hưởng của CSYT.\n\n' +
-      'Điều 3. Cam kết định mức an toàn y tế (BR-04):\n' +
-      '- 100% bác sĩ tham gia phải được hậu kiểm CCHN trên CSDL Quốc gia của Bộ Y Tế.\n' +
-      '- Tuân thủ chuẩn định mức tải gia đình tối đa 150 hộ/bác sĩ nhằm bảo đảm an toàn y tế.\n\n' +
-      'Điều 4. Ký số điện tử & Hiệu lực pháp lý:\n' +
-      'Hợp đồng được lập và ký số điện tử hợp pháp theo Luật Giao dịch điện tử, có hiệu lực 01 năm kể từ thời điểm ký.'
-  );
+  const [contractTerms, setContractTerms] = useState<string>('');
   const [isCreatingContract, setIsCreatingContract] = useState(false);
 
   // Modal từ chối
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-
-  // Modal duyệt cấp 1
-  const [showApproveAccountModal, setShowApproveAccountModal] = useState(false);
 
   const fetchStaffingContracts = useCallback(async (_targetFacilityName?: string) => {
     setIsContractsLoading(true);
@@ -105,32 +89,16 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     };
   }, [facilityId, fetchStaffingContracts]);
 
-  // Duyệt Cấp 1
-  const handleApproveAccount = async () => {
-    if (!facility) return;
-    setIsActionLoading(true);
-    try {
-      await facilitiesApi.approveAccount(facility.id);
-      setFacility((prev) => (prev ? { ...prev, onboardingStatus: 'PENDING_LEGAL' } : null));
-      toast.success(
-        `Đã duyệt Cấp 1 thành công! Đã gửi thông tin tài khoản Portal kèm mật khẩu khởi tạo "FamiDoc@Facility2026" tới ${facility.email}.`
-      );
-    } catch (err: any) {
-      toast.error(extractErrorMessage(err, 'Không thể duyệt cấp 1 trên máy chủ.'));
-    } finally {
-      setIsActionLoading(false);
-      setShowApproveAccountModal(false);
-    }
-  };
-
-  // Duyệt Cấp 2
+  // Thẩm định pháp lý & Kích hoạt ACTIVE
   const handleVerifyLegal = async () => {
     if (!facility) return;
     setIsActionLoading(true);
     try {
       await facilitiesApi.verifyLegal(facility.id, { approved: true, verified: true });
-      setFacility((prev) => (prev ? { ...prev, onboardingStatus: 'ACTIVE', status: 'ACTIVE' } : null));
-      toast.success(`Hậu kiểm pháp lý thành công! CSYT "${facility.facilityName}" đã chính thức chuyển sang trạng thái ACTIVE.`);
+      setFacility((prev) =>
+        prev ? { ...prev, onboardingStatus: 'ACTIVE', status: 'ACTIVE', legalRejectionReason: null } : null
+      );
+      toast.success(`Thẩm định pháp lý thành công! CSYT "${facility.facilityName}" đã chính thức chuyển sang trạng thái ACTIVE.`);
     } catch (err: any) {
       toast.error(extractErrorMessage(err, 'Không thể hậu kiểm pháp lý.'));
     } finally {
@@ -138,13 +106,19 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     }
   };
 
-  // Từ chối
+  // Từ chối / Yêu cầu bổ sung hồ sơ pháp lý
   const handleReject = async () => {
     if (!facility || !rejectReason.trim()) return;
     setIsActionLoading(true);
+    const reason = rejectReason.trim();
     try {
-      await facilitiesApi.rejectFacility(facility.id, rejectReason);
-      setFacility((prev) => (prev ? { ...prev, onboardingStatus: 'REJECTED' } : null));
+      await facilitiesApi.verifyLegal(facility.id, {
+        approved: false,
+        rejectionReason: reason,
+      });
+      setFacility((prev) =>
+        prev ? { ...prev, onboardingStatus: 'REJECTED', legalRejectionReason: reason } : null
+      );
       toast.success('Đã gửi thông báo từ chối / yêu cầu bổ sung hồ sơ tới cơ sở y tế.');
       setRejectReason('');
       setShowRejectModal(false);
@@ -152,6 +126,16 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
       toast.error(extractErrorMessage(err, 'Không thể từ chối hồ sơ.'));
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  const handleOpenLegalDocument = async (docType: 'operating' | 'business' = 'operating') => {
+    if (!facility) return;
+    try {
+      const url = await facilitiesApi.fetchLegalDocumentBlobUrl(facility.id, docType);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      toast.error(extractErrorMessage(err, 'Không thể tải bản scan hồ sơ pháp lý.'));
     }
   };
 
@@ -179,6 +163,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
         facilitySharePercent: facilityShare,
         startDate: validFrom,
         endDate: validTo,
+        ...(contractTerms.trim() ? { contractTerms: contractTerms.trim() } : {}),
       });
 
       const newlyCreated: StaffingContractItem = {
@@ -211,13 +196,6 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
 
   const getStatusBadge = (status: AdminFacilityItem['onboardingStatus']) => {
     switch (status) {
-      case 'PENDING_APPROVAL':
-        return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-700 border border-amber-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            Chờ duyệt tài khoản (Cấp 1)
-          </span>
-        );
       case 'PENDING_LEGAL':
       case 'LEGAL_SUBMITTED':
         return (
@@ -323,38 +301,16 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
               Quy trình thẩm định đối tác y tế (Flow 2.1)
             </p>
             <p className="text-sm text-slate-200">
-              {facility.onboardingStatus === 'PENDING_APPROVAL' &&
-                'Hồ sơ đang ở Bước 1: Vui lòng kiểm tra thông tin liên hệ và duyệt cấp tài khoản Portal.'}
               {(facility.onboardingStatus === 'PENDING_LEGAL' || facility.onboardingStatus === 'LEGAL_SUBMITTED') &&
-                'Hồ sơ đang ở Bước 3: Đã có tài khoản. Kiểm tra GPHĐ, duyệt hậu kiểm và thiết lập hợp đồng B2B.'}
+                'CSYT đã có tài khoản Portal. Kiểm tra GPHĐ bản scan, duyệt kích hoạt ACTIVE rồi thiết lập hợp đồng B2B.'}
               {facility.onboardingStatus === 'ACTIVE' &&
                 'Hồ sơ đã kích hoạt ACTIVE. Admin có thể thiết lập thêm hợp đồng cung ứng nhân lực y tế B2B bất cứ lúc nào.'}
               {facility.onboardingStatus === 'REJECTED' &&
-                'Hồ sơ đang bị từ chối hoặc yêu cầu bổ sung thông tin từ phía cơ sở y tế.'}
+                'Hồ sơ pháp lý đã bị từ chối hoặc yêu cầu bổ sung thông tin từ phía cơ sở y tế.'}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {facility.onboardingStatus === 'PENDING_APPROVAL' && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => setShowRejectModal(true)}
-                  className="px-4 py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-xl text-xs sm:text-sm font-medium transition-colors"
-                >
-                  Từ chối yêu cầu
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowApproveAccountModal(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md transition-colors"
-                >
-                  <span className="material-symbols-outlined text-sm">mark_email_read</span>
-                  Duyệt Lần 1: Cấp tài khoản Portal
-                </button>
-              </>
-            )}
-
             {(facility.onboardingStatus === 'PENDING_LEGAL' || facility.onboardingStatus === 'LEGAL_SUBMITTED') && (
               <>
                 <button
@@ -362,7 +318,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                   onClick={() => setShowRejectModal(true)}
                   className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs sm:text-sm font-medium transition-colors"
                 >
-                  Yêu cầu bổ sung
+                  Yêu cầu bổ sung / Từ chối
                 </button>
                 <button
                   type="button"
@@ -371,15 +327,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md transition-colors disabled:opacity-50"
                 >
                   <span className="material-symbols-outlined text-sm">verified</span>
-                  Duyệt Lần 2: Hậu kiểm pháp lý &amp; Kích hoạt (ACTIVE)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateContractModal(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md transition-colors"
-                >
-                  <span className="material-symbols-outlined text-sm">contract</span>
-                  Thiết lập Hợp đồng B2B
+                  Duyệt Pháp Lý &amp; Kích Hoạt (ACTIVE)
                 </button>
               </>
             )}
@@ -398,10 +346,11 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             {facility.onboardingStatus === 'REJECTED' && (
               <button
                 type="button"
-                onClick={() => setShowApproveAccountModal(true)}
+                disabled={isActionLoading}
+                onClick={handleVerifyLegal}
                 className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs sm:text-sm font-medium transition-colors"
               >
-                Xem xét lại hồ sơ
+                Kích hoạt lại (ACTIVE)
               </button>
             )}
           </div>
@@ -553,85 +502,97 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">description</span>
-                Tài liệu Giấy phép hoạt động khám chữa bệnh (Bản số hóa)
+                Tài liệu pháp lý đã nộp (2 bản số hóa bắt buộc)
               </h3>
-              {facility.licenseFiles && facility.licenseFiles.length > 0 && (
-                <a
-                  href={facility.licenseFiles[0]}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary bg-primary/10 rounded-lg hover:bg-primary/20 transition-colors"
-                >
-                  <span className="material-symbols-outlined text-sm">download</span>
-                  Tải file gốc
-                </a>
-              )}
             </div>
 
-            {facility.licenseFiles && facility.licenseFiles.length > 0 ? (
-              <div className="space-y-3">
-                <div className="border border-slate-200 rounded-xl bg-slate-50 p-6 sm:p-8 flex flex-col items-center justify-center text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-rose-500 mb-3">
-                    <span className="material-symbols-outlined text-3xl">picture_as_pdf</span>
-                  </div>
-                  <p className="text-sm font-bold text-slate-800 break-all max-w-md">
-                    {facility.licenseFiles[0].split('/').pop() || `GPHD_${facility.operatingLicense || 'DOC'}.pdf`}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Bản số hóa do đại diện CSYT ({facility.representativeName}) tải lên hồ sơ pháp lý
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium bg-emerald-100 text-emerald-800">
-                      <span className="material-symbols-outlined text-xs">verified</span>
-                      Tài liệu hợp lệ chờ thẩm định
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* 1. GPHĐ KBCB */}
+              <div className="border border-slate-200 rounded-xl bg-slate-50 p-5 flex flex-col justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-900">
+                      1. Giấy phép hoạt động KBCB (GPHĐ)
                     </span>
-                    <a
-                      href={facility.licenseFiles[0]}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50"
-                    >
-                      <span className="material-symbols-outlined text-xs">open_in_new</span>
-                      Mở xem trực tiếp
-                    </a>
+                    {facility.hasOperatingLicense || facility.hasLegalDocument ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-800">
+                        Đã nộp
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-800">
+                        Chưa nộp
+                      </span>
+                    )}
                   </div>
+                  <p className="text-xs text-slate-500">
+                    Số GPHĐ: <strong className="text-slate-700">{facility.operatingLicense || '—'}</strong>
+                  </p>
                 </div>
 
-                {facility.licenseFiles.length > 1 && (
-                  <div className="pt-2">
-                    <span className="text-xs font-semibold text-slate-600 block mb-2">Các tệp đính kèm bổ sung:</span>
-                    <div className="flex flex-wrap gap-2">
-                      {facility.licenseFiles.slice(1).map((f, idx) => (
-                        <a
-                          key={idx}
-                          href={f}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs border border-slate-200 transition-colors"
-                        >
-                          <span className="material-symbols-outlined text-sm text-slate-500">attach_file</span>
-                          <span className="font-medium">{f.split('/').pop() || f}</span>
-                        </a>
-                      ))}
-                    </div>
-                  </div>
+                {facility.hasOperatingLicense || facility.hasLegalDocument ? (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenLegalDocument('operating')}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-primary bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                    Xem / Tải GPHĐ KBCB
+                  </button>
+                ) : facility.licenseFiles?.[0] && !facility.licenseFiles[0].startsWith('/api/v1/facilities/') ? (
+                  <a
+                    href={facility.licenseFiles[0]}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-primary bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-sm">download</span>
+                    Tải GPHĐ gốc
+                  </a>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">CSYT chưa tải lên tệp scan GPHĐ KBCB.</p>
                 )}
               </div>
-            ) : (
-              <div className="border border-dashed border-slate-300 rounded-xl bg-slate-50/60 p-8 flex flex-col items-center justify-center text-center min-h-[200px]">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-2">
-                  <span className="material-symbols-outlined text-2xl">file_present</span>
+
+              {/* 2. Giấy chứng nhận ĐKKD */}
+              <div className="border border-slate-200 rounded-xl bg-slate-50 p-5 flex flex-col justify-between gap-4">
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-900">
+                      2. Giấy chứng nhận Đăng ký doanh nghiệp (ĐKKD)
+                    </span>
+                    {facility.hasBusinessLicense ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-800">
+                        Đã nộp
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-800">
+                        Chưa nộp
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    Mã số thuế: <strong className="text-slate-700">{facility.taxCode || '—'}</strong>
+                  </p>
                 </div>
-                <h4 className="text-sm font-bold text-slate-800">Chưa có bản số hóa Giấy phép hoạt động</h4>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm">
-                  Cơ sở y tế chưa nộp tệp scan Giấy phép hoạt động. Yêu cầu đơn vị hoàn thiện tại trang Hồ sơ Pháp lý để Quản trị viên tiến hành hậu kiểm CSDL Quốc gia.
-                </p>
+
+                {facility.hasBusinessLicense ? (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenLegalDocument('business')}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-primary bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                    Xem / Tải Giấy ĐKKD
+                  </button>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">CSYT chưa tải lên tệp scan Giấy ĐKKD.</p>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       )}
@@ -679,30 +640,9 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             <div className="relative">
               <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full bg-emerald-500 border-2 border-white shadow-sm" />
               <p className="text-xs font-semibold text-emerald-600 uppercase tracking-wider">Bước 1: Hoàn tất</p>
-              <h4 className="text-sm font-semibold text-slate-900 mt-0.5">Đăng ký hợp tác công khai</h4>
+              <h4 className="text-sm font-semibold text-slate-900 mt-0.5">Quản trị viên tạo tài khoản Cơ sở Y tế</h4>
               <p className="text-xs text-slate-500 mt-0.5">
-                {new Date(facility.createdAt).toLocaleString('vi-VN')} – Cơ sở y tế đã gửi thông tin ban đầu.
-              </p>
-            </div>
-
-            <div className="relative">
-              <div
-                className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-2 border-white shadow-sm ${
-                  facility.onboardingStatus !== 'PENDING_APPROVAL' ? 'bg-emerald-500' : 'bg-amber-500'
-                }`}
-              />
-              <p
-                className={`text-xs font-semibold uppercase tracking-wider ${
-                  facility.onboardingStatus !== 'PENDING_APPROVAL' ? 'text-emerald-600' : 'text-amber-600'
-                }`}
-              >
-                Bước 2: {facility.onboardingStatus !== 'PENDING_APPROVAL' ? 'Hoàn tất' : 'Đang chờ xử lý'}
-              </p>
-              <h4 className="text-sm font-semibold text-slate-900 mt-0.5">Duyệt Cấp 1 &amp; Cấp tài khoản Portal</h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {facility.onboardingStatus !== 'PENDING_APPROVAL'
-                  ? 'Admin đã phê duyệt và gửi mật khẩu đăng nhập tạm thời qua email.'
-                  : 'Chờ Admin xác nhận thông tin cơ bản để cấp tài khoản đăng nhập.'}
+                {new Date(facility.createdAt).toLocaleString('vi-VN')} – Tài khoản Portal kèm mật khẩu ngẫu nhiên đã được gửi qua email liên hệ.
               </p>
             </div>
 
@@ -1052,32 +992,27 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                 </div>
               </div>
 
-              {/* Điều khoản hợp đồng */}
+              {/* Điều khoản bổ sung (Hướng A) */}
               <div className="space-y-1">
                 <label className="text-xs font-semibold text-slate-700 block">
-                  Toàn văn Điều khoản Hợp đồng Nguyên tắc B2B:
+                  Điều khoản bổ sung / Thỏa thuận đặc thù (tùy chọn):
                 </label>
                 <textarea
-                  rows={4}
+                  rows={3}
                   value={contractTerms}
                   onChange={(e) => setContractTerms(e.target.value)}
+                  placeholder="Để trống nếu áp dụng nguyên văn 10 Điều khoản chuẩn B2B..."
                   className="w-full text-xs border border-slate-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 leading-relaxed"
                 />
               </div>
 
-              {/* Checkbox ký trước */}
+              {/* Lưu ý trình tự ký tuần tự */}
               <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center gap-2.5 text-xs text-blue-900">
-                <input
-                  type="checkbox"
-                  id="admin-sign-check"
-                  defaultChecked
-                  disabled
-                  className="w-4 h-4 text-primary rounded"
-                />
-                <label htmlFor="admin-sign-check" className="font-medium cursor-pointer">
-                  Ban Giám đốc FamiDoc ký số phê duyệt trước dự thảo và tự động gửi thông báo ký số tới đại diện{' '}
-                  <strong>{facility.email}</strong>.
-                </label>
+                <span className="material-symbols-outlined text-base text-blue-600">draw</span>
+                <p className="font-medium">
+                  Hệ thống tự động sinh bản PDF 10 Điều chuẩn B2B trên Documenso: đại diện{' '}
+                  <strong>{facility.email}</strong> ký Bước 1 trước, Quản trị viên FamiDoc ký Bước 2 kích hoạt.
+                </p>
               </div>
             </div>
 
@@ -1097,45 +1032,6 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
               >
                 <span className="material-symbols-outlined text-sm">send</span>
                 {isCreatingContract ? 'Đang tạo & Gửi...' : 'Ký Duyệt & Gửi Dự Thảo tới CSYT'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal Duyệt Cấp 1 */}
-      {showApproveAccountModal && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-              <span className="material-symbols-outlined text-2xl">mark_email_read</span>
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">
-                Xác nhận Duyệt Cấp 1: Cấp tài khoản Portal
-              </h3>
-              <p className="text-xs sm:text-sm text-slate-600 mt-1">
-                Hệ thống sẽ tự động kích hoạt tài khoản cho <strong>{facility.facilityName}</strong> và gửi email thông tin đăng nhập kèm mật khẩu khởi tạo tới:
-              </p>
-              <p className="text-xs tabular-nums font-semibold text-primary bg-primary/5 p-2 rounded-lg mt-2">
-                {facility.email}
-              </p>
-            </div>
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowApproveAccountModal(false)}
-                className="px-4 py-2 text-xs sm:text-sm font-medium text-slate-600 hover:bg-slate-100 rounded-xl"
-              >
-                Hủy
-              </button>
-              <button
-                type="button"
-                disabled={isActionLoading}
-                onClick={handleApproveAccount}
-                className="px-4 py-2 text-xs sm:text-sm font-semibold bg-primary text-white rounded-xl hover:bg-primary/90 disabled:opacity-50"
-              >
-                {isActionLoading ? 'Đang xử lý...' : 'Xác nhận cấp tài khoản'}
               </button>
             </div>
           </div>

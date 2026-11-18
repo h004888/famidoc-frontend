@@ -9,20 +9,32 @@ export interface DoctorCredentialDto {
   fileUrl: string;
   facilityVerified?: boolean;
   platformApproved?: boolean;
+  rejectionReason?: string | null;
 }
 
 export interface DoctorProfileDto {
   id: string;
   userId?: string;
   doctorName: string;
+  email?: string;
+  phone?: string;
   specialty: string;
-  academicTitle?: string;
+  academicTitle?: string | null;
   experienceYears: number;
+  bio?: string | null;
   activePanelCount?: number;
   maxPanelCapacity?: number;
   ratingAvg?: number;
   totalReviews?: number;
-  onboardingStatus: 'PENDING_SUBMISSION' | 'FACILITY_VERIFIED' | 'ACTIVE' | 'SUSPENDED' | string;
+  onboardingStatus:
+    | 'PENDING_SUBMISSION'
+    | 'PENDING_FACILITY_REVIEW'
+    | 'FACILITY_VERIFIED'
+    | 'ACTIVE'
+    | 'SUSPENDED'
+    | string;
+  rejectionReason?: string | null;
+  credentialsSubmittedAt?: string | null;
   facilityId: string;
   facilityName?: string;
   facility?: {
@@ -34,13 +46,22 @@ export interface DoctorProfileDto {
   credentials?: DoctorCredentialDto[];
 }
 
+export interface SubmitDoctorCredentialItemPayload {
+  credentialType: 'PRACTICE_LICENSE_CCHN' | 'DEGREE' | 'FAMILY_MEDICINE_CERT';
+  certificateNumber: string;
+  issueDate: string;
+  issuingAuthority: string;
+}
+
 export interface SubmitCredentialsPayload {
-  cchnNumber?: string;
-  scopeOfPractice?: string;
-  issuedBy?: string;
-  issuedDate?: string;
-  certificateFiles?: string[];
-  credentials?: DoctorCredentialDto[];
+  academicTitle?: string;
+  specialty?: string;
+  experienceYears?: number;
+  bio?: string;
+  credentials?: SubmitDoctorCredentialItemPayload[];
+  cchnFile?: File | null;
+  degreeFile?: File | null;
+  familyMedicineFile?: File | null;
 }
 
 export interface FacilityApprovePayload {
@@ -83,36 +104,47 @@ export const doctorsApi = {
   },
 
   submitMyCredentials: async (payload: SubmitCredentialsPayload): Promise<any> => {
-    let credentialsArray: any[] = [];
-    if (Array.isArray(payload.credentials) && payload.credentials.length > 0) {
-      credentialsArray = payload.credentials;
-    } else {
-      const rawDate = payload.issuedDate || new Date().toISOString().split('T')[0];
-      const parsedDate = new Date(rawDate);
-      const validDateStr = isNaN(parsedDate.getTime())
-        ? new Date().toISOString().split('T')[0]
-        : parsedDate.toISOString().split('T')[0];
-
-      const fileUrl =
-        payload.certificateFiles && payload.certificateFiles.length > 0
-          ? payload.certificateFiles[0]
-          : 'https://storage.famidoc.vn/doctors/credentials/cchn.pdf';
-
-      credentialsArray = [
-        {
-          credentialType: 'PRACTICE_LICENSE_CCHN',
-          certificateNumber: payload.cchnNumber || '',
-          issueDate: validDateStr,
-          issuingAuthority: payload.issuedBy || '',
-          fileUrl: fileUrl.startsWith('http') ? fileUrl : `https://storage.famidoc.vn/doctors/credentials/${fileUrl}`,
-        },
-      ];
+    const formData = new FormData();
+    if (payload.academicTitle !== undefined && payload.academicTitle.trim()) {
+      formData.append('academicTitle', payload.academicTitle.trim());
     }
-    const res: any = await httpClient.put('/api/v1/doctors/me/credentials', { credentials: credentialsArray });
+    if (payload.specialty !== undefined && payload.specialty.trim()) {
+      formData.append('specialty', payload.specialty.trim());
+    }
+    if (payload.experienceYears !== undefined && !Number.isNaN(Number(payload.experienceYears))) {
+      formData.append('experienceYears', String(Math.max(0, Number(payload.experienceYears))));
+    }
+    if (payload.bio !== undefined && payload.bio.trim()) {
+      formData.append('bio', payload.bio.trim());
+    }
+
+    const credentialsArray = Array.isArray(payload.credentials) ? payload.credentials : [];
+    formData.append('credentials', JSON.stringify(credentialsArray));
+
+    if (payload.cchnFile) {
+      formData.append('cchnFile', payload.cchnFile);
+    }
+    if (payload.degreeFile) {
+      formData.append('degreeFile', payload.degreeFile);
+    }
+    if (payload.familyMedicineFile) {
+      formData.append('familyMedicineFile', payload.familyMedicineFile);
+    }
+
+    const res: any = await httpClient.upload('/api/v1/doctors/me/credentials', formData, 'PUT');
     if (res && typeof res === 'object' && res.data && typeof res.data === 'object' && !Array.isArray(res.data)) {
       return res.data;
     }
     return res;
+  },
+
+  fetchCredentialFileBlobUrl: async (doctorId: string | 'me', credentialId: string): Promise<string> => {
+    const endpoint =
+      doctorId === 'me'
+        ? `/api/v1/doctors/me/credentials/${credentialId}/file`
+        : `/api/v1/doctors/${doctorId}/credentials/${credentialId}/file`;
+    const blob = await httpClient.getBlob(endpoint);
+    return URL.createObjectURL(blob);
   },
 
   facilityApproveCredentials: async (
@@ -120,12 +152,17 @@ export const doctorsApi = {
     payload: FacilityApprovePayload
   ): Promise<any> => {
     const approved = payload.approved !== undefined ? Boolean(payload.approved) : Boolean(payload.isApproved);
-    const notes = payload.verificationNotes || payload.notes || 'Cơ sở y tế đã thẩm định hồ sơ chuyên môn.';
-    const res: any = await httpClient.patch(`/api/v1/doctors/${doctorId}/credentials/facility-approve`, {
-      approved,
-      verificationNotes: notes,
-      ...(payload.rejectionReason ? { rejectionReason: payload.rejectionReason } : {}),
-    });
+    const notes = payload.verificationNotes || payload.notes;
+    const body: Record<string, unknown> = { approved };
+    if (notes?.trim()) {
+      body.verificationNotes = notes.trim();
+    } else if (approved) {
+      body.verificationNotes = 'Cơ sở y tế đã thẩm định hồ sơ chuyên môn.';
+    }
+    if (payload.rejectionReason?.trim()) {
+      body.rejectionReason = payload.rejectionReason.trim();
+    }
+    const res: any = await httpClient.patch(`/api/v1/doctors/${doctorId}/credentials/facility-approve`, body);
     if (res && typeof res === 'object' && res.data && typeof res.data === 'object') return res.data;
     return res;
   },
@@ -138,7 +175,7 @@ export const doctorsApi = {
     const res: any = await httpClient.patch(`/api/v1/doctors/${doctorId}/credentials/platform-approve`, {
       approved,
       backgroundCheckConsent: payload.backgroundCheckConsent ?? true,
-      ...(payload.rejectionReason ? { rejectionReason: payload.rejectionReason } : {}),
+      ...(payload.rejectionReason?.trim() ? { rejectionReason: payload.rejectionReason.trim() } : {}),
     });
     if (res && typeof res === 'object' && res.data && typeof res.data === 'object') return res.data;
     return res;
@@ -156,14 +193,21 @@ export const doctorsApi = {
       targetFacilityId = undefined;
     }
 
-    const cleanPayload = {
+    const cleanPayload: Record<string, unknown> = {
       doctorName: targetPayload.doctorName || targetPayload.fullName || 'Bác sĩ',
       email: targetPayload.email,
       phone: targetPayload.phone,
       specialty: targetPayload.specialty || 'Y học gia đình',
-      experienceYears: Number(targetPayload.experienceYears ?? 3),
-      academicTitle: targetPayload.academicTitle || 'BS.CKI',
     };
+    if (targetPayload.academicTitle?.trim()) {
+      cleanPayload.academicTitle = targetPayload.academicTitle.trim();
+    }
+    if (targetPayload.experienceYears !== undefined && !Number.isNaN(Number(targetPayload.experienceYears))) {
+      cleanPayload.experienceYears = Math.max(0, Number(targetPayload.experienceYears));
+    }
+    if (targetPayload.bio?.trim()) {
+      cleanPayload.bio = targetPayload.bio.trim();
+    }
 
     const isUUID = targetFacilityId && /^[0-9a-fA-F-]{36}$/.test(targetFacilityId);
     const endpoint = isUUID ? `/api/v1/facilities/${targetFacilityId}/doctors` : '/api/v1/facilities/doctors';

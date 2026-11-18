@@ -270,6 +270,44 @@ export interface AssignDoctorPayload {
 }
 
 // === HỢP ĐỒNG CUNG ỨNG NHÂN LỰC Y TẾ B2B ===
+export type BackendB2bContractStatus =
+  | 'PENDING_FACILITY_SIGNATURE'
+  | 'REVISION_REQUESTED'
+  | 'PENDING_ADMIN_SIGNATURE'
+  | 'ACTIVE'
+  | 'EXPIRED'
+  | 'TERMINATED';
+
+export interface StaffingSigningSessionDto {
+  contractId: string;
+  contractCode: string;
+  status: string;
+  signerRole: 'HEALTHCARE_FACILITY' | 'ADMIN';
+  alreadySigned: boolean;
+  canSign: boolean;
+  waitingReason?: string;
+  signingToken: string | null;
+  signingUrl: string | null;
+  facilitySigned: boolean;
+  adminSigned: boolean;
+  signedPdfUrl: string | null;
+}
+
+export interface StaffingTerminationImpactDto {
+  contractId: string;
+  facilityId: string;
+  status: BackendB2bContractStatus;
+  activeMedicalContracts: number;
+  pendingMedicalContracts: number;
+  openEncounters: number;
+  unsettledSettlements: number;
+  unsettledPaidInvoices: number;
+  activeOrOnboardingDoctors: number;
+  openComplaints: number;
+  hasBlockingDependencies: boolean;
+  warnings: string[];
+}
+
 export interface StaffingContractItem {
   id: string;
   contractNumber: string;
@@ -280,11 +318,37 @@ export interface StaffingContractItem {
   validFrom: string;
   validTo: string;
   status: 'DRAFT' | 'ACTIVE' | 'TERMINATED';
+  rawStatus?: BackendB2bContractStatus;
   adminSigned: boolean;
   facilitySigned: boolean;
+  facilitySignedAt?: string | null;
+  adminSignedAt?: string | null;
+  documensoEnvelopeId?: string | null;
+  documensoItemId?: string | null;
   signedPdfUrl?: string | null;
   contractTerms?: string;
   rejectionReason?: string;
+  revisionReason?: string | null;
+  terminationRequestStatus?: string | null;
+  terminationRequestReason?: string | null;
+  terminationRequestedAt?: string | null;
+  terminatedReason?: string | null;
+  terminatedAt?: string | null;
+  platformLegal?: {
+    companyName: string;
+    taxCode: string;
+    address: string;
+    representative: string;
+    supportContact: string;
+  };
+  facilitySummary?: {
+    licenseNumber?: string;
+    licenseIssuer?: string | null;
+    licenseDate?: string | null;
+    taxCode?: string | null;
+    address?: string;
+    hotline?: string;
+  };
 }
 
 export function normalizeStaffingContract(item: any): StaffingContractItem {
@@ -294,22 +358,45 @@ export function normalizeStaffingContract(item: any): StaffingContractItem {
     item?.contract_code ||
     (item?.id ? String(item.id) : '—');
 
-  const statusRaw = item?.status;
+  const statusRaw = item?.status as string | undefined;
   let normalizedStatus: 'DRAFT' | 'ACTIVE' | 'TERMINATED' = 'TERMINATED';
   if (statusRaw === 'ACTIVE') {
     normalizedStatus = 'ACTIVE';
   } else if (
     !statusRaw ||
     statusRaw === 'DRAFT' ||
-    statusRaw === 'PENDING_SIGNATURE'
+    statusRaw === 'PENDING_SIGNATURE' ||
+    statusRaw === 'PENDING_FACILITY_SIGNATURE' ||
+    statusRaw === 'REVISION_REQUESTED' ||
+    statusRaw === 'PENDING_ADMIN_SIGNATURE'
   ) {
     normalizedStatus = 'DRAFT';
   }
 
-  const facilitySigned = Boolean(item?.facilitySigned || normalizedStatus === 'ACTIVE');
+  const rawStatus: BackendB2bContractStatus = (
+    statusRaw === 'PENDING_FACILITY_SIGNATURE' ||
+    statusRaw === 'REVISION_REQUESTED' ||
+    statusRaw === 'PENDING_ADMIN_SIGNATURE' ||
+    statusRaw === 'ACTIVE' ||
+    statusRaw === 'EXPIRED' ||
+    statusRaw === 'TERMINATED'
+      ? statusRaw
+      : normalizedStatus === 'ACTIVE'
+        ? 'ACTIVE'
+        : normalizedStatus === 'TERMINATED'
+          ? 'TERMINATED'
+          : 'PENDING_FACILITY_SIGNATURE'
+  ) as BackendB2bContractStatus;
+
+  const facilitySigned = Boolean(
+    item?.facilitySigned ??
+      (Boolean(item?.facilitySignedAt) ||
+        rawStatus === 'PENDING_ADMIN_SIGNATURE' ||
+        normalizedStatus === 'ACTIVE')
+  );
   const adminSigned = Boolean(
     item?.adminSigned ??
-      (normalizedStatus === 'DRAFT' || normalizedStatus === 'ACTIVE')
+      (Boolean(item?.adminSignedAt) || normalizedStatus === 'ACTIVE')
   );
   const rawFacilityShare = Number(
     item?.facilitySharePercent ?? item?.facilityRevenueRate ?? 85
@@ -338,24 +425,43 @@ export function normalizeStaffingContract(item: any): StaffingContractItem {
     validFrom: item?.validFrom || item?.startDate || '',
     validTo: item?.validTo || item?.endDate || '',
     status: normalizedStatus,
+    rawStatus,
     adminSigned,
     facilitySigned,
+    facilitySignedAt: item?.facilitySignedAt ?? null,
+    adminSignedAt: item?.adminSignedAt ?? null,
+    documensoEnvelopeId: item?.documensoEnvelopeId ?? null,
+    documensoItemId: item?.documensoItemId ?? null,
     signedPdfUrl: item?.signedPdfUrl ?? null,
-    contractTerms:
-      item?.contractTerms ||
-      'HỢP ĐỒNG KHUNG CUNG ỨNG NHÂN LỰC Y TẾ B2B (MÔ HÌNH BÁC SĨ GIA ĐÌNH)\n\n' +
-        'Điều 1. Phạm vi hợp tác:\n' +
-        'Cơ sở y tế đồng ý cung ứng nguồn nhân lực Bác sĩ có Chứng chỉ hành nghề (CCHN) hợp lệ để thực hiện dịch vụ khám chữa bệnh gia đình và chăm sóc y tế toàn diện trên nền tảng số FamiDoc.\n\n' +
-        'Điều 2. Tỷ lệ phân chia doanh thu & Cơ chế quyết toán:\n' +
-        `- Cơ sở y tế hưởng: ${facilitySharePercent}% trên tổng doanh thu các gói dịch vụ y tế phát sinh.\n` +
-        `- Nền tảng FamiDoc hưởng: ${platformSharePercent}% phí vận hành công nghệ, tổng đài điều phối và hạ tầng bệnh án điện tử.\n` +
-        '- Kỳ quyết toán: Định kỳ ngày 05 hằng tháng, FamiDoc lập đối soát doanh thu chi trả về tài khoản ngân hàng thụ hưởng của CSYT.\n\n' +
-        'Điều 3. Cam kết chất lượng chuyên môn:\n' +
-        '- 100% bác sĩ tham gia phải được xác thực Chứng chỉ hành nghề (CCHN) hợp lệ.\n' +
-        '- Tuân thủ định mức phụ trách tối đa 30 hộ gia đình/bác sĩ nhằm bảo đảm chất lượng chăm sóc và an toàn y tế.\n\n' +
-        'Điều 4. Ký số điện tử & Hiệu lực pháp lý:\n' +
-        'Hợp đồng được lập và ký số điện tử hợp pháp theo Luật Giao dịch điện tử và Nghị định 130/2018/NĐ-CP.',
-    rejectionReason: item?.rejectionReason,
+    contractTerms: (() => {
+      const raw = typeof item?.contractTerms === 'string' ? item.contractTerms.trim() : '';
+      if (
+        !raw ||
+        raw.startsWith('HỢP ĐỒNG NGUYÊN TẮC CUNG ỨNG NGUỒN NHÂN LỰC Y TẾ B2B') ||
+        raw.startsWith('HỢP ĐỒNG KHUNG CUNG ỨNG NHÂN LỰC Y TẾ B2B')
+      ) {
+        return '';
+      }
+      return raw;
+    })(),
+    rejectionReason: item?.rejectionReason ?? item?.revisionReason ?? undefined,
+    revisionReason: item?.revisionReason ?? item?.rejectionReason ?? null,
+    terminationRequestStatus: item?.terminationRequestStatus ?? null,
+    terminationRequestReason: item?.terminationRequestReason ?? null,
+    terminationRequestedAt: item?.terminationRequestedAt ?? null,
+    terminatedReason: item?.terminatedReason ?? null,
+    terminatedAt: item?.terminatedAt ?? null,
+    platformLegal: item?.platformLegal ?? undefined,
+    facilitySummary: item?.facility
+      ? {
+          licenseNumber: item.facility.licenseNumber,
+          licenseIssuer: item.facility.licenseIssuer ?? null,
+          licenseDate: item.facility.licenseDate ?? null,
+          taxCode: item.facility.taxCode ?? null,
+          address: item.facility.address,
+          hotline: item.facility.hotline,
+        }
+      : undefined,
   };
 }
 
@@ -656,7 +762,11 @@ export const contractsApi = {
     options?: { throwOnError?: boolean }
   ): Promise<{ data: StaffingContractItem[]; total: number }> => {
     try {
-      const res = await httpClient.get<any>('/api/v1/contracts/staffing', params);
+      const normalizedParams =
+        params && typeof params.limit === 'number'
+          ? { ...params, limit: Math.min(Math.max(1, params.limit), 50) }
+          : params;
+      const res = await httpClient.get<any>('/api/v1/contracts/staffing', normalizedParams);
       const unwrapped = unwrapEnvelope<any>(res);
       let rawList: any[] = [];
       let totalCount = 0;
@@ -741,6 +851,9 @@ export const contractsApi = {
     if (payload?.facilityId?.trim()) {
       cleanPayload.facilityId = payload.facilityId.trim();
     }
+    if ((payload as { contractTerms?: string })?.contractTerms?.trim()) {
+      cleanPayload.contractTerms = (payload as { contractTerms?: string }).contractTerms!.trim();
+    }
 
     return httpClient.post('/api/v1/contracts/staffing', cleanPayload);
   },
@@ -759,13 +872,69 @@ export const contractsApi = {
     return httpClient.put(`/api/v1/contracts/staffing/${id}/sign`, cleanBody);
   },
 
+  requestStaffingRevision: async (
+    id: string,
+    rejectionReason: string
+  ): Promise<any> => {
+    return httpClient.patch(`/api/v1/contracts/staffing/${id}/request-revision`, {
+      rejectionReason,
+    });
+  },
+
   rejectStaffingContract: async (
     id: string,
     rejectionReason: string
   ): Promise<any> => {
-    return httpClient.patch(`/api/v1/contracts/staffing/${id}/reject`, {
+    return httpClient.patch(`/api/v1/contracts/staffing/${id}/request-revision`, {
       rejectionReason,
     });
+  },
+
+  getStaffingSigningSession: async (id: string): Promise<StaffingSigningSessionDto> => {
+    const res = await httpClient.get<unknown>(`/api/v1/contracts/staffing/${id}/signing-session`);
+    return unwrapEnvelope<StaffingSigningSessionDto>(res);
+  },
+
+  syncStaffingDocumenso: async (
+    id: string
+  ): Promise<{
+    synced: boolean;
+    contractId: string;
+    status: string;
+    facilitySigned: boolean;
+    adminSigned: boolean;
+    signedPdfUrl: string | null;
+  }> => {
+    const res = await httpClient.post<unknown>(`/api/v1/contracts/staffing/${id}/sync-documenso`);
+    return unwrapEnvelope(res);
+  },
+
+  fetchStaffingSignedPdfBlobUrl: async (id: string): Promise<string> => {
+    const blob = await httpClient.getBlob(`/api/v1/contracts/staffing/${id}/signed-pdf`);
+    return URL.createObjectURL(blob);
+  },
+
+  getStaffingTerminationImpact: async (
+    id: string
+  ): Promise<StaffingTerminationImpactDto> => {
+    const res = await httpClient.get<unknown>(`/api/v1/contracts/staffing/${id}/termination-impact`);
+    return unwrapEnvelope<StaffingTerminationImpactDto>(res);
+  },
+
+  requestStaffingTermination: async (
+    id: string,
+    reason: string
+  ): Promise<unknown> => {
+    return httpClient.post(`/api/v1/contracts/staffing/${id}/termination-request`, {
+      reason,
+    });
+  },
+
+  terminateStaffingContract: async (
+    id: string,
+    payload: { reason: string; force?: boolean; handoverNotes?: string }
+  ): Promise<unknown> => {
+    return httpClient.patch(`/api/v1/contracts/staffing/${id}/terminate`, payload);
   },
 
   updateMedicalContract: async (
@@ -784,7 +953,6 @@ export const contractsApi = {
     payload: UpdateStaffingContractPayload
   ): Promise<unknown> => {
     const cleanBody: Record<string, string | number> = {};
-    if (payload.status !== undefined) cleanBody.status = payload.status;
     if (payload.facilitySharePercent !== undefined) {
       cleanBody.facilityRevenueRate = Number(payload.facilitySharePercent);
       cleanBody.platformCommissionRate = Number(
@@ -794,7 +962,6 @@ export const contractsApi = {
     if (payload.validFrom) cleanBody.startDate = payload.validFrom;
     if (payload.validTo) cleanBody.endDate = payload.validTo;
     if (payload.contractTerms !== undefined) cleanBody.contractTerms = payload.contractTerms;
-    if (payload.rejectionReason !== undefined) cleanBody.rejectionReason = payload.rejectionReason;
     return httpClient.patch(`/api/v1/contracts/staffing/${id}`, cleanBody);
   },
 };

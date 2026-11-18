@@ -27,10 +27,8 @@ export function proxy(request: NextRequest) {
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
     pathname.startsWith('/forgot-password') ||
-    pathname === '/facilities/register' ||
     pathname === '/admin/login' ||
     pathname === '/facility/login' ||
-    pathname === '/facility/register' ||
     pathname === '/doctor/login' ||
     pathname === '/doctor/register' ||
     pathname === '/family/login' ||

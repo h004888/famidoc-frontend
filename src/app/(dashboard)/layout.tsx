@@ -2,34 +2,41 @@ import React, { Suspense } from 'react';
 import Link from 'next/link';
 import {
   DashboardSidebar,
+  FacilityVerificationGateGuard,
+  FacilityVerificationGateProvider,
   FamilySubscriptionGateGuard,
   FamilySubscriptionGateProvider,
+  MustChangePasswordBanner,
   SiteHeader,
 } from '@/components/layout';
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
-    <FamilySubscriptionGateProvider>
-      <SidebarProvider defaultOpen={true}>
-        <div className="flex min-h-screen w-full flex-col overflow-x-clip bg-[#f5f6f8] font-sans text-slate-900 antialiased lg:flex-row">
-          {/* Sidenav - Thanh điều hướng dọc chuẩn Preclinic */}
-          <Suspense fallback={<div className="hidden lg:block w-64 bg-white border-r border-slate-200/90 shrink-0" />}>
-            <DashboardSidebar />
-          </Suspense>
-
-          {/* Main content wrapper */}
-          <SidebarInset className="flex min-w-0 w-full flex-1 flex-col bg-[#f5f6f8] pb-16 lg:pb-0">
-            <Suspense fallback={<div className="hidden h-16 border-b border-slate-200/90 bg-white lg:block" />}>
-              <SiteHeader />
+    <FacilityVerificationGateProvider>
+      <FamilySubscriptionGateProvider>
+        <SidebarProvider defaultOpen={true}>
+          <div className="flex min-h-screen w-full flex-col overflow-x-clip bg-[#f5f6f8] font-sans text-slate-900 antialiased lg:flex-row">
+            {/* Sidenav - Thanh điều hướng dọc chuẩn Preclinic */}
+            <Suspense fallback={<div className="hidden lg:block w-64 bg-white border-r border-slate-200/90 shrink-0" />}>
+              <DashboardSidebar />
             </Suspense>
 
-            {/* Nội dung trang */}
-            <div className="flex-1">
-              <Suspense fallback={null}>
-                <FamilySubscriptionGateGuard>{children}</FamilySubscriptionGateGuard>
+            {/* Main content wrapper */}
+            <SidebarInset className="flex min-w-0 w-full flex-1 flex-col bg-[#f5f6f8] pb-16 lg:pb-0">
+              <Suspense fallback={<div className="hidden h-16 border-b border-slate-200/90 bg-white lg:block" />}>
+                <SiteHeader />
               </Suspense>
-            </div>
+
+              {/* Nội dung trang */}
+              <div className="flex-1">
+                <MustChangePasswordBanner />
+                <Suspense fallback={null}>
+                  <FamilySubscriptionGateGuard>
+                    <FacilityVerificationGateGuard>{children}</FacilityVerificationGateGuard>
+                  </FamilySubscriptionGateGuard>
+                </Suspense>
+              </div>
 
             {/* Footer phong cách Preclinic */}
             <footer className="flex flex-col items-center justify-between gap-2 border-t border-slate-200/90 bg-white px-4 py-3 text-center text-xs text-slate-600 sm:px-6 sm:text-left lg:px-8 xl:flex-row">
@@ -65,5 +72,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </SidebarProvider>
     </FamilySubscriptionGateProvider>
+    </FacilityVerificationGateProvider>
   );
 }
