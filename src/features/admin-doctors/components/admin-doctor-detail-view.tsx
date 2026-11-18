@@ -110,7 +110,8 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
     );
   }
 
-  const primaryCred = doctor.credentials?.find((credential) => credential.credentialType === 'PRACTICE_LICENSE_CCHN');
+  const isFacilityReviewComplete =
+    doctor.onboardingStatus === 'FACILITY_VERIFIED' || doctor.onboardingStatus === 'ACTIVE';
 
   return (
     <DashboardPageShell containerClassName="pb-16">
@@ -257,7 +258,7 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
               <div>
                 <label className="text-xs text-slate-500 block">Tên cơ sở y tế</label>
                 <p className="text-sm font-semibold text-slate-900 mt-0.5">
-                  {doctor.facilityName || doctor.facility?.facilityName || 'Bệnh viện Đa khoa Quốc tế An Sinh'}
+                  {doctor.facilityName || doctor.facility?.facilityName || 'Cơ sở Y tế Đối tác'}
                 </p>
               </div>
               <div>
@@ -301,13 +302,25 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
             </h3>
             <div className="space-y-4 text-xs">
               <div className="flex items-start gap-3">
-                <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold">
-                  {primaryCred?.facilityVerified ? '✓' : '1'}
+                <div
+                  className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-bold ${
+                    isFacilityReviewComplete
+                      ? 'bg-emerald-100 text-emerald-700'
+                      : doctor.onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                        ? 'bg-amber-100 text-amber-700 animate-pulse'
+                        : 'bg-slate-100 text-slate-500'
+                  }`}
+                >
+                  {isFacilityReviewComplete ? '✓' : '1'}
                 </div>
                 <div>
                   <p className="font-semibold text-slate-900">Tầng 1: Thẩm định nội bộ Cơ sở Y tế (FACILITY_VERIFIED)</p>
                   <p className="text-slate-500 mt-0.5">
-                    {primaryCred?.facilityVerified ? 'CSYT đã xác nhận hồ sơ CCHN.' : 'Chưa ghi nhận xác nhận CCHN từ CSYT.'}
+                    {isFacilityReviewComplete
+                      ? 'Đại diện CSYT đã đối chiếu văn bằng gốc, xác nhận bác sĩ trực thuộc và đề xuất kích hoạt lên FamiDoc.'
+                      : doctor.onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                        ? 'Bác sĩ đã nộp đủ 3 chứng chỉ, đang chờ Cơ sở Y tế thẩm định Cấp 1.'
+                        : 'Chờ bác sĩ nộp đủ 3 chứng chỉ để Cơ sở Y tế thẩm định Cấp 1.'}
                   </p>
                 </div>
               </div>
@@ -317,7 +330,9 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
                   className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 font-bold ${
                     doctor.onboardingStatus === 'ACTIVE'
                       ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-amber-100 text-amber-700 animate-pulse'
+                      : doctor.onboardingStatus === 'FACILITY_VERIFIED'
+                        ? 'bg-amber-100 text-amber-700 animate-pulse'
+                        : 'bg-slate-100 text-slate-500'
                   }`}
                 >
                   {doctor.onboardingStatus === 'ACTIVE' ? '✓' : '2'}
@@ -328,8 +343,10 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
                   </p>
                   <p className="text-slate-500 mt-0.5">
                     {doctor.onboardingStatus === 'ACTIVE'
-                      ? 'Admin đã phê duyệt hồ sơ.'
-                      : doctor.onboardingStatus === 'FACILITY_VERIFIED' ? 'Hồ sơ đang chờ Admin phê duyệt.' : 'Hồ sơ chưa đến bước phê duyệt.'}
+                      ? 'Admin đã hoàn tất tra cứu CSDL Quốc gia và phê duyệt chính thức.'
+                      : doctor.onboardingStatus === 'FACILITY_VERIFIED'
+                        ? 'Đang chờ Admin phê duyệt để cấp quyền mở lịch tư vấn và tiếp nhận bệnh nhân.'
+                        : 'Mở sau khi Cơ sở Y tế hoàn tất duyệt Cấp 1.'}
                   </p>
                 </div>
               </div>

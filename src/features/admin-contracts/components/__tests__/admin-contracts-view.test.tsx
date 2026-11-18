@@ -473,4 +473,65 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
     expect(screen.getByLabelText('Tiến độ 2 trên 2 chữ ký')).toBeInTheDocument();
     expect(screen.getAllByRole('button', { name: /^Chi tiết$/i }).length).toBeGreaterThan(0);
   });
+
+  it('excludes PENDING_FACILITY_SIGNATURE and REVISION_REQUESTED from READY_FOR_ADMIN filter', async () => {
+    const { matchesStaffingStatusFilter } = await import('../contract-status-helpers');
+
+    expect(
+      matchesStaffingStatusFilter(
+        {
+          id: 'st-pfs',
+          contractNumber: 'STF-1',
+          facilityName: 'CSYT A',
+          platformSharePercent: 15,
+          facilitySharePercent: 85,
+          validFrom: '2026-01-01',
+          validTo: '2027-01-01',
+          status: 'DRAFT',
+          rawStatus: 'PENDING_FACILITY_SIGNATURE',
+          facilitySigned: false,
+          adminSigned: false,
+        },
+        'READY_FOR_ADMIN'
+      )
+    ).toBe(false);
+
+    expect(
+      matchesStaffingStatusFilter(
+        {
+          id: 'st-rev',
+          contractNumber: 'STF-2',
+          facilityName: 'CSYT A',
+          platformSharePercent: 15,
+          facilitySharePercent: 85,
+          validFrom: '2026-01-01',
+          validTo: '2027-01-01',
+          status: 'DRAFT',
+          rawStatus: 'REVISION_REQUESTED',
+          facilitySigned: false,
+          adminSigned: false,
+        },
+        'READY_FOR_ADMIN'
+      )
+    ).toBe(false);
+
+    expect(
+      matchesStaffingStatusFilter(
+        {
+          id: 'st-pas',
+          contractNumber: 'STF-3',
+          facilityName: 'CSYT A',
+          platformSharePercent: 15,
+          facilitySharePercent: 85,
+          validFrom: '2026-01-01',
+          validTo: '2027-01-01',
+          status: 'DRAFT',
+          rawStatus: 'PENDING_ADMIN_SIGNATURE',
+          facilitySigned: true,
+          adminSigned: false,
+        },
+        'READY_FOR_ADMIN'
+      )
+    ).toBe(true);
+  });
 });

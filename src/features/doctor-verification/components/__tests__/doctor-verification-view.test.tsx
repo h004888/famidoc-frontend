@@ -217,4 +217,44 @@ describe('DoctorVerificationView Component (Full-Page Inline Form)', () => {
     expect(screen.queryByRole('button', { name: /Gửi Thẩm Định/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Cập nhật & Gửi lại Thẩm định/i })).not.toBeInTheDocument();
   });
+
+  it('locks form inputs and hides submit footer when onboardingStatus is FACILITY_VERIFIED', async () => {
+    vi.mocked(doctorsApi.getDoctorMe).mockResolvedValue({
+      id: 'doc-uuid-123',
+      doctorName: 'BS. Phan Văn Minh',
+      specialty: 'Y học gia đình',
+      experienceYears: 5,
+      onboardingStatus: 'FACILITY_VERIFIED',
+      facilityId: 'fac-1',
+      facilityName: 'Bệnh viện An Sinh',
+      credentials: [],
+    });
+
+    render(<DoctorVerificationView />);
+
+    const specialtyInput = await screen.findByLabelText(/Chuyên khoa hành nghề/i);
+    expect(specialtyInput).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Gửi Thẩm Định/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Cập nhật & Gửi lại Thẩm định/i })).not.toBeInTheDocument();
+  });
+
+  it('locks form inputs and hides submit footer when onboardingStatus is SUSPENDED', async () => {
+    vi.mocked(doctorsApi.getDoctorMe).mockResolvedValue({
+      id: 'doc-uuid-123',
+      doctorName: 'BS. Phan Văn Minh',
+      specialty: 'Y học gia đình',
+      experienceYears: 5,
+      onboardingStatus: 'SUSPENDED',
+      facilityId: 'fac-1',
+      facilityName: 'Bệnh viện An Sinh',
+      credentials: [],
+    });
+
+    render(<DoctorVerificationView />);
+
+    const specialtyInput = await screen.findByLabelText(/Chuyên khoa hành nghề/i);
+    expect(specialtyInput).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Gửi Thẩm Định/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Cập nhật & Gửi lại Thẩm định/i })).not.toBeInTheDocument();
+  });
 });

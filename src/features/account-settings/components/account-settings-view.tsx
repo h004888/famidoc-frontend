@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { z } from 'zod';
-import { profileSettingsSchema, changePasswordSchema } from '../schemas/settings.schema';
-import { useAuth } from '@/features/auth/context/auth-context';
-import type { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { authApi } from '@/lib/api/auth.api';
+import { extractErrorMessage } from '@/lib/api';
+import { useAuth } from '@/features/auth/context/auth-context';
+import { profileSettingsSchema, changePasswordSchema } from '../schemas/settings.schema';
+import type { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { getCurrentBrowserHost, getSubdomainPortal } from '@/lib/portal-routing';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -85,7 +86,7 @@ const passwordErrors = new Map([
 ]);
 
 export function AccountSettingsView() {
-  const { user, role, isAuthenticated, applySession, logout } = useAuth();
+  const { user, role, isAuthenticated, applySession, clearMustChangePassword, logout } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'insurance'>('profile');
 
@@ -189,15 +190,22 @@ export function AccountSettingsView() {
         newPassword: result.data.newPassword,
       });
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message.trim() : '';
-      setPasswordError(passwordErrors.get(message) || message || 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.');
+      const message = extractErrorMessage(
+        err,
+        'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.',
+      );
+      setPasswordError(passwordErrors.get(message) ?? message);
       return;
     } finally {
       setIsUpdatingPassword(false);
     }
     toast.success('Mật khẩu bảo mật đã được thay đổi thành công!');
     setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
-    if (effectiveRole === 'ADMIN') logout();
+    if (effectiveRole === 'ADMIN') {
+      logout();
+    } else {
+      clearMustChangePassword?.();
+    }
   };
 
   return (

@@ -55,7 +55,7 @@ import { cn } from '@/lib/utils';
 
 type WorkspaceTab = 'FACILITIES' | 'DOCTOR_VERIFY';
 type FacilityStatusFilter = 'ALL' | 'PENDING_LEGAL' | 'LEGAL_SUBMITTED' | 'ACTIVE' | 'REJECTED';
-type DoctorStatusFilter = 'ALL' | 'FACILITY_VERIFIED' | 'PENDING_SUBMISSION';
+type DoctorStatusFilter = 'ALL' | 'FACILITY_VERIFIED' | 'PENDING_FACILITY_REVIEW' | 'PENDING_SUBMISSION';
 
 interface DoctorVerificationItem {
   id: string;
@@ -170,6 +170,10 @@ export function AdminFacilitiesView() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [approvingDoctorId, setApprovingDoctorId] = useState<string | null>(null);
+  const [confirmApproveDoctor, setConfirmApproveDoctor] = useState<{
+    id: string;
+    doctorName: string;
+  } | null>(null);
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -217,9 +221,17 @@ export function AdminFacilitiesView() {
       const docs: any[] = await doctorsApi.getAdminDoctors();
       if (Array.isArray(docs)) {
         const mapped: DoctorVerificationItem[] = docs
-          .filter((d: any) => d.onboardingStatus === 'FACILITY_VERIFIED' || d.onboardingStatus === 'PENDING_SUBMISSION')
+          .filter(
+            (d: any) =>
+              d.onboardingStatus === 'FACILITY_VERIFIED' ||
+              d.onboardingStatus === 'PENDING_FACILITY_REVIEW' ||
+              d.onboardingStatus === 'PENDING_SUBMISSION'
+          )
           .map((d: any) => {
-            const cred = Array.isArray(d.credentials) && d.credentials.length > 0 ? d.credentials[0] : null;
+            const creds = Array.isArray(d.credentials) ? d.credentials : [];
+            const cred =
+              creds.find((c: any) => c.credentialType === 'PRACTICE_LICENSE_CCHN') ??
+              (creds.length > 0 ? creds[0] : null);
             return {
               id: d.id,
               doctorName: d.doctorName || d.fullName || 'Bác sĩ',
@@ -334,6 +346,14 @@ export function AdminFacilitiesView() {
 
   const countDoctorsReady = useMemo(
     () => doctorsList.filter((d) => d.onboardingStatus === 'FACILITY_VERIFIED').length,
+    [doctorsList]
+  );
+  const countDoctorsFacilityPending = useMemo(
+    () => doctorsList.filter((d) => d.onboardingStatus === 'PENDING_FACILITY_REVIEW').length,
+    [doctorsList]
+  );
+  const countDoctorsPendingSubmission = useMemo(
+    () => doctorsList.filter((d) => d.onboardingStatus === 'PENDING_SUBMISSION').length,
     [doctorsList]
   );
 
@@ -977,9 +997,14 @@ export function AdminFacilitiesView() {
                         { key: 'ALL', label: 'Tất cả', count: doctorsList.length },
                         { key: 'FACILITY_VERIFIED', label: 'Sẵn sàng duyệt Cấp 2', count: countDoctorsReady },
                         {
-                          key: 'PENDING_SUBMISSION',
+                          key: 'PENDING_FACILITY_REVIEW',
                           label: 'Chờ CSYT duyệt Cấp 1',
-                          count: doctorsList.length - countDoctorsReady,
+                          count: countDoctorsFacilityPending,
+                        },
+                        {
+                          key: 'PENDING_SUBMISSION',
+                          label: 'Chờ BS nộp hồ sơ',
+                          count: countDoctorsPendingSubmission,
                         },
                       ] as const
                     ).map((item) => {
@@ -1141,12 +1166,19 @@ export function AdminFacilitiesView() {
                                     >
                                       CSYT đã duyệt Cấp 1
                                     </Badge>
-                                  ) : (
+                                  ) : doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' ? (
                                     <Badge
                                       variant="outline"
                                       className="rounded-full border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800"
                                     >
                                       Chờ CSYT duyệt Cấp 1
+                                    </Badge>
+                                  ) : (
+                                    <Badge
+                                      variant="outline"
+                                      className="rounded-full border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700"
+                                    >
+                                      Chờ BS nộp hồ sơ
                                     </Badge>
                                   )}
                                 </TableCell>
@@ -1165,14 +1197,18 @@ export function AdminFacilitiesView() {
                                         type="button"
                                         size="xs"
                                         disabled={isApproving}
-                                        onClick={() => handleApproveDoctorPlatform(doc.id, doc.doctorName)}
+                                        onClick={() =>
+                                          setConfirmApproveDoctor({ id: doc.id, doctorName: doc.doctorName })
+                                        }
                                         className="h-8 cursor-pointer rounded-lg bg-emerald-600 px-3 text-xs font-semibold text-white hover:bg-emerald-700"
                                       >
                                         {isApproving ? 'Đang kích hoạt...' : 'Duyệt Cấp 2 (Kích hoạt ACTIVE)'}
                                       </Button>
                                     ) : (
                                       <span className="text-[11px] italic text-slate-400">
-                                        Chờ CSYT thẩm định trước
+                                        {doc.onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                                          ? 'Chờ CSYT thẩm định trước'
+                                          : 'Chờ bác sĩ nộp đủ 3 file'}
                                       </span>
                                     )}
                                   </div>
@@ -1202,10 +1238,16 @@ export function AdminFacilitiesView() {
                                   'shrink-0 rounded-full text-[10px] font-semibold',
                                   isReady
                                     ? 'border-blue-200 bg-blue-50 text-blue-800'
-                                    : 'border-amber-200 bg-amber-50 text-amber-800'
+                                    : doc.onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                                      ? 'border-amber-200 bg-amber-50 text-amber-800'
+                                      : 'border-slate-200 bg-slate-100 text-slate-700'
                                 )}
                               >
-                                {isReady ? 'CSYT đã duyệt Cấp 1' : 'Chờ CSYT duyệt Cấp 1'}
+                                {isReady
+                                  ? 'CSYT đã duyệt Cấp 1'
+                                  : doc.onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                                    ? 'Chờ CSYT duyệt Cấp 1'
+                                    : 'Chờ BS nộp hồ sơ'}
                               </Badge>
                             </div>
                             <div className="rounded-xl bg-slate-50 p-2.5 text-xs text-slate-600 space-y-1">
@@ -1226,7 +1268,9 @@ export function AdminFacilitiesView() {
                                   type="button"
                                   size="sm"
                                   disabled={isApproving}
-                                  onClick={() => handleApproveDoctorPlatform(doc.id, doc.doctorName)}
+                                  onClick={() =>
+                                    setConfirmApproveDoctor({ id: doc.id, doctorName: doc.doctorName })
+                                  }
                                   className="h-9 cursor-pointer rounded-lg bg-emerald-600 text-xs font-semibold text-white hover:bg-emerald-700"
                                 >
                                   {isApproving ? 'Đang kích hoạt...' : 'Duyệt Cấp 2'}
@@ -1753,6 +1797,27 @@ export function AdminFacilitiesView() {
             )}
           </DialogContent>
         </Dialog>
+        <ConfirmDialog
+          open={Boolean(confirmApproveDoctor)}
+          onOpenChange={(open) => {
+            if (!open) setConfirmApproveDoctor(null);
+          }}
+          title="Xác nhận phê duyệt Cấp 2 (Kích hoạt ACTIVE)"
+          description={
+            confirmApproveDoctor
+              ? `Bạn xác nhận đã hậu kiểm đủ 3 chứng chỉ (CCHN, Bằng chuyên môn, Y học gia đình) và hồ sơ pháp lý CSYT cho Bác sĩ ${confirmApproveDoctor.doctorName}?`
+              : ''
+          }
+          confirmLabel="Xác nhận kích hoạt ACTIVE"
+          cancelLabel="Kiểm tra lại"
+          isLoading={Boolean(approvingDoctorId)}
+          onConfirm={async () => {
+            if (!confirmApproveDoctor) return;
+            const target = confirmApproveDoctor;
+            await handleApproveDoctorPlatform(target.id, target.doctorName);
+            setConfirmApproveDoctor(null);
+          }}
+        />
       </div>
     </div>
   );

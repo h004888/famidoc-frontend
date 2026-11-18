@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { doctorsApi, contractsApi, type DoctorProfileDto, type MedicalContractListItem } from '@/lib/api';
+import { useDoctorVerificationGate } from '@/components/layout/doctor-verification-gate';
 import { KpiStatCard } from '@/components/dashboard';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -141,18 +142,26 @@ export function DoctorDashboardView() {
   const [isSigning, setIsSigning] = useState<boolean>(false);
   const [queuePage, setQueuePage] = useState<number>(1);
 
-  const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
+  const {
+    hasProvider: hasDoctorGateProvider,
+    doctorProfile: gateDoctorProfile,
+    isLoadingDoctorGate,
+  } = useDoctorVerificationGate();
+  const [standaloneDoctorProfile, setStandaloneDoctorProfile] = useState<DoctorProfileDto | null>(null);
+  const doctorProfile = hasDoctorGateProvider ? gateDoctorProfile : standaloneDoctorProfile;
   const [contracts, setContracts] = useState<any[]>([]);
 
   useEffect(() => {
     let isMounted = true;
-    doctorsApi
-      .getDoctorMe()
-      .then((data) => {
-        if (!isMounted) return;
-        if (data && data.id) setDoctorProfile(data);
-      })
-      .catch(() => {});
+    if (!hasDoctorGateProvider) {
+      doctorsApi
+        .getDoctorMe()
+        .then((data) => {
+          if (!isMounted) return;
+          if (data && data.id) setStandaloneDoctorProfile(data);
+        })
+        .catch(() => {});
+    }
 
     contractsApi
       .getMedicalContracts({ role: 'DOCTOR' })
@@ -165,7 +174,7 @@ export function DoctorDashboardView() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [hasDoctorGateProvider]);
 
   const filteredPatients = patients.filter((p) => p.status === activeQueue);
   const QUEUE_PAGE_SIZE = 2;
@@ -244,6 +253,73 @@ export function DoctorDashboardView() {
     },
   ];
 
+  const activeCchnCred =
+    doctorProfile?.credentials?.find((c) => c.credentialType === 'PRACTICE_LICENSE_CCHN') ??
+    doctorProfile?.credentials?.[0];
+  const displayDoctorName = doctorProfile?.doctorName || 'Bác sĩ Gia đình';
+  const displayAvatarInitials =
+    (doctorProfile?.doctorName || 'BS')
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(-2)
+      .map((w) => w[0]?.toUpperCase() || '')
+      .join('') || 'BS';
+  const displayFacilityName =
+    doctorProfile?.facility?.facilityName ||
+    doctorProfile?.facilityName ||
+    'Cơ sở Y tế trực thuộc';
+  const displaySpecialty = doctorProfile?.specialty || 'Y học Gia đình';
+  const displayTitle = doctorProfile?.academicTitle || 'Bác sĩ gia đình';
+  const displayCchn = activeCchnCred?.certificateNumber || 'Đang cập nhật';
+
+  if (hasDoctorGateProvider && (isLoadingDoctorGate || !doctorProfile)) {
+    return (
+      <div className="min-h-full bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+        <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="h-32 animate-pulse rounded-2xl border border-slate-200 bg-white" />
+        </div>
+      </div>
+    );
+  }
+
+  if (doctorProfile && doctorProfile.onboardingStatus !== 'ACTIVE') {
+    return (
+      <div className="min-h-full bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+        <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
+          <Card className="rounded-2xl border-amber-200 bg-white p-6 sm:p-8 shadow-xs">
+            <CardContent className="space-y-4 p-0 text-center">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 text-amber-700">
+                <span className="material-symbols-outlined text-[28px]">verified_user</span>
+              </div>
+              <div className="space-y-1.5">
+                <h1 className="text-xl font-bold text-slate-900">
+                  Hồ sơ Bác sĩ đang trong quy trình thẩm định 2 cấp
+                </h1>
+                <p className="text-sm text-slate-600">
+                  Xin chào <strong>{doctorProfile.doctorName}</strong> ({displayFacilityName}). Bảng điều khiển lâm sàng và tiếp nhận hộ gia đình sẽ tự động mở khóa sau khi Cơ sở Y tế (Cấp 1) và Quản trị viên FamiDoc (Cấp 2) phê duyệt đủ 3 chứng chỉ của bạn.
+                </p>
+              </div>
+              {doctorProfile.rejectionReason && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3.5 text-left text-xs text-rose-900">
+                  <strong className="block font-bold">Yêu cầu bổ sung gần nhất:</strong>
+                  <p className="mt-1">{doctorProfile.rejectionReason}</p>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <Button asChild className="rounded-xl px-5 text-sm font-semibold">
+                  <Link href="/doctor/verification">Đi tới trang Nộp / Theo dõi CCHN</Link>
+                </Button>
+                <Button asChild variant="outline" className="rounded-xl px-4 text-sm font-semibold">
+                  <Link href="/doctor/profile">Xem hồ sơ cá nhân</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full bg-[#f5f6f8] font-sans text-slate-900 antialiased">
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
@@ -253,7 +329,7 @@ export function DoctorDashboardView() {
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-xl font-bold text-white shadow-md ring-4 ring-primary/10">
-                  TN
+                  {displayAvatarInitials}
                 </div>
                 <span
                   className="absolute -right-1 -bottom-1 h-4 w-4 rounded-full bg-emerald-500 ring-2 ring-white"
@@ -263,19 +339,19 @@ export function DoctorDashboardView() {
               <div>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                    PGS.TS Nguyễn Trọng Nghĩa
+                    {displayDoctorName}
                   </h1>
                   <Badge
                     variant="outline"
                     className="gap-1 rounded-full border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700"
                   >
                     <span className="material-symbols-outlined text-[14px]">verified</span>
-                    CCHN: 004128/BYT
+                    CCHN: {displayCchn}
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  Bác sĩ gia đình cao cấp • Trưởng khoa Nội Tổng quát •{' '}
-                  <span className="font-semibold text-slate-700">BV Đại học Y Dược TP.HCM</span>
+                  {displayTitle} • {displaySpecialty} •{' '}
+                  <span className="font-semibold text-slate-700">{displayFacilityName}</span>
                 </p>
               </div>
             </div>
@@ -326,7 +402,11 @@ export function DoctorDashboardView() {
               <h3 className="text-xs font-bold text-slate-900 transition-colors group-hover:text-primary">
                 Lịch Trực &amp; Panel Cap
               </h3>
-              <p className="mt-0.5 text-[11px] text-slate-500 tabular-nums">112/150 Hộ gia đình (74%)</p>
+              <p className="mt-0.5 text-[11px] text-slate-500 tabular-nums">
+                {doctorProfile
+                  ? `${doctorProfile.activePanelCount ?? 0}/${doctorProfile.maxPanelCapacity ?? 30} Hộ gia đình`
+                  : '112/150 Hộ gia đình (74%)'}
+              </p>
             </div>
           </Link>
 
@@ -371,7 +451,7 @@ export function DoctorDashboardView() {
               <h3 className="text-xs font-bold text-slate-900 transition-colors group-hover:text-primary">
                 Xác Thực CCHN BYT
               </h3>
-              <p className="mt-0.5 text-[11px] font-semibold text-emerald-600">CCHN-004128 Hợp lệ</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-emerald-600">{displayCchn} Hợp lệ</p>
             </div>
           </Link>
         </div>
@@ -621,12 +701,12 @@ export function DoctorDashboardView() {
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Bác sĩ ký số:</span>
-              <strong className="text-slate-900">PGS.TS Nguyễn Trọng Nghĩa</strong>
+              <strong className="text-slate-900">{displayDoctorName}</strong>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">Chứng thư CCHN:</span>
               <span className="font-semibold text-emerald-700 tabular-nums">
-                004128/BYT (Viettel-CA Level 2)
+                {displayCchn} (Viettel-CA Level 2)
               </span>
             </div>
             <div className="border-t border-blue-200/60 pt-2 text-[11px] text-slate-600">

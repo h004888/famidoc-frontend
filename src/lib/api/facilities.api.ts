@@ -30,6 +30,8 @@ export interface AdminFacilityItem {
   hasLegalDocument?: boolean;
   hasOperatingLicense?: boolean;
   hasBusinessLicense?: boolean;
+  hasActiveStaffingContract?: boolean;
+  hasHistoricalStaffingContract?: boolean;
   bankName?: string;
   bankAccount?: string;
   bankAccountHolder?: string;
@@ -136,6 +138,14 @@ function normalizeFacility(item: any): AdminFacilityItem {
     hasLegalDocument,
     hasOperatingLicense,
     hasBusinessLicense,
+    hasActiveStaffingContract:
+      typeof item.hasActiveStaffingContract === 'boolean'
+        ? item.hasActiveStaffingContract
+        : undefined,
+    hasHistoricalStaffingContract:
+      typeof item.hasHistoricalStaffingContract === 'boolean'
+        ? item.hasHistoricalStaffingContract
+        : undefined,
     bankName: rawBankName && rawBankName !== 'CHƯA_CẬP_NHẬT' ? rawBankName : undefined,
     bankAccount:
       item.bankAccount ||
