@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,6 +15,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  doctorsApi,
+  encountersApi,
+  type DoctorProfileDto,
+  type EncounterItem,
+} from '@/lib/api';
 
 interface TimeSlot {
   time: string;
@@ -58,12 +64,128 @@ const TIMETABLE_DATA: TimeSlot[] = [
   },
 ];
 
+function getWeekNumber(d: Date): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+function getWeekDates(): { dayName: string; dateStr: string }[] {
+  const now = new Date();
+  const currentDay = now.getDay();
+  const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() + distanceToMonday);
+
+  const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  return days.map((dayName, index) => {
+    const d = new Date(monday);
+    d.setDate(monday.getDate() + index);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    return {
+      dayName,
+      dateStr: `${dayName} (${day}/${month})`,
+    };
+  });
+}
+
 export function DoctorTimetableView() {
-  const [panelCap] = useState({ current: 112, max: 150 });
+  const now = new Date();
+  const currentWeek = getWeekNumber(now);
+  const currentYear = now.getFullYear();
+  const weekDates = getWeekDates();
+
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
+  const [encounters, setEncounters] = useState<EncounterItem[]>([]);
+  const [timetableData, setTimetableData] = useState<TimeSlot[]>(TIMETABLE_DATA);
+  const [panelCap, setPanelCap] = useState({ current: 112, max: 150 });
   const [isEmergencyReady, setIsEmergencyReady] = useState(true);
   const [maxRadius, setMaxRadius] = useState(10); // km
 
+  useEffect(() => {
+    let isMounted = true;
+    doctorsApi
+      .getDoctorMe()
+      .then((data) => {
+        if (!isMounted) return;
+        if (data) {
+          setDoctorProfile(data);
+          setPanelCap({
+            current: data.activePanelCount ?? 112,
+            max: data.maxPanelCapacity || 150,
+          });
+        }
+      })
+      .catch(() => {});
+
+    encountersApi
+      .getDoctorTimetable()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && Array.isArray(res.data) && res.data.length > 0) {
+          setEncounters(res.data);
+          const slots: TimeSlot[] = [
+            { time: '08:00 - 09:30' },
+            { time: '09:30 - 11:00' },
+            { time: '14:00 - 15:30' },
+            { time: '15:30 - 17:00' },
+            { time: '19:30 - 21:00' },
+          ];
+
+          const dayKeys: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday')[] = [
+            'monday',
+            'tuesday',
+            'wednesday',
+            'thursday',
+            'friday',
+            'saturday',
+          ];
+
+          res.data.forEach((item, index) => {
+            const date = item.scheduledDate ? new Date(item.scheduledDate) : null;
+            let dayIndex = date ? date.getDay() - 1 : index % 6;
+            if (dayIndex < 0 || dayIndex > 5) dayIndex = 0;
+            const dayKey = dayKeys[dayIndex];
+
+            const slotIndex = index % slots.length;
+            const title =
+              item.encounterType === 'HOME_VISIT'
+                ? 'Khám Tại Nhà'
+                : 'Tư vấn Telehealth';
+            const patientName = item.patient?.fullName || `BN #${item.patientId.slice(0, 5)}`;
+            const type: 'home' | 'telehealth' =
+              item.encounterType === 'HOME_VISIT' ? 'home' : 'telehealth';
+
+            slots[slotIndex][dayKey] = {
+              title,
+              patient: patientName,
+              type,
+            };
+          });
+
+          setTimetableData(slots);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const capPercentage = Math.round((panelCap.current / panelCap.max) * 100);
+
+  const homeCount = encounters.filter((e) => e.encounterType === 'HOME_VISIT').length || 12;
+  const teleCount = encounters.filter((e) => e.encounterType === 'TELEMEDICINE').length || 18;
+  const totalSlots = homeCount + teleCount + 5;
+  const homePct = Math.round((homeCount / totalSlots) * 100);
+  const telePct = Math.round((teleCount / totalSlots) * 100);
+  const researchPct = Math.max(0, 100 - homePct - telePct);
+
+  const facilityName =
+    doctorProfile?.facility?.facilityName || doctorProfile?.facilityName || 'BV Đại học Y Dược';
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-[#0f172a] font-sans antialiased">
@@ -77,7 +199,7 @@ export function DoctorTimetableView() {
                 Thời Gian Biểu Lâm Sàng &amp; Quản Lý Hạn Mức (Panel Cap)
               </h1>
               <Badge variant="outline" className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border-primary/20">
-                Tuần 44 / 2026
+                Tuần {currentWeek} / {currentYear}
               </Badge>
             </div>
             <p className="text-xs text-[#475569] mt-1">
@@ -134,7 +256,7 @@ export function DoctorTimetableView() {
 
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold text-emerald-600 tabular-nums">{maxRadius}</span>
-              <span className="text-xs text-slate-400 font-medium">km quanh BV Đại học Y Dược</span>
+              <span className="text-xs text-slate-400 font-medium">km quanh {facilityName}</span>
             </div>
 
             <input
@@ -162,15 +284,15 @@ export function DoctorTimetableView() {
             <div className="space-y-1.5 text-xs pt-1">
               <div className="flex justify-between">
                 <span className="text-slate-500">Khám tại nhà riêng:</span>
-                <strong className="text-[#0f172a]">12 buổi / tuần (35%)</strong>
+                <strong className="text-[#0f172a]">{homeCount} buổi / tuần ({homePct}%)</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Tư vấn Telehealth 24/7:</span>
-                <strong className="text-primary">18 buổi / tuần (50%)</strong>
+                <strong className="text-primary">{teleCount} buổi / tuần ({telePct}%)</strong>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Nghiên cứu &amp; Giao ban viện:</span>
-                <strong className="text-slate-400">5 buổi / tuần (15%)</strong>
+                <strong className="text-slate-400">5 buổi / tuần ({researchPct}%)</strong>
               </div>
             </div>
           </Card>
@@ -200,16 +322,16 @@ export function DoctorTimetableView() {
               <TableHeader>
                 <TableRow className="bg-slate-50 border-b border-slate-200 text-[#475569] hover:bg-slate-50">
                   <TableHead className="p-3.5 w-32 border-r border-slate-200 text-[#475569]">Khung giờ</TableHead>
-                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">Thứ 2 (27/10)</TableHead>
-                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">Thứ 3 (28/10)</TableHead>
-                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">Thứ 4 (29/10)</TableHead>
-                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">Thứ 5 (30/10)</TableHead>
-                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">Thứ 6 (31/10)</TableHead>
-                  <TableHead className="p-3.5 text-[#475569]">Thứ 7 (01/11)</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[0].dateStr}</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[1].dateStr}</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[2].dateStr}</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[3].dateStr}</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[4].dateStr}</TableHead>
+                  <TableHead className="p-3.5 text-[#475569]">{weekDates[5].dateStr}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-slate-100 text-[#0f172a]">
-                {TIMETABLE_DATA.map((slot, idx) => (
+                {timetableData.map((slot, idx) => (
                   <TableRow key={idx} className="hover:bg-slate-50/50">
                     <TableCell className="p-3.5 tabular-nums font-bold text-slate-500 border-r border-slate-200 bg-slate-50/30 whitespace-nowrap">
                       {slot.time}
@@ -249,7 +371,7 @@ export function DoctorTimetableView() {
             </Table>
           </div>
           <div className="divide-y divide-slate-100 md:hidden">
-            {TIMETABLE_DATA.map((slot, idx) => (
+            {timetableData.map((slot, idx) => (
               <div key={idx} className="space-y-2 p-4 text-xs">
                 <div className="font-bold text-slate-900 tabular-nums">{slot.time}</div>
                 <div className="grid grid-cols-1 gap-1.5">

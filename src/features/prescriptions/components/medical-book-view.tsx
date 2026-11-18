@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   BookOpen,
   CalendarDays,
@@ -192,7 +193,11 @@ export function MedicalBookView({
   const families = query.data?.items ?? [];
   const family =
     families.find((item) => item.id === familyId) ??
-    (!doctor ? families[0] : undefined);
+    (!doctor
+      ? families[0]
+      : !familyId && initialPatientId
+        ? families.find((item) => item.members.some((member) => member.id === initialPatientId))
+        : undefined);
 
   return (
     <DashboardPageShell
@@ -675,6 +680,17 @@ function VisitPages({
   );
 }
 
+export function DoctorBookVisitView({ id, patientId }: { id: string; patientId?: string }) {
+  return (
+    <DashboardPageShell containerClassName="max-w-4xl">
+      <Link href="/doctor/encounters" className="inline-flex items-center gap-1 text-sm font-semibold text-teal-800 hover:underline">
+        <ChevronLeft size={16} aria-hidden="true" /> Về sổ khám
+      </Link>
+      <VisitPage id={id} patientId={patientId} doctor />
+    </DashboardPageShell>
+  );
+}
+
 function VisitPage({
   id,
   patientId,
@@ -683,10 +699,10 @@ function VisitPage({
   setPending,
 }: {
   id: string;
-  patientId: string;
+  patientId?: string;
   doctor: boolean;
-  onConfirmed: () => void;
-  setPending: (value: boolean) => void;
+  onConfirmed?: () => void;
+  setPending?: (value: boolean) => void;
 }) {
   const request = useCallback(
     (signal: AbortSignal) => medicalBooksApi.visit(id, signal),
@@ -702,7 +718,7 @@ function VisitPage({
         label="Đang mở trang khám…"
       />
     );
-  if (visit.patient.id !== patientId)
+  if (patientId && visit.patient.id !== patientId)
     return (
       <p role="alert" className="text-sm text-red-800">
         Trang khám không thuộc thành viên đang mở.
@@ -730,7 +746,7 @@ function VisitPage({
         <PrescriptionForm
           visit={visit}
           onPendingChange={setPending}
-          onConfirmed={onConfirmed}
+          onConfirmed={onConfirmed ?? query.reload}
         />
       )}
     </article>

@@ -195,6 +195,8 @@ describe('LandingHeader - menu tài khoản nhận biết vai trò và trạng t
     vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue(gateStatus({}));
 
     render(<LandingHeader />);
+    expect(screen.queryByRole('link', { name: /Không gian gia đình/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Vào Dashboard/i })).not.toBeInTheDocument();
     await openUserMenu();
 
     await waitFor(() => {
@@ -283,6 +285,9 @@ describe('LandingHeader - menu tài khoản nhận biết vai trò và trạng t
     );
 
     render(<LandingHeader />);
+
+    expect(screen.queryByRole('link', { name: /Vào Dashboard/i })).not.toBeInTheDocument();
+
     await openUserMenu();
 
     await waitFor(() => {
@@ -354,41 +359,29 @@ describe('LandingHeader - menu tài khoản nhận biết vai trò và trạng t
     });
   });
 
-  it.each([
-    ['DOCTOR', '/doctor', '/doctor/profile', 'Bác sĩ Gia đình'],
-    ['FACILITY', '/facility', '/facility/legal-profile', 'Cơ sở Y tế đối tác'],
-    ['ADMIN', '/admin', '/admin/users', 'Quản trị viên'],
-  ] as const)(
-    'role %s links to %s and its role profile %s without calling the family gate API',
-    async (role, dashboardHref, profileHref, roleLabel) => {
+  it.each(['DOCTOR', 'FACILITY', 'ADMIN'] as const)(
+    'role %s is treated as guest on customer LandingHeader: shows Login/Register and never shows account menu or "Vào bảng điều khiển"',
+    async (role) => {
       mockAuth(role);
 
       render(<LandingHeader />);
-      await openUserMenu();
 
+      expect(screen.getByRole('link', { name: /Đăng nhập/i })).toHaveAttribute('href', '/login');
+      expect(screen.getByRole('link', { name: /Đăng ký/i })).toHaveAttribute('href', '/register');
       expect(
-        screen.getByRole('menuitem', { name: /Vào bảng điều khiển/i })
-      ).toHaveAttribute('href', dashboardHref);
-      expect(screen.getByRole('menu')).toHaveTextContent(roleLabel);
-      expect(screen.getByRole('menuitem', { name: /Trung tâm thông báo/i })).toHaveAttribute(
+        screen.queryByRole('button', { name: /Nguyễn Văn Đại Diện/i }),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/Vào bảng điều khiển/i)).not.toBeInTheDocument();
+
+      const mobileToggle = screen.getByRole('button', { name: /Mở menu điều hướng/i });
+      await userEvent.click(mobileToggle);
+      expect(screen.getByRole('link', { name: /Đăng nhập tài khoản/i })).toHaveAttribute(
         'href',
-        '/notifications'
+        '/login',
       );
-      expect(screen.getByRole('menuitem', { name: /Cài đặt tài khoản & bảo mật/i })).toHaveAttribute(
-        'href',
-        '/settings'
-      );
-      const profileLabels: Record<string, RegExp> = {
-        DOCTOR: /Hồ sơ chuyên môn/i,
-        FACILITY: /Hồ sơ pháp lý cơ sở/i,
-        ADMIN: /Tài khoản & phân quyền/i,
-      };
-      expect(screen.getByRole('menuitem', { name: profileLabels[role] })).toHaveAttribute(
-        'href',
-        profileHref
-      );
+      expect(screen.queryByText(/Vào bảng điều khiển/i)).not.toBeInTheDocument();
       expect(contractsApi.getFamilyGateStatus).not.toHaveBeenCalled();
-    }
+    },
   );
 
   it('renders identity, gate status badge, primary action, /notifications, /settings and logout inside mobile drawer when authenticated', async () => {

@@ -94,7 +94,7 @@ export function PrescriptionForm({
 }: {
   visit: BookVisitDetail;
   onConfirmed: () => void;
-  onPendingChange: (pending: boolean) => void;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const [exam, setExam] = useState(emptyExam);
   const [includePrescription, setIncludePrescription] = useState(false);
@@ -114,7 +114,7 @@ export function PrescriptionForm({
       return;
     }
     setPending(true);
-    onPendingChange(true);
+    onPendingChange?.(true);
     setError('');
     try {
       await medicalBooksApi.confirm(visit.id, {
@@ -148,7 +148,7 @@ export function PrescriptionForm({
       );
     } finally {
       setPending(false);
-      onPendingChange(false);
+      onPendingChange?.(false);
     }
   }
 

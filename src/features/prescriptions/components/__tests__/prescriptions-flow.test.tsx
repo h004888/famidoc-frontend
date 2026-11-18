@@ -111,6 +111,24 @@ describe('Chia sẻ đơn thuốc với gia đình', () => {
     await waitFor(() => expect(medicalBooksApi.confirm).toHaveBeenCalledWith('visit-1', { patientId: 'child-5', confirmed: true }));
   });
 
+  it('mở đúng lần khám từ phòng video và tải lại sau khi xác nhận', async () => {
+    mockBook();
+    vi.mocked(medicalBooksApi.visit)
+      .mockResolvedValueOnce(visit)
+      .mockResolvedValue({ ...visit, isFinalized: true });
+
+    render(<DoctorEncountersView encounterId="visit-1" patientId="child-5" />);
+
+    expect(await screen.findByText('Con 5 · Bác sĩ mẫu')).toBeInTheDocument();
+    expect(medicalBooksApi.visit).toHaveBeenCalledWith('visit-1', expect.any(AbortSignal));
+    expect(medicalBooksApi.families).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('checkbox', { name: /Tôi xác nhận nội dung/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Xác nhận trang khám' }));
+
+    expect(await screen.findByText('Đã xác nhận')).toBeInTheDocument();
+    expect(medicalBooksApi.confirm).toHaveBeenCalledWith('visit-1', { patientId: 'child-5', confirmed: true });
+  });
+
   it('gia đình lật lại trang cũ và xem tài liệu của đúng người', async () => {
     mockBook();
     const older = { ...visit, id: 'older-visit', scheduledDate: '2026-11-09T00:00:00Z', isFinalized: true };

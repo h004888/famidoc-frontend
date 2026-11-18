@@ -310,6 +310,11 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
     search: currentSearch,
   });
   const lastPathnameRef = React.useRef<string | null>(pathname ?? null);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     const currentPath = pathname ?? null;
@@ -331,7 +336,8 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
     }
   }, [isPermissionDeniedForRoute, shouldBlock, redirectTarget, router]);
 
-  if (!isRestricted) {
+  // Đợi mount xong trên client để lần render đầu khớp hoàn toàn HTML từ SSR, tránh hydration mismatch khi AuthProvider đọc localStorage.
+  if (!hasMounted || !isRestricted) {
     return <>{children}</>;
   }
 

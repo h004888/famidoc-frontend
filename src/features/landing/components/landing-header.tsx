@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
-import type { LoginRole } from '@/features/auth/schemas/auth.schema';
+import { useAuth } from '@/features/auth/context/auth-context';
+import { isFamilyPortalRole } from '@/lib/portal-routing';
 import { useLandingFamilyGate } from '../hooks/use-landing-family-gate';
 
 const NAV_LINKS = [
@@ -16,21 +16,11 @@ const NAV_LINKS = [
   { href: '/contact', label: 'Liên hệ & Tư vấn' },
 ];
 
-const ROLE_LABELS: Record<LoginRole, string> = {
-  FAMILY: 'Đại diện Hộ gia đình',
-  PATIENT: 'Thành viên Hộ gia đình',
-  DOCTOR: 'Bác sĩ Gia đình',
-  FACILITY: 'Cơ sở Y tế đối tác',
-  ADMIN: 'Quản trị viên',
-};
-
-const ROLE_PROFILE_LINKS: Record<LoginRole, { href: string; label: string; icon: string }> = {
-  FAMILY: { href: '/settings', label: 'Hồ sơ & cài đặt gia đình', icon: 'person' },
-  PATIENT: { href: '/settings', label: 'Hồ sơ & cài đặt gia đình', icon: 'person' },
-  DOCTOR: { href: '/doctor/profile', label: 'Hồ sơ chuyên môn', icon: 'account_circle' },
-  FACILITY: { href: '/facility/legal-profile', label: 'Hồ sơ pháp lý cơ sở', icon: 'policy' },
-  ADMIN: { href: '/admin/users', label: 'Tài khoản & phân quyền', icon: 'shield_person' },
-};
+function getFamilyRoleLabel(role: string | null | undefined): string {
+  return (role || '').trim().toUpperCase() === 'PATIENT'
+    ? 'Thành viên Hộ gia đình'
+    : 'Đại diện Hộ gia đình';
+}
 
 export interface LandingHeaderProps {
   /**
@@ -48,17 +38,11 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  const roleProfileLink = ROLE_PROFILE_LINKS[role];
-  const isFamilyRole = familyGate.isFamily;
-  const primaryAction = isFamilyRole
-    ? familyGate.primaryAction
-    : {
-        href: getDefaultPathForRole(role),
-        label: 'Vào bảng điều khiển',
-        icon: 'dashboard',
-      };
-  const secondaryActions = isFamilyRole ? familyGate.secondaryActions : [];
-  const showRoleProfileLink = !isFamilyRole;
+  const isFamilyRole = isFamilyPortalRole(role);
+  const isCustomerAuthenticated = isAuthenticated && Boolean(user) && isFamilyRole;
+  const roleLabel = getFamilyRoleLabel(role);
+  const primaryAction = familyGate.primaryAction;
+  const secondaryActions = familyGate.secondaryActions;
 
   useEffect(() => {
     if (!isUserMenuOpen) return;
@@ -147,11 +131,10 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${isActive
                       ? 'text-[#0046c0] font-semibold bg-blue-50'
                       : 'text-slate-700 hover:text-[#0046c0] hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   {item.label}
                 </Link>
@@ -167,7 +150,7 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                 aria-hidden="true"
                 className="h-9 w-28 sm:w-36 rounded-lg bg-slate-100 animate-pulse"
               />
-            ) : isAuthenticated && user ? (
+            ) : isCustomerAuthenticated && user ? (
               <div className="relative" ref={userMenuRef}>
                 <button
                   type="button"
@@ -219,21 +202,18 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                           </div>
                           <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
                             <span className="inline-flex items-center rounded-full bg-blue-50 border border-blue-200/80 px-2 py-0.5 text-[10px] font-semibold text-[#0046c0]">
-                              {ROLE_LABELS[role]}
+                              {roleLabel}
                             </span>
-                            {isFamilyRole && (
-                              <span
-                                className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
-                                  familyGate.state === 'active'
-                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                    : familyGate.isResolved
-                                      ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                      : 'bg-slate-50 text-slate-600 border-slate-200'
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${familyGate.state === 'active'
+                                  ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                  : familyGate.isResolved
+                                    ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                    : 'bg-slate-50 text-slate-600 border-slate-200'
                                 }`}
-                              >
-                                {familyGate.statusLabel}
-                              </span>
-                            )}
+                            >
+                              {familyGate.statusLabel}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -288,20 +268,6 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                       <span className="material-symbols-outlined text-[18px] text-slate-500">settings</span>
                       <span>Cài đặt tài khoản &amp; bảo mật</span>
                     </Link>
-
-                    {showRoleProfileLink && (
-                      <Link
-                        href={roleProfileLink.href}
-                        role="menuitem"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-2.5 px-3 py-2 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-                      >
-                        <span className="material-symbols-outlined text-[18px] text-slate-500">
-                          {roleProfileLink.icon}
-                        </span>
-                        <span>{roleProfileLink.label}</span>
-                      </Link>
-                    )}
 
                     <div role="presentation" className="my-1.5 border-t border-slate-100" />
 
@@ -375,11 +341,10 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                     key={item.href}
                     href={item.href}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
+                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
                         ? 'text-[#0046c0] font-semibold bg-blue-50'
                         : 'text-slate-700 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     {item.label}
                   </Link>
@@ -394,7 +359,7 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                   aria-hidden="true"
                   className="h-10 w-full rounded-lg bg-slate-100 animate-pulse"
                 />
-              ) : isAuthenticated && user ? (
+              ) : isCustomerAuthenticated && user ? (
                 <>
                   <div className="flex items-start gap-3 p-2 bg-slate-50 rounded-lg border border-slate-200">
                     <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold border border-slate-300 shrink-0">
@@ -405,21 +370,18 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                       <div className="text-xs text-slate-500 truncate">{user.email || user.phone}</div>
                       <div className="flex flex-wrap items-center gap-1.5 pt-1.5">
                         <span className="inline-flex items-center rounded-full bg-blue-50 border border-blue-200/80 px-2 py-0.5 text-[10px] font-semibold text-[#0046c0]">
-                          {ROLE_LABELS[role]}
+                          {roleLabel}
                         </span>
-                        {isFamilyRole && (
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
-                              familyGate.state === 'active'
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                                : familyGate.isResolved
-                                  ? 'bg-amber-50 text-amber-800 border-amber-200'
-                                  : 'bg-slate-50 text-slate-600 border-slate-200'
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${familyGate.state === 'active'
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : familyGate.isResolved
+                                ? 'bg-amber-50 text-amber-800 border-amber-200'
+                                : 'bg-slate-50 text-slate-600 border-slate-200'
                             }`}
-                          >
-                            {familyGate.statusLabel}
-                          </span>
-                        )}
+                        >
+                          {familyGate.statusLabel}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -464,19 +426,6 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                       <span>Cài đặt</span>
                     </Link>
                   </div>
-
-                  {showRoleProfileLink && (
-                    <Link
-                      href={roleProfileLink.href}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="w-full py-2.5 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center justify-center gap-2"
-                    >
-                      <span className="material-symbols-outlined text-lg text-slate-500">
-                        {roleProfileLink.icon}
-                      </span>
-                      <span>{roleProfileLink.label}</span>
-                    </Link>
-                  )}
 
                   <button
                     type="button"
@@ -529,17 +478,15 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                 href={item.href}
                 aria-label={item.ariaLabel}
                 aria-current={item.isActive ? 'page' : undefined}
-                className={`flex flex-col items-center justify-center min-w-0 min-h-[44px] px-1 py-1 rounded-lg transition-colors cursor-pointer ${
-                  item.isActive
+                className={`flex flex-col items-center justify-center min-w-0 min-h-[44px] px-1 py-1 rounded-lg transition-colors cursor-pointer ${item.isActive
                     ? 'text-[#0046c0] font-semibold'
                     : 'text-slate-600 hover:text-slate-800'
-                }`}
+                  }`}
               >
                 <div className="relative flex items-center justify-center">
                   <span
-                    className={`material-symbols-outlined text-[22px] transition-transform ${
-                      item.isActive ? 'scale-110' : ''
-                    }`}
+                    className={`material-symbols-outlined text-[22px] transition-transform ${item.isActive ? 'scale-110' : ''
+                      }`}
                   >
                     {item.icon}
                   </span>

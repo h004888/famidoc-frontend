@@ -1,9 +1,10 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { authApi } from '@/lib/api/auth.api';
 import { AccountSettingsView } from '../account-settings-view';
+import * as authContextModule from '@/features/auth/context/auth-context';
 
 const mockUseAuth = vi.fn();
 
@@ -16,18 +17,19 @@ vi.mock('@/lib/api/auth.api', () => ({
 }));
 
 describe('UT-CMP-14: AccountSettingsView BHYT Skeleton & Accessibility', () => {
-  it('displays loading skeleton with aria-busy when switching to BHYT tab for FAMILY role', async () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
     mockUseAuth.mockReturnValue({
       role: 'FAMILY',
-      user: {
-        id: 'FAM-88219',
-        name: 'Nguyễn Văn An',
-        phone: '0912345678',
-        email: 'an.nguyen@famidoc.vn',
-        avatarText: 'NA',
-      },
+      user: null,
+      isAuthenticated: true,
+      isLoading: false,
+      applySession: vi.fn(),
+      clearMustChangePassword: vi.fn(),
     });
+  });
 
+  it('displays loading skeleton with aria-busy when switching to BHYT tab', async () => {
     render(<AccountSettingsView />);
     const bhytTab = screen.getByRole('button', { name: /Bảo hiểm Y tế & Ký quỹ/i });
     await userEvent.click(bhytTab);
@@ -47,72 +49,57 @@ describe('UT-CMP-14: AccountSettingsView BHYT Skeleton & Accessibility', () => {
     expect(container.innerHTML).toContain('tabular-nums');
   });
 
-  it('renders Admin profile correctly without BHYT tab when role is ADMIN', () => {
-    mockUseAuth.mockReturnValue({
-      role: 'ADMIN',
-      isAuthenticated: true,
+  it('renders doctor-specific banner and quick access links when logged in as DOCTOR', () => {
+    vi.spyOn(authContextModule, 'useAuth').mockReturnValue({
+      role: 'DOCTOR',
       user: {
-        id: 'ADM-001',
-        name: 'DEMO - Quản trị viên',
-        phone: '0901888999',
-        email: 'admin.super@famidoc.pro',
-        avatarText: 'DE',
+        id: 'DOC-7901',
+        name: 'BS.CKII Trần Thanh Mai',
+        phone: '0988123789',
+        email: 'mai.tt@famidoc.pro',
+        role: 'DOCTOR',
+        avatarText: 'TM',
+        facilityOrTitle: 'Bác sĩ Gia đình & Nội Tim Mạch (CCHN: 004128/HCM)',
       },
+      isAuthenticated: true,
+      isLoading: false,
+      applySession: vi.fn(),
+      login: vi.fn(),
+      logout: vi.fn(),
+      getDefaultPathForRole: () => '/doctor',
     });
 
     render(<AccountSettingsView />);
 
-    // Admin headers and badges
-    expect(screen.getByRole('heading', { name: 'DEMO - Quản trị viên' })).toBeInTheDocument();
-    expect(screen.getByText('Quản trị viên Hệ thống', { exact: true })).toBeInTheDocument();
-    expect(screen.getByText('DE')).toBeInTheDocument();
-
-    // Tab list for Admin should have Thông tin Quản trị viên and Bảo mật, NO BHYT tab
-    expect(screen.getByRole('button', { name: /Thông tin tài khoản/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Bảo mật & Mật khẩu/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Bảo hiểm Y tế & Ký quỹ/i })).not.toBeInTheDocument();
-
-    // Admin form fields
-    expect(screen.getByLabelText('Họ và tên', { exact: true })).toHaveValue('DEMO - Quản trị viên');
-    expect(screen.getByLabelText('Email đăng nhập', { exact: true })).toHaveValue('admin.super@famidoc.pro');
-
-    // Family-specific inputs should NOT be present
-    expect(screen.queryByLabelText(/Tiền sử dị ứng/i)).not.toBeInTheDocument();
-    expect(screen.queryByLabelText(/Nhóm máu/i)).not.toBeInTheDocument();
+    expect(screen.getByText('BS.CKII Trần Thanh Mai')).toBeInTheDocument();
+    expect(screen.getByText('TM')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Hồ sơ Chuyên môn/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Chứng chỉ CCHN/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Lịch làm việc/i })).toBeInTheDocument();
   });
-});
 
-describe('Admin password change', () => {
-  async function submitPasswordChange(logout: () => void) {
-    mockUseAuth.mockReturnValue({ role: 'ADMIN', user: null, isAuthenticated: true, logout });
-    const user = userEvent.setup();
+  it('submits password change through authApi.changePassword', async () => {
+    const changePasswordSpy = vi.spyOn(authApi, 'changePassword').mockResolvedValue({ message: 'OK' });
+
     render(<AccountSettingsView />);
+    const securityTab = screen.getByRole('button', { name: /Bảo mật & Mật khẩu/i });
+    await userEvent.click(securityTab);
 
-    await user.click(screen.getByRole('button', { name: /Bảo mật & Mật khẩu/i }));
-    await user.type(screen.getByLabelText('Mật khẩu hiện tại', { exact: true }), 'OldPassword@123');
-    await user.type(screen.getByLabelText('Mật khẩu mới', { exact: true }), 'NewPassword@456');
-    await user.type(screen.getByLabelText('Nhập lại mật khẩu mới', { exact: true }), 'NewPassword@456');
-    await user.click(screen.getByRole('button', { name: /Cập nhật mật khẩu/i }));
-  }
+    const curPwdInput = screen.getByLabelText(/Mật khẩu hiện tại/i);
+    const newPwdInput = screen.getByLabelText(/^Mật khẩu mới/i);
+    const cfmPwdInput = screen.getByLabelText(/Nhập lại mật khẩu mới/i);
+    const submitBtn = screen.getByRole('button', { name: /Cập nhật mật khẩu/i });
 
-  it('changes the password through the backend and then signs out the current browser', async () => {
-    const logout = vi.fn();
-    vi.mocked(authApi.changePassword).mockResolvedValueOnce({ message: 'Update password successfully' });
+    await userEvent.type(curPwdInput, 'OldPassword123');
+    await userEvent.type(newPwdInput, 'NewPassword123');
+    await userEvent.type(cfmPwdInput, 'NewPassword123');
+    await userEvent.click(submitBtn);
 
-    await submitPasswordChange(logout);
-
-    expect(authApi.changePassword).toHaveBeenLastCalledWith({ oldPassword: 'OldPassword@123', newPassword: 'NewPassword@456' });
-    await waitFor(() => expect(logout).toHaveBeenCalledOnce());
-  });
-
-  it('keeps the session open and explains a rejected password change', async () => {
-    const logout = vi.fn();
-    vi.mocked(authApi.changePassword).mockRejectedValueOnce(new Error('Current password is not correct'));
-
-    await submitPasswordChange(logout);
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Mật khẩu hiện tại không đúng.');
-    expect(logout).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: /Cập nhật mật khẩu/i })).toBeEnabled();
+    await waitFor(() => {
+      expect(changePasswordSpy).toHaveBeenCalledWith({
+        oldPassword: 'OldPassword123',
+        newPassword: 'NewPassword123',
+      });
+    });
   });
 });

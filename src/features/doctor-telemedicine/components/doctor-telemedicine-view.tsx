@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  doctorsApi,
+  encountersApi,
+  type DoctorProfileDto,
+  type EncounterItem,
+} from '@/lib/api';
+import { useAuth } from '@/features/auth/context/auth-context';
 
 interface ChatMessage {
   id: string;
@@ -31,38 +38,113 @@ interface ChatMessage {
   };
 }
 
-const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
-  {
-    id: 'msg-01',
-    sender: 'patient',
-    senderName: 'Anh Quân (Con trai)',
-    text: 'Dạ chào Bác sĩ Nghĩa, sáng nay bố em đo huyết áp lúc 7:00 là 135/85, em gửi ảnh màn hình máy đo Omron cho bác sĩ xem nhé ạ.',
-    time: '14:18',
-    attachment: {
-      name: 'Ket-qua-do-Omron-14h15.jpg',
-      size: '1.2 MB',
-      type: 'image',
-    },
-  },
-  {
-    id: 'msg-02',
-    sender: 'doctor',
-    senderName: 'PGS.TS Nguyễn Trọng Nghĩa',
-    text: 'Chào gia đình, tôi đã nhận được ảnh. Chỉ số 135/85 mmHg ở độ tuổi 78 của cụ là rất khả quan, nhịp tim 76 đều đặn. Tôi đang theo dõi tiếp qua camera đây.',
-    time: '14:20',
-  },
-];
-
 export function DoctorTelemedicineView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const encounterIdParam = searchParams.get('encounterId');
+  const patientIdParam = searchParams.get('patientId');
+  const lookupKey = JSON.stringify([encounterIdParam, patientIdParam]);
+
+  const { user } = useAuth();
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
+  const [loadedEncounter, setLoadedEncounter] = useState<{ key: string; encounter: EncounterItem } | null>(null);
+  const encounter = loadedEncounter?.key === lookupKey ? loadedEncounter.encounter : null;
+
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [activeTab, setActiveTab] = useState<'vitals' | 'notes' | 'chat'>('vitals');
   const [quickNote, setQuickNote] = useState('');
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(INITIAL_CHAT_MESSAGES);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newChatMessage, setNewChatMessage] = useState('');
   const [showEndConsultModal, setShowEndConsultModal] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    doctorsApi
+      .getDoctorMe()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && res.id) setDoctorProfile(res);
+      })
+      .catch(() => {});
+
+    if (encounterIdParam) {
+      encountersApi
+        .getEncounterDetail(encounterIdParam)
+        .then((data) => {
+          if (!isMounted) return;
+          if (data?.id) setLoadedEncounter({ key: lookupKey, encounter: data });
+        })
+        .catch(() => {});
+    } else if (patientIdParam) {
+      encountersApi
+        .getDoctorTimetable({ encounterType: 'TELEHEALTH' })
+        .then((res) => {
+          if (!isMounted) return;
+          if (res && Array.isArray(res.data)) {
+            const found = res.data.find(
+              (e) => e.patientId === patientIdParam || e.id === patientIdParam
+            );
+            if (found) setLoadedEncounter({ key: lookupKey, encounter: found });
+          }
+        })
+        .catch(() => {});
+    } else {
+      encountersApi
+        .getDoctorTimetable({ encounterType: 'TELEHEALTH' })
+        .then((res) => {
+          if (!isMounted) return;
+          if (res && Array.isArray(res.data) && res.data.length > 0) {
+            setLoadedEncounter({ key: lookupKey, encounter: res.data[0] });
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [encounterIdParam, lookupKey, patientIdParam]);
+
+  const doctorDisplayName = doctorProfile?.doctorName || user?.name || 'PGS.TS Nguyễn Trọng Nghĩa';
+  const doctorInitials =
+    doctorDisplayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map((s) => s[0]?.toUpperCase())
+      .join('') || 'BS';
+
+  const patientName = encounter?.patient?.fullName || 'Chưa có thông tin người bệnh';
+  const patientAge = encounter?.patient?.dateOfBirth
+    ? `${new Date().getFullYear() - new Date(encounter.patient.dateOfBirth).getFullYear()} tuổi`
+    : 'Chưa rõ tuổi';
+  const patientInitials =
+    patientName
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map((s) => s[0]?.toUpperCase())
+      .join('') || 'BN';
+
+  const roomCode = encounter?.id ? `TELE-${encounter.id.slice(0, 8)}` : 'Chưa có mã phòng';
+  const family = encounter?.contract?.familyUnit;
+  const familyCode = family?.familyName || 'Gia đình';
+  const familyAddress = family?.homeAddress || family?.address || 'Chưa có địa chỉ';
+
+  const patientAllergies = encounter?.patient?.allergies
+    ?.map((allergy) => typeof allergy === 'string' ? allergy : allergy.allergen)
+    .filter(Boolean)
+    .join(', ') || 'Chưa có thông tin dị ứng';
+
+  const diseases = encounter?.patient?.chronicDiseases;
+  const patientChronic = (Array.isArray(diseases) ? diseases.join(', ') : diseases)
+    || 'Chưa có thông tin bệnh mạn tính';
+
+  const emrLink = encounter?.id
+    ? `/doctor/encounters?${new URLSearchParams({ patientId: encounter.patientId, encounterId: encounter.id })}`
+    : '/doctor/encounters';
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,7 +153,7 @@ export function DoctorTelemedicineView() {
     const msg: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: 'doctor',
-      senderName: 'PGS.TS Nguyễn Trọng Nghĩa',
+      senderName: doctorDisplayName,
       text: newChatMessage.trim(),
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     };
@@ -122,11 +204,11 @@ export function DoctorTelemedicineView() {
                     Phòng Khám Trực Tuyến Telehealth
                   </h1>
                   <Badge variant="outline" className="px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-primary/10 text-primary border-primary/20">
-                    Phòng #TELE-88219
+                    Phòng #{roomCode}
                   </Badge>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-500">
-                  Bệnh nhân: <strong className="text-slate-800">Nguyễn Văn Phúc (78 tuổi)</strong> • Hộ: FAM-88219 • Bác sĩ tư vấn: <strong className="text-slate-800">PGS.TS Nguyễn Trọng Nghĩa</strong>
+                  Bệnh nhân: <strong className="text-slate-800">{patientName} ({patientAge})</strong> • {familyCode} • Bác sĩ tư vấn: <strong className="text-slate-800">{doctorDisplayName}</strong>
                 </p>
               </div>
             </div>
@@ -140,7 +222,7 @@ export function DoctorTelemedicineView() {
               </div>
 
               <Button asChild className="rounded-xl text-xs sm:text-sm font-bold gap-1.5">
-                <Link href="/doctor/encounters">
+                <Link href={emrLink}>
                   <span className="material-symbols-outlined text-[17px]">clinical_notes</span>
                   <span>Kê đơn thuốc</span>
                 </Link>
@@ -171,7 +253,7 @@ export function DoctorTelemedicineView() {
 
                 <div className="bg-slate-900/80 border border-white/10 px-3 py-1 rounded-full backdrop-blur-md text-slate-300 text-[11px] font-medium hidden sm:flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[14px] text-slate-400">home_health</span>
-                  Hộ FAM-88219 (Q.5, TP.HCM)
+                  {familyCode} ({familyAddress})
                 </div>
               </div>
 
@@ -181,7 +263,7 @@ export function DoctorTelemedicineView() {
                   {/* Patient Visual Avatar */}
                   <div className="relative inline-block">
                     <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-gradient-to-tr from-slate-800 to-slate-700 border-4 border-slate-600/70 flex items-center justify-center text-white font-bold text-3xl sm:text-4xl shadow-2xl mx-auto ring-4 ring-primary/30">
-                      VP
+                      {patientInitials}
                     </div>
                     {/* Active Voice Wave Pulse */}
                     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-md">
@@ -192,10 +274,10 @@ export function DoctorTelemedicineView() {
 
                   <div>
                     <h3 className="text-white font-bold text-lg sm:text-xl tracking-tight">
-                      Cụ Nguyễn Văn Phúc (78 tuổi)
+                      {patientName} ({patientAge})
                     </h3>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      Đang kết nối cùng Bác sĩ PGS.TS Nguyễn Trọng Nghĩa qua thiết bị FamiDoc Home Station
+                      Đang kết nối cùng Bác sĩ {doctorDisplayName} qua thiết bị FamiDoc Home Station
                     </p>
                   </div>
 
@@ -220,12 +302,12 @@ export function DoctorTelemedicineView() {
 
                 <div className="text-center">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-white flex items-center justify-center font-bold text-sm mx-auto shadow-xs">
-                    TN
+                    {doctorInitials}
                   </div>
                 </div>
 
                 <div className="text-[10px] text-white truncate font-medium text-center bg-black/40 py-0.5 px-1 rounded">
-                  PGS.TS Nguyễn Trọng Nghĩa
+                  {doctorDisplayName}
                 </div>
               </div>
 
@@ -347,99 +429,33 @@ export function DoctorTelemedicineView() {
               {/* Tab 1: Vitals & Patient Clinical Highlights */}
               {activeTab === 'vitals' && (
                 <div className="p-5 sm:p-6 space-y-5">
-                  {/* IoT Live Vitals Matrix */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                        <span className="material-symbols-outlined text-primary text-[18px]">sensors</span>
-                        Đo Lường Trực Tiếp (Omron Live)
-                      </span>
-                      <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-                        Đang kết nối
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/80 space-y-1">
-                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">
-                          Huyết áp
-                        </span>
-                        <div className="text-base sm:text-lg font-bold text-primary tabular-nums">
-                          135/85 <span className="text-xs font-normal text-slate-500">mmHg</span>
-                        </div>
-                        <span className="text-[10px] text-amber-700 font-medium block">
-                          Hơi cao nhẹ (Độ 1)
-                        </span>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/80 space-y-1">
-                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">
-                          SpO2 Máu
-                        </span>
-                        <div className="text-base sm:text-lg font-bold text-emerald-600 tabular-nums">
-                          98 <span className="text-xs font-normal text-slate-500">%</span>
-                        </div>
-                        <span className="text-[10px] text-emerald-700 font-medium block">
-                          Bão hòa tối ưu
-                        </span>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/80 space-y-1">
-                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">
-                          Nhịp tim
-                        </span>
-                        <div className="text-base sm:text-lg font-bold text-slate-900 tabular-nums">
-                          76 <span className="text-xs font-normal text-slate-500">bpm</span>
-                        </div>
-                        <span className="text-[10px] text-emerald-700 font-medium block">
-                          Nhịp xoang đều
-                        </span>
-                      </div>
-
-                      <div className="p-3.5 rounded-xl bg-slate-50/90 border border-slate-200/80 space-y-1">
-                        <span className="text-slate-400 text-[10px] font-bold uppercase tracking-wider block">
-                          Đường huyết
-                        </span>
-                        <div className="text-base sm:text-lg font-bold text-amber-700 tabular-nums">
-                          5.6 <span className="text-xs font-normal text-slate-500">mmol/L</span>
-                        </div>
-                        <span className="text-[10px] text-slate-600 font-medium block">
-                          Kiểm soát ổn định
-                        </span>
-                      </div>
-                    </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                    Chưa có dữ liệu sinh hiệu trực tiếp cho buổi khám này.
                   </div>
 
                   {/* Allergy Alert Box */}
                   <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1.5">
                     <div className="font-bold flex items-center gap-1.5 text-rose-950">
                       <span className="material-symbols-outlined text-[17px] text-rose-600">emergency</span>
-                      <span>Tiền sử dị ứng thuốc nghiêm trọng:</span>
+                      <span>Tiền sử dị ứng &amp; Bệnh nền:</span>
                     </div>
                     <p className="text-[11px] leading-relaxed text-rose-800">
-                      Dị ứng nhóm <strong>Penicillin / Beta-lactam</strong> và <strong>Hải sản có vỏ</strong>. Tuyệt đối không kê Amoxicillin hoặc Cephalosporin thế hệ 1.
+                      {patientAllergies}
                     </p>
                   </div>
 
                   {/* Patient Clinical Background Summary */}
                   <div className="p-4 rounded-xl bg-slate-50/90 border border-slate-200/80 text-xs space-y-2">
                     <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block">
-                      Đơn thuốc đang dùng hàng ngày:
+                      Bệnh mạn tính ghi nhận:
                     </span>
-                    <ul className="space-y-1.5 text-slate-600">
-                      <li className="flex items-center justify-between">
-                        <span>• Amlor (Amlodipine) 5mg</span>
-                        <span className="font-semibold text-slate-800">1 viên sáng</span>
-                      </li>
-                      <li className="flex items-center justify-between">
-                        <span>• Glucophage (Metformin) 500mg</span>
-                        <span className="font-semibold text-slate-800">1 viên tối</span>
-                      </li>
-                    </ul>
+                    <p className="text-xs text-slate-700">
+                      {patientChronic}
+                    </p>
                   </div>
 
                   <Link
-                    href="/doctor/encounters"
+                    href={emrLink}
                     className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[16px] text-slate-600">open_in_new</span>
@@ -574,7 +590,7 @@ export function DoctorTelemedicineView() {
                   Kết Thúc Ca Khám Telehealth
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                  Bệnh nhân: <strong className="text-slate-800">Nguyễn Văn Phúc (Phòng #TELE-88219)</strong>
+                  Bệnh nhân: <strong className="text-slate-800">{patientName} (Phòng #{roomCode})</strong>
                 </DialogDescription>
               </div>
             </div>
@@ -597,7 +613,7 @@ export function DoctorTelemedicineView() {
               type="button"
               onClick={() => {
                 setShowEndConsultModal(false);
-                router.push('/doctor/encounters');
+                router.push(emrLink);
               }}
               className="flex-1 rounded-xl font-bold text-xs gap-1.5"
             >
