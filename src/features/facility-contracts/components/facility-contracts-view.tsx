@@ -9,6 +9,7 @@ import {
   type StaffingContractItem,
 } from '@/lib/api';
 import { facilitiesApi } from '@/lib/api/facilities.api';
+import { FACILITY_GATE_REFRESH_EVENT } from '@/components/layout/facility-verification-gate';
 import { StaffingSignConfirmDialog } from '@/features/admin-contracts/components/staffing-detail-sheet';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -763,6 +764,9 @@ export function FacilityContractsView() {
           }}
           onSynced={() => {
             void fetchStaffingContracts();
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event(FACILITY_GATE_REFRESH_EVENT));
+            }
           }}
         />
 

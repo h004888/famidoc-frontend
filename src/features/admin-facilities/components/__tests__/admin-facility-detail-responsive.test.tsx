@@ -17,6 +17,23 @@ vi.mock('@/lib/api/facilities.api', () => ({
   },
 }));
 
+vi.mock('@/lib/api/public.api', () => ({
+  publicApi: {
+    getBanks: vi.fn().mockResolvedValue([
+      {
+        id: 43,
+        name: 'Ngân hàng TMCP Ngoại thương Việt Nam',
+        code: 'VCB',
+        bin: '970436',
+        shortName: 'Vietcombank',
+        logo: 'https://api.vietqr.io/img/VCB.png',
+        transferSupported: 1,
+        lookupSupported: 1,
+      },
+    ]),
+  },
+}));
+
 vi.mock('@/lib/api/contracts.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/contracts.api')>();
   return {
@@ -177,5 +194,27 @@ describe('AdminFacilityDetailView Responsive Contracts Table', () => {
     expect(
       screen.getByRole('button', { name: /Duyệt Pháp Lý & Kích Hoạt \(ACTIVE\)/i }),
     ).toBeDisabled();
+  });
+
+  it('displays bankBin, bankCode, and VietQR preview on BANK tab', async () => {
+    vi.mocked(facilitiesApi.getAdminFacilityDetail).mockResolvedValue({
+      ...baseActiveFacility,
+      bankName: 'Vietcombank - Ngân hàng TMCP Ngoại thương Việt Nam',
+      bankBin: '970436',
+      bankCode: 'VCB',
+      bankAccount: '0011002233445',
+      bankAccountHolder: 'BV KIEM THU',
+    });
+
+    render(<AdminFacilityDetailView facilityId="FAC-1" />);
+    await screen.findAllByText('Bệnh viện Kiểm Thử');
+
+    fireEvent.click(screen.getByRole('button', { name: /3\. Thông tin ngân hàng/i }));
+
+    expect(screen.getAllByText(/VCB · 970436/i).length).toBeGreaterThan(0);
+    const qrImg = screen.getByAltText(/Mã VietQR VCB/i);
+    expect(qrImg.getAttribute('src')).toBe(
+      'https://img.vietqr.io/image/970436-0011002233445-compact2.svg?accountName=BV+KIEM+THU'
+    );
   });
 });

@@ -124,6 +124,90 @@ export interface CreateFacilityDoctorPayload {
   bio?: string;
 }
 
+export interface BulkDoctorNormalizedRowDto {
+  rowNumber: number;
+  doctorName: string;
+  email: string;
+  phone: string;
+  specialty: string;
+  academicTitle?: string;
+  experienceYears: number;
+  bio?: string;
+}
+
+export interface BulkDoctorExistingRowDto {
+  rowNumber: number;
+  doctorName: string;
+  email: string;
+  phone: string;
+  existingDoctorId: string;
+  existingDoctorName: string;
+  existingOnboardingStatus: string;
+  reason: string;
+}
+
+export interface BulkDoctorInvalidRowDto {
+  rowNumber: number;
+  raw: {
+    doctorName?: string;
+    email?: string;
+    phone?: string;
+    specialty?: string;
+    academicTitle?: string;
+    experienceYears?: string | number;
+    bio?: string;
+  };
+  errors: string[];
+}
+
+export interface BulkImportDoctorsPreviewResponse {
+  summary: {
+    totalReadRows: number;
+    validCount: number;
+    existingSkippedCount: number;
+    invalidCount: number;
+    maxReadRows: number;
+    maxConfirmBatch: number;
+  };
+  validRows: BulkDoctorNormalizedRowDto[];
+  existingRows: BulkDoctorExistingRowDto[];
+  invalidRows: BulkDoctorInvalidRowDto[];
+}
+
+export interface ConfirmBulkDoctorItemPayload {
+  rowNumber?: number;
+  doctorName: string;
+  email: string;
+  phone: string;
+  specialty?: string;
+  academicTitle?: string;
+  experienceYears?: number;
+  bio?: string;
+}
+
+export interface ConfirmBulkImportDoctorsResponse {
+  summary: {
+    requestedCount: number;
+    createdCount: number;
+    failedCount: number;
+    mailSentCount: number;
+    mailFailedCount: number;
+  };
+  createdDoctors: Array<{
+    rowNumber?: number;
+    doctor: DoctorProfileDto;
+    mailSent: boolean;
+    mailWarning?: string;
+  }>;
+  failedRows: Array<{
+    rowNumber?: number;
+    doctorName: string;
+    email: string;
+    phone: string;
+    reason: string;
+  }>;
+}
+
 export const doctorsApi = {
   getDoctorMe: async (): Promise<DoctorProfileDto> => {
     const res: any = await httpClient.get<any>('/api/v1/doctors/me');
@@ -248,16 +332,38 @@ export const doctorsApi = {
     return httpClient.post(endpoint, cleanPayload);
   },
 
+  downloadDoctorImportTemplate: async (): Promise<Blob> => {
+    return httpClient.getBlob('/api/v1/facilities/doctors/import/template');
+  },
+
+  previewDoctorsExcelImport: async (
+    file: File
+  ): Promise<BulkImportDoctorsPreviewResponse> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await httpClient.upload<unknown>(
+      '/api/v1/facilities/doctors/import/preview',
+      formData,
+      'POST'
+    );
+    return unwrapApiEnvelope<BulkImportDoctorsPreviewResponse>(res);
+  },
+
+  confirmDoctorsBulkImport: async (
+    doctors: ConfirmBulkDoctorItemPayload[]
+  ): Promise<ConfirmBulkImportDoctorsResponse> => {
+    const res = await httpClient.post<unknown>(
+      '/api/v1/facilities/doctors/import/confirm',
+      { doctors }
+    );
+    return unwrapApiEnvelope<ConfirmBulkImportDoctorsResponse>(res);
+  },
+
   getFacilityDoctors: async (facilityId?: string, params?: any): Promise<any[]> => {
     const isUUID = facilityId && /^[0-9a-fA-F-]{36}$/.test(facilityId);
     const endpoint = isUUID ? `/api/v1/facilities/${facilityId}/doctors` : '/api/v1/facilities/doctors';
     try {
-      const res: any = await httpClient.get<any>(endpoint, params);
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res?.data?.items)) return res.data.items;
-      if (Array.isArray(res?.items)) return res.items;
-      if (Array.isArray(res?.data)) return res.data;
-      return [];
+      return (await fetchPaginatedList<DoctorProfileDto>(endpoint, params)).data;
     } catch (err) {
       console.error('Lỗi khi tải danh sách Bác sĩ trực thuộc từ Backend:', err);
       throw err;
@@ -281,24 +387,6 @@ export const doctorsApi = {
       // Fallback
     }
     return null;
-  },
-
-  // CSYT gửi lại email thông tin tài khoản và mật khẩu khởi tạo cho bác sĩ
-  resendDoctorInvite: async (doctorId: string): Promise<any> => {
-    return httpClient.post(`/api/v1/facilities/doctors/${doctorId}/resend-invite`);
-  },
-
-  // CSYT cập nhật trạng thái làm việc / tạm hoãn / đình chỉ bác sĩ
-  updateDoctorStatus: async (
-    doctorId: string,
-    payload: { status: 'ACTIVE' | 'ON_LEAVE' | 'SUSPENDED' | 'TERMINATED'; reason?: string }
-  ): Promise<any> => {
-    return httpClient.patch(`/api/v1/facilities/doctors/${doctorId}/status`, payload);
-  },
-
-  // CSYT hủy liên kết bác sĩ khi chuyển viện / thôi việc
-  unlinkDoctor: async (doctorId: string): Promise<any> => {
-    return httpClient.delete(`/api/v1/facilities/doctors/${doctorId}`);
   },
 
   createQuotaProposal: async (

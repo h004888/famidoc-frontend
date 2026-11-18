@@ -131,11 +131,10 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${isActive
                       ? 'text-[#0046c0] font-semibold bg-blue-50'
                       : 'text-slate-700 hover:text-[#0046c0] hover:bg-slate-50'
-                  }`}
+                    }`}
                 >
                   {item.label}
                 </Link>
@@ -206,13 +205,12 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                               {roleLabel}
                             </span>
                             <span
-                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
-                                familyGate.state === 'active'
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${familyGate.state === 'active'
                                   ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                                   : familyGate.isResolved
                                     ? 'bg-amber-50 text-amber-800 border-amber-200'
                                     : 'bg-slate-50 text-slate-600 border-slate-200'
-                              }`}
+                                }`}
                             >
                               {familyGate.statusLabel}
                             </span>
@@ -343,11 +341,10 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                     key={item.href}
                     href={item.href}
                     onClick={() => setIsMobileMenuOpen(false)}
-                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
+                    className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive
                         ? 'text-[#0046c0] font-semibold bg-blue-50'
                         : 'text-slate-700 hover:bg-slate-50'
-                    }`}
+                      }`}
                   >
                     {item.label}
                   </Link>
@@ -376,13 +373,12 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                           {roleLabel}
                         </span>
                         <span
-                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
-                            familyGate.state === 'active'
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${familyGate.state === 'active'
                               ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
                               : familyGate.isResolved
                                 ? 'bg-amber-50 text-amber-800 border-amber-200'
                                 : 'bg-slate-50 text-slate-600 border-slate-200'
-                          }`}
+                            }`}
                         >
                           {familyGate.statusLabel}
                         </span>
@@ -482,17 +478,15 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                 href={item.href}
                 aria-label={item.ariaLabel}
                 aria-current={item.isActive ? 'page' : undefined}
-                className={`flex flex-col items-center justify-center min-w-0 min-h-[44px] px-1 py-1 rounded-lg transition-colors cursor-pointer ${
-                  item.isActive
+                className={`flex flex-col items-center justify-center min-w-0 min-h-[44px] px-1 py-1 rounded-lg transition-colors cursor-pointer ${item.isActive
                     ? 'text-[#0046c0] font-semibold'
                     : 'text-slate-600 hover:text-slate-800'
-                }`}
+                  }`}
               >
                 <div className="relative flex items-center justify-center">
                   <span
-                    className={`material-symbols-outlined text-[22px] transition-transform ${
-                      item.isActive ? 'scale-110' : ''
-                    }`}
+                    className={`material-symbols-outlined text-[22px] transition-transform ${item.isActive ? 'scale-110' : ''
+                      }`}
                   >
                     {item.icon}
                   </span>

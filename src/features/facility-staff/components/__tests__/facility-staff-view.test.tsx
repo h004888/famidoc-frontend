@@ -20,6 +20,9 @@ vi.mock('@/lib/api/doctors.api', () => ({
     getFacilityDoctors: vi.fn(),
     createFacilityDoctor: vi.fn(),
     facilityApproveCredentials: vi.fn(),
+    downloadDoctorImportTemplate: vi.fn(),
+    previewDoctorsExcelImport: vi.fn(),
+    confirmDoctorsBulkImport: vi.fn(),
   },
 }));
 
@@ -136,7 +139,7 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
     expect(localStorage.getItem('famidoc_facility_doctors')).toBeNull();
   });
 
-  it('allows CSYT to execute Duyệt Cấp 1 for doctor pending facility review', async () => {
+  it('requires confirmation dialog before executing Duyệt Cấp 1 for doctor pending facility review', async () => {
     vi.mocked(doctorsApi.facilityApproveCredentials).mockResolvedValue({ success: true });
 
     render(<FacilityStaffView />);
@@ -150,6 +153,10 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
     expect(approveBtns.length).toBeGreaterThan(0);
 
     fireEvent.click(approveBtns[0]);
+    expect(doctorsApi.facilityApproveCredentials).not.toHaveBeenCalled();
+
+    const confirmBtn = await screen.findByRole('button', { name: /Xác nhận duyệt Cấp 1/i });
+    fireEvent.click(confirmBtn);
 
     await waitFor(() => {
       expect(doctorsApi.facilityApproveCredentials).toHaveBeenCalledWith('DOC-7905', expect.any(Object));
@@ -186,6 +193,7 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
       await screen.findByText(/Chưa có Hợp đồng Hợp tác B2B đang hiệu lực/i),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Thêm Bác Sĩ Mới/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Import Excel/i })).toBeDisabled();
   });
 
   it('renders rejectionReason and mobile Tier-1 "Duyệt Cấp 1" actions for affiliated doctors', async () => {
@@ -210,5 +218,88 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
     expect(await screen.findByText(/Ảnh CCHN bị mờ góc/i)).toBeInTheDocument();
     const approveButtons = screen.getAllByRole('button', { name: 'Duyệt Cấp 1' });
     expect(approveButtons.length).toBe(2);
+  });
+
+  it('validates single-doctor creation form, resets createError on reopen, shows warning when mailSent=false, and filters Y học gia đình', async () => {
+    vi.mocked(doctorsApi.getFacilityDoctors).mockResolvedValue([
+      {
+        id: 'DOC-YHGĐ',
+        doctorName: 'BS. Nguyễn Gia Đình',
+        specialty: 'Y học gia đình',
+        onboardingStatus: 'ACTIVE',
+      },
+      {
+        id: 'DOC-NT',
+        doctorName: 'BS. Trần Nội Tiết',
+        specialty: 'Khoa Nội tiết',
+        onboardingStatus: 'ACTIVE',
+      },
+    ]);
+
+    render(<FacilityStaffView />);
+    await screen.findAllByText('BS. Nguyễn Gia Đình');
+
+    // Bộ lọc chuyên khoa 'Y học gia đình' khớp bác sĩ mặc định
+    const specialtyFilter = screen.getByLabelText('Lọc theo chuyên khoa');
+    fireEvent.change(specialtyFilter, { target: { value: 'Y học gia đình' } });
+    expect(screen.getAllByText('BS. Nguyễn Gia Đình').length).toBeGreaterThan(0);
+    expect(screen.queryByText('BS. Trần Nội Tiết')).not.toBeInTheDocument();
+
+    // Mở modal tạo bác sĩ -> nhập SĐT sai -> báo lỗi client -> đóng và mở lại -> createError đã được reset
+    fireEvent.click(screen.getByRole('button', { name: /Thêm Bác Sĩ Mới/i }));
+    fireEvent.change(screen.getByPlaceholderText(/ThS.BS Phan Văn Minh/i), {
+      target: { value: 'BS. Lê Văn Test' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/minh.phan@ansinhhospital.vn/i), {
+      target: { value: 'test@hospital.vn' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/0988123456/i), {
+      target: { value: '0|12345678' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Khởi tạo Bác sĩ' }));
+
+    expect(
+      await screen.findByText(/Số điện thoại không đúng định dạng di động Việt Nam/i)
+    ).toBeInTheDocument();
+    expect(doctorsApi.createFacilityDoctor).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hủy bỏ' }));
+    fireEvent.click(screen.getByRole('button', { name: /Thêm Bác Sĩ Mới/i }));
+    expect(
+      screen.queryByText(/Số điện thoại không đúng định dạng di động Việt Nam/i)
+    ).not.toBeInTheDocument();
+
+    // Nhập hợp lệ với +84 -> server trả mailSent=false -> hiện cảnh báo email thất bại
+    vi.mocked(doctorsApi.createFacilityDoctor).mockResolvedValueOnce({
+      data: {
+        id: 'DOC-MAIL-FAIL',
+        doctorName: 'BS. Lê Văn Test',
+        email: 'test@hospital.vn',
+        phone: '0988123456',
+        mailSent: false,
+        mailWarning: 'Tài khoản đã được tạo nhưng gửi email thông tin đăng nhập thất bại',
+      },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/ThS.BS Phan Văn Minh/i), {
+      target: { value: 'BS. Lê Văn Test' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/minh.phan@ansinhhospital.vn/i), {
+      target: { value: 'test@hospital.vn' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/0988123456/i), {
+      target: { value: '+84988123456' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Khởi tạo Bác sĩ' }));
+
+    await waitFor(() => {
+      expect(doctorsApi.createFacilityDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({ phone: '0988123456' })
+      );
+    });
+    expect(
+      await screen.findByText(/Tài khoản đã được tạo nhưng gửi email thông tin đăng nhập thất bại/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText('Gửi email thất bại')).toBeInTheDocument();
   });
 });

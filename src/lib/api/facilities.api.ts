@@ -33,6 +33,8 @@ export interface AdminFacilityItem {
   hasActiveStaffingContract?: boolean;
   hasHistoricalStaffingContract?: boolean;
   bankName?: string;
+  bankBin?: string;
+  bankCode?: string;
   bankAccount?: string;
   bankAccountHolder?: string;
   licenseFiles?: string[];
@@ -147,6 +149,14 @@ function normalizeFacility(item: any): AdminFacilityItem {
         ? item.hasHistoricalStaffingContract
         : undefined,
     bankName: rawBankName && rawBankName !== 'CHƯA_CẬP_NHẬT' ? rawBankName : undefined,
+    bankBin:
+      (item.bankBin || item.bank_bin) && (item.bankBin || item.bank_bin) !== 'CHƯA_CẬP_NHẬT'
+        ? String(item.bankBin || item.bank_bin).trim()
+        : undefined,
+    bankCode:
+      (item.bankCode || item.bank_code) && (item.bankCode || item.bank_code) !== 'CHƯA_CẬP_NHẬT'
+        ? String(item.bankCode || item.bank_code).trim().toUpperCase()
+        : undefined,
     bankAccount:
       item.bankAccount ||
       (item.bankAccountNumber && item.bankAccountNumber !== 'CHƯA_CẬP_NHẬT'
@@ -233,6 +243,8 @@ export const facilitiesApi = {
     taxCode: string;
     hotline: string;
     bankName: string;
+    bankBin?: string;
+    bankCode?: string;
     bankAccountNumber: string;
     bankAccountHolder: string;
     address: string;
@@ -247,6 +259,12 @@ export const facilitiesApi = {
     formData.append('taxCode', payload.taxCode.trim());
     formData.append('hotline', payload.hotline.trim());
     formData.append('bankName', payload.bankName.trim());
+    if (payload.bankBin?.trim()) {
+      formData.append('bankBin', payload.bankBin.trim());
+    }
+    if (payload.bankCode?.trim()) {
+      formData.append('bankCode', payload.bankCode.trim().toUpperCase());
+    }
     formData.append('bankAccountNumber', payload.bankAccountNumber.trim());
     formData.append('bankAccountHolder', payload.bankAccountHolder.trim().toUpperCase());
     formData.append('address', payload.address.trim());

@@ -10,6 +10,7 @@ import {
   type DoctorProfileDto,
 } from '@/lib/api';
 import { REQUIRED_CREDENTIAL_DEFS } from '@/components/shared';
+import { getTodayInVietnamYmd, isValidPastOrTodayVietnamDate } from '@/lib/date-vn';
 import { DOCTOR_GATE_REFRESH_EVENT } from '@/components/layout/doctor-verification-gate';
 import { Button } from '@/components/ui/button';
 
@@ -200,7 +201,6 @@ export function DoctorVerificationView() {
       return;
     }
 
-    const today = new Date();
     for (const def of REQUIRED_CREDENTIAL_DEFS) {
       const item = credentialsForm[def.type];
       if (!item.certificateNumber.trim()) {
@@ -215,8 +215,7 @@ export function DoctorVerificationView() {
         toast.error(`Vui lòng chọn Ngày cấp cho ${def.shortLabel}.`);
         return;
       }
-      const parsedDate = new Date(item.issueDate);
-      if (Number.isNaN(parsedDate.getTime()) || parsedDate > today) {
+      if (!isValidPastOrTodayVietnamDate(item.issueDate)) {
         toast.error(`Ngày cấp của ${def.shortLabel} không hợp lệ hoặc nằm trong tương lai.`);
         return;
       }
@@ -768,6 +767,7 @@ export function DoctorVerificationView() {
                           id={`cert-date-${def.type}`}
                           aria-label={`Ngày cấp ${def.shortLabel}`}
                           type="date"
+                          max={getTodayInVietnamYmd()}
                           required
                           disabled={isFormLocked}
                           value={entry.issueDate}

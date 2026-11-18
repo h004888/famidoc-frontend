@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import type { FourPartyContract } from '@/features/four-party-contract';
-import { contractsApi } from '@/lib/api';
+import { contractsApi, doctorsApi, type DoctorProfileDto } from '@/lib/api';
+import { useAuth } from '@/features/auth/context/auth-context';
 
 export interface DoctorContractsInboundViewProps {
   initialContracts?: FourPartyContract[];
@@ -16,6 +17,8 @@ export interface DoctorContractsInboundViewProps {
 export function DoctorContractsInboundView({
   initialContracts,
 }: DoctorContractsInboundViewProps) {
+  const { user } = useAuth();
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
   const isControlledByProps = initialContracts !== undefined;
   const [contracts, setContracts] = useState<FourPartyContract[]>(
     initialContracts ?? []
@@ -33,11 +36,25 @@ export function DoctorContractsInboundView({
   };
 
   useEffect(() => {
+    let isMounted = true;
+    doctorsApi
+      .getDoctorMe()
+      .then((data) => {
+        if (!isMounted) return;
+        if (data && data.id) setDoctorProfile(data);
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (isControlledByProps) return;
     let active = true;
     async function loadContracts() {
       try {
-        const items = await contractsApi.getMedicalContracts({ limit: 50 });
+        const items = await contractsApi.getMedicalContracts({ limit: 50, role: 'DOCTOR' });
         if (!active) return;
         setContracts(items);
         setLoadError(null);
@@ -119,12 +136,12 @@ export function DoctorContractsInboundView({
           </Button>
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold shadow-2xs">
             <span className="material-symbols-outlined text-[16px] text-amber-400">medical_services</span>
-            <span>BS Gia Đình: Lê Hoàng Nam</span>
+            <span>BS Gia Đình: {doctorProfile?.doctorName || user?.name || 'Lê Hoàng Nam'}</span>
           </div>
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-right">
             <span className="block text-[11px] text-slate-500 font-medium">Panel Cap / Định biên</span>
             <span className="text-base font-bold text-slate-900 tabular-nums">
-              {contracts.filter((c) => c.status === 'ACTIVE').length} / 30 hộ
+              {contracts.filter((c) => c.status === 'ACTIVE').length} / {doctorProfile?.maxPanelCapacity || 30} hộ
             </span>
           </div>
         </div>

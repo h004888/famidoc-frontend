@@ -35,11 +35,14 @@ function normalizePath(pathname: string | null | undefined): string {
 }
 
 /**
- * Toàn bộ không gian `/family` và `/family/*` bị khóa khi tài khoản chưa có hợp đồng `ACTIVE`.
+ * Các tính năng chăm sóc yêu cầu hợp đồng ACTIVE. Gia đình vẫn có thể xem
+ * sổ khám và đơn đã chia sẻ sau khi gói hết hạn.
  */
 export function isRestrictedFamilyPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   const normalized = normalizePath(pathname);
+  if (normalized === '/family/medical-book') return false;
+  if (normalized === '/family/prescriptions' || normalized.startsWith('/family/prescriptions/')) return false;
   return normalized === '/family' || normalized.startsWith('/family/');
 }
 
@@ -307,6 +310,11 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
     search: currentSearch,
   });
   const lastPathnameRef = React.useRef<string | null>(pathname ?? null);
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
 
   useEffect(() => {
     const currentPath = pathname ?? null;
@@ -328,7 +336,8 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
     }
   }, [isPermissionDeniedForRoute, shouldBlock, redirectTarget, router]);
 
-  if (!isRestricted) {
+  // Đợi mount xong trên client để lần render đầu khớp hoàn toàn HTML từ SSR, tránh hydration mismatch khi AuthProvider đọc localStorage.
+  if (!hasMounted || !isRestricted) {
     return <>{children}</>;
   }
 

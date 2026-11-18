@@ -25,7 +25,17 @@ import {
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { doctorsApi } from '@/lib/api/doctors.api';
 import { extractErrorMessage } from '@/lib/api';
-import { ConfirmDialog, EmptyState, PageHeader } from '@/components/shared';
+import { useVietQrBanks } from '@/hooks/use-vietqr-banks';
+import {
+  buildVietQrQuickLinkUrl,
+  resolveBankByInput,
+  resolveVietQrBankId,
+} from '@/lib/vietqr';
+import {
+  isValidVietnameseMobilePhone,
+  normalizeVietnameseMobilePhone,
+} from '@/lib/phone-vn';
+import { ConfirmDialog, EmptyState, PageHeader, VietQrPreviewCard } from '@/components/shared';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -185,6 +195,7 @@ export function AdminFacilitiesView() {
   const [rejectReason, setRejectReason] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreatingFacility, setIsCreatingFacility] = useState(false);
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [createForm, setCreateForm] = useState({
     facilityName: '',
     representativeName: '',
@@ -192,6 +203,7 @@ export function AdminFacilitiesView() {
     phone: '',
     address: '',
   });
+  const { banks } = useVietQrBanks();
 
   const fetchFacilitiesData = useCallback(async () => {
     setIsLoading(true);
@@ -372,29 +384,59 @@ export function AdminFacilitiesView() {
   // Admin tạo mới tài khoản CSYT và gửi mật khẩu ngẫu nhiên qua email
   const handleCreateFacility = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (
-      !createForm.facilityName.trim() ||
-      !createForm.representativeName.trim() ||
-      !createForm.email.trim() ||
-      !createForm.phone.trim()
-    ) {
-      toast.error('Vui lòng nhập đầy đủ Tên CSYT, Người đại diện, Email và Số điện thoại.');
+    const nextErrors: Record<string, string> = {};
+    const cleanFacilityName = createForm.facilityName.trim();
+    const cleanRepName = createForm.representativeName.trim();
+    const cleanEmail = createForm.email.trim();
+    const normalizedPhone = normalizeVietnameseMobilePhone(createForm.phone);
+    const cleanAddress = createForm.address.trim();
+
+    if (!cleanFacilityName) {
+      nextErrors.facilityName = 'Tên cơ sở y tế không được để trống';
+    } else if (cleanFacilityName.length < 3 || cleanFacilityName.length > 255) {
+      nextErrors.facilityName = 'Tên cơ sở y tế phải từ 3 đến 255 ký tự';
+    }
+    if (!cleanRepName) {
+      nextErrors.representativeName = 'Tên người đại diện không được để trống';
+    } else if (cleanRepName.length < 2 || cleanRepName.length > 100) {
+      nextErrors.representativeName = 'Tên người đại diện phải từ 2 đến 100 ký tự';
+    }
+    if (!cleanEmail) {
+      nextErrors.email = 'Email không được để trống';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      nextErrors.email = 'Định dạng email không hợp lệ';
+    }
+    if (!createForm.phone.trim()) {
+      nextErrors.phone = 'Số điện thoại không được để trống';
+    } else if (!isValidVietnameseMobilePhone(createForm.phone)) {
+      nextErrors.phone = 'Số điện thoại không đúng định dạng di động Việt Nam';
+    }
+    if (cleanAddress.length > 500) {
+      nextErrors.address = 'Địa chỉ tối đa 500 ký tự';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setCreateErrors(nextErrors);
+      toast.error(Object.values(nextErrors)[0]);
       return;
     }
+
+    setCreateErrors({});
     setIsCreatingFacility(true);
     try {
       const created = await facilitiesApi.createFacilityByAdmin({
-        facilityName: createForm.facilityName.trim(),
-        representativeName: createForm.representativeName.trim(),
-        email: createForm.email.trim(),
-        phone: createForm.phone.trim(),
-        ...(createForm.address.trim() ? { address: createForm.address.trim() } : {}),
+        facilityName: cleanFacilityName,
+        representativeName: cleanRepName,
+        email: cleanEmail,
+        phone: normalizedPhone,
+        ...(cleanAddress ? { address: cleanAddress } : {}),
       });
       setFacilities((prev) => [created, ...prev]);
       toast.success(
         `Đã khởi tạo tài khoản Cơ sở Y tế "${created.facilityName}". Mật khẩu ngẫu nhiên đã được gửi tới email ${created.email}.`
       );
       setShowCreateModal(false);
+      setCreateErrors({});
       setCreateForm({
         facilityName: '',
         representativeName: '',
@@ -474,6 +516,7 @@ export function AdminFacilitiesView() {
     try {
       const url = await facilitiesApi.fetchLegalDocumentBlobUrl(facilityId, docType);
       window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err: any) {
       toast.error(extractErrorMessage(err, 'Không thể tải bản scan hồ sơ pháp lý.'));
     }
@@ -496,7 +539,43 @@ export function AdminFacilitiesView() {
   };
 
   const selectedEffectiveStatus = selectedFacility ? getEffectiveOnboardingStatus(selectedFacility) : null;
-  const hasCompleteLegalDocs = Boolean(selectedFacility?.taxCode && selectedFacility?.operatingLicense);
+  const hasOperatingDoc = Boolean(
+    selectedFacility?.hasOperatingLicense ?? selectedFacility?.hasLegalDocument
+  );
+  const hasBusinessDoc = Boolean(selectedFacility?.hasBusinessLicense);
+  const hasCompleteLegalDocs = Boolean(
+    selectedFacility?.taxCode &&
+      selectedFacility?.operatingLicense &&
+      hasOperatingDoc &&
+      hasBusinessDoc
+  );
+
+  const selectedResolvedBank = useMemo(
+    () =>
+      selectedFacility
+        ? resolveBankByInput(banks, {
+            bankBin: selectedFacility.bankBin,
+            bankCode: selectedFacility.bankCode,
+            bankName: selectedFacility.bankName,
+          })
+        : undefined,
+    [banks, selectedFacility]
+  );
+
+  const selectedFacilityQrUrl = useMemo(() => {
+    if (!selectedFacility?.bankAccount) return null;
+    const bankId = resolveVietQrBankId(banks, {
+      bankBin: selectedFacility.bankBin || selectedResolvedBank?.bin,
+      bankCode: selectedFacility.bankCode || selectedResolvedBank?.code,
+      bankName: selectedFacility.bankName,
+    });
+    return buildVietQrQuickLinkUrl({
+      bankId,
+      accountNumber: selectedFacility.bankAccount,
+      accountName: selectedFacility.bankAccountHolder,
+      template: 'compact2',
+    });
+  }, [banks, selectedFacility, selectedResolvedBank]);
 
   const kpiCards: Array<{
     key: FacilityStatusFilter;
@@ -518,7 +597,7 @@ export function AdminFacilitiesView() {
     },
     {
       key: 'PENDING_LEGAL',
-      label: 'Chờ nộp pháp lý',
+      label: 'Chờ Nộp Pháp Lý',
       value: countPendingLegal,
       description: 'Đã cấp tài khoản, chờ CSYT gửi GPHĐ',
       pill: 'Chờ hồ sơ',
@@ -530,8 +609,8 @@ export function AdminFacilitiesView() {
       key: 'LEGAL_SUBMITTED',
       label: 'Chờ Duyệt Pháp Lý',
       value: countLegalSubmitted,
-      description: 'Cần đối soát GPHĐ & MST',
-      pill: 'Pháp lý GPHĐ',
+      description: 'Cần đối soát GPHĐ & MST CSDL Quốc gia',
+      pill: 'Cần duyệt gấp',
       pillClass: 'border-indigo-200 bg-indigo-50 text-indigo-800',
       icon: <ShieldCheck className="h-5 w-5" aria-hidden="true" />,
       iconBoxClass: 'bg-indigo-50 text-indigo-600',
@@ -557,7 +636,7 @@ export function AdminFacilitiesView() {
   ];
 
   return (
-    <div className="min-h-full bg-[#f5f6f8] font-sans text-slate-900 antialiased">
+    <div className="min-h-full bg-[#f8fafc] font-sans text-slate-900 antialiased">
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
         {/* Standardized Page Header */}
         <PageHeader
@@ -584,7 +663,7 @@ export function AdminFacilitiesView() {
                 size="sm"
                 onClick={handleRefreshAll}
                 disabled={isLoading || isDoctorsLoading}
-                className="cursor-pointer rounded-xl bg-white text-xs font-semibold"
+                className="cursor-pointer rounded-xl bg-white text-xs font-semibold shadow-xs"
               >
                 <RefreshCw
                   className={cn('h-3.5 w-3.5 text-slate-500', (isLoading || isDoctorsLoading) && 'animate-spin')}
@@ -607,23 +686,23 @@ export function AdminFacilitiesView() {
                 aria-pressed={isSelected}
                 onClick={() => selectFacilityFilter(card.key)}
                 className={cn(
-                  'group flex flex-col justify-between rounded-2xl border bg-white p-4 text-left shadow-xs transition-all cursor-pointer outline-hidden focus-visible:ring-2 focus-visible:ring-primary/50',
+                  'group flex flex-col justify-between rounded-2xl border bg-white p-4.5 text-left shadow-xs transition-all cursor-pointer outline-hidden hover:border-slate-300 hover:shadow-md focus-visible:ring-2 focus-visible:ring-primary/50',
                   isSelected
-                    ? 'border-primary/60 ring-2 ring-primary/15'
-                    : 'border-slate-200/90 hover:border-slate-300 hover:shadow-sm'
+                    ? 'border-primary/60 ring-2 ring-primary/15 bg-gradient-to-br from-white to-blue-50/30'
+                    : 'border-slate-200/90'
                 )}
               >
                 <div className="flex w-full items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <span
                       className={cn(
-                        'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105',
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105',
                         card.iconBoxClass
                       )}
                     >
                       {card.icon}
                     </span>
-                    <span className="truncate text-xs font-semibold text-slate-600">{card.label}</span>
+                    <span className="truncate text-xs font-bold text-slate-700">{card.label}</span>
                   </div>
                   {card.pill && (
                     <Badge
@@ -644,7 +723,7 @@ export function AdminFacilitiesView() {
                   </span>
                 </div>
 
-                <p className="mt-1 text-[11px] text-slate-500">{card.description}</p>
+                <p className="mt-1 text-xs text-slate-500 line-clamp-1">{card.description}</p>
               </button>
             );
           })}
@@ -832,17 +911,24 @@ export function AdminFacilitiesView() {
                         {paginatedFacilities.map((fac) => (
                           <TableRow key={fac.id} className="hover:bg-slate-50/70 transition-colors">
                             <TableCell className="max-w-[290px] px-4 py-3.5 whitespace-normal">
-                              <div className="font-bold text-slate-900 text-xs sm:text-sm truncate" title={fac.facilityName}>
-                                {fac.facilityName}
-                              </div>
-                              <div className="mt-0.5 truncate text-[11px] text-slate-500" title={fac.address}>
-                                {fac.address}
-                              </div>
-                              <div
-                                className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-500 tabular-nums"
-                                title={fac.id}
-                              >
-                                ID: {formatShortId(fac.id)}
+                              <div className="flex items-start gap-2.5">
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-primary mt-0.5" aria-hidden="true">
+                                  <Building2 className="h-3.5 w-3.5" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-bold text-slate-900 text-xs sm:text-sm truncate" title={fac.facilityName}>
+                                    {fac.facilityName}
+                                  </div>
+                                  <div className="mt-0.5 truncate text-[11px] text-slate-500" title={fac.address}>
+                                    {fac.address}
+                                  </div>
+                                  <div
+                                    className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 tabular-nums"
+                                    title={fac.id}
+                                  >
+                                    ID: {formatShortId(fac.id)}
+                                  </div>
+                                </div>
                               </div>
                             </TableCell>
 
@@ -1347,27 +1433,27 @@ export function AdminFacilitiesView() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3.5 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs sm:grid-cols-2">
                       <div>
-                        <span className="block text-xs text-slate-500">Đại diện pháp luật:</span>
-                        <span className="font-semibold text-slate-900">
+                        <span className="block text-xs font-medium text-slate-500">Đại diện pháp luật:</span>
+                        <span className="font-bold text-slate-900">
                           {selectedFacility.representativeName || '—'}
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500">Số điện thoại liên hệ:</span>
+                        <span className="block text-xs font-medium text-slate-500">Số điện thoại liên hệ:</span>
                         <span className="font-semibold text-slate-900 tabular-nums">
                           {selectedFacility.phone || '—'}
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500">Email Portal:</span>
-                        <span className="font-semibold text-slate-900 break-all">
+                        <span className="block text-xs font-medium text-slate-500">Email Portal:</span>
+                        <span className="font-semibold text-slate-900 break-all tabular-nums text-xs">
                           {selectedFacility.email || '—'}
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500 mb-1">Trạng thái hiện tại:</span>
+                        <span className="block text-xs font-medium text-slate-500 mb-1">Trạng thái hiện tại:</span>
                         <FacilityStatusBadge facility={selectedFacility} compact />
                       </div>
                     </div>
@@ -1397,12 +1483,12 @@ export function AdminFacilitiesView() {
                       )}
                     </div>
 
-                    <div className="grid grid-cols-1 gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-3.5 sm:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs sm:grid-cols-2">
                       <div>
-                        <span className="block text-xs text-slate-500">Mã số thuế (MST):</span>
+                        <span className="block text-xs font-medium text-slate-500">Mã số thuế (MST):</span>
                         <span
                           className={cn(
-                            'font-semibold tabular-nums',
+                            'font-bold tabular-nums text-primary',
                             selectedFacility.taxCode ? 'text-slate-900' : 'text-slate-400 italic font-normal'
                           )}
                         >
@@ -1410,10 +1496,10 @@ export function AdminFacilitiesView() {
                         </span>
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500">Giấy phép hoạt động KCB (GPHĐ):</span>
+                        <span className="block text-xs font-medium text-slate-500">Giấy phép hoạt động KCB (GPHĐ):</span>
                         <span
                           className={cn(
-                            'font-semibold tabular-nums',
+                            'font-bold tabular-nums text-primary',
                             selectedFacility.operatingLicense ? 'text-slate-900' : 'text-slate-400 italic font-normal'
                           )}
                         >
@@ -1422,12 +1508,12 @@ export function AdminFacilitiesView() {
                       </div>
                       {selectedFacility.licenseIssuer && (
                         <div className="sm:col-span-2">
-                          <span className="block text-xs text-slate-500">Cơ quan cấp GPHĐ:</span>
+                          <span className="block text-xs font-medium text-slate-500">Cơ quan cấp GPHĐ:</span>
                           <span className="font-semibold text-slate-900">{selectedFacility.licenseIssuer}</span>
                         </div>
                       )}
                       <div>
-                        <span className="block text-xs text-slate-500">Ngân hàng thụ hưởng đối soát:</span>
+                        <span className="block text-xs font-medium text-slate-500">Ngân hàng thụ hưởng đối soát:</span>
                         <span
                           className={cn(
                             'font-semibold',
@@ -1436,9 +1522,23 @@ export function AdminFacilitiesView() {
                         >
                           {selectedFacility.bankName || 'Chưa cập nhật'}
                         </span>
+                        {(selectedFacility.bankCode || selectedFacility.bankBin || selectedResolvedBank) && (
+                          <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-medium text-slate-600 tabular-nums">
+                            {(selectedFacility.bankCode || selectedResolvedBank?.code) && (
+                              <span className="rounded bg-white px-1.5 py-0.5 border border-slate-200">
+                                Mã NH: {selectedFacility.bankCode || selectedResolvedBank?.code}
+                              </span>
+                            )}
+                            {(selectedFacility.bankBin || selectedResolvedBank?.bin) && (
+                              <span className="rounded bg-white px-1.5 py-0.5 border border-slate-200">
+                                BIN: {selectedFacility.bankBin || selectedResolvedBank?.bin}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                       <div>
-                        <span className="block text-xs text-slate-500">Tài khoản &amp; Chủ tài khoản:</span>
+                        <span className="block text-xs font-medium text-slate-500">Tài khoản &amp; Chủ tài khoản:</span>
                         <span
                           className={cn(
                             'font-semibold tabular-nums',
@@ -1453,6 +1553,19 @@ export function AdminFacilitiesView() {
                         </span>
                       </div>
                     </div>
+
+                    {selectedFacilityQrUrl && (
+                      <VietQrPreviewCard
+                        qrUrl={selectedFacilityQrUrl}
+                        title="Đối soát nhanh tài khoản thụ hưởng VietQR"
+                        subtitle="Quét mã để kiểm tra thông tin ngân hàng thụ hưởng của cơ sở y tế trước khi duyệt."
+                        bankLabel={selectedFacility.bankName}
+                        bankBin={selectedFacility.bankBin || selectedResolvedBank?.bin || null}
+                        bankCode={selectedFacility.bankCode || selectedResolvedBank?.code || null}
+                        accountNumber={selectedFacility.bankAccount}
+                        accountHolder={selectedFacility.bankAccountHolder}
+                      />
+                    )}
 
                     {selectedFacility.legalRejectionReason && (
                       <p className="text-sm text-rose-700">Lý do yêu cầu bổ sung: {selectedFacility.legalRejectionReason}</p>
@@ -1553,7 +1666,15 @@ export function AdminFacilitiesView() {
                         <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
                           <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
                           <div>
-                            <strong>Chờ CSYT nộp hồ sơ pháp lý:</strong> CSYT đã được cấp tài khoản qua email nhưng chưa hoàn tất nộp Giấy phép hoạt động KCB hoặc Mã số thuế trên Portal.
+                            <strong>Chưa đủ điều kiện kích hoạt ACTIVE:</strong>{' '}
+                            {!selectedFacility.taxCode || !selectedFacility.operatingLicense
+                              ? 'CSYT chưa hoàn tất nộp Giấy phép hoạt động KCB hoặc Mã số thuế trên Portal.'
+                              : `Thiếu bản scan bắt buộc: ${[
+                                  !hasOperatingDoc ? 'Giấy phép hoạt động KBCB (GPHĐ)' : null,
+                                  !hasBusinessDoc ? 'Giấy chứng nhận Đăng ký doanh nghiệp (ĐKKD)' : null,
+                                ]
+                                  .filter(Boolean)
+                                  .join(' và ')}.`}
                           </div>
                         </div>
                       ))}
@@ -1625,7 +1746,13 @@ export function AdminFacilitiesView() {
         {/* ========================================================================= */}
         {/* DIALOG: ADMIN TẠO TÀI KHOẢN CƠ SỞ Y TẾ MỚI                                */}
         {/* ========================================================================= */}
-        <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+        <Dialog
+          open={showCreateModal}
+          onOpenChange={(open) => {
+            setShowCreateModal(open);
+            if (!open) setCreateErrors({});
+          }}
+        >
           <DialogContent className="rounded-2xl border-slate-200 sm:max-w-lg">
             <DialogHeader>
               <DialogTitle className="text-base font-bold text-slate-900">
@@ -1635,7 +1762,7 @@ export function AdminFacilitiesView() {
                 Hệ thống sẽ sinh mật khẩu ngẫu nhiên an toàn và tự động gửi thông tin đăng nhập qua email liên hệ của cơ sở y tế.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleCreateFacility} className="space-y-3">
+            <form onSubmit={handleCreateFacility} noValidate className="space-y-3">
               <div className="space-y-1">
                 <Label htmlFor="create-facility-name" className="text-xs font-semibold">
                   Tên Cơ sở Y tế <span className="text-rose-500">*</span>
@@ -1648,6 +1775,9 @@ export function AdminFacilitiesView() {
                   placeholder="Bệnh viện Đa khoa Quốc tế FamiDoc"
                   className="rounded-xl text-xs"
                 />
+                {createErrors.facilityName && (
+                  <p className="text-[11px] font-medium text-rose-600">{createErrors.facilityName}</p>
+                )}
               </div>
               <div className="space-y-1">
                 <Label htmlFor="create-facility-rep" className="text-xs font-semibold">
@@ -1661,6 +1791,9 @@ export function AdminFacilitiesView() {
                   placeholder="TS.BS Nguyễn Văn A"
                   className="rounded-xl text-xs"
                 />
+                {createErrors.representativeName && (
+                  <p className="text-[11px] font-medium text-rose-600">{createErrors.representativeName}</p>
+                )}
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div className="space-y-1">
@@ -1676,6 +1809,9 @@ export function AdminFacilitiesView() {
                     placeholder="contact@hospital.vn"
                     className="rounded-xl text-xs"
                   />
+                  {createErrors.email && (
+                    <p className="text-[11px] font-medium text-rose-600">{createErrors.email}</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="create-facility-phone" className="text-xs font-semibold">
@@ -1689,6 +1825,9 @@ export function AdminFacilitiesView() {
                     placeholder="0912345678"
                     className="rounded-xl text-xs"
                   />
+                  {createErrors.phone && (
+                    <p className="text-[11px] font-medium text-rose-600">{createErrors.phone}</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-1">
@@ -1702,6 +1841,9 @@ export function AdminFacilitiesView() {
                   placeholder="Số 10 Phố Huế, Hai Bà Trưng, Hà Nội"
                   className="rounded-xl text-xs"
                 />
+                {createErrors.address && (
+                  <p className="text-[11px] font-medium text-rose-600">{createErrors.address}</p>
+                )}
               </div>
               <DialogFooter className="gap-2 pt-2">
                 <Button

@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/features/auth/context/auth-context';
+import { FamilyNotificationsView } from './family-notifications-view';
+import { useFamilyNotificationOwner } from '../hooks/use-family-notifications';
 
 export type NotificationCategory =
   | 'vitals'
@@ -155,6 +157,12 @@ const ADMIN_NOTIFICATIONS: NotificationItem[] = [
 ];
 
 export function NotificationsView() {
+  const owner = useFamilyNotificationOwner();
+  if (owner) return <FamilyNotificationsView key={owner} userId={owner} />;
+  return <ExistingNotificationsView />;
+}
+
+function ExistingNotificationsView() {
   const { role } = useAuth();
   const isAdmin = role === 'ADMIN';
 

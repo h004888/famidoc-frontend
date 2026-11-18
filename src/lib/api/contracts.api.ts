@@ -48,8 +48,6 @@ export interface CareNeedsSummaryDto {
     ageGroup?: 'CHILD' | 'ADOLESCENT' | 'ADULT' | 'ELDERLY';
     gender: string;
     relationshipToHead: string;
-    citizenId?: string | null;
-    healthInsuranceNumber?: string | null;
     allergies: {
       id?: string;
       allergen?: string;
@@ -320,6 +318,8 @@ export interface StaffingSigningSessionDto {
   facilitySigned: boolean;
   adminSigned: boolean;
   signedPdfUrl: string | null;
+  documensoItemId?: string | null;
+  hasDocumensoPdf?: boolean;
 }
 
 export interface StaffingTerminationImpactDto {

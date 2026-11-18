@@ -92,12 +92,7 @@ export function B2bDocumensoSignPanel({
     if (!session) return;
     setFallbackSigning(true);
     try {
-      await contractsApi.signStaffingContract(
-        contractId,
-        session.signerRole === 'ADMIN'
-          ? { signedPdfUrl: `https://sign.famidoc.online/contracts/staffing/${contractId}/signed.pdf` }
-          : {}
-      );
+      await contractsApi.signStaffingContract(contractId, {});
       toast.success(
         session.signerRole === 'ADMIN'
           ? 'Đã ký xác nhận Bước 2 và kích hoạt hợp đồng B2B!'
@@ -142,7 +137,8 @@ export function B2bDocumensoSignPanel({
     );
   }
 
-  const hasSignedPdf = Boolean(session.signedPdfUrl || session.status === 'ACTIVE');
+  const hasDocumensoPdf = Boolean(session.hasDocumensoPdf || session.documensoItemId);
+  const hasSignedPdf = Boolean(session.status === 'ACTIVE' && hasDocumensoPdf);
 
   if (!session.canSign) {
     const isAlreadySigned = session.alreadySigned;
@@ -164,25 +160,27 @@ export function B2bDocumensoSignPanel({
             )}
             <span>
               {isAlreadySigned
-                ? 'Bạn đã hoàn tất ký số hợp đồng B2B trên Documenso.'
+                ? 'Bạn đã hoàn tất ký xác nhận hợp đồng B2B.'
                 : session.waitingReason || 'Chưa đến lượt ký tuần tự.'}
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Button
-              type="button"
-              size="xs"
-              variant="outline"
-              disabled={syncing}
-              onClick={() => void handleSync()}
-              className="gap-1.5 bg-white"
-            >
-              <RefreshCw className={`h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
-              <span>Đồng bộ Documenso</span>
-            </Button>
+            {hasDocumensoPdf && (
+              <Button
+                type="button"
+                size="xs"
+                variant="outline"
+                disabled={syncing}
+                onClick={() => void handleSync()}
+                className="gap-1.5 bg-white"
+              >
+                <RefreshCw className={`h-3 w-3 ${syncing ? 'animate-spin' : ''}`} />
+                <span>Đồng bộ Documenso</span>
+              </Button>
+            )}
 
-            {isAlreadySigned && (
+            {isAlreadySigned && (hasSignedPdf || session.status !== 'ACTIVE') && (
               <Button
                 type="button"
                 size="xs"

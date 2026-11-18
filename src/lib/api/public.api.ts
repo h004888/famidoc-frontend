@@ -1,4 +1,5 @@
 import { httpClient } from './http-client';
+import { FALLBACK_VIETQR_BANKS, type VietQRBankItem } from '../vietqr';
 
 export type DoctorClinicalTier = 'JUNIOR' | 'STANDARD' | 'SENIOR';
 
@@ -465,5 +466,39 @@ export const publicApi = {
     }
 
     return { items: [] };
+  },
+
+  getBanks: async (): Promise<VietQRBankItem[]> => {
+    try {
+      const res = await httpClient.get<
+        | RawPublicEnvelopeResponse<{ items?: VietQRBankItem[] } | VietQRBankItem[]>
+        | { items?: VietQRBankItem[] }
+        | VietQRBankItem[]
+      >('/api/v1/public/banks');
+
+      if (Array.isArray(res) && res.length > 0) {
+        return res;
+      }
+
+      if (res && typeof res === 'object') {
+        const inner = 'data' in res && res.data ? res.data : res;
+        if (Array.isArray(inner) && inner.length > 0) {
+          return inner;
+        }
+        if (
+          inner &&
+          typeof inner === 'object' &&
+          'items' in inner &&
+          Array.isArray(inner.items) &&
+          inner.items.length > 0
+        ) {
+          return inner.items;
+        }
+      }
+    } catch {
+      // Fallback sang danh sách ngân hàng phổ biến nếu backend/upstream tạm gián đoạn
+    }
+
+    return FALLBACK_VIETQR_BANKS;
   },
 };

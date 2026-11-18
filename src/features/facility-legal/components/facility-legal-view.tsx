@@ -1,10 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { extractErrorMessage } from '@/lib/api';
+import { getTodayInVietnamYmd, isValidPastOrTodayVietnamDate } from '@/lib/date-vn';
+import { useVietQrBanks } from '@/hooks/use-vietqr-banks';
+import {
+  buildVietQrQuickLinkUrl,
+  formatFacilityBankName,
+  hasNonAsciiCharacters,
+  isValidVietQrAccountNumber,
+  normalizeVietQrAccountHolder,
+  resolveBankByInput,
+  resolveVietQrBankId,
+} from '@/lib/vietqr';
+import { BankSelectorCombobox, VietQrPreviewCard } from '@/components/shared';
 
 export function FacilityLegalView() {
   const [loading, setLoading] = useState(true);
@@ -17,8 +29,11 @@ export function FacilityLegalView() {
   const [address, setAddress] = useState('');
   const [hotline, setHotline] = useState('');
   const [bankName, setBankName] = useState('');
+  const [bankBin, setBankBin] = useState('');
+  const [bankCode, setBankCode] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountHolder, setBankAccountHolder] = useState('');
+  const { banks, isLoading: isLoadingBanks } = useVietQrBanks();
   const [licenseIssuer, setLicenseIssuer] = useState('');
   const [licenseDate, setLicenseDate] = useState('');
   const [operatingLicenseFile, setOperatingLicenseFile] = useState<File | null>(null);
@@ -42,6 +57,8 @@ export function FacilityLegalView() {
           setTaxCode(data.taxCode || '');
           setAddress(data.address && data.address !== 'Chưa cập nhật địa chỉ' ? data.address : '');
           setBankName(data.bankName || '');
+          setBankBin(data.bankBin || '');
+          setBankCode(data.bankCode || '');
           setBankAccountNumber(data.bankAccount || '');
           setBankAccountHolder(data.bankAccountHolder || '');
           if (data.licenseIssuer) setLicenseIssuer(data.licenseIssuer);
@@ -122,6 +139,7 @@ export function FacilityLegalView() {
     try {
       const url = await facilitiesApi.fetchLegalDocumentBlobUrl(facility.id, docType);
       window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err: any) {
       toast.error(extractErrorMessage(err, 'Không thể tải tài liệu pháp lý hiện có.'));
     }
@@ -131,40 +149,64 @@ export function FacilityLegalView() {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
 
-    if (!licenseNumber.trim()) {
+    const cleanFacilityName = facilityName.trim();
+    if (cleanFacilityName.length > 255) {
+      newErrors.facilityName = 'Tên pháp nhân cơ sở y tế tối đa 255 ký tự';
+    }
+    const cleanLicenseNumber = licenseNumber.trim();
+    if (!cleanLicenseNumber) {
       newErrors.licenseNumber = 'Vui lòng nhập số Giấy phép hoạt động (GPHĐ) do Bộ/Sở Y Tế cấp';
+    } else if (cleanLicenseNumber.length < 3 || cleanLicenseNumber.length > 50) {
+      newErrors.licenseNumber = 'Số giấy phép hoạt động phải từ 3 đến 50 ký tự';
     }
-    if (!licenseIssuer.trim()) {
+    const cleanLicenseIssuer = licenseIssuer.trim();
+    if (!cleanLicenseIssuer) {
       newErrors.licenseIssuer = 'Vui lòng nhập Cơ quan cấp Giấy phép hoạt động';
+    } else if (cleanLicenseIssuer.length > 255) {
+      newErrors.licenseIssuer = 'Cơ quan cấp giấy phép tối đa 255 ký tự';
     }
-    if (!licenseDate.trim()) {
+    const cleanLicenseDate = licenseDate.trim();
+    if (!cleanLicenseDate) {
       newErrors.licenseDate = 'Vui lòng chọn Ngày cấp Giấy phép hoạt động';
-    } else {
-      const parsedDate = new Date(licenseDate);
-      if (Number.isNaN(parsedDate.getTime()) || parsedDate > new Date()) {
-        newErrors.licenseDate = 'Ngày cấp giấy phép không hợp lệ hoặc nằm trong tương lai';
-      }
+    } else if (!isValidPastOrTodayVietnamDate(cleanLicenseDate)) {
+      newErrors.licenseDate = 'Ngày cấp giấy phép không hợp lệ hoặc nằm trong tương lai';
     }
     const cleanTax = taxCode.trim();
     if (!cleanTax) {
       newErrors.taxCode = 'Vui lòng nhập Mã số thuế doanh nghiệp';
-    } else if (cleanTax.length < 10) {
-      newErrors.taxCode = 'Mã số thuế phải có tối thiểu 10 ký tự số';
+    } else if (cleanTax.length < 10 || cleanTax.length > 20) {
+      newErrors.taxCode = 'Mã số thuế phải từ 10 đến 20 ký tự';
     }
-    if (!hotline.trim()) {
+    const cleanHotline = hotline.trim();
+    if (!cleanHotline) {
       newErrors.hotline = 'Vui lòng nhập số đường dây nóng cấp cứu / tiếp nhận y tế';
+    } else if (cleanHotline.length > 15) {
+      newErrors.hotline = 'Hotline tối đa 15 ký tự';
     }
-    if (!address.trim() || address.trim().length < 5) {
+    const cleanAddress = address.trim();
+    if (!cleanAddress || cleanAddress.length < 5) {
       newErrors.address = 'Vui lòng nhập đầy đủ Địa chỉ trụ sở theo Giấy phép';
+    } else if (cleanAddress.length > 500) {
+      newErrors.address = 'Địa chỉ trụ sở tối đa 500 ký tự';
     }
-    if (!bankName.trim()) {
-      newErrors.bankName = 'Vui lòng chọn hoặc nhập tên Ngân hàng thụ hưởng';
+    const cleanBankName = bankName.trim();
+    if (!cleanBankName) {
+      newErrors.bankName = 'Vui lòng chọn Ngân hàng thụ hưởng từ danh sách VietQR';
+    } else if (cleanBankName.length > 100) {
+      newErrors.bankName = 'Tên ngân hàng tối đa 100 ký tự';
     }
-    if (!bankAccountNumber.trim()) {
+    const cleanBankAccount = bankAccountNumber.replace(/\s+/g, '').trim();
+    if (!cleanBankAccount) {
       newErrors.bankAccountNumber = 'Vui lòng nhập số tài khoản ngân hàng phục vụ quyết toán';
+    } else if (!isValidVietQrAccountNumber(cleanBankAccount)) {
+      newErrors.bankAccountNumber =
+        'Số tài khoản ngân hàng chỉ gồm chữ hoặc số (tối đa 19 ký tự) và không chỉ gồm số 0';
     }
-    if (!bankAccountHolder.trim()) {
+    const cleanHolder = normalizeVietQrAccountHolder(bankAccountHolder);
+    if (!cleanHolder) {
       newErrors.bankAccountHolder = 'Vui lòng nhập tên chủ tài khoản (in hoa không dấu)';
+    } else if (cleanHolder.length > 100) {
+      newErrors.bankAccountHolder = 'Tên chủ tài khoản tối đa 100 ký tự';
     }
     if (!operatingLicenseFile && !hasExistingOperatingDoc) {
       newErrors.operatingLicenseFile =
@@ -183,17 +225,27 @@ export function FacilityLegalView() {
     setErrors({});
     setIsSubmitting(true);
 
+    const resolvedBank = resolveBankByInput(banks, {
+      bankBin,
+      bankCode,
+      bankName: cleanBankName,
+    });
+    const resolvedBin = bankBin.trim() || resolvedBank?.bin || '';
+    const resolvedCode = bankCode.trim() || resolvedBank?.code || '';
+
     const submittedData = {
-      facilityName: facilityName.trim(),
-      licenseNumber: licenseNumber.trim(),
+      facilityName: cleanFacilityName,
+      licenseNumber: cleanLicenseNumber,
       taxCode: cleanTax,
-      hotline: hotline.trim(),
-      bankName: bankName.trim(),
-      bankAccountNumber: bankAccountNumber.trim(),
-      bankAccountHolder: bankAccountHolder.trim().toUpperCase(),
-      address: address.trim(),
-      licenseIssuer: licenseIssuer.trim(),
-      licenseDate: licenseDate.trim(),
+      hotline: cleanHotline,
+      bankName: cleanBankName,
+      ...(resolvedBin ? { bankBin: resolvedBin } : {}),
+      ...(resolvedCode ? { bankCode: resolvedCode } : {}),
+      bankAccountNumber: cleanBankAccount,
+      bankAccountHolder: cleanHolder,
+      address: cleanAddress,
+      licenseIssuer: cleanLicenseIssuer,
+      licenseDate: cleanLicenseDate,
       operatingLicenseFile,
       businessLicenseFile,
     };
@@ -201,32 +253,49 @@ export function FacilityLegalView() {
     try {
       const updatedRes = await facilitiesApi.updateLegalProfile(submittedData);
       const existing = facility;
-      const updatedFacility: AdminFacilityItem = {
-        id: existing?.id || updatedRes?.id || 'fac-me',
-        facilityName: submittedData.facilityName || existing?.facilityName || 'Cơ sở Y tế Đối tác',
-        representativeName: existing?.representativeName || 'Đại diện cơ sở y tế',
-        email: existing?.email || '',
-        createdAt: existing?.createdAt || new Date().toISOString(),
-        phone: submittedData.hotline,
-        address: submittedData.address,
-        onboardingStatus: 'LEGAL_SUBMITTED',
-        status: 'PENDING',
-        legalRejectionReason: null,
-        hasLegalDocument: true,
-        hasOperatingLicense: true,
-        hasBusinessLicense: true,
-        taxCode: submittedData.taxCode,
-        operatingLicense: submittedData.licenseNumber,
-        licenseIssuer: submittedData.licenseIssuer,
-        licenseDate: submittedData.licenseDate,
-        bankName: submittedData.bankName,
-        bankAccount: submittedData.bankAccountNumber,
-        bankAccountHolder: submittedData.bankAccountHolder,
-      };
+      const hasNormalizedFacility =
+        Boolean(updatedRes) &&
+        typeof updatedRes === 'object' &&
+        'onboardingStatus' in updatedRes &&
+        Boolean(updatedRes.id);
+
+      const updatedFacility: AdminFacilityItem = hasNormalizedFacility
+        ? {
+            ...existing,
+            ...updatedRes,
+          }
+        : {
+            id: existing?.id || updatedRes?.id || 'fac-me',
+            facilityName: submittedData.facilityName || existing?.facilityName || 'Cơ sở Y tế Đối tác',
+            representativeName: existing?.representativeName || 'Đại diện cơ sở y tế',
+            email: existing?.email || '',
+            createdAt: existing?.createdAt || new Date().toISOString(),
+            phone: submittedData.hotline,
+            address: submittedData.address,
+            onboardingStatus: 'LEGAL_SUBMITTED',
+            status: 'PENDING',
+            legalRejectionReason: null,
+            hasLegalDocument: true,
+            hasOperatingLicense: true,
+            hasBusinessLicense: true,
+            taxCode: submittedData.taxCode,
+            operatingLicense: submittedData.licenseNumber,
+            licenseIssuer: submittedData.licenseIssuer,
+            licenseDate: submittedData.licenseDate,
+            bankName: submittedData.bankName,
+            bankBin: submittedData.bankBin,
+            bankCode: submittedData.bankCode,
+            bankAccount: submittedData.bankAccountNumber,
+            bankAccountHolder: submittedData.bankAccountHolder,
+          };
 
       setFacility(updatedFacility);
-      setHasExistingOperatingDoc(true);
-      setHasExistingBusinessDoc(true);
+      setBankAccountNumber(cleanBankAccount);
+      setBankAccountHolder(cleanHolder);
+      setHasExistingOperatingDoc(Boolean(updatedFacility.hasOperatingLicense ?? true));
+      setHasExistingBusinessDoc(Boolean(updatedFacility.hasBusinessLicense ?? true));
+      setOperatingLicenseFile(null);
+      setBusinessLicenseFile(null);
       toast.success(
         'Nộp hồ sơ pháp lý chuyên sâu thành công! Hồ sơ đã được chuyển tới Quản Trị Viên để thẩm định.'
       );
@@ -241,6 +310,54 @@ export function FacilityLegalView() {
   const isVerifiedActive = facility?.onboardingStatus === 'ACTIVE' || facility?.status === 'ACTIVE';
   const isWaitingReview = facility?.onboardingStatus === 'LEGAL_SUBMITTED';
   const isRejected = facility?.onboardingStatus === 'REJECTED';
+
+  const selectedBank = useMemo(
+    () =>
+      resolveBankByInput(banks, {
+        bankBin,
+        bankCode,
+        bankName,
+      }) ?? null,
+    [banks, bankBin, bankCode, bankName],
+  );
+
+  const previewBankId = useMemo(
+    () =>
+      resolveVietQrBankId(banks, {
+        bankBin: selectedBank?.bin || bankBin,
+        bankCode: selectedBank?.code || bankCode,
+        bankName,
+      }),
+    [banks, selectedBank, bankBin, bankCode, bankName],
+  );
+
+  const [debouncedQrInput, setDebouncedQrInput] = useState({
+    bankId: previewBankId,
+    accountNumber: bankAccountNumber,
+    accountHolder: bankAccountHolder,
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQrInput({
+        bankId: previewBankId,
+        accountNumber: bankAccountNumber,
+        accountHolder: bankAccountHolder,
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [previewBankId, bankAccountNumber, bankAccountHolder]);
+
+  const previewQrUrl = useMemo(
+    () =>
+      buildVietQrQuickLinkUrl({
+        bankId: debouncedQrInput.bankId,
+        accountNumber: debouncedQrInput.accountNumber,
+        accountName: debouncedQrInput.accountHolder,
+        template: 'compact2',
+      }),
+    [debouncedQrInput],
+  );
 
   if (loading) {
     return (
@@ -422,6 +539,7 @@ export function FacilityLegalView() {
                 </label>
                 <input
                   type="date"
+                  max={getTodayInVietnamYmd()}
                   disabled={isVerifiedActive}
                   value={licenseDate}
                   onChange={(e) => setLicenseDate(e.target.value)}
@@ -500,17 +618,26 @@ export function FacilityLegalView() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Tên Ngân Hàng <span className="text-rose-500">*</span>
+                  Ngân Hàng (Chuẩn VietQR) <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <BankSelectorCombobox
+                  banks={banks}
+                  selectedBank={selectedBank}
+                  fallbackBankName={bankName}
+                  loading={isLoadingBanks}
                   disabled={isVerifiedActive}
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                    errors.bankName ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
-                  placeholder="Ví dụ: Vietcombank, BIDV, Techcombank..."
+                  hasError={Boolean(errors.bankName)}
+                  onSelect={(bank) => {
+                    setBankName(formatFacilityBankName(bank));
+                    setBankBin(bank.bin);
+                    setBankCode(bank.code);
+                    setErrors((prev) => {
+                      if (!prev.bankName) return prev;
+                      const next = { ...prev };
+                      delete next.bankName;
+                      return next;
+                    });
+                  }}
                 />
                 {errors.bankName && <p className="text-xs text-rose-600 font-medium">{errors.bankName}</p>}
               </div>
@@ -523,7 +650,9 @@ export function FacilityLegalView() {
                   type="text"
                   disabled={isVerifiedActive}
                   value={bankAccountNumber}
-                  onChange={(e) => setBankAccountNumber(e.target.value)}
+                  onChange={(e) =>
+                    setBankAccountNumber(e.target.value.replace(/\s+/g, '').slice(0, 19))
+                  }
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 tracking-wide focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
                     errors.bankAccountNumber ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                   }`}
@@ -541,14 +670,40 @@ export function FacilityLegalView() {
                   disabled={isVerifiedActive}
                   value={bankAccountHolder}
                   onChange={(e) => setBankAccountHolder(e.target.value.toUpperCase())}
+                  onBlur={() => setBankAccountHolder((prev) => normalizeVietQrAccountHolder(prev))}
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 uppercase focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
                     errors.bankAccountHolder ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
                   }`}
                   placeholder="Ví dụ: CTCP BENH VIEN QUOC TE FAMICARE"
                 />
+                {hasNonAsciiCharacters(bankAccountHolder) && (
+                  <p className="text-[11px] text-amber-700">
+                    Tên chủ tài khoản nên viết IN HOA KHÔNG DẤU để đồng bộ với VietQR (sẽ tự chuẩn hóa khi nộp).
+                  </p>
+                )}
                 {errors.bankAccountHolder && <p className="text-xs text-rose-600 font-medium">{errors.bankAccountHolder}</p>}
               </div>
             </div>
+
+            {selectedBank && (selectedBank.transferSupported === 0 || selectedBank.lookupSupported === 0) && (
+              <div
+                role="alert"
+                className="rounded-xl border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-900"
+              >
+                Cảnh báo VietQR: Ngân hàng <strong>{selectedBank.shortName}</strong> hiện hạn chế tính năng chuyển khoản nhanh hoặc tra cứu qua VietQR. Vui lòng kiểm tra kỹ số tài khoản thụ hưởng trước khi nộp.
+              </div>
+            )}
+
+            <VietQrPreviewCard
+              qrUrl={previewQrUrl}
+              title="Xem trước mã VietQR động (Quick Link SVG)"
+              subtitle="Mã QR được tạo tự động theo chuẩn NAPAS / VietQR. Bạn có thể dùng app ngân hàng quét thử để kiểm tra chính xác người nhận trước khi nộp hồ sơ."
+              bankLabel={selectedBank ? `${selectedBank.shortName} (${selectedBank.name})` : bankName}
+              bankBin={selectedBank?.bin || bankBin || null}
+              bankCode={selectedBank?.code || bankCode || null}
+              accountNumber={bankAccountNumber}
+              accountHolder={bankAccountHolder}
+            />
           </div>
 
           {/* Nhóm 3: Tài liệu đính kèm (2 tệp riêng: GPHĐ KBCB & ĐKKD) */}

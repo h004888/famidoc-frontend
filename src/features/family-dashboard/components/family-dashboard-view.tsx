@@ -1,33 +1,30 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { toast } from 'sonner';
 import { useContractWorkflow } from '@/lib/contract-workflow-storage';
-import { contractsApi, patientsApi, type MedicalContractListItem, type PatientDto } from '@/lib/api';
+import {
+  contractsApi,
+  patientsApi,
+  type FourPartyContract,
+  type MedicalContractListItem,
+  type PatientDto,
+  type VitalSignDto,
+} from '@/lib/api';
 import { getStoredAuthSession } from '@/lib/auth-storage';
 import {
   INITIAL_FAMILY_MEMBERS_DATA,
   MemberHealthData,
 } from './family-member-care-view';
+import {
+  getAbnormalMetricSummaries,
+  isSameLocalCalendarDay,
+} from '../utils/vital-metrics.util';
 import { KpiStatCard } from '@/components/dashboard';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-
-interface FamilyMedicationItem {
-  id: string;
-  memberId: string;
-  memberName: string;
-  relation: string;
-  medName: string;
-  dosage: string;
-  time: string;
-  timeGroup: 'morning' | 'noon' | 'evening';
-  status: 'taken' | 'pending';
-}
+import { Card } from '@/components/ui/card';
 
 function calculateAge(dob?: string): number {
   if (!dob) return 45;
@@ -73,9 +70,37 @@ function formatAllergies(allergies?: any[]): string {
     .join(', ');
 }
 
+function formatVitalUpdatedLabel(rawIso: string): string {
+  const parsed = new Date(rawIso);
+  if (Number.isNaN(parsed.getTime())) return 'Đã ghi nhận';
+  const timeStr = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(parsed);
+  if (isSameLocalCalendarDay(rawIso)) {
+    return `${timeStr} Hôm nay`;
+  }
+  const dateStr = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    day: '2-digit',
+    month: '2-digit',
+  }).format(parsed);
+  return `${timeStr} (${dateStr})`;
+}
+
+function getLatestMemberVital(list: VitalSignDto[] | undefined): VitalSignDto | null {
+  if (!list || list.length === 0) return null;
+  return [...list].sort(
+    (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()
+  )[0];
+}
+
 function convertPatientsToMembersData(
   patients: PatientDto[],
-  contract: MedicalContractListItem | null
+  contract: MedicalContractListItem | null,
+  vitalsByPatientId: Record<string, VitalSignDto[]> = {}
 ): Record<string, MemberHealthData> {
   if (!patients || patients.length === 0) return INITIAL_FAMILY_MEMBERS_DATA;
 
@@ -90,46 +115,16 @@ function convertPatientsToMembersData(
       : 'Thành viên';
     const avatar = getAvatar(p.relationshipToHead, p.gender, age);
     const allergiesStr = formatAllergies(p.allergies);
-    const isElderly = age >= 60;
-    const isChild = age < 18;
     const memberId = p.id || `mem-${idx + 1}`;
-
-    const medicines = isElderly
-      ? [
-          {
-            id: `med-${memberId}-1`,
-            name: 'Amlodipine 5mg (Hạ huyết áp)',
-            dosage: '1 viên nén • Uống sau ăn sáng',
-            time: '08:00 Sáng mỗi ngày',
-            status: 'taken' as const,
-          },
-          {
-            id: `med-${memberId}-2`,
-            name: 'Metformin 500mg (Đường huyết)',
-            dosage: '1 viên • Uống sau ăn tối',
-            time: '19:30 Tối mỗi ngày',
-            status: 'pending' as const,
-          },
-        ]
-      : isChild
-      ? [
-          {
-            id: `med-${memberId}-1`,
-            name: 'Vitamin D3 + K2 & Canxi sinh học',
-            dosage: '1 ống uống sau ăn sáng',
-            time: '08:00 Sáng mỗi ngày',
-            status: 'taken' as const,
-          },
-        ]
-      : [
-          {
-            id: `med-${memberId}-1`,
-            name: 'Omega-3 & Multivitamin',
-            dosage: '1 viên sau ăn trưa',
-            time: '12:30 Trưa mỗi ngày',
-            status: 'taken' as const,
-          },
-        ];
+    const latestVital = getLatestMemberVital(vitalsByPatientId[memberId]);
+    const isAbnormalToday = Boolean(
+      latestVital && isSameLocalCalendarDay(latestVital.recordedAt) && latestVital.isAbnormalAlert
+    );
+    const abnormalSummaries = isAbnormalToday ? getAbnormalMetricSummaries(latestVital) : [];
+    const bpDisplay =
+      latestVital && (latestVital.systolicBp != null || latestVital.diastolicBp != null)
+        ? `${latestVital.systolicBp ?? '--'}/${latestVital.diastolicBp ?? '--'}`
+        : '--';
 
     const upcomingVisit = contract?.doctorName
       ? {
@@ -149,29 +144,70 @@ function convertPatientsToMembersData(
       relation: relation,
       age: age,
       avatar: avatar,
-      bhyt: p.healthInsuranceNumber || 'Chưa cập nhật BHYT',
-      bloodType: 'O+',
+      bhyt: 'Đã kích hoạt gói FamiDoc',
+      bloodType: p.bloodType || '--',
       allergies: allergiesStr,
-      chronicCondition: isElderly
-        ? 'Tăng huyết áp • Đái tháo đường Typ 2'
-        : isChild
-        ? 'Thể trạng phát triển bình thường'
-        : 'Sức khỏe tổng quát tốt',
-      status: isElderly ? 'warning' : 'good',
-      statusText: isElderly ? 'Huyết áp cần chú ý nhẹ' : 'Chỉ số sức khỏe ổn định',
-      bp: isElderly ? '135/85' : isChild ? '105/70' : '118/78',
-      bpStatus: isElderly ? 'Hơi cao • Cần uống thuốc đều' : 'Bình thường',
-      spo2: isElderly ? '98%' : '99%',
-      heartRate: isElderly ? '76 lần/phút' : isChild ? '88 lần/phút' : '72 lần/phút',
-      glucose: isElderly ? '6.8 mmol/L' : '5.4 mmol/L',
-      glucoseStatus: isElderly ? 'Ổn định sau ăn' : 'Bình thường',
-      lastUpdated: '07:30 Sáng hôm nay',
-      medicines: medicines,
+      chronicCondition: p.chronicDiseases?.trim() || 'Chưa ghi nhận bệnh lý mạn tính',
+      status: isAbnormalToday ? 'warning' : 'good',
+      statusText: isAbnormalToday
+        ? abnormalSummaries.join(' • ') || 'Chỉ số vượt ngưỡng an toàn'
+        : latestVital
+          ? 'Chỉ số sức khỏe ổn định'
+          : 'Chưa ghi nhận chỉ số đo',
+      bp: bpDisplay,
+      bpStatus: isAbnormalToday ? 'Cần theo dõi' : latestVital ? 'Bình thường' : 'Chưa đo',
+      spo2: latestVital?.spo2 != null ? `${latestVital.spo2}%` : '--',
+      heartRate: latestVital?.heartRate != null ? `${latestVital.heartRate} lần/phút` : '--',
+      glucose: latestVital?.bloodGlucose != null ? `${latestVital.bloodGlucose} mmol/L` : '--',
+      glucoseStatus: latestVital?.bloodGlucose != null ? 'Đã ghi nhận' : 'Chưa đo',
+      lastUpdated: latestVital
+        ? formatVitalUpdatedLabel(latestVital.recordedAt)
+        : 'Chưa có dữ liệu đo',
       upcomingVisit: upcomingVisit,
     };
   });
 
   return result;
+}
+
+function normalizeToContractListItem(
+  raw: FourPartyContract | MedicalContractListItem
+): MedicalContractListItem {
+  const item = raw as MedicalContractListItem & Partial<FourPartyContract>;
+  const amount = Number(item.totalAmountVnd ?? item.packagePrice ?? 0);
+  const sigCount =
+    typeof item.signaturesCount === 'number'
+      ? item.signaturesCount
+      : item.signatures
+        ? Object.keys(item.signatures).length
+        : 0;
+
+  return {
+    id: item.id,
+    contractNumber: item.contractNumber,
+    contractStatus: item.contractStatus ?? item.status ?? 'DRAFT',
+    packageId: item.packageId || 'pkg-default',
+    packageName: item.packageName || 'Gói Chăm Sóc Sức Khỏe Gia Đình',
+    facilityId: item.facilityId || '',
+    facilityName: item.facilityName || '',
+    doctorId: item.doctorId ?? item.assignedDoctorId,
+    doctorName: item.doctorName ?? item.assignedDoctorName,
+    familyId: item.familyId || '',
+    familyHeadName: item.familyHeadName ?? item.familyRepresentativeName,
+    memberCount: item.memberCount ?? item.membersCount ?? 1,
+    totalAmountVnd: Number.isFinite(amount) ? amount : 0,
+    signaturesCount: sigCount,
+    createdAt: item.createdAt,
+    startDate: item.startDate,
+    endDate: item.endDate,
+    doctorTitle: item.doctorTitle,
+    doctorSpecialty: item.doctorSpecialty,
+    doctorPhone: item.doctorPhone,
+    remainingHomeVisits: item.remainingHomeVisits,
+    totalHomeVisits: item.totalHomeVisits,
+    remainingTelehealth: item.remainingTelehealth,
+    totalTelehealth: item.totalTelehealth,
+  };
 }
 
 export function FamilyDashboardView() {
@@ -190,42 +226,82 @@ export function FamilyDashboardView() {
   const [contracts, setContracts] = useState<MedicalContractListItem[]>([]);
   const [activeContract, setActiveContract] = useState<MedicalContractListItem | null>(null);
   const [realPatients, setRealPatients] = useState<PatientDto[]>([]);
+  const vitalsByMemberRef = useRef<Record<string, VitalSignDto[]>>({});
   const [membersData, setMembersData] = useState<Record<string, MemberHealthData>>(INITIAL_FAMILY_MEMBERS_DATA);
 
   useEffect(() => {
     let isMounted = true;
     setSession(getStoredAuthSession());
-    contractsApi
-      .getMedicalContracts()
-      .then((res) => {
-        if (!isMounted) return;
-        const list: MedicalContractListItem[] = Array.isArray(res)
-          ? res
-          : (res as any)?.data && Array.isArray((res as any).data)
-          ? (res as any).data
-          : (res as any)?.data?.items && Array.isArray((res as any).data.items)
-          ? (res as any).data.items
+    Promise.allSettled([
+      contractsApi.getMedicalContracts(),
+      contractsApi.getFamilyGateStatus(),
+    ]).then(([contractsRes, gateRes]) => {
+      if (!isMounted) return;
+
+      const rawList =
+        contractsRes.status === 'fulfilled'
+          ? Array.isArray(contractsRes.value)
+            ? contractsRes.value
+            : (contractsRes.value as any)?.data && Array.isArray((contractsRes.value as any).data)
+              ? (contractsRes.value as any).data
+              : (contractsRes.value as any)?.data?.items &&
+                  Array.isArray((contractsRes.value as any).data.items)
+                ? (contractsRes.value as any).data.items
+                : []
           : [];
-        setContracts(list);
-        if (list.length > 0) {
-          const found = list.find((c: MedicalContractListItem) => c.contractStatus === 'ACTIVE') || list[0];
-          setActiveContract(found);
-          // Đồng bộ nếu đã có realPatients
-          setRealPatients((currentPatients) => {
-            if (currentPatients.length > 0) {
-              setMembersData(convertPatientsToMembersData(currentPatients, found));
-            }
-            return currentPatients;
-          });
-        }
-      })
-      .catch((err) => {
-        console.warn('Contracts API fetch fallback:', err);
-      });
+
+      const list: MedicalContractListItem[] = rawList.map(normalizeToContractListItem);
+      const gateActive =
+        gateRes.status === 'fulfilled' ? gateRes.value.activeContract : null;
+
+      setContracts(list);
+
+      let found =
+        list.find((c) => c.contractStatus === 'ACTIVE') || list[0] || null;
+      if (gateActive) {
+        found = {
+          ...(found ?? {
+            id: gateActive.id,
+            contractNumber: gateActive.contractNumber,
+            contractStatus: 'ACTIVE',
+            packageId: 'pkg-active',
+            packageName: gateActive.packageName || 'Gói Chăm Sóc Sức Khỏe Gia Đình',
+            facilityId: '',
+            facilityName: gateActive.doctor?.hospitalName || '',
+            familyId: '',
+            memberCount: gateActive.memberCount,
+            totalAmountVnd: 0,
+            signaturesCount: 4,
+            createdAt: new Date().toISOString(),
+          }),
+          contractStatus: 'ACTIVE',
+          memberCount: gateActive.memberCount ?? found?.memberCount ?? 1,
+          endDate: gateActive.endDate ?? found?.endDate,
+          packageName: gateActive.packageName ?? found?.packageName ?? 'Gói Chăm Sóc Sức Khỏe Gia Đình',
+          doctorId: gateActive.doctor?.id ?? found?.doctorId,
+          doctorName: gateActive.doctor?.fullName ?? found?.doctorName,
+          doctorTitle: gateActive.doctor?.title ?? found?.doctorTitle,
+          doctorPhone: gateActive.doctor?.phone ?? found?.doctorPhone,
+          facilityName: gateActive.doctor?.hospitalName ?? found?.facilityName ?? '',
+        };
+      }
+
+      if (found) {
+        setActiveContract(found);
+        setRealPatients((currentPatients) => {
+          if (currentPatients.length > 0) {
+            setMembersData(
+              convertPatientsToMembersData(currentPatients, found, vitalsByMemberRef.current)
+            );
+          }
+          return currentPatients;
+        });
+      }
+    });
 
     patientsApi
       .getFamilyMembers()
-      .then((res) => {
+      .then(async (res) => {
         if (!isMounted) return;
         const list = Array.isArray(res)
           ? res
@@ -233,9 +309,29 @@ export function FamilyDashboardView() {
           ? (res as any).data
           : [];
         if (list.length > 0) {
-          setRealPatients(list);
+          const activeList = list.filter((p: PatientDto) => !p.status || p.status === 'ACTIVE');
+          const effectiveList = activeList.length > 0 ? activeList : list;
+
+          const vitalResults = await Promise.allSettled(
+            effectiveList.map((p: PatientDto) => patientsApi.getMemberVitalSigns(p.id, 30))
+          );
+          if (!isMounted) return;
+
+          const nextVitalsMap: Record<string, VitalSignDto[]> = {};
+          effectiveList.forEach((p: PatientDto, idx: number) => {
+            const vRes = vitalResults[idx];
+            nextVitalsMap[p.id] =
+              vRes && vRes.status === 'fulfilled' && Array.isArray(vRes.value)
+                ? vRes.value
+                : [];
+          });
+
+          vitalsByMemberRef.current = nextVitalsMap;
+          setRealPatients(effectiveList);
           setActiveContract((currentContract) => {
-            setMembersData(convertPatientsToMembersData(list, currentContract));
+            setMembersData(
+              convertPatientsToMembersData(effectiveList, currentContract, nextVitalsMap)
+            );
             return currentContract;
           });
         }
@@ -263,48 +359,6 @@ export function FamilyDashboardView() {
   const daysUntilExpiry = activeContract?.endDate
     ? Math.ceil((new Date(activeContract.endDate).getTime() - currentTimestamp) / (1000 * 60 * 60 * 24))
     : null;
-
-  // Tổng hợp danh sách thuốc hôm nay của cả gia đình
-  const familyMedicines: FamilyMedicationItem[] = membersList.flatMap((m) =>
-    m.medicines.map((med) => {
-      const isEvening =
-        med.time.toLowerCase().includes('tối') ||
-        med.time.includes('19:00') ||
-        med.time.includes('20:00');
-      const isNoon = med.time.toLowerCase().includes('trưa') || med.time.includes('12:00');
-      return {
-        id: `${m.id}-${med.id}`,
-        memberId: m.id,
-        memberName: m.name,
-        relation: m.relation,
-        medName: med.name,
-        dosage: med.dosage,
-        time: med.time,
-        timeGroup: isEvening ? 'evening' : isNoon ? 'noon' : 'morning',
-        status: med.status,
-      };
-    })
-  );
-
-  const totalMedicines = familyMedicines.length;
-  const takenMedicines = familyMedicines.filter((item) => item.status === 'taken').length;
-  const medPercent = totalMedicines > 0 ? Math.round((takenMedicines / totalMedicines) * 100) : 0;
-
-  const handleToggleMedStatus = (memberId: string, medOriginalId: string) => {
-    setMembersData((prev) => {
-      const updated = { ...prev };
-      const member = { ...updated[memberId] };
-      member.medicines = member.medicines.map((m) =>
-        m.id === medOriginalId
-          ? { ...m, status: m.status === 'taken' ? 'pending' : 'taken' }
-          : m
-      );
-      updated[memberId] = member;
-      return updated;
-    });
-
-    toast.success('Đã cập nhật trạng thái uống thuốc hôm nay của gia đình!');
-  };
 
   return (
     <div className="min-h-full bg-[#f5f6f8] font-sans text-slate-900 antialiased">
@@ -343,7 +397,7 @@ export function FamilyDashboardView() {
               </h1>
 
               <p className="max-w-3xl text-sm leading-relaxed text-slate-600">
-                Trung tâm điều hành sức khỏe hằng ngày · Theo dõi chỉ số sức khỏe, nhắc lịch uống thuốc và lịch khám bác sĩ tại nhà
+                Trung tâm điều hành sức khỏe hằng ngày · Theo dõi chỉ số sức khỏe, đơn thuốc và lịch khám bác sĩ tại nhà
               </p>
             </div>
 
@@ -397,7 +451,7 @@ export function FamilyDashboardView() {
                 Thanh Toán VietQR Để Kích Hoạt Quyền Lợi Chăm Sóc Sức Khỏe
               </h2>
               <p className="text-xs sm:text-sm text-emerald-100 leading-relaxed">
-                Hợp đồng y tế 4 bên đã được xác nhận. Vui lòng hoàn tất thanh toán {activeContract.totalAmountVnd.toLocaleString('vi-VN')} đ để bắt đầu lịch khám và kết nối với bác sĩ gia đình.
+                Hợp đồng y tế 4 bên đã được xác nhận. Vui lòng hoàn tất thanh toán {(activeContract.totalAmountVnd ?? 0).toLocaleString('vi-VN')} đ để bắt đầu lịch khám và kết nối với bác sĩ gia đình.
               </p>
             </div>
 
@@ -611,35 +665,64 @@ export function FamilyDashboardView() {
         </section>
 
         {/* 2. CẢNH BÁO SỨC KHỎE NHẸ NHÀNG (KHI CÓ CHỈ SỐ CẦN CHÚ Ý) */}
-        <Alert
-          role="alert"
-          className="flex flex-col justify-between gap-4 rounded-2xl border-amber-200/80 bg-amber-50/70 p-4 transition-all sm:flex-row sm:items-center sm:p-5"
-        >
-          <div className="flex min-w-0 items-start gap-3.5 sm:items-center">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 shadow-xs">
-              <span className="material-symbols-outlined text-[20px]">warning</span>
-            </div>
-            <div className="min-w-0">
-              <AlertTitle className="text-sm font-semibold text-amber-900">
-                Lưu ý sức khỏe hôm nay: Bác Nguyễn Văn Phúc (Huyết áp 135/85 mmHg)
-              </AlertTitle>
-              <AlertDescription className="mt-0.5 text-xs leading-relaxed text-slate-700 sm:text-sm">
-                Chỉ số cần theo dõi. Vui lòng kiểm tra lại vào buổi chiều và nhắc thành viên dùng thuốc đúng giờ theo chỉ định của bác sĩ phụ trách.
-              </AlertDescription>
-            </div>
-          </div>
-
-          <Button
-            asChild
-            variant="outline"
-            size="sm"
-            className="min-h-9 self-start rounded-xl border-amber-300 bg-white text-xs font-semibold text-slate-900 shadow-xs hover:bg-amber-100/50 sm:self-auto sm:text-sm"
+        {warningMember ? (
+          <Alert
+            role="alert"
+            className="flex flex-col justify-between gap-4 rounded-2xl border-amber-200/80 bg-amber-50/70 p-4 transition-all sm:flex-row sm:items-center sm:p-5"
           >
-            <Link href={`/family/members/${warningMember?.id || 'm-01'}`}>
-              Xem chi tiết {warningMember?.name ? warningMember.name.split(' ').slice(-1)[0] : 'Phúc'}
-            </Link>
-          </Button>
-        </Alert>
+            <div className="flex min-w-0 items-start gap-3.5 sm:items-center">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 shadow-xs">
+                <span className="material-symbols-outlined text-[20px]">warning</span>
+              </div>
+              <div className="min-w-0">
+                <AlertTitle className="text-sm font-semibold text-amber-900">
+                  {realPatients.length > 0
+                    ? `Lưu ý sức khỏe hôm nay: ${warningMember.name} (${warningMember.statusText})`
+                    : 'Lưu ý sức khỏe hôm nay: Bác Nguyễn Văn Phúc (Huyết áp 135/85 mmHg)'}
+                </AlertTitle>
+                <AlertDescription className="mt-0.5 text-xs leading-relaxed text-slate-700 sm:text-sm">
+                  Chỉ số cần theo dõi. Vui lòng kiểm tra lại vào buổi chiều và nhắc thành viên dùng thuốc đúng giờ theo chỉ định của bác sĩ phụ trách.
+                </AlertDescription>
+              </div>
+            </div>
+
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="min-h-9 self-start rounded-xl border-amber-300 bg-white text-xs font-semibold text-slate-900 shadow-xs hover:bg-amber-100/50 sm:self-auto sm:text-sm"
+            >
+              <Link href={`/family/members/${warningMember.id}`}>
+                Xem chi tiết {warningMember.name.split(' ').slice(-1)[0]}
+              </Link>
+            </Button>
+          </Alert>
+        ) : (
+          <Alert className="flex flex-col justify-between gap-4 rounded-2xl border-emerald-200/80 bg-emerald-50/60 p-4 transition-all sm:flex-row sm:items-center sm:p-5">
+            <div className="flex min-w-0 items-start gap-3.5 sm:items-center">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700 shadow-xs">
+                <span className="material-symbols-outlined text-[20px]">verified</span>
+              </div>
+              <div className="min-w-0">
+                <AlertTitle className="text-sm font-semibold text-emerald-900">
+                  Sức khỏe gia đình hôm nay: Chưa ghi nhận cảnh báo chỉ số bất thường
+                </AlertTitle>
+                <AlertDescription className="mt-0.5 text-xs leading-relaxed text-slate-700 sm:text-sm">
+                  Cập nhật chỉ số đo hằng ngày giúp bạn và bác sĩ gia đình phát hiện sớm các thay đổi bất thường.
+                </AlertDescription>
+              </div>
+            </div>
+
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="min-h-9 self-start rounded-xl border-emerald-300 bg-white text-xs font-semibold text-slate-900 shadow-xs hover:bg-emerald-100/50 sm:self-auto sm:text-sm"
+            >
+              <Link href="/family/vitals">Theo dõi &amp; nhập chỉ số</Link>
+            </Button>
+          </Alert>
+        )}
 
         {/* 3. DẢI 3 CHỈ SỐ NHỊP NGÀY (KPI) */}
         <section aria-label="Tổng quan chỉ số hộ gia đình" className="grid grid-cols-1 gap-5 sm:gap-6 md:grid-cols-3">
@@ -649,43 +732,32 @@ export function FamilyDashboardView() {
             icon="group"
             iconClassName="bg-primary/10 text-primary"
             footer={
-              <div className="flex items-center gap-1.5 text-xs font-medium text-amber-800">
-                <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                <span>{warningMembersCount} người cần chú ý huyết áp</span>
+              <div
+                className={`flex items-center gap-1.5 text-xs font-medium ${
+                  warningMembersCount > 0 ? 'text-amber-800' : 'text-emerald-800'
+                }`}
+              >
+                <span
+                  className={`h-2 w-2 shrink-0 rounded-full ${
+                    warningMembersCount > 0 ? 'bg-amber-500' : 'bg-emerald-500'
+                  }`}
+                />
+                <span>
+                  {warningMembersCount > 0
+                    ? `${warningMembersCount} thành viên cần chú ý chỉ số`
+                    : 'Các thành viên hiện ổn định'}
+                </span>
               </div>
             }
           />
 
-          {/* KPI 2 */}
-          <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                Uống thuốc hôm nay
-              </span>
-              <span className="material-symbols-outlined text-slate-400 text-[20px]">medication</span>
+          <Link href="/family/prescriptions" className="space-y-3 rounded-2xl border border-slate-200/70 bg-white p-5 shadow-xs transition-colors hover:border-teal-400 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-semibold text-slate-800">Đơn thuốc</span>
+              <span className="material-symbols-outlined text-[20px] text-teal-700" aria-hidden="true">medication</span>
             </div>
-            <div className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
-              Đã uống {takenMedicines}/{totalMedicines} lần
-            </div>
-            <div className="space-y-1.5 pt-1">
-              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-300"
-                  style={{ width: `${medPercent}%` }}
-                />
-                <div className="flex items-center justify-between text-xs font-medium text-emerald-800">
-                  <span>Đạt {medPercent}%</span>
-                  <span className="font-normal text-slate-500">
-                    Còn {totalMedicines - takenMedicines} cữ tối
-                  </span>
-                </div>
-              </div>
-              <div className="text-xs font-medium text-emerald-800 flex items-center justify-between">
-                <span>Đạt {medPercent}%</span>
-                <span className="text-slate-500 font-normal">Còn {totalMedicines - takenMedicines} lần chưa uống</span>
-              </div>
-            </div>
-          </div>
+            <p className="text-sm text-slate-600">Xem các đơn và lời dặn bác sĩ đã chia sẻ.</p>
+          </Link>
 
           {/* KPI 3 */}
           <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-3">
@@ -717,25 +789,31 @@ export function FamilyDashboardView() {
                 Chỉ Số Sức Khỏe Hôm Nay Của Các Thành Viên ({totalMembers})
               </h2>
               <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                Cập nhật tự động từ thiết bị đo IoT gia đình và sổ theo dõi hàng ngày
+                Theo dõi từ nhật ký đo chỉ số hằng ngày của từng thành viên trong hộ gia đình
               </p>
             </div>
 
-            <Link
-              href="/family/members"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline sm:text-sm"
-            >
-              <span>Mở sổ Quản lý thành viên &amp; BHYT</span>
-              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
-            </Link>
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href="/family/vitals"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline sm:text-sm"
+              >
+                <span>Nhập &amp; xem xu hướng chỉ số</span>
+                <span className="material-symbols-outlined text-[16px]">monitoring</span>
+              </Link>
+              <Link
+                href="/family/members"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-primary hover:underline sm:text-sm"
+              >
+                <span>Quản lý thành viên</span>
+                <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+              </Link>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             {membersList.map((m) => {
               const isWarning = m.status === 'warning';
-              const memberMeds = membersData[m.id]?.medicines || [];
-              const medTaken = memberMeds.filter((x) => x.status === 'taken').length;
-              const medTotal = memberMeds.length;
 
               return (
                 <Link key={m.id} href={`/family/members/${m.id}`} className="group block outline-hidden">
@@ -816,7 +894,7 @@ export function FamilyDashboardView() {
 
                     <div className="flex items-center justify-between gap-2 border-t border-slate-100 pt-3 text-xs text-slate-500">
                       <span className="truncate">
-                        Thuốc {medTaken}/{medTotal} liều thuốc · {m.lastUpdated}
+                        {m.lastUpdated}
                       </span>
                       <span className="inline-flex shrink-0 items-center gap-0.5 font-semibold text-primary transition-transform group-hover:translate-x-0.5">
                         <span>Chi tiết</span>
@@ -830,78 +908,7 @@ export function FamilyDashboardView() {
           </div>
         </section>
 
-        {/* 5. LƯỚI BẤT ĐỐI XỨNG: LỊCH UỐNG THUỐC (2/3) + BÁC SĨ QUẢN NHIỆM (1/3) */}
-        <div className="grid grid-cols-1 items-start gap-6 sm:gap-8 lg:grid-cols-3">
-          <Card className="gap-5 rounded-2xl border-slate-200/70 bg-white p-5 shadow-xs sm:p-6 lg:col-span-2">
-            <CardHeader className="flex flex-col justify-between gap-3 border-b border-slate-100 p-0 pb-3 sm:flex-row sm:items-center">
-              <div>
-                <CardTitle className="text-base font-bold text-slate-900 sm:text-lg">
-                  Lịch Uống Thuốc Hôm Nay Của Cả Gia Đình
-                </CardTitle>
-                <CardDescription className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                  Nhắc nhở và kiểm tra nhanh việc dùng thuốc của từng thành viên trong ngày
-                </CardDescription>
-              </div>
-
-              <Badge
-                variant="secondary"
-                className="shrink-0 self-start rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-800 tabular-nums sm:self-auto"
-              >
-                Tiến độ: {medPercent}% ({takenMedicines}/{totalMedicines})
-              </Badge>
-            </CardHeader>
-
-            <CardContent className="space-y-3 p-0">
-              {familyMedicines.map((item) => {
-                const isTaken = item.status === 'taken';
-                const originalMedId = item.id.replace(`${item.memberId}-`, '');
-
-                return (
-                  <div
-                    key={item.id}
-                    className="flex items-center justify-between gap-4 rounded-xl border border-slate-100 p-4 transition-colors hover:border-slate-200 hover:bg-slate-50/60"
-                  >
-                    <div className="flex min-w-0 items-center gap-3.5">
-                      <div
-                        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${
-                          isTaken ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-50 text-primary'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[18px]">
-                          {isTaken ? 'check' : 'medication'}
-                        </span>
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-slate-900">
-                          {item.medName}
-                        </div>
-                        <div className="mt-0.5 truncate text-xs text-slate-500">
-                          <span className="font-medium text-slate-700">{item.memberName}</span> ({item.relation}) ·{' '}
-                          {item.time} · {item.dosage}
-                        </div>
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleToggleMedStatus(item.memberId, originalMedId)}
-                      className={`min-h-9 shrink-0 cursor-pointer whitespace-nowrap rounded-xl px-4 text-xs font-semibold ${
-                        isTaken
-                          ? 'border-emerald-200/80 bg-emerald-50 text-emerald-800 hover:bg-emerald-100'
-                          : 'border-slate-300 bg-white text-primary hover:bg-slate-100'
-                      }`}
-                    >
-                      {isTaken ? 'Đã uống' : 'Bấm đã uống'}
-                    </Button>
-                  </div>
-                );
-              })}
-            </CardContent>
-          </Card>
-
-          {/* Cột phải (1/3): Bác sĩ gia đình phụ trách & Hạn mức khám */}
+        <div className="max-w-3xl">
           <aside className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/70 shadow-xs space-y-5">
             <div className="flex items-center justify-between gap-2">
               <h2 className="font-bold text-base text-slate-900">

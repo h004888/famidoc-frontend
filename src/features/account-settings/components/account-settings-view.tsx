@@ -104,11 +104,11 @@ export function AccountSettingsView() {
     phone: '',
     email: '',
     birthDate: '1985-05-15',
-    gender: 'MALE',
+    gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
     address: 'Số 123 Phố Huế, Q. Hai Bà Trưng, Hà Nội',
     insuranceCardNumber: 'GD4010123456789',
     bloodType: 'O+',
-    allergies: 'Dị ứng phấn hoa, Penicillin',
+    allergies: 'Không có tiền sử dị ứng đã ghi nhận',
   });
 
   useEffect(() => {
@@ -281,6 +281,45 @@ export function AccountSettingsView() {
             )}
           </CardContent>
         </Card>
+
+        {/* Doctor Quick Access Banner if role is DOCTOR */}
+        {effectiveRole === 'DOCTOR' && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-sky-100 bg-sky-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined rounded-xl bg-sky-100 p-2 text-sky-700">
+                medical_information
+              </span>
+              <div>
+                <h4 className="text-xs font-bold text-slate-900">
+                  Hồ sơ Hành nghề &amp; Chứng chỉ Bác sĩ Gia đình
+                </h4>
+                <p className="text-xs text-slate-600">
+                  Cập nhật danh mục kỹ thuật, chứng chỉ CCHN hoặc thiết lập lịch khám chuyên môn.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/doctor/profile">
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg border-sky-200 bg-white text-xs font-semibold text-sky-800 hover:bg-sky-50">
+                  <span className="material-symbols-outlined text-[14px]">badge</span>
+                  Hồ sơ chuyên môn
+                </Button>
+              </Link>
+              <Link href="/doctor/verification">
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg border-sky-200 bg-white text-xs font-semibold text-sky-800 hover:bg-sky-50">
+                  <span className="material-symbols-outlined text-[14px]">verified</span>
+                  Chứng chỉ CCHN
+                </Button>
+              </Link>
+              <Link href="/doctor/timetable">
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg border-sky-200 bg-white text-xs font-semibold text-sky-800 hover:bg-sky-50">
+                  <span className="material-symbols-outlined text-[14px]">calendar_month</span>
+                  Lịch làm việc
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Main Settings Grid */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
@@ -691,7 +730,7 @@ export function AccountSettingsView() {
                     </h3>
                     <Separator className="mt-2" />
                   </div>
-                  <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-600">
                         Mã thẻ BHYT Điện tử:
@@ -700,6 +739,7 @@ export function AccountSettingsView() {
                         {profileData.insuranceCardNumber}
                       </span>
                     </div>
+
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-600">
                         Bệnh viện Đăng ký KCB Ban đầu:
