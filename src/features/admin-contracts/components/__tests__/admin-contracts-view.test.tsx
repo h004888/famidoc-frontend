@@ -32,7 +32,10 @@ vi.mock('@/lib/api', async (importOriginal) => {
       ...actual.contractsApi,
       getMedicalContracts: vi.fn(),
       getStaffingContracts: vi.fn(),
+      createStaffingContract: vi.fn(),
       signStaffingContract: vi.fn(),
+      getStaffingSigningSession: vi.fn(),
+      syncStaffingDocumenso: vi.fn(),
       getSigningSession: vi.fn(),
       syncDocumenso: vi.fn(),
     },
@@ -94,8 +97,9 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
           validFrom: '2026-01-01T00:00:00Z',
           validTo: '2027-01-01T00:00:00Z',
           status: 'DRAFT',
+          rawStatus: 'PENDING_ADMIN_SIGNATURE',
           adminSigned: false,
-          facilitySigned: false,
+          facilitySigned: true,
         },
       ],
       total: 1,
@@ -195,7 +199,29 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
     expect(screen.getAllByText('Chờ Bên A ký trước')).toHaveLength(1);
   });
 
-  it('requires confirmation dialog before signing B2B staffing contract with SmartCA', async () => {
+  it('opens sequential B2B signing dialog with Documenso embed before syncing B2B staffing contract', async () => {
+    vi.mocked(contractsApi.getStaffingSigningSession).mockResolvedValue({
+      contractId: 'st-001',
+      contractCode: 'STAFF-2026-001',
+      status: 'PENDING_ADMIN_SIGNATURE',
+      signerRole: 'ADMIN',
+      alreadySigned: false,
+      canSign: true,
+      signingToken: 'tok-b2b-admin-1',
+      signingUrl: 'https://sign.famidoc.online/sign/tok-b2b-admin-1',
+      facilitySigned: true,
+      adminSigned: false,
+      signedPdfUrl: null,
+    });
+    vi.mocked(contractsApi.syncStaffingDocumenso).mockResolvedValue({
+      synced: true,
+      contractId: 'st-001',
+      status: 'ACTIVE',
+      facilitySigned: true,
+      adminSigned: true,
+      signedPdfUrl: '/api/v1/contracts/staffing/st-001/signed-pdf',
+    });
+
     render(<AdminContractsView />);
 
     const b2bTab = await screen.findByRole('tab', { name: /Hợp Đồng Cung Ứng Nhân Lực B2B/i });
@@ -206,20 +232,21 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
       expect(screen.getAllByText('STAFF-2026-001').length).toBeGreaterThan(0);
     });
 
-    const signSmartCaBtn = screen.getAllByRole('button', { name: /Ký Duyệt \(SmartCA\)/i })[0];
-    fireEvent.click(signSmartCaBtn);
+    const signBtn = screen.getAllByRole('button', { name: /Ký Duyệt \(Documenso\)/i })[0];
+    fireEvent.click(signBtn);
 
     expect(contractsApi.signStaffingContract).not.toHaveBeenCalled();
-    expect(screen.getByText(/Xác nhận ký số SmartCA Hợp đồng B2B/i)).toBeInTheDocument();
+    expect(screen.getByText(/Ký Hợp Đồng B2B Trên Documenso — Quản trị viên Nền tảng/i)).toBeInTheDocument();
+    expect(screen.getByText('Bước 1: Cơ sở Y tế đối tác')).toBeInTheDocument();
+    expect(screen.getByText('Bước 2: Quản trị viên FamiDoc')).toBeInTheDocument();
 
-    const confirmBtn = screen.getByRole('button', { name: /Xác nhận Ký SmartCA/i });
-    fireEvent.click(confirmBtn);
+    const embed = await screen.findByTestId('mock-admin-documenso-form');
+    expect(embed).toHaveAttribute('data-token', 'tok-b2b-admin-1');
+
+    fireEvent.click(screen.getByRole('button', { name: /Đồng bộ sau khi ký/i }));
 
     await waitFor(() => {
-      expect(contractsApi.signStaffingContract).toHaveBeenCalledWith(
-        'st-001',
-        expect.objectContaining({ confirmed: true })
-      );
+      expect(contractsApi.syncStaffingDocumenso).toHaveBeenCalledWith('st-001');
     });
   });
 
@@ -362,5 +389,88 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
 
     expect(screen.queryAllByText(/CTR-2026-LEGACY/)).toHaveLength(0);
     expect(screen.getByText(/Không có hợp đồng y tế phù hợp/i)).toBeInTheDocument();
+  });
+
+  it('submits optional supplementary terms (contractTerms) when creating B2B contract in CreateB2BContractDialog', async () => {
+    vi.mocked(contractsApi.createStaffingContract).mockResolvedValueOnce({
+      id: 'st-new',
+      contractCode: 'STF-2026-NEW1',
+    });
+
+    render(<AdminContractsView />);
+
+    const createBtn = await screen.findByRole('button', { name: /Thiết Lập Dự Thảo HĐ B2B/i });
+    fireEvent.click(createBtn);
+
+    await screen.findByRole('combobox');
+
+    const suppInput = screen.getByLabelText(/Điều khoản bổ sung \/ Thỏa thuận đặc thù/i);
+    fireEvent.change(suppInput, {
+      target: { value: 'Ưu tiên điều phối bác sĩ khu vực Quận 3.' },
+    });
+
+    const submitBtn = screen.getByRole('button', { name: /Lưu & Gửi Dự Thảo/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(contractsApi.createStaffingContract).toHaveBeenCalledWith(
+        expect.objectContaining({
+          facilityId: 'fac-1',
+          facilityRevenueRate: 85,
+          platformCommissionRate: 15,
+          contractTerms: 'Ưu tiên điều phối bác sĩ khu vực Quận 3.',
+        })
+      );
+    });
+  });
+
+  it('renders B2B tab with matching 4-party layout: sort control, 2-party progress matrix, and compact columns', async () => {
+    vi.mocked(contractsApi.getStaffingContracts).mockResolvedValueOnce({
+      data: [
+        {
+          id: 'st-100',
+          contractNumber: 'STAFF-2026-100',
+          facilityName: 'Bệnh viện Quốc tế A',
+          facilitySharePercent: 80,
+          platformSharePercent: 20,
+          validFrom: '2026-01-01T00:00:00Z',
+          validTo: '2027-01-01T00:00:00Z',
+          status: 'DRAFT',
+          rawStatus: 'PENDING_ADMIN_SIGNATURE',
+          adminSigned: false,
+          facilitySigned: true,
+        },
+        {
+          id: 'st-200',
+          contractNumber: 'STAFF-2026-200',
+          facilityName: 'Phòng khám Đa khoa B',
+          facilitySharePercent: 90,
+          platformSharePercent: 10,
+          validFrom: '2026-02-01T00:00:00Z',
+          validTo: '2026-06-01T00:00:00Z',
+          status: 'ACTIVE',
+          rawStatus: 'ACTIVE',
+          adminSigned: true,
+          facilitySigned: true,
+        },
+      ],
+      total: 2,
+    });
+
+    render(<AdminContractsView />);
+
+    const b2bTab = await screen.findByRole('tab', { name: /Hợp Đồng Cung Ứng Nhân Lực B2B/i });
+    fireEvent.mouseDown(b2bTab);
+    fireEvent.click(b2bTab);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('STAFF-2026-100').length).toBeGreaterThan(0);
+    });
+
+    expect(screen.getByRole('combobox', { name: /Sắp xếp hợp đồng B2B/i })).toBeInTheDocument();
+    expect(screen.getByText('Tiến độ 2 bên')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tiến độ 1 trên 2 chữ ký')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tiến độ 2 trên 2 chữ ký')).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /^Chi tiết$/i }).length).toBeGreaterThan(0);
   });
 });

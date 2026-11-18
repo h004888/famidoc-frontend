@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
 export interface CreateB2BContractDialogProps {
@@ -54,6 +55,7 @@ export function CreateB2BContractDialog({
     d.setFullYear(d.getFullYear() + 1);
     return d.toISOString().slice(0, 10);
   });
+  const [supplementaryTerms, setSupplementaryTerms] = useState('');
   const [isCreatingDraft, setIsCreatingDraft] = useState(false);
 
   const facilityPickerRef = useRef<HTMLDivElement>(null);
@@ -205,6 +207,7 @@ export function CreateB2BContractDialog({
         facilityRevenueRate: newFacilityShare,
         startDate: validFromDate,
         endDate: validToDate,
+        ...(supplementaryTerms.trim() ? { contractTerms: supplementaryTerms.trim() } : {}),
       });
       toast.success(
         `Đã khởi tạo dự thảo hợp đồng B2B với "${selectedFacility.facilityName}" thành công!`
@@ -582,6 +585,24 @@ export function CreateB2BContractDialog({
               {dateRangeError}
             </p>
           )}
+
+          {/* Optional Supplementary Terms (Option A) */}
+          <div className="space-y-1.5">
+            <Label htmlFor="b2b-supplementary-terms" className="text-xs font-semibold text-slate-700">
+              Điều khoản bổ sung / Thỏa thuận đặc thù (tùy chọn)
+            </Label>
+            <Textarea
+              id="b2b-supplementary-terms"
+              rows={2}
+              value={supplementaryTerms}
+              onChange={(e) => setSupplementaryTerms(e.target.value)}
+              placeholder="Ví dụ: Thỏa thuận lịch đối soát riêng, phạm vi phục vụ khu vực ưu tiên... (Để trống nếu áp dụng 10 điều khoản chuẩn)"
+              className="text-xs"
+            />
+            <p className="text-[11px] text-slate-500">
+              Hệ thống tự động sinh đầy đủ 10 Điều khoản chuẩn B2B và Căn cứ pháp lý trên bản PDF Documenso.
+            </p>
+          </div>
 
           <DialogFooter className="gap-2 pt-2">
             <Button

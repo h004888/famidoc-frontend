@@ -30,6 +30,7 @@ export interface AuthUserData {
   role: string;
   status: string;
   avatarUrl?: string | null;
+  mustChangePassword?: boolean;
 }
 
 export interface LoginResponseData {

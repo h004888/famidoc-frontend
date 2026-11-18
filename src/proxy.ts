@@ -14,7 +14,6 @@ import {
 } from '@/lib/portal-routing';
 
 const SUBDOMAIN_REGISTER_ALLOWED: ReadonlySet<Exclude<PortalRole, 'FAMILY'>> = new Set([
-  'FACILITY',
   'DOCTOR',
 ]);
 
@@ -92,12 +91,10 @@ function handleSubdomainRequest(
     return NextResponse.rewrite(new URL(`${portalLogin}${search}`, request.url));
   }
 
-  // Rewrite /register -> /facility/register | /doctor/register (Admin không tự đăng ký)
+  // Rewrite /register -> /doctor/register (Admin & CSYT không tự đăng ký qua /register)
   if (pathname === '/register') {
     if (SUBDOMAIN_REGISTER_ALLOWED.has(subdomainPortal)) {
-      const registerPath =
-        subdomainPortal === 'FACILITY' ? '/facility/register' : '/doctor/register';
-      return NextResponse.rewrite(new URL(`${registerPath}${search}`, request.url));
+      return NextResponse.rewrite(new URL(`/doctor/register${search}`, request.url));
     }
     return NextResponse.redirect(new URL('/login', baseOrigin));
   }
@@ -114,7 +111,7 @@ function handleSubdomainRequest(
     subdomainPortal === 'ADMIN'
       ? ['/admin/login']
       : subdomainPortal === 'FACILITY'
-        ? ['/facility/login', '/facility/register']
+        ? ['/facility/login']
         : ['/doctor/login', '/doctor/register'];
 
   if (ownAuthPaths.includes(pathname) || isGeneralAuthPath(pathname)) {
@@ -183,7 +180,6 @@ export function proxy(request: NextRequest) {
   const isRoleAuthPage =
     pathname === '/admin/login' ||
     pathname === '/facility/login' ||
-    pathname === '/facility/register' ||
     pathname === '/doctor/login' ||
     pathname === '/doctor/register';
 
@@ -195,7 +191,7 @@ export function proxy(request: NextRequest) {
       pathname === '/facility/login' ||
       pathname === '/doctor/login'
         ? '/login'
-        : pathname === '/facility/register' || pathname === '/doctor/register'
+        : pathname === '/doctor/register'
           ? '/register'
           : pathname;
     return NextResponse.redirect(new URL(`${mappedPath}${search}`, targetOrigin));

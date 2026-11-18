@@ -188,7 +188,11 @@ class HttpClient {
     return this.request<T>(path, { ...options, method: 'DELETE' });
   }
 
-  async upload<T>(path: string, formData: FormData): Promise<T> {
+  async upload<T>(
+    path: string,
+    formData: FormData,
+    method: 'POST' | 'PUT' = 'POST'
+  ): Promise<T> {
     const url = this.buildUrl(path);
     const headers: Record<string, string> = {};
     const token = this.getToken();
@@ -196,7 +200,7 @@ class HttpClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
     const res = await fetch(url, {
-      method: 'POST',
+      method,
       headers,
       body: formData,
     });

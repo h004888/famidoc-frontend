@@ -255,10 +255,18 @@ describe('contractsApi.initiateFourPartyContract', () => {
 
     const normalized = normalizeStaffingContract({ id: 'b2b-1', status: 'DRAFT' });
     expect(normalized.contractNumber).toBe('b2b-1');
-    expect(normalized.adminSigned).toBe(true);
+    expect(normalized.facilitySigned).toBe(false);
+    expect(normalized.adminSigned).toBe(false);
     expect(normalized.facilityName).not.toContain('An Sinh');
     expect(normalized.validFrom).toBe('');
     expect(normalized.validTo).toBe('');
+
+    const waitingAdmin = normalizeStaffingContract({
+      id: 'b2b-wait-admin',
+      status: 'PENDING_ADMIN_SIGNATURE',
+    });
+    expect(waitingAdmin.facilitySigned).toBe(true);
+    expect(waitingAdmin.adminSigned).toBe(false);
 
     const explicitFalseAdmin = normalizeStaffingContract({
       id: 'b2b-2',
@@ -289,7 +297,7 @@ describe('contractsApi.initiateFourPartyContract', () => {
             {
               id: 'stf-1',
               contractCode: 'STF-2026-001',
-              status: 'PENDING_SIGNATURE',
+              status: 'PENDING_FACILITY_SIGNATURE',
               facilityRevenueRate: 85,
               platformCommissionRate: 15,
             },
@@ -313,11 +321,13 @@ describe('contractsApi.initiateFourPartyContract', () => {
     const list1 = await contractsApi.getStaffingContracts({ limit: 100 });
     expect(list1.total).toBe(1);
     expect(list1.data[0].contractNumber).toBe('STF-2026-001');
-    expect(list1.data[0].adminSigned).toBe(true);
+    expect(list1.data[0].facilitySigned).toBe(false);
+    expect(list1.data[0].adminSigned).toBe(false);
 
     const list2 = await contractsApi.getStaffingContracts();
     expect(list2.total).toBe(4);
     expect(list2.data[0].status).toBe('ACTIVE');
+    expect(list2.data[0].adminSigned).toBe(true);
 
     const detail1 = await contractsApi.getStaffingContractById('stf-1');
     expect(detail1).toEqual({ id: 'stf-1', contractCode: 'STF-2026-001' });

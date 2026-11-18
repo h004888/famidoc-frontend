@@ -21,8 +21,10 @@ export function FacilityLegalView() {
   const [bankAccountHolder, setBankAccountHolder] = useState('');
   const [licenseIssuer, setLicenseIssuer] = useState('');
   const [licenseDate, setLicenseDate] = useState('');
-  const [legalDocumentsUrl, setLegalDocumentsUrl] = useState('');
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [operatingLicenseFile, setOperatingLicenseFile] = useState<File | null>(null);
+  const [businessLicenseFile, setBusinessLicenseFile] = useState<File | null>(null);
+  const [hasExistingOperatingDoc, setHasExistingOperatingDoc] = useState(false);
+  const [hasExistingBusinessDoc, setHasExistingBusinessDoc] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,7 +40,7 @@ export function FacilityLegalView() {
           setFacilityName(data.facilityName || '');
           setLicenseNumber(data.operatingLicense || '');
           setTaxCode(data.taxCode || '');
-          setAddress(data.address || '');
+          setAddress(data.address && data.address !== 'Chưa cập nhật địa chỉ' ? data.address : '');
           setBankName(data.bankName || '');
           setBankAccountNumber(data.bankAccount || '');
           setBankAccountHolder(data.bankAccountHolder || '');
@@ -51,7 +53,8 @@ export function FacilityLegalView() {
             }
           }
           if (data.phone) setHotline(data.phone);
-          if (data.licenseFiles && data.licenseFiles.length > 0) setUploadedFiles(data.licenseFiles);
+          setHasExistingOperatingDoc(Boolean(data.hasOperatingLicense ?? data.hasLegalDocument));
+          setHasExistingBusinessDoc(Boolean(data.hasBusinessLicense));
         }
       })
       .catch((err) => {
@@ -66,20 +69,62 @@ export function FacilityLegalView() {
     };
   }, []);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+  const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'];
+
+  const handleSelectLegalFile = (
+    docType: 'operating' | 'business',
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const files = e.target.files;
-    if (files && files.length > 0) {
-      const names: string[] = [];
-      for (let i = 0; i < files.length; i++) {
-        names.push(files[i].name);
-      }
-      setUploadedFiles((prev) => [...prev, ...names]);
-      toast.success(`Đã đính kèm ${names.length} tệp tài liệu thành công.`);
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const lower = file.name.toLowerCase();
+    if (!ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext))) {
+      toast.error('Chỉ chấp nhận định dạng PDF, PNG hoặc JPG/JPEG.');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast.error(`Tệp "${file.name}" vượt quá giới hạn tối đa 10MB.`);
+      return;
+    }
+
+    if (docType === 'operating') {
+      setOperatingLicenseFile(file);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.operatingLicenseFile;
+        return next;
+      });
+    } else {
+      setBusinessLicenseFile(file);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.businessLicenseFile;
+        return next;
+      });
+    }
+    toast.success(`Đã chọn tệp "${file.name}" (${Math.round(file.size / 1024)} KB).`);
+  };
+
+  const handleRemoveFile = (docType: 'operating' | 'business') => {
+    if (docType === 'operating') {
+      setOperatingLicenseFile(null);
+      setHasExistingOperatingDoc(false);
+    } else {
+      setBusinessLicenseFile(null);
+      setHasExistingBusinessDoc(false);
     }
   };
 
-  const handleRemoveFile = (index: number) => {
-    setUploadedFiles((prev) => prev.filter((_, idx) => idx !== index));
+  const handlePreviewExistingDoc = async (docType: 'operating' | 'business') => {
+    if (!facility?.id) return;
+    try {
+      const url = await facilitiesApi.fetchLegalDocumentBlobUrl(facility.id, docType);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      toast.error(extractErrorMessage(err, 'Không thể tải tài liệu pháp lý hiện có.'));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -88,6 +133,17 @@ export function FacilityLegalView() {
 
     if (!licenseNumber.trim()) {
       newErrors.licenseNumber = 'Vui lòng nhập số Giấy phép hoạt động (GPHĐ) do Bộ/Sở Y Tế cấp';
+    }
+    if (!licenseIssuer.trim()) {
+      newErrors.licenseIssuer = 'Vui lòng nhập Cơ quan cấp Giấy phép hoạt động';
+    }
+    if (!licenseDate.trim()) {
+      newErrors.licenseDate = 'Vui lòng chọn Ngày cấp Giấy phép hoạt động';
+    } else {
+      const parsedDate = new Date(licenseDate);
+      if (Number.isNaN(parsedDate.getTime()) || parsedDate > new Date()) {
+        newErrors.licenseDate = 'Ngày cấp giấy phép không hợp lệ hoặc nằm trong tương lai';
+      }
     }
     const cleanTax = taxCode.trim();
     if (!cleanTax) {
@@ -98,6 +154,9 @@ export function FacilityLegalView() {
     if (!hotline.trim()) {
       newErrors.hotline = 'Vui lòng nhập số đường dây nóng cấp cứu / tiếp nhận y tế';
     }
+    if (!address.trim() || address.trim().length < 5) {
+      newErrors.address = 'Vui lòng nhập đầy đủ Địa chỉ trụ sở theo Giấy phép';
+    }
     if (!bankName.trim()) {
       newErrors.bankName = 'Vui lòng chọn hoặc nhập tên Ngân hàng thụ hưởng';
     }
@@ -107,8 +166,13 @@ export function FacilityLegalView() {
     if (!bankAccountHolder.trim()) {
       newErrors.bankAccountHolder = 'Vui lòng nhập tên chủ tài khoản (in hoa không dấu)';
     }
-    if (uploadedFiles.length === 0) {
-      newErrors.files = 'Vui lòng tải lên tối thiểu 1 tệp scan Giấy phép hoạt động hoặc ĐKKD';
+    if (!operatingLicenseFile && !hasExistingOperatingDoc) {
+      newErrors.operatingLicenseFile =
+        'Vui lòng tải lên bản scan (PDF, PNG hoặc JPEG) Giấy phép hoạt động KBCB';
+    }
+    if (!businessLicenseFile && !hasExistingBusinessDoc) {
+      newErrors.businessLicenseFile =
+        'Vui lòng tải lên bản scan (PDF, PNG hoặc JPEG) Giấy chứng nhận Đăng ký doanh nghiệp';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -118,14 +182,6 @@ export function FacilityLegalView() {
 
     setErrors({});
     setIsSubmitting(true);
-
-    const finalDocsUrl =
-      legalDocumentsUrl.trim() ||
-      (uploadedFiles.length > 0
-        ? uploadedFiles[0].startsWith('http')
-          ? uploadedFiles[0]
-          : `https://cdn.famidoc.vn/facilities/legal/${uploadedFiles[0]}`
-        : undefined);
 
     const submittedData = {
       facilityName: facilityName.trim(),
@@ -137,15 +193,16 @@ export function FacilityLegalView() {
       bankAccountHolder: bankAccountHolder.trim().toUpperCase(),
       address: address.trim(),
       licenseIssuer: licenseIssuer.trim(),
-      licenseDate: licenseDate || undefined,
-      legalDocumentsUrl: finalDocsUrl,
+      licenseDate: licenseDate.trim(),
+      operatingLicenseFile,
+      businessLicenseFile,
     };
 
     try {
-      await facilitiesApi.updateLegalProfile(submittedData);
+      const updatedRes = await facilitiesApi.updateLegalProfile(submittedData);
       const existing = facility;
       const updatedFacility: AdminFacilityItem = {
-        id: existing?.id || 'fac-me',
+        id: existing?.id || updatedRes?.id || 'fac-me',
         facilityName: submittedData.facilityName || existing?.facilityName || 'Cơ sở Y tế Đối tác',
         representativeName: existing?.representativeName || 'Đại diện cơ sở y tế',
         email: existing?.email || '',
@@ -154,23 +211,24 @@ export function FacilityLegalView() {
         address: submittedData.address,
         onboardingStatus: 'LEGAL_SUBMITTED',
         status: 'PENDING',
+        legalRejectionReason: null,
+        hasLegalDocument: true,
+        hasOperatingLicense: true,
+        hasBusinessLicense: true,
         taxCode: submittedData.taxCode,
         operatingLicense: submittedData.licenseNumber,
-        licenseIssuer:
-          submittedData.licenseIssuer ||
-          (submittedData.licenseNumber.includes('SYT')
-            ? 'Sở Y Tế địa phương'
-            : 'Bộ Y Tế - Cục Quản lý Khám chữa bệnh'),
+        licenseIssuer: submittedData.licenseIssuer,
         licenseDate: submittedData.licenseDate,
         bankName: submittedData.bankName,
         bankAccount: submittedData.bankAccountNumber,
         bankAccountHolder: submittedData.bankAccountHolder,
-        licenseFiles: uploadedFiles,
       };
 
       setFacility(updatedFacility);
+      setHasExistingOperatingDoc(true);
+      setHasExistingBusinessDoc(true);
       toast.success(
-        'Nộp hồ sơ pháp lý chuyên sâu thành công! Hồ sơ đã được chuyển tới Quản Trị Viên để thẩm định CSDL Quốc gia.'
+        'Nộp hồ sơ pháp lý chuyên sâu thành công! Hồ sơ đã được chuyển tới Quản Trị Viên để thẩm định.'
       );
     } catch (err: any) {
       console.warn('Lỗi nộp hồ sơ pháp lý CSYT:', err);
@@ -274,10 +332,11 @@ export function FacilityLegalView() {
           <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs sm:text-sm text-rose-900 space-y-1">
             <div className="flex items-center gap-2 font-bold text-rose-800">
               <span className="material-symbols-outlined text-base">warning</span>
-              <span>Yêu cầu bổ sung hồ sơ từ Quản trị viên Nền tảng:</span>
+              <span>Hồ sơ pháp lý bị từ chối / Yêu cầu bổ sung từ Quản trị viên:</span>
             </div>
-            <p className="pl-6 text-slate-700">
-              Hồ sơ giấy phép hoạt động hoặc mã số thuế chưa khớp với đăng ký kinh doanh. Vui lòng cập nhật lại thông tin chính xác và đính kèm file scan rõ nét để Admin hậu kiểm lại.
+            <p className="pl-6 text-rose-900 font-medium">
+              {facility?.legalRejectionReason ||
+                'Hồ sơ giấy phép hoạt động hoặc mã số thuế chưa khớp với đăng ký kinh doanh. Vui lòng cập nhật lại thông tin chính xác và đính kèm file scan rõ nét để Admin thẩm định lại.'}
             </p>
           </div>
         )}
@@ -342,29 +401,35 @@ export function FacilityLegalView() {
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Cơ Quan Cấp Phép GPHĐ
+                  Cơ Quan Cấp Phép GPHĐ <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   disabled={isVerifiedActive}
                   value={licenseIssuer}
                   onChange={(e) => setLicenseIssuer(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
+                    errors.licenseIssuer ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                  }`}
                   placeholder="Ví dụ: Bộ Y Tế - Cục Quản lý Khám chữa bệnh"
                 />
+                {errors.licenseIssuer && <p className="text-xs text-rose-600 font-medium">{errors.licenseIssuer}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Ngày Cấp Phép GPHĐ
+                  Ngày Cấp Phép GPHĐ <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="date"
                   disabled={isVerifiedActive}
                   value={licenseDate}
                   onChange={(e) => setLicenseDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
+                    errors.licenseDate ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                  }`}
                 />
+                {errors.licenseDate && <p className="text-xs text-rose-600 font-medium">{errors.licenseDate}</p>}
               </div>
 
               <div className="space-y-1.5">
@@ -403,16 +468,19 @@ export function FacilityLegalView() {
 
               <div className="md:col-span-2 space-y-1.5">
                 <label className="block text-xs font-semibold text-slate-700">
-                  Địa Chỉ Trụ Sở Khám Chữa Bệnh Chính Thức (Theo Giấy Phép)
+                  Địa Chỉ Trụ Sở Khám Chữa Bệnh Chính Thức (Theo Giấy Phép) <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   disabled={isVerifiedActive}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
+                    errors.address ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                  }`}
                   placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
                 />
+                {errors.address && <p className="text-xs text-rose-600 font-medium">{errors.address}</p>}
               </div>
             </div>
           </div>
@@ -483,64 +551,171 @@ export function FacilityLegalView() {
             </div>
           </div>
 
-          {/* Nhóm 3: Tài liệu đính kèm (File Scan PDF/Ảnh GPHĐ) */}
+          {/* Nhóm 3: Tài liệu đính kèm (2 tệp riêng: GPHĐ KBCB & ĐKKD) */}
           <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200/80 shadow-xs space-y-5">
             <div className="border-b border-slate-100 pb-3">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span className="material-symbols-outlined text-indigo-600 text-lg">upload_file</span>
-                <span>3. Tệp Đính Kèm Hồ Sơ Pháp Lý (Bản Scan PDF / Ảnh)</span>
+                <span>3. Tệp Đính Kèm Hồ Sơ Pháp Lý (2 Tài Liệu Bắt Buộc)</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Bao gồm Giấy phép hoạt động KCB, Giấy chứng nhận ĐKKD và Quyết định phê duyệt người phụ trách chuyên môn
+                Tải lên riêng từng bản scan rõ nét (PDF, PNG hoặc JPG/JPEG, dung lượng tối đa 10MB/tệp)
               </p>
             </div>
 
-            {!isVerifiedActive && (
-              <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-2xl p-6 text-center bg-slate-50/60 transition-colors">
-                <input
-                  type="file"
-                  id="legalDocInput"
-                  multiple
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-                <label htmlFor="legalDocInput" className="cursor-pointer space-y-2 block">
-                  <span className="material-symbols-outlined text-3xl text-blue-600">cloud_upload</span>
-                  <div className="text-xs sm:text-sm font-semibold text-slate-800">
-                    Nhấn vào đây để tải lên tệp tài liệu PDF hoặc hình ảnh scan
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Slot 1: Giấy phép hoạt động KBCB */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                      1. Giấy phép hoạt động KBCB (GPHĐ) <span className="text-rose-500">*</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Bản scan GPHĐ do Bộ Y tế hoặc Sở Y tế cấp còn hiệu lực.
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-400">Định dạng hỗ trợ: PDF, PNG, JPG (Dung lượng tối đa 15MB/tệp)</p>
-                </label>
-              </div>
-            )}
-            {errors.files && <p className="text-xs text-rose-600 font-medium">{errors.files}</p>}
+                  {(operatingLicenseFile || hasExistingOperatingDoc) && (
+                    <span className="shrink-0 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                      Đã đính kèm
+                    </span>
+                  )}
+                </div>
 
-            {/* Danh sách tệp đã đính kèm */}
-            <div className="space-y-2">
-              <span className="text-xs font-semibold text-slate-700 block">Tệp hồ sơ hiện có:</span>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {uploadedFiles.map((fname, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs"
-                  >
+                {!isVerifiedActive && (
+                  <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-xl p-4 text-center bg-white transition-colors">
+                    <input
+                      type="file"
+                      id="operatingLicenseInput"
+                      data-testid="operating-license-input"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => handleSelectLegalFile('operating', e)}
+                      className="hidden"
+                    />
+                    <label htmlFor="operatingLicenseInput" className="cursor-pointer space-y-1.5 block">
+                      <span className="material-symbols-outlined text-2xl text-blue-600">cloud_upload</span>
+                      <div className="text-xs font-semibold text-slate-800">
+                        Chọn tệp scan GPHĐ KBCB
+                      </div>
+                      <p className="text-[11px] text-slate-400">PDF, PNG, JPG · Tối đa 10MB</p>
+                    </label>
+                  </div>
+                )}
+
+                {errors.operatingLicenseFile && (
+                  <p className="text-xs text-rose-600 font-medium">{errors.operatingLicenseFile}</p>
+                )}
+
+                {(operatingLicenseFile || hasExistingOperatingDoc) && (
+                  <div className="flex items-center justify-between gap-2 p-2.5 bg-white border border-slate-200 rounded-xl text-xs">
                     <div className="flex items-center gap-2 truncate">
                       <span className="material-symbols-outlined text-red-500 text-base">picture_as_pdf</span>
-                      <span className="font-medium text-slate-800 truncate">{fname}</span>
+                      <span className="font-medium text-slate-800 truncate">
+                        {operatingLicenseFile
+                          ? operatingLicenseFile.name
+                          : 'Giấy phép hoạt động KBCB đã lưu trên hệ thống'}
+                      </span>
                     </div>
-                    {!isVerifiedActive && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile(idx)}
-                        className="text-slate-400 hover:text-rose-600 p-1 transition-colors"
-                        title="Xóa tệp"
-                      >
-                        ✕
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {hasExistingOperatingDoc && !operatingLicenseFile && facility?.id && (
+                        <button
+                          type="button"
+                          onClick={() => handlePreviewExistingDoc('operating')}
+                          className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          Xem lại
+                        </button>
+                      )}
+                      {!isVerifiedActive && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile('operating')}
+                          className="text-slate-400 hover:text-rose-600 p-0.5 transition-colors"
+                          title="Xóa tệp GPHĐ"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   </div>
-                ))}
+                )}
+              </div>
+
+              {/* Slot 2: Giấy chứng nhận Đăng ký doanh nghiệp */}
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-900">
+                      2. Giấy chứng nhận Đăng ký doanh nghiệp (ĐKKD) <span className="text-rose-500">*</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Bản scan Giấy chứng nhận ĐKKD / Mã số thuế khớp pháp nhân ký B2B.
+                    </p>
+                  </div>
+                  {(businessLicenseFile || hasExistingBusinessDoc) && (
+                    <span className="shrink-0 rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                      Đã đính kèm
+                    </span>
+                  )}
+                </div>
+
+                {!isVerifiedActive && (
+                  <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-xl p-4 text-center bg-white transition-colors">
+                    <input
+                      type="file"
+                      id="businessLicenseInput"
+                      data-testid="business-license-input"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      onChange={(e) => handleSelectLegalFile('business', e)}
+                      className="hidden"
+                    />
+                    <label htmlFor="businessLicenseInput" className="cursor-pointer space-y-1.5 block">
+                      <span className="material-symbols-outlined text-2xl text-blue-600">cloud_upload</span>
+                      <div className="text-xs font-semibold text-slate-800">
+                        Chọn tệp scan Giấy ĐKKD
+                      </div>
+                      <p className="text-[11px] text-slate-400">PDF, PNG, JPG · Tối đa 10MB</p>
+                    </label>
+                  </div>
+                )}
+
+                {errors.businessLicenseFile && (
+                  <p className="text-xs text-rose-600 font-medium">{errors.businessLicenseFile}</p>
+                )}
+
+                {(businessLicenseFile || hasExistingBusinessDoc) && (
+                  <div className="flex items-center justify-between gap-2 p-2.5 bg-white border border-slate-200 rounded-xl text-xs">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="material-symbols-outlined text-red-500 text-base">picture_as_pdf</span>
+                      <span className="font-medium text-slate-800 truncate">
+                        {businessLicenseFile
+                          ? businessLicenseFile.name
+                          : 'Giấy chứng nhận ĐKKD đã lưu trên hệ thống'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {hasExistingBusinessDoc && !businessLicenseFile && facility?.id && (
+                        <button
+                          type="button"
+                          onClick={() => handlePreviewExistingDoc('business')}
+                          className="text-xs font-semibold text-blue-600 hover:underline cursor-pointer"
+                        >
+                          Xem lại
+                        </button>
+                      )}
+                      {!isVerifiedActive && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile('business')}
+                          className="text-slate-400 hover:text-rose-600 p-0.5 transition-colors"
+                          title="Xóa tệp ĐKKD"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -566,7 +741,7 @@ export function FacilityLegalView() {
                   </>
                 ) : (
                   <>
-                    <span>Gửi Hồ Sơ Pháp Lý Thẩm Định Cấp 2</span>
+                    <span>Gửi Hồ Sơ Pháp Lý Thẩm Định</span>
                     <span className="material-symbols-outlined text-sm">send</span>
                   </>
                 )}

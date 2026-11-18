@@ -22,6 +22,7 @@ export interface AuthUser {
   role: LoginRole;
   avatarText: string;
   facilityOrTitle?: string;
+  mustChangePassword?: boolean;
 }
 
 export const DEFAULT_USERS: Record<LoginRole, AuthUser> = {

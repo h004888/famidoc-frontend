@@ -9,6 +9,7 @@ import {
   type StaffingContractItem,
 } from '@/lib/api';
 import { facilitiesApi } from '@/lib/api/facilities.api';
+import { StaffingSignConfirmDialog } from '@/features/admin-contracts/components/staffing-detail-sheet';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -53,13 +54,33 @@ function getB2bStatusBadge(item: StaffingContractItem) {
       </Badge>
     );
   }
+  if (item.rawStatus === 'REVISION_REQUESTED') {
+    return (
+      <Badge
+        variant="outline"
+        className="h-6 rounded-full border-[#ffa39e] bg-[#fff1f0] px-2.5 text-xs font-semibold text-[#d92d20]"
+      >
+        Đã gửi yêu cầu sửa
+      </Badge>
+    );
+  }
+  if (item.rawStatus === 'PENDING_ADMIN_SIGNATURE' || (item.status === 'DRAFT' && item.facilitySigned && !item.adminSigned)) {
+    return (
+      <Badge
+        variant="outline"
+        className="h-6 rounded-full border-blue-200 bg-blue-50 px-2.5 text-xs font-semibold text-blue-700"
+      >
+        Đã ký · Chờ Admin ký
+      </Badge>
+    );
+  }
   if (item.status === 'TERMINATED') {
     return (
       <Badge
         variant="outline"
         className="h-6 rounded-full border-[#ffa39e] bg-[#fff1f0] px-2.5 text-xs font-semibold text-[#d92d20]"
       >
-        Đã từ chối / Đàm phán lại
+        Đã chấm dứt / Hủy
       </Badge>
     );
   }
@@ -93,7 +114,7 @@ export function FacilityContractsView() {
     setLoadError(null);
     try {
       const res = await contractsApi.getStaffingContracts(
-        { limit: 100 },
+        { limit: 50 },
         { throwOnError: true }
       );
       if (seq !== requestSeqRef.current) return;
@@ -135,38 +156,6 @@ export function FacilityContractsView() {
     };
   }, [fetchStaffingContracts]);
 
-  const handleExecuteSignStaffing = async () => {
-    if (!selectedStaffing) return;
-    setIsSubmitting(true);
-    try {
-      await contractsApi.signStaffingContract(selectedStaffing.id, {
-        confirmed: true,
-        signedPdfUrl: `https://cdn.famidoc.vn/contracts/staffing/${selectedStaffing.contractNumber}-signed.pdf`,
-        signatureHash:
-          'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      });
-
-      setStaffingList((prev) =>
-        prev.map((c) =>
-          c.id === selectedStaffing.id
-            ? { ...c, status: 'ACTIVE', adminSigned: true, facilitySigned: true }
-            : c
-        )
-      );
-      toast.success(
-        `Đã ký số điện tử thành công cho hợp đồng B2B ${selectedStaffing.contractNumber}.`
-      );
-      setShowSignDialog(false);
-      setSelectedStaffing(null);
-    } catch (err) {
-      toast.error(
-        extractErrorMessage(err, 'Không thể ký số hợp đồng B2B trên máy chủ.')
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleExecuteRejectStaffing = async () => {
     const trimmedReason = rejectionReason.trim();
     if (!selectedStaffing || trimmedReason.length < 5 || trimmedReason.length > 500) {
@@ -182,7 +171,12 @@ export function FacilityContractsView() {
       setStaffingList((prev) =>
         prev.map((c) =>
           c.id === selectedStaffing.id
-            ? { ...c, status: 'TERMINATED', rejectionReason: trimmedReason }
+            ? {
+                ...c,
+                rawStatus: 'REVISION_REQUESTED',
+                revisionReason: trimmedReason,
+                rejectionReason: trimmedReason,
+              }
             : c
         )
       );
@@ -392,7 +386,7 @@ export function FacilityContractsView() {
                           }}
                           className="min-h-[44px] cursor-pointer rounded-lg border-[#acc0f3] bg-[#f0fbff] px-4 text-sm font-semibold text-[#0037c1] hover:bg-[#eaeffa]"
                         >
-                          Ký số nhanh
+                          Ký số (Documenso)
                         </Button>
                       </>
                     )}
@@ -574,8 +568,9 @@ export function FacilityContractsView() {
               </div>
             )}
 
-            {/* Terminated / Rejected Banner */}
-            {currentContract.status === 'TERMINATED' && (
+            {/* Terminated / Revision Requested Banner */}
+            {(currentContract.status === 'TERMINATED' ||
+              currentContract.rawStatus === 'REVISION_REQUESTED') && (
               <div
                 data-testid="facility-b2b-terminated-banner"
                 className="flex flex-col justify-between gap-3 rounded-xl border border-[#ffa39e] bg-[#fff1f0] px-5 py-4 sm:flex-row sm:items-center"
@@ -586,12 +581,15 @@ export function FacilityContractsView() {
                   </span>
                   <div className="space-y-0.5">
                     <div className="text-sm font-semibold text-[#93000a]">
-                      Hợp đồng Hợp tác B2B đã từ chối hoặc chấm dứt hiệu lực
+                      {currentContract.rawStatus === 'REVISION_REQUESTED'
+                        ? 'Hợp đồng đang chờ Admin chỉnh sửa theo góp ý của CSYT'
+                        : 'Hợp đồng Hợp tác B2B đã từ chối hoặc chấm dứt hiệu lực'}
                     </div>
                     <p className="text-xs text-[#93000a]">
-                      {currentContract.rejectionReason
-                        ? `Lý do đề xuất điều chỉnh: ${currentContract.rejectionReason}`
-                        : 'Vui lòng liên hệ Quản trị viên FamiDoc để phát hành lại bản dự thảo mới.'}
+                      {currentContract.revisionReason || currentContract.rejectionReason
+                        ? `Lý do đề xuất điều chỉnh: ${currentContract.revisionReason || currentContract.rejectionReason}`
+                        : currentContract.terminatedReason ||
+                          'Vui lòng liên hệ Quản trị viên FamiDoc để phát hành lại bản dự thảo mới.'}
                     </p>
                   </div>
                 </div>
@@ -753,78 +751,17 @@ export function FacilityContractsView() {
           </>
         )}
 
-        {/* shadcn Dialog: Xác nhận Ký số Hợp đồng B2B */}
-        <Dialog
-          open={showSignDialog}
-          onOpenChange={(open) => {
-            if (isSubmitting) return;
-            setShowSignDialog(open);
-            if (!open) setSelectedStaffing(null);
+        <StaffingSignConfirmDialog
+          item={showSignDialog ? selectedStaffing : null}
+          signerRole="FACILITY"
+          onClose={() => {
+            setShowSignDialog(false);
+            setSelectedStaffing(null);
           }}
-        >
-          <DialogContent className="rounded-2xl border-[#e4e8ed] sm:max-w-md">
-            {selectedStaffing && (
-              <>
-                <DialogHeader>
-                  <DialogTitle className="text-lg font-semibold text-[#20283d]">
-                    Xác nhận ký số Hợp đồng Hợp tác B2B
-                  </DialogTitle>
-                  <DialogDescription className="text-sm text-[#4a4f63] tabular-nums">
-                    Mã hợp đồng: {selectedStaffing.contractNumber}
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-3 text-sm text-[#2f364a]">
-                  <p className="leading-relaxed">
-                    Đại diện{' '}
-                    <strong className="text-[#20283d]">
-                      {selectedStaffing.facilityName || facilityName}
-                    </strong>{' '}
-                    xác nhận chấp thuận điều khoản hợp tác khung (tỷ lệ{' '}
-                    <span className="font-semibold tabular-nums">
-                      {selectedStaffing.facilitySharePercent}% CSYT /{' '}
-                      {selectedStaffing.platformSharePercent}% FamiDoc
-                    </span>
-                    ).
-                  </p>
-                  <div className="rounded-lg border border-[#e4e8ed] bg-[#f6f7f9] p-3 text-xs text-[#4a4f63] tabular-nums">
-                    <div>
-                      Thời hạn: {formatDateVi(selectedStaffing.validFrom)} –{' '}
-                      {formatDateVi(selectedStaffing.validTo)}
-                    </div>
-                    <div className="mt-1">
-                      Kỳ đối soát: Ngày 05 hằng tháng
-                    </div>
-                  </div>
-                </div>
-
-                <DialogFooter className="gap-2 pt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      if (isSubmitting) return;
-                      setShowSignDialog(false);
-                      setSelectedStaffing(null);
-                    }}
-                    disabled={isSubmitting}
-                    className="min-h-[44px] cursor-pointer rounded-lg border-[#d9dfe5] text-sm font-semibold text-[#20283d]"
-                  >
-                    Hủy bỏ
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => void handleExecuteSignStaffing()}
-                    className="min-h-[44px] cursor-pointer rounded-lg bg-[#0046c0] text-sm font-semibold text-white hover:bg-[#003899]"
-                  >
-                    {isSubmitting ? 'Đang ký số...' : 'Xác nhận ký số'}
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+          onSynced={() => {
+            void fetchStaffingContracts();
+          }}
+        />
 
         {/* shadcn Dialog: Yêu cầu sửa điều khoản / Từ chối dự thảo */}
         <Dialog

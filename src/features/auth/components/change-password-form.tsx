@@ -8,7 +8,7 @@ import { useAuth } from '../context/auth-context';
 
 export function ChangePasswordForm() {
   const router = useRouter();
-  const { role, getDefaultPathForRole } = useAuth();
+  const { role, getDefaultPathForRole, clearMustChangePassword } = useAuth();
 
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -57,16 +57,17 @@ export function ChangePasswordForm() {
     setLoading(true);
     try {
       await authApi.changePassword({ oldPassword, newPassword });
+      clearMustChangePassword?.();
       setSuccess(true);
       setTimeout(() => {
         router.push(getDefaultPathForRole(role));
-      }, 2000);
-    } catch {
-      // Fallback
-      setSuccess(true);
-      setTimeout(() => {
-        router.push(getDefaultPathForRole(role));
-      }, 2000);
+      }, 1500);
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error && err.message.trim()
+          ? err.message
+          : 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại và thử lại.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -113,7 +114,7 @@ export function ChangePasswordForm() {
                   type={showOld ? 'text' : 'password'}
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
-                  placeholder="Ví dụ: FamiDoc@Facility2026 hoặc FamiDoc@Doctor2026"
+                  placeholder="Nhập mật khẩu khởi tạo nhận được qua email"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 pr-10"
                 />
                 <button

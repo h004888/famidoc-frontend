@@ -129,7 +129,7 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
       const loadMedical = async () => {
         const [detail, docs] = await Promise.all([
           contractsApi.getMedicalContractDetail(contractId),
-          doctorsApi.getAdminDoctors({ limit: 100 }).catch(() => []),
+          doctorsApi.getAdminDoctors({ limit: 50 }).catch(() => []),
         ]);
         return { detail, docs };
       };
@@ -385,6 +385,18 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
               </Alert>
             )}
 
+            {staffingDetail.revisionReason && (
+              <Alert className="rounded-2xl border-rose-200 bg-rose-50 text-rose-900">
+                <AlertCircle className="size-4 text-rose-600" />
+                <AlertDescription className="text-xs font-medium text-rose-900">
+                  <strong>Lý do Cơ sở Y tế yêu cầu chỉnh sửa:</strong> {staffingDetail.revisionReason}
+                  <span className="mt-1 block text-[11px] font-normal text-rose-800">
+                    Sau khi lưu điều chỉnh, hệ thống sẽ giữ nguyên mã hợp đồng và gửi lại bản dự thảo + phiên ký Documenso mới cho CSYT.
+                  </span>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Card className="rounded-2xl border-border/80 shadow-xs">
               <CardHeader className="border-b border-border/60 pb-4">
                 <CardTitle className="flex items-center gap-2 text-base font-bold">
@@ -476,15 +488,19 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
 
                 <div className="space-y-1.5">
                   <Label htmlFor="st-terms" className="text-xs font-semibold">
-                    Nội dung Điều khoản Hợp đồng B2B
+                    Điều khoản bổ sung / Thỏa thuận đặc thù (tùy chọn)
                   </Label>
                   <Textarea
                     id="st-terms"
-                    rows={8}
+                    rows={5}
                     value={stTerms}
                     onChange={(e) => setStTerms(e.target.value)}
+                    placeholder="Nhập các thỏa thuận bổ sung riêng với CSYT (nếu có). Để trống nếu giữ nguyên 10 điều khoản chuẩn B2B..."
                     className="font-sans text-xs leading-relaxed"
                   />
+                  <p className="text-[11px] text-muted-foreground">
+                    10 Điều khoản chuẩn B2B (cơ chế đối soát, thuế, bảo hiểm nghề nghiệp, bảo mật dữ liệu, bàn giao và Documenso) được tự động cố định trong bản PDF.
+                  </p>
                 </div>
 
                 {stStatus === 'TERMINATED' && (

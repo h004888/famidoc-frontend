@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { doctorsApi, type DoctorProfileDto } from '@/lib/api/doctors.api';
 import { extractErrorMessage } from '@/lib/api';
-import { DashboardPageShell } from '@/components/shared';
+import { DashboardPageShell, DoctorCredentialsList } from '@/components/shared';
 
 interface AdminDoctorDetailViewProps {
   doctorId: string;
@@ -83,12 +83,18 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
     try {
       await doctorsApi.platformApproveCredentials(doctor.id, {
         approved: false,
-        rejectionReason: rejectReason,
+        rejectionReason: rejectReason.trim(),
       });
       setDoctor((prev) =>
-        prev ? { ...prev, onboardingStatus: 'REJECTED' } : null
+        prev
+          ? {
+              ...prev,
+              onboardingStatus: 'PENDING_SUBMISSION',
+              rejectionReason: rejectReason.trim(),
+            }
+          : null
       );
-      toast.success('Đã gửi thông báo từ chối hồ sơ CCHN tới CSYT và Bác sĩ.');
+      toast.success('Đã gửi thông báo từ chối hồ sơ chuyên môn tới CSYT và Bác sĩ.');
       setRejectReason('');
       setShowRejectModal(false);
     } catch (err: any) {
@@ -121,8 +127,6 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
     );
   }
 
-  const primaryCred = doctor.credentials?.[0];
-
   return (
     <DashboardPageShell containerClassName="pb-16">
 
@@ -144,6 +148,16 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
                 Chờ duyệt Tầng 2 (Platform Approve)
+              </span>
+            )}
+            {doctor.onboardingStatus === 'PENDING_FACILITY_REVIEW' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+                Chờ CSYT duyệt Cấp 1
+              </span>
+            )}
+            {doctor.onboardingStatus === 'PENDING_SUBMISSION' && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                Chờ Bác sĩ nộp đủ hồ sơ
               </span>
             )}
             {doctor.onboardingStatus === 'ACTIVE' && (
@@ -175,8 +189,12 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
             </p>
             <p className="text-sm text-slate-200">
               {doctor.onboardingStatus === 'FACILITY_VERIFIED'
-                ? 'Hồ sơ đã được Cơ sở Y tế sơ duyệt Cấp 1. Admin FamiDoc đối chiếu CSDL Quốc gia để phê duyệt kích hoạt.'
-                : 'Bác sĩ đã hoàn tất thẩm định 2 tầng và đang hoạt động khám chữa bệnh gia đình.'}
+                ? 'Hồ sơ đã được Cơ sở Y tế sơ duyệt Cấp 1. Admin FamiDoc đối chiếu 3 chứng chỉ và phê duyệt kích hoạt.'
+                : doctor.onboardingStatus === 'ACTIVE'
+                ? 'Bác sĩ đã hoàn tất thẩm định 2 tầng và đang hoạt động khám chữa bệnh gia đình.'
+                : doctor.onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                ? 'Bác sĩ đã nộp đủ 3 chứng chỉ và đang chờ Cơ sở Y tế thẩm định Cấp 1.'
+                : 'Bác sĩ đang ở trạng thái chờ nộp / bổ sung hồ sơ chuyên môn.'}
             </p>
           </div>
 
@@ -222,16 +240,29 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
               </div>
               <div>
                 <label className="text-xs text-slate-500 block">Kinh nghiệm lâm sàng</label>
-                <p className="text-sm font-medium text-slate-900 mt-0.5">{doctor.experienceYears} năm</p>
+                <p className="text-sm font-medium text-slate-900 mt-0.5">{doctor.experienceYears ?? 0} năm</p>
               </div>
+              {doctor.bio && (
+                <div>
+                  <label className="text-xs text-slate-500 block">Giới thiệu chuyên môn</label>
+                  <p className="text-xs text-slate-700 mt-0.5 leading-relaxed">{doctor.bio}</p>
+                </div>
+              )}
               <div>
                 <label className="text-xs text-slate-500 block">Định mức dung lượng Panel (BR-04)</label>
                 <p className="text-xs font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded inline-block mt-1">
-                  Đang phụ trách {doctor.activePanelCount || 0} / Tối đa {doctor.maxPanelCapacity || 150} Hộ gia đình
+                  Đang phụ trách {doctor.activePanelCount || 0} / Tối đa {doctor.maxPanelCapacity || 30} Hộ gia đình
                 </p>
               </div>
             </div>
           </div>
+
+          {doctor.rejectionReason && (
+            <div className="bg-rose-50 p-4 rounded-2xl border border-rose-200 text-xs text-rose-900 space-y-1">
+              <p className="font-bold text-rose-800">Lý do từ chối / yêu cầu bổ sung gần nhất</p>
+              <p className="leading-relaxed">{doctor.rejectionReason}</p>
+            </div>
+          )}
 
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
@@ -268,70 +299,14 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700">
-                Chi tiết Chứng chỉ Hành nghề Y (CCHN)
+                Bộ 3 Chứng chỉ Hành nghề &amp; Văn bằng Bắt buộc
               </h3>
-              <span className="text-xs tabular-nums bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-semibold border border-blue-200">
-                {primaryCred?.certificateNumber || '003928/BYT-CCHN'}
+              <span className="text-xs bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded font-semibold">
+                {(doctor.credentials || []).length} / 3 loại
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-              <div>
-                <label className="text-xs text-slate-500 block">Số hiệu CCHN</label>
-                <p className="text-sm font-bold text-slate-900 mt-0.5 tabular-nums">
-                  {primaryCred?.certificateNumber || '003928/BYT-CCHN'}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 block">Cơ quan cấp CCHN</label>
-                <p className="text-sm font-medium text-slate-900 mt-0.5">
-                  {primaryCred?.issuingAuthority || 'Bộ Y Tế / Sở Y Tế'}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 block">Ngày cấp</label>
-                <p className="text-sm font-medium text-slate-900 mt-0.5">
-                  {primaryCred?.issueDate ? new Date(primaryCred.issueDate).toLocaleDateString('vi-VN') : '15/08/2020'}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 block">Phạm vi hoạt động chuyên môn</label>
-                <p className="text-sm font-medium text-slate-900 mt-0.5">
-                  Khám bệnh, chữa bệnh chuyên khoa Y học Gia đình &amp; Nội khoa
-                </p>
-              </div>
-            </div>
-
-            {/* Document Preview */}
-            <div className="pt-4 border-t border-slate-100 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm text-primary">badge</span>
-                  Tài liệu scan CCHN đính kèm
-                </span>
-                <a
-                  href={primaryCred?.fileUrl || 'https://storage.famidoc.vn/sample-cchn-doctor.pdf'}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                >
-                  <span className="material-symbols-outlined text-xs">open_in_new</span>
-                  Mở bản gốc PDF
-                </a>
-              </div>
-
-              <div className="border border-slate-200 rounded-xl bg-slate-50 p-6 flex flex-col items-center justify-center text-center">
-                <div className="w-14 h-14 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center text-rose-500 mb-2">
-                  <span className="material-symbols-outlined text-2xl">picture_as_pdf</span>
-                </div>
-                <p className="text-xs font-semibold text-slate-800">
-                  CCHN_{primaryCred?.certificateNumber?.replace('/', '_') || '003928_BYT'}_SCAN.pdf
-                </p>
-                <p className="text-[11px] text-slate-500 mt-0.5">
-                  Tải lên bởi CSYT • Đã được kiểm tra số seri hợp lệ
-                </p>
-              </div>
-            </div>
+            <DoctorCredentialsList doctorId={doctor.id} credentials={doctor.credentials} />
           </div>
 
           {/* Dual-Tier Timeline */}

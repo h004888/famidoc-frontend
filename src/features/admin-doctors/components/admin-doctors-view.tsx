@@ -18,12 +18,15 @@ interface DoctorRow {
   issuingAuthority: string;
   onboardingStatus: string;
   experienceYears?: number;
+  credentialsCount: number;
 }
 
 export function AdminDoctorsView() {
   const [doctors, setDoctors] = useState<DoctorRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | 'FACILITY_VERIFIED' | 'ACTIVE' | 'PENDING_SUBMISSION'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<
+    'ALL' | 'FACILITY_VERIFIED' | 'PENDING_FACILITY_REVIEW' | 'ACTIVE' | 'PENDING_SUBMISSION'
+  >('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
@@ -34,7 +37,10 @@ export function AdminDoctorsView() {
       const data: any[] = await doctorsApi.getAdminDoctors();
       if (Array.isArray(data)) {
         const mapped: DoctorRow[] = data.map((d: any) => {
-          const cred = Array.isArray(d.credentials) && d.credentials.length > 0 ? d.credentials[0] : null;
+          const creds = Array.isArray(d.credentials) ? d.credentials : [];
+          const cred =
+            creds.find((c: any) => c.credentialType === 'PRACTICE_LICENSE_CCHN') ||
+            (creds.length > 0 ? creds[0] : null);
           return {
             id: d.id,
             doctorName: d.doctorName || d.fullName || 'Bác sĩ',
@@ -42,9 +48,10 @@ export function AdminDoctorsView() {
             specialty: d.specialty || 'Y học Gia đình',
             cchnNumber: cred?.certificateNumber || 'Chưa nộp CCHN',
             issueDate: cred?.issueDate ? new Date(cred.issueDate).toLocaleDateString('vi-VN') : 'Chưa có',
-            issuingAuthority: cred?.issuingAuthority || 'Bộ Y Tế',
-            onboardingStatus: d.onboardingStatus || (d.status === 'ACTIVE' ? 'ACTIVE' : 'FACILITY_VERIFIED'),
-            experienceYears: d.experienceYears ?? 5,
+            issuingAuthority: cred?.issuingAuthority || '—',
+            onboardingStatus: d.onboardingStatus || (d.status === 'ACTIVE' ? 'ACTIVE' : 'PENDING_SUBMISSION'),
+            experienceYears: d.experienceYears ?? 0,
+            credentialsCount: creds.length,
           };
         });
         setDoctors(mapped);
@@ -72,10 +79,7 @@ export function AdminDoctorsView() {
 
     if (!matchesSearch) return false;
     if (statusFilter === 'ALL') return true;
-    if (statusFilter === 'FACILITY_VERIFIED') return doc.onboardingStatus === 'FACILITY_VERIFIED';
-    if (statusFilter === 'ACTIVE') return doc.onboardingStatus === 'ACTIVE';
-    if (statusFilter === 'PENDING_SUBMISSION') return doc.onboardingStatus === 'PENDING_SUBMISSION';
-    return true;
+    return doc.onboardingStatus === statusFilter;
   });
 
   const totalPages = Math.ceil(filteredDoctors.length / itemsPerPage) || 1;
@@ -100,10 +104,16 @@ export function AdminDoctorsView() {
             Đã kích hoạt hành nghề (ACTIVE)
           </span>
         );
+      case 'PENDING_FACILITY_REVIEW':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-800 border border-blue-200">
+            Chờ CSYT duyệt Cấp 1
+          </span>
+        );
       case 'PENDING_SUBMISSION':
         return (
           <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
-            Chưa nộp CCHN
+            Chưa nộp hồ sơ
           </span>
         );
       default:
@@ -202,6 +212,20 @@ export function AdminDoctorsView() {
           <button
             type="button"
             onClick={() => {
+              setStatusFilter('PENDING_FACILITY_REVIEW');
+              setCurrentPage(1);
+            }}
+            className={`px-3 py-1.5 rounded-xl transition-colors ${
+              statusFilter === 'PENDING_FACILITY_REVIEW'
+                ? 'bg-blue-600 text-white'
+                : 'bg-blue-50 text-blue-800 hover:bg-blue-100'
+            }`}
+          >
+            Chờ CSYT duyệt Cấp 1 ({doctors.filter((d) => d.onboardingStatus === 'PENDING_FACILITY_REVIEW').length})
+          </button>
+          <button
+            type="button"
+            onClick={() => {
               setStatusFilter('ACTIVE');
               setCurrentPage(1);
             }}
@@ -272,7 +296,7 @@ export function AdminDoctorsView() {
                     <td className="py-3.5 px-4">
                       <div className="tabular-nums font-semibold text-slate-800">{doc.cchnNumber}</div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
-                        Cấp ngày: {doc.issueDate} • {doc.issuingAuthority}
+                        Cấp ngày: {doc.issueDate} • {doc.issuingAuthority} • {doc.credentialsCount}/3 chứng chỉ
                       </div>
                     </td>
 

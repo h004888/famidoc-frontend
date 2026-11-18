@@ -155,11 +155,12 @@ describe('proxy - định tuyến và cô lập 3 subdomain', () => {
     expect(localAdminRewrite.headers.get('x-middleware-rewrite')).toContain('/admin/login');
   });
 
-  it('rewrite /register cho csyt và bacsi, chặn /register trên admin subdomain', () => {
+  it('rewrite /register cho bacsi, chuyển /register về /login trên admin và csyt subdomain', () => {
     const csytReg = proxy(
       makeRequest('/register', {}, { host: 'csyt.famidoc.online', proto: 'https' }),
     );
-    expect(csytReg.headers.get('x-middleware-rewrite')).toContain('/facility/register');
+    expect(csytReg.status).toBe(307);
+    expect(csytReg.headers.get('location')).toBe('https://csyt.famidoc.online/login');
 
     const doctorReg = proxy(
       makeRequest('/register', {}, { host: 'bacsi.famidoc.online', proto: 'https' }),

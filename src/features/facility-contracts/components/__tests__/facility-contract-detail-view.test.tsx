@@ -9,6 +9,12 @@ vi.mock('next/navigation', () => ({
   usePathname: () => '/facility/contracts/ctr-b2b-002',
 }));
 
+vi.mock('@documenso/embed-react', () => ({
+  EmbedSignDocument: ({ token, host }: { token: string; host?: string }) => (
+    <div data-testid="mock-detail-documenso" data-token={token} data-host={host} />
+  ),
+}));
+
 vi.mock('@/lib/api/contracts.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/api/contracts.api')>();
   return {
@@ -18,6 +24,9 @@ vi.mock('@/lib/api/contracts.api', async (importOriginal) => {
       getStaffingContractById: vi.fn(),
       signStaffingContract: vi.fn(),
       rejectStaffingContract: vi.fn(),
+      getStaffingSigningSession: vi.fn(),
+      syncStaffingDocumenso: vi.fn(),
+      fetchStaffingSignedPdfBlobUrl: vi.fn(),
     },
   };
 });
@@ -56,6 +65,10 @@ describe('FacilityContractDetailView (/facility/contracts/[id])', () => {
     fireEvent.click(screen.getByRole('button', { name: /Thử lại/i }));
 
     expect(await screen.findByText('Số hiệu: HĐHT-2026-ND1-002')).toBeInTheDocument();
+    expect(screen.getByText('Luật Giao dịch điện tử 20/2023/QH15')).toBeInTheDocument();
+    expect(screen.getByText('Điều 1. Giải thích thuật ngữ')).toBeInTheDocument();
+    expect(screen.getByText('Điều 10. Bất khả kháng, Giải quyết tranh chấp & Hiệu lực chung')).toBeInTheDocument();
+    expect(screen.getByText('Không có thỏa thuận bổ sung nào khác.')).toBeInTheDocument();
     expect(contractsApi.getStaffingContractById).toHaveBeenCalledTimes(2);
   });
 
@@ -97,33 +110,56 @@ describe('FacilityContractDetailView (/facility/contracts/[id])', () => {
     expect(screen.getByText('Chờ FamiDoc ký duyệt')).toBeInTheDocument();
   });
 
-  it('signs contract, sets adminSigned/facilitySigned, and transitions to active view', async () => {
-    vi.mocked(contractsApi.getStaffingContractById).mockResolvedValueOnce({
-      ...draftRaw,
+  it('renders Documenso embed for facility signing, syncs completion, and transitions to waiting for admin', async () => {
+    vi.mocked(contractsApi.getStaffingContractById)
+      .mockResolvedValueOnce({
+        ...draftRaw,
+        adminSigned: false,
+        facilitySigned: false,
+      })
+      .mockResolvedValueOnce({
+        ...draftRaw,
+        status: 'PENDING_ADMIN_SIGNATURE',
+        facilitySigned: true,
+        adminSigned: false,
+      });
+    vi.mocked(contractsApi.getStaffingSigningSession).mockResolvedValue({
+      contractId: 'ctr-b2b-002',
+      contractCode: 'HĐHT-2026-ND1-002',
+      status: 'PENDING_FACILITY_SIGNATURE',
+      signerRole: 'HEALTHCARE_FACILITY',
+      alreadySigned: false,
+      canSign: true,
+      signingToken: 'tok-b2b-detail-1',
+      signingUrl: 'https://sign.famidoc.online/sign/tok-b2b-detail-1',
+      facilitySigned: false,
       adminSigned: false,
+      signedPdfUrl: null,
     });
-    vi.mocked(contractsApi.signStaffingContract).mockResolvedValueOnce({
-      statusCode: 200,
+    vi.mocked(contractsApi.syncStaffingDocumenso).mockResolvedValueOnce({
+      synced: true,
+      contractId: 'ctr-b2b-002',
+      status: 'PENDING_ADMIN_SIGNATURE',
+      facilitySigned: true,
+      adminSigned: false,
+      signedPdfUrl: null,
     });
 
     render(<FacilityContractDetailView contractId="ctr-b2b-002" />);
 
-    const signBtn = await screen.findByRole('button', {
-      name: /Ký số điện tử ngay/i,
-    });
-    fireEvent.click(signBtn);
+    const embed = await screen.findByTestId('mock-detail-documenso');
+    expect(embed).toHaveAttribute('data-token', 'tok-b2b-detail-1');
+
+    fireEvent.click(screen.getByRole('button', { name: /Đồng bộ sau khi ký/i }));
 
     await waitFor(() => {
-      expect(contractsApi.signStaffingContract).toHaveBeenCalledWith(
-        'ctr-b2b-002',
-        expect.objectContaining({ confirmed: true })
-      );
+      expect(contractsApi.syncStaffingDocumenso).toHaveBeenCalledWith('ctr-b2b-002');
     });
 
     expect(
-      await screen.findByText('Hợp đồng Hợp tác B2B đang có hiệu lực')
+      await screen.findByText('Cơ sở y tế đã hoàn tất ký bước 1 — Chờ Admin ký kích hoạt')
     ).toBeInTheDocument();
-    expect(screen.getByText('Đã ký số bởi FamiDoc')).toBeInTheDocument();
+    expect(screen.getByText('Chờ FamiDoc ký duyệt')).toBeInTheDocument();
   });
 
   it('enforces 5-500 char validation on reject dialog and clears reason when closed', async () => {

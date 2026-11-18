@@ -145,6 +145,10 @@ describe('AdminContractEditView (Sửa / Cập nhật Hợp đồng bên Admin)'
     await user.clear(shareInput);
     await user.type(shareInput, '80');
 
+    const suppInput = screen.getByLabelText(/Điều khoản bổ sung \/ Thỏa thuận đặc thù/i);
+    await user.clear(suppInput);
+    await user.type(suppInput, 'Ưu tiên đối soát trước ngày 03.');
+
     await user.click(screen.getByRole('button', { name: /Lưu cập nhật B2B/i }));
 
     await waitFor(() => {
@@ -153,6 +157,7 @@ describe('AdminContractEditView (Sửa / Cập nhật Hợp đồng bên Admin)'
         expect.objectContaining({
           facilitySharePercent: 80,
           platformSharePercent: 20,
+          contractTerms: 'Ưu tiên đối soát trước ngày 03.',
           status: 'DRAFT',
         })
       );
