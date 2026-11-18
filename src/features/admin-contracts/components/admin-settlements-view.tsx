@@ -10,6 +10,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { VietQrPreviewCard } from '@/components/shared';
+import { useVietQrBanks } from '@/hooks/use-vietqr-banks';
+import {
+  buildVietQrQuickLinkUrl,
+  resolveBankByInput,
+  resolveVietQrBankId,
+} from '@/lib/vietqr';
 import {
   Dialog,
   DialogContent,
@@ -67,6 +74,7 @@ export function AdminSettlementsView() {
   const [selectedSettlement, setSelectedSettlement] = useState<FacilitySettlementDto | null>(null);
   const [transferOrderId, setTransferOrderId] = useState('');
   const [transferMemo, setTransferMemo] = useState('');
+  const [debouncedTransferMemo, setDebouncedTransferMemo] = useState('');
   const [amountPaidVnd, setAmountPaidVnd] = useState<number | ''>('');
   const [paidAt, setPaidAt] = useState('');
   const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
@@ -75,6 +83,7 @@ export function AdminSettlementsView() {
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reopeningId, setReopeningId] = useState<string | null>(null);
+  const { banks } = useVietQrBanks();
   const settlements = useMemo(() => analytics?.settlements ?? [], [analytics]);
 
   const loadData = () => {
@@ -118,9 +127,11 @@ export function AdminSettlementsView() {
   };
 
   const handleOpenConfirmModal = (settlement: FacilitySettlementDto) => {
+    const defaultMemo = `DOSOAT ${settlement.settlementCode.replace(/[^a-z0-9]+/gi, ' ').trim()}`;
     setSelectedSettlement(settlement);
     setTransferOrderId('');
-    setTransferMemo(`DOSOAT ${settlement.settlementCode.replace(/[^a-z0-9]+/gi, ' ').trim()}`);
+    setTransferMemo(defaultMemo);
+    setDebouncedTransferMemo(defaultMemo);
     setAmountPaidVnd('');
     setPaidAt('');
     setEvidenceFile(null);
@@ -191,15 +202,50 @@ export function AdminSettlementsView() {
 
   const bank = selectedSettlement?.bankDestination;
   const memo = transferMemo.trim();
-  const payoutQr = selectedSettlement?.environment === 'LIVE' &&
-      bank?.bankName && bank.accountNumber && /^[a-z0-9]{2,20}$/i.test(bank.bankName) &&
-      /^[a-z0-9]{5,19}$/i.test(bank.accountNumber) && !/^0+$/.test(bank.accountNumber) &&
-      /^[a-z0-9 ]{1,94}$/i.test(memo) && selectedSettlement.facilityPayoutAmount > 0
-    ? `https://vietqr.app/img?${new URLSearchParams({
-        acc: bank.accountNumber, bank: bank.bankName, amount: String(selectedSettlement.facilityPayoutAmount),
-        des: memo, template: 'compact',
-      })}`
-    : null;
+
+  useEffect(() => {
+    if (!confirmModalOpen) return;
+    const timer = setTimeout(() => {
+      setDebouncedTransferMemo(memo);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [confirmModalOpen, memo]);
+
+  const resolvedBank = useMemo(
+    () =>
+      bank
+        ? resolveBankByInput(banks, {
+            bankBin: bank.bankBin,
+            bankCode: bank.bankCode,
+            bankName: bank.bankName,
+          })
+        : undefined,
+    [banks, bank],
+  );
+
+  const payoutQr = useMemo(() => {
+    if (
+      selectedSettlement?.environment !== 'LIVE' ||
+      !bank ||
+      !debouncedTransferMemo ||
+      selectedSettlement.facilityPayoutAmount <= 0
+    ) {
+      return null;
+    }
+    const bankId = resolveVietQrBankId(banks, {
+      bankBin: bank.bankBin || resolvedBank?.bin,
+      bankCode: bank.bankCode || resolvedBank?.code,
+      bankName: bank.bankName,
+    });
+    return buildVietQrQuickLinkUrl({
+      bankId,
+      accountNumber: bank.accountNumber,
+      amount: selectedSettlement.facilityPayoutAmount,
+      addInfo: debouncedTransferMemo,
+      accountName: bank.accountHolder,
+      template: 'compact2',
+    });
+  }, [banks, bank, resolvedBank, selectedSettlement, debouncedTransferMemo]);
 
   const handleReopenReview = async (settlement: FacilitySettlementDto) => {
     if (reopeningId) return;
@@ -481,9 +527,32 @@ export function AdminSettlementsView() {
                     <Input id="settlement-transfer-memo" required maxLength={140}
                       value={transferMemo} onChange={(event) => setTransferMemo(event.target.value)} />
                   </div>
-                  {payoutQr && <Button asChild>
-                    <a href={payoutQr} target="_blank" rel="noreferrer">Mở mã QR chuyển khoản</a>
-                  </Button>}
+                  {selectedSettlement.environment === 'LIVE' && (
+                    <VietQrPreviewCard
+                      qrUrl={payoutQr}
+                      title="Mã VietQR chuyển khoản quyết toán"
+                      subtitle="Quét mã bằng ứng dụng ngân hàng để tự động điền đúng số tài khoản, số tiền và nội dung đối soát."
+                      emptyMessage="Cần mã BIN/ngân hàng hợp lệ, số tài khoản (<= 19 ký tự), số tiền dương và nội dung chuyển khoản để tạo mã VietQR."
+                      bankLabel={
+                        resolvedBank
+                          ? `${resolvedBank.shortName} (${resolvedBank.name})`
+                          : selectedSettlement.bankDestination?.bankName
+                      }
+                      bankBin={
+                        selectedSettlement.bankDestination?.bankBin ||
+                        resolvedBank?.bin ||
+                        null
+                      }
+                      bankCode={
+                        selectedSettlement.bankDestination?.bankCode ||
+                        resolvedBank?.code ||
+                        null
+                      }
+                      accountNumber={selectedSettlement.bankDestination?.accountNumber}
+                      accountHolder={selectedSettlement.bankDestination?.accountHolder}
+                      openLinkLabel="Mở mã QR chuyển khoản"
+                    />
+                  )}
                 </section>
 
                 <section aria-labelledby="settlement-transfer-proof" className="space-y-4 border-t border-slate-200 pt-4">

@@ -12,8 +12,8 @@ export function extractErrorMessage(
 
   const err = error as any;
 
-  // 1. Kiểm tra payload response từ axios / httpClient (err.response?.data hoặc err.data)
-  const responseData = err.response?.data || err.data;
+  // 1. Kiểm tra payload response từ axios / httpClient (err.response?.data, err.data hoặc err.details)
+  const responseData = err.response?.data || err.data || err.details;
   if (responseData) {
     if (Array.isArray(responseData.message) && responseData.message.length > 0) {
       return responseData.message.join('; ');
@@ -37,11 +37,12 @@ export function extractErrorMessage(
     return err.message.join('; ');
   }
   if (typeof err.message === 'string' && err.message.trim()) {
-    // Nếu là mã lỗi thô dạng "API error (400)" và có err.data chi tiết
-    if (/^API error \(\d+\)$/i.test(err.message) && err.data) {
-      if (Array.isArray(err.data.message)) return err.data.message.join('; ');
-      if (typeof err.data.message === 'string') return err.data.message;
-      if (err.data.error?.detail) return String(err.data.error.detail);
+    // Nếu là mã lỗi thô dạng "API error (400)" và có err.data hoặc err.details chi tiết
+    const fallbackData = err.data || err.details;
+    if (/^API error \(\d+\)$/i.test(err.message) && fallbackData) {
+      if (Array.isArray(fallbackData.message)) return fallbackData.message.join('; ');
+      if (typeof fallbackData.message === 'string') return fallbackData.message;
+      if (fallbackData.error?.detail) return String(fallbackData.error.detail);
     }
     return err.message.trim();
   }

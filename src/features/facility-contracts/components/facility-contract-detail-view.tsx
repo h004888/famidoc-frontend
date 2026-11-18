@@ -10,6 +10,7 @@ import {
   normalizeStaffingContract,
 } from '@/lib/api/contracts.api';
 import { extractErrorMessage } from '@/lib/api';
+import { FACILITY_GATE_REFRESH_EVENT } from '@/components/layout/facility-verification-gate';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -153,6 +154,7 @@ export function FacilityContractDetailView({
     try {
       const url = await contractsApi.fetchStaffingSignedPdfBlobUrl(contract.id);
       window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch (err) {
       toast.error(extractErrorMessage(err, 'Không thể tải PDF hợp đồng đã ký.'));
     }
@@ -598,7 +600,7 @@ export function FacilityContractDetailView({
                         </span>
                         <span>Tải bản PDF đã ký</span>
                       </a>
-                    ) : (
+                    ) : contract.status === 'ACTIVE' && Boolean(contract.documensoItemId) ? (
                       <Button
                         type="button"
                         variant="outline"
@@ -608,7 +610,7 @@ export function FacilityContractDetailView({
                         <span className="material-symbols-outlined text-[18px]">download</span>
                         <span>Tải bản PDF đã ký</span>
                       </Button>
-                    )}
+                    ) : null}
                     {contract.status === 'ACTIVE' && (
                       <>
                         {contract.terminationRequestStatus !== 'PENDING' && (
@@ -668,7 +670,12 @@ export function FacilityContractDetailView({
 
                 <B2bDocumensoSignPanel
                   contractId={contract.id}
-                  onSyncCompleted={() => void loadContract()}
+                  onSyncCompleted={() => {
+                    void loadContract();
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(new Event(FACILITY_GATE_REFRESH_EVENT));
+                    }
+                  }}
                 />
               </div>
             )}

@@ -1,9 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api/auth.api';
+import { extractErrorMessage } from '@/lib/api/error-handler';
+import {
+  getCurrentBrowserHost,
+  getCurrentBrowserProto,
+  getLoginUrlForRole,
+  getRoleInternalLoginPath,
+} from '@/lib/portal-routing';
 import { useAuth } from '../context/auth-context';
 
 export function ChangePasswordForm() {
@@ -21,6 +28,15 @@ export function ChangePasswordForm() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loginHref, setLoginHref] = useState<string>(() =>
+    getRoleInternalLoginPath(role)
+  );
+
+  useEffect(() => {
+    setLoginHref(
+      getLoginUrlForRole(role, getCurrentBrowserHost(), getCurrentBrowserProto())
+    );
+  }, [role]);
 
   // Validate mật khẩu mạnh
   const hasMinLength = newPassword.length >= 8;
@@ -63,11 +79,12 @@ export function ChangePasswordForm() {
         router.push(getDefaultPathForRole(role));
       }, 1500);
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error && err.message.trim()
-          ? err.message
-          : 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại và thử lại.';
-      setError(msg);
+      setError(
+        extractErrorMessage(
+          err,
+          'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại và thử lại.'
+        )
+      );
     } finally {
       setLoading(false);
     }
@@ -220,7 +237,7 @@ export function ChangePasswordForm() {
         )}
 
         <div className="text-center pt-2 border-t border-slate-100">
-          <Link href="/login" className="text-xs text-slate-500 hover:text-blue-600 transition-colors">
+          <Link href={loginHref} className="text-xs text-slate-500 hover:text-blue-600 transition-colors">
             Quay lại trang Đăng nhập
           </Link>
         </div>

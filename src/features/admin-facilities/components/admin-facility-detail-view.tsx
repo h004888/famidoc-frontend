@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { adminApi } from '@/lib/api/admin.api';
 import { useAdminQuery } from '@/hooks/use-admin-query';
+import { useVietQrBanks } from '@/hooks/use-vietqr-banks';
 import { AdminPageNavigation } from '@/components/shared/admin-page-navigation';
 import {
   contractsApi,
@@ -15,7 +16,12 @@ import {
 } from '@/lib/api/contracts.api';
 import { unwrapApiEnvelope } from '@/lib/api/envelope';
 import { extractErrorMessage } from '@/lib/api';
-import { DashboardPageShell } from '@/components/shared';
+import {
+  buildVietQrQuickLinkUrl,
+  resolveBankByInput,
+  resolveVietQrBankId,
+} from '@/lib/vietqr';
+import { DashboardPageShell, VietQrPreviewCard } from '@/components/shared';
 
 interface AdminFacilityDetailViewProps {
   facilityId: string;
@@ -69,6 +75,34 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'LEGAL' | 'BANK' | 'TIMELINE' | 'CONTRACTS'>('GENERAL');
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [loadError, setLoadError] = useState<string>();
+  const { banks } = useVietQrBanks();
+
+  const resolvedFacilityBank = useMemo(
+    () =>
+      facility
+        ? resolveBankByInput(banks, {
+            bankBin: facility.bankBin,
+            bankCode: facility.bankCode,
+            bankName: facility.bankName,
+          })
+        : undefined,
+    [banks, facility],
+  );
+
+  const facilityBankQrUrl = useMemo(() => {
+    if (!facility?.bankAccount) return null;
+    const bankId = resolveVietQrBankId(banks, {
+      bankBin: facility.bankBin || resolvedFacilityBank?.bin,
+      bankCode: facility.bankCode || resolvedFacilityBank?.code,
+      bankName: facility.bankName,
+    });
+    return buildVietQrQuickLinkUrl({
+      bankId,
+      accountNumber: facility.bankAccount,
+      accountName: facility.bankAccountHolder,
+      template: 'compact2',
+    });
+  }, [banks, facility, resolvedFacilityBank]);
 
   // Danh sách hợp đồng B2B của CSYT này
   const [staffingContracts, setStaffingContracts] = useState<StaffingContractItem[]>([]);
@@ -650,15 +684,28 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
 
       {/* Tab 3: Thông tin ngân hàng */}
       {activeTab === 'BANK' && (
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm max-w-2xl space-y-4">
+        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm max-w-3xl space-y-5">
           <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-500">
             Tài khoản thụ hưởng thanh toán &amp; Đối soát doanh thu
           </h3>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs text-slate-500 block">Tên Ngân hàng</label>
               <p className="text-sm font-semibold text-slate-900 mt-0.5">
                 {facility.bankName || 'Chưa cập nhật'}
+              </p>
+            </div>
+            <div>
+              <label className="text-xs text-slate-500 block">Mã BIN / Code VietQR</label>
+              <p className="text-sm font-semibold text-slate-900 tabular-nums mt-0.5">
+                {facility.bankBin || facility.bankCode || resolvedFacilityBank
+                  ? [
+                      facility.bankCode || resolvedFacilityBank?.code,
+                      facility.bankBin || resolvedFacilityBank?.bin,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
+                  : 'Chưa gắn mã chuẩn'}
               </p>
             </div>
             <div>
@@ -673,12 +720,29 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                 {facility.bankAccountHolder || 'Chưa cập nhật'}
               </p>
             </div>
-            <div className="pt-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
-                <span className="material-symbols-outlined text-sm">lock</span>
-                Tài khoản thụ hưởng cho kỳ đối soát doanh thu.
-              </span>
-            </div>
+          </div>
+
+          <VietQrPreviewCard
+            qrUrl={facilityBankQrUrl}
+            title="Mã VietQR kiểm tra tài khoản thụ hưởng CSYT"
+            subtitle="Sử dụng Quick Link chuẩn NAPAS / VietQR SVG để đối soát nhanh tên chủ tài khoản trước khi kích hoạt CSYT hoặc chi trả."
+            emptyMessage="CSYT chưa có đủ mã BIN/ngân hàng và số tài khoản hợp lệ để tạo mã VietQR."
+            bankLabel={
+              resolvedFacilityBank
+                ? `${resolvedFacilityBank.shortName} (${resolvedFacilityBank.name})`
+                : facility.bankName
+            }
+            bankBin={facility.bankBin || resolvedFacilityBank?.bin || null}
+            bankCode={facility.bankCode || resolvedFacilityBank?.code || null}
+            accountNumber={facility.bankAccount}
+            accountHolder={facility.bankAccountHolder}
+          />
+
+          <div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
+              <span className="material-symbols-outlined text-sm">lock</span>
+              Tài khoản thụ hưởng cho kỳ đối soát doanh thu.
+            </span>
           </div>
         </div>
       )}

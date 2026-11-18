@@ -318,6 +318,8 @@ export interface StaffingSigningSessionDto {
   facilitySigned: boolean;
   adminSigned: boolean;
   signedPdfUrl: string | null;
+  documensoItemId?: string | null;
+  hasDocumensoPdf?: boolean;
 }
 
 export interface StaffingTerminationImpactDto {

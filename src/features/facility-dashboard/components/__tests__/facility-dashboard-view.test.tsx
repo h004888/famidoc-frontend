@@ -109,4 +109,40 @@ describe('FacilityDashboardView', () => {
     });
     expect(screen.queryByText(/STF-2026-REV/i)).not.toBeInTheDocument();
   });
+
+  it('adjusts dashboard header CTA according to B2B contract active status', async () => {
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValueOnce({
+      id: 'FAC-1',
+      facilityName: 'Bệnh viện An Sinh',
+      verificationStatus: 'ACTIVE',
+      status: 'ACTIVE',
+      hasActiveStaffingContract: false,
+    } as any);
+    vi.mocked(contractsApi.getStaffingContracts).mockResolvedValueOnce({
+      data: [],
+      total: 0,
+    });
+
+    const { unmount } = render(<FacilityDashboardView />);
+    const b2bCta = await screen.findByRole('link', { name: /Hợp đồng Hợp tác B2B/i });
+    expect(b2bCta).toHaveAttribute('href', '/facility/contracts');
+    expect(screen.queryByRole('link', { name: /Quản lý Bác sĩ/i })).not.toBeInTheDocument();
+    unmount();
+
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValueOnce({
+      id: 'FAC-1',
+      facilityName: 'Bệnh viện An Sinh',
+      verificationStatus: 'ACTIVE',
+      status: 'ACTIVE',
+      hasActiveStaffingContract: true,
+    } as any);
+    vi.mocked(contractsApi.getStaffingContracts).mockResolvedValueOnce({
+      data: [],
+      total: 0,
+    });
+
+    render(<FacilityDashboardView />);
+    const doctorsCta = await screen.findByRole('link', { name: /Quản lý Bác sĩ/i });
+    expect(doctorsCta).toHaveAttribute('href', '/facility/doctors');
+  });
 });

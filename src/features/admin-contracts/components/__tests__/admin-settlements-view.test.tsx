@@ -4,6 +4,33 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { AdminSettlementsView } from '../admin-settlements-view';
 import { financeApi } from '@/lib/api/finance.api';
 
+vi.mock('@/lib/api/public.api', () => ({
+  publicApi: {
+    getBanks: vi.fn().mockResolvedValue([
+      {
+        id: 4,
+        name: 'Ngân hàng TMCP Đầu tư và Phát triển Việt Nam',
+        code: 'BIDV',
+        bin: '970418',
+        shortName: 'BIDV',
+        logo: 'https://api.vietqr.io/img/BIDV.png',
+        transferSupported: 1,
+        lookupSupported: 1,
+      },
+      {
+        id: 43,
+        name: 'Ngân hàng TMCP Ngoại thương Việt Nam',
+        code: 'VCB',
+        bin: '970436',
+        shortName: 'Vietcombank',
+        logo: 'https://api.vietqr.io/img/VCB.png',
+        transferSupported: 1,
+        lookupSupported: 1,
+      },
+    ]),
+  },
+}));
+
 vi.mock('@/lib/api/finance.api', () => ({
   financeApi: {
     getAnalytics: vi.fn().mockResolvedValue({
@@ -98,9 +125,12 @@ describe('AdminSettlementsView (BF5 Quyết Toán & Giải Ngân CSYT)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Chuẩn bị chuyển khoản' }));
 
     expect(screen.getByRole('heading', { name: 'Chuyển khoản cho cơ sở y tế' })).toBeInTheDocument();
-    const qrUrl = new URL(screen.getByRole('link', { name: 'Mở mã QR chuyển khoản' }).getAttribute('href')!);
-    expect(qrUrl.searchParams.get('acc')).toBe('119000288819');
-    expect(qrUrl.searchParams.get('amount')).toBe('416256900');
+    const expectedQrUrl =
+      'https://img.vietqr.io/image/970418-119000288819-compact2.svg?amount=416256900&addInfo=DOSOAT+ST202610YDUOC01&accountName=BV+DAI+HOC+Y+DUOC+TPHCM';
+    const qrLink = screen.getByRole('link', { name: 'Mở mã QR chuyển khoản' });
+    expect(qrLink.getAttribute('href')).toBe(expectedQrUrl);
+    const qrImg = screen.getByAltText(/Mã VietQR BIDV/i);
+    expect(qrImg.getAttribute('src')).toBe(expectedQrUrl);
 
     fireEvent.change(screen.getByLabelText(/Mã giao dịch trên chứng từ/i), { target: { value: 'FT1234' } });
     fireEvent.change(screen.getByLabelText(/Số tiền đã chuyển/i), { target: { value: '416256900' } });
@@ -147,5 +177,34 @@ describe('AdminSettlementsView (BF5 Quyết Toán & Giải Ngân CSYT)', () => {
       environment: 'LIVE',
       reviewVersion: 2,
     }));
+  });
+
+  it('generates img.vietqr.io SVG QR when bankDestination uses full Vietnamese bankName with bankBin', async () => {
+    const report = await financeApi.getAnalytics();
+    const statement = report.settlements[0];
+    vi.mocked(financeApi.getAnalytics).mockResolvedValueOnce({
+      ...report,
+      settlements: [
+        {
+          ...statement,
+          bankDestination: {
+            bankName: 'Vietcombank - Ngân hàng TMCP Ngoại thương Việt Nam',
+            bankBin: '970436',
+            bankCode: 'VCB',
+            accountNumber: '0071000889922',
+            accountHolder: 'BENH VIEN AN SINH',
+          },
+        },
+      ],
+    });
+
+    render(<AdminSettlementsView />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Xem chi tiết' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Chuẩn bị chuyển khoản' }));
+
+    const qrLink = screen.getByRole('link', { name: 'Mở mã QR chuyển khoản' });
+    expect(qrLink.getAttribute('href')).toBe(
+      'https://img.vietqr.io/image/970436-0071000889922-compact2.svg?amount=416256900&addInfo=DOSOAT+ST202610YDUOC01&accountName=BENH+VIEN+AN+SINH'
+    );
   });
 });

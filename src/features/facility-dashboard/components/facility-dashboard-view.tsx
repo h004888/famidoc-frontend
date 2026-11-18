@@ -30,6 +30,7 @@ export function FacilityDashboardView() {
   const [facilityName, setFacilityName] = useState<string>('Cơ sở Y tế Đối tác');
   const [facilityCode, setFacilityCode] = useState<string>('CSYT-VN');
   const [isFacilityActive, setIsFacilityActive] = useState<boolean | null>(null);
+  const [hasActiveB2b, setHasActiveB2b] = useState<boolean>(false);
   const [legalRejectionReason, setLegalRejectionReason] = useState<string | null>(null);
   const [pendingContract, setPendingContract] = useState<StaffingContractItem | null>(null);
 
@@ -46,6 +47,7 @@ export function FacilityDashboardView() {
         );
         if (data) {
           setIsFacilityActive(active);
+          setHasActiveB2b(Boolean(data.hasActiveStaffingContract));
           setLegalRejectionReason(data.legalRejectionReason ?? null);
         }
         if (active) {
@@ -54,6 +56,10 @@ export function FacilityDashboardView() {
             .then((res) => {
               if (!isMounted) return;
               if (res && Array.isArray(res.data)) {
+                const activeB2bFromList = res.data.some((c) => c.status === 'ACTIVE');
+                if (activeB2bFromList) {
+                  setHasActiveB2b(true);
+                }
                 const draft = res.data.find(
                   (c) =>
                     c.rawStatus === 'PENDING_FACILITY_SIGNATURE' ||
@@ -174,24 +180,41 @@ export function FacilityDashboardView() {
 
             <div className="flex w-full items-center gap-2.5 md:w-auto">
               {isFacilityActive === true ? (
-                <>
+                hasActiveB2b ? (
+                  <>
+                    <Button asChild className="flex-1 rounded-xl px-4 py-2.5 text-xs font-bold sm:text-sm md:flex-none">
+                      <Link href="/facility/doctors">
+                        <span className="material-symbols-outlined text-[18px]">person_add</span>
+                        <span>Quản lý Bác sĩ</span>
+                      </Link>
+                    </Button>
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="flex-1 rounded-xl border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm md:flex-none"
+                    >
+                      <Link href="/facility/coordination">
+                        <span className="material-symbols-outlined text-[18px] text-primary">rule_settings</span>
+                        <span>Điều phối viện</span>
+                      </Link>
+                    </Button>
+                  </>
+                ) : (
                   <Button asChild className="flex-1 rounded-xl px-4 py-2.5 text-xs font-bold sm:text-sm md:flex-none">
-                    <Link href="/facility/staff">
-                      <span className="material-symbols-outlined text-[18px]">person_add</span>
-                      <span>Tiếp nhận Bác sĩ</span>
+                    <Link
+                      href={
+                        pendingContract
+                          ? `/facility/contracts/${pendingContract.id}`
+                          : '/facility/contracts'
+                      }
+                    >
+                      <span className="material-symbols-outlined text-[18px]">contract_edit</span>
+                      <span>
+                        {pendingContract ? 'Xem & Ký Hợp đồng B2B' : 'Hợp đồng Hợp tác B2B'}
+                      </span>
                     </Link>
                   </Button>
-                  <Button
-                    asChild
-                    variant="outline"
-                    className="flex-1 rounded-xl border-slate-200 bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 sm:text-sm md:flex-none"
-                  >
-                    <Link href="/facility/coordination">
-                      <span className="material-symbols-outlined text-[18px] text-primary">rule_settings</span>
-                      <span>Điều phối viện</span>
-                    </Link>
-                  </Button>
-                </>
+                )
               ) : (
                 <Button asChild className="flex-1 rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-amber-700 sm:text-sm md:flex-none">
                   <Link href="/facility/legal-profile">
