@@ -233,7 +233,7 @@ export function FacilityDoctorDetailView({ doctorId }: FacilityDoctorDetailViewP
             <div className="space-y-3">
               <div>
                 <label className="text-xs text-slate-500 block">Chức danh / Học vị</label>
-                <p className="text-sm font-semibold text-slate-900 mt-0.5">{doctor.academicTitle || 'BS. CKI'}</p>
+                <p className="text-sm font-semibold text-slate-900 mt-0.5">{doctor.academicTitle || 'Chưa cập nhật'}</p>
               </div>
               <div>
                 <label className="text-xs text-slate-500 block">Khoa phòng &amp; Chuyên khoa</label>

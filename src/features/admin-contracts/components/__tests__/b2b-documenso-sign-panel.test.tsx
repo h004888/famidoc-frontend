@@ -79,7 +79,7 @@ describe('B2bDocumensoSignPanel fallback signing', () => {
     });
   });
 
-  it('calls signStaffingContract with signedPdfUrl when Admin signs Step 2 without Documenso token', async () => {
+  it('calls signStaffingContract without fake signedPdfUrl when Admin signs Step 2 without Documenso token', async () => {
     vi.mocked(contractsApi.getStaffingSigningSession).mockResolvedValue({
       contractId: 'b2b-2',
       contractCode: 'STF-2026-002',
@@ -103,9 +103,30 @@ describe('B2bDocumensoSignPanel fallback signing', () => {
     fireEvent.click(signBtn);
 
     await waitFor(() => {
-      expect(contractsApi.signStaffingContract).toHaveBeenCalledWith('b2b-2', {
-        signedPdfUrl: 'https://sign.famidoc.online/contracts/staffing/b2b-2/signed.pdf',
-      });
+      expect(contractsApi.signStaffingContract).toHaveBeenCalledWith('b2b-2', {});
     });
+  });
+
+  it('does not render broken PDF download button when ACTIVE contract has no documensoItemId (internal fallback)', async () => {
+    vi.mocked(contractsApi.getStaffingSigningSession).mockResolvedValue({
+      contractId: 'b2b-3',
+      contractCode: 'STF-2026-003',
+      status: 'ACTIVE',
+      signerRole: 'ADMIN',
+      alreadySigned: true,
+      canSign: false,
+      signingToken: null,
+      signingUrl: null,
+      facilitySigned: true,
+      adminSigned: true,
+      signedPdfUrl: null,
+      documensoItemId: null,
+      hasDocumensoPdf: false,
+    });
+
+    render(<B2bDocumensoSignPanel contractId="b2b-3" />);
+
+    expect(await screen.findByTestId('b2b-documenso-signed')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Xem PDF đã ký/i })).not.toBeInTheDocument();
   });
 });

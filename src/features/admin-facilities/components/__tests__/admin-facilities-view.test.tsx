@@ -368,4 +368,115 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
       });
     });
   });
+
+  it('requires both hasOperatingLicense and hasBusinessLicense to enable ACTIVE approval and displays bankBin/bankCode + VietQR in quick review modal', async () => {
+    vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
+      data: [
+        {
+          ...mockLegalSubmittedFacility,
+          hasOperatingLicense: true,
+          hasBusinessLicense: false,
+          bankBin: '970436',
+          bankCode: 'VCB',
+        },
+        {
+          ...mockLegalSubmittedFacility,
+          id: 'FAC-TEST-005',
+          facilityName: 'Bệnh viện Đủ 2 Scan',
+          hasOperatingLicense: true,
+          hasBusinessLicense: true,
+          bankBin: '970436',
+          bankCode: 'VCB',
+        },
+      ],
+      total: 2,
+    });
+
+    render(<AdminFacilitiesView />);
+    await screen.findAllByText('Bệnh viện Chờ Thẩm Định');
+
+    const detailButtons = screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i });
+    // Facility 1: thiếu ĐKKD
+    fireEvent.click(detailButtons[0]);
+    expect(screen.getByText(/Mã NH: VCB/i)).toBeInTheDocument();
+    expect(screen.getByText(/BIN: 970436/i)).toBeInTheDocument();
+    expect(screen.getByText(/Đối soát nhanh tài khoản thụ hưởng VietQR/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Thiếu bản scan bắt buộc: Giấy chứng nhận Đăng ký doanh nghiệp \(ĐKKD\)/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Duyệt Cấp 2: Kích Hoạt ACTIVE/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Đóng$/i }));
+
+    // Facility 2: đủ cả 2 bản scan
+    const refreshedButtons = screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i });
+    fireEvent.click(refreshedButtons[1]);
+    expect(screen.getByRole('button', { name: /Duyệt Cấp 2: Kích Hoạt ACTIVE/i })).toBeEnabled();
+  });
+
+  it('validates Admin Create Facility form client-side and normalizes +84 phone', async () => {
+    vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
+      data: [mockFacility],
+      total: 1,
+    });
+    vi.mocked(facilitiesApi.createFacilityByAdmin).mockResolvedValue({
+      ...mockFacility,
+      id: 'FAC-NEW-02',
+      facilityName: 'Phòng khám Chuẩn SĐT',
+      email: 'chuan@clinic.vn',
+    });
+
+    render(<AdminFacilitiesView />);
+    await screen.findAllByText('Bệnh viện Kiểm Thử FamiDoc');
+
+    fireEvent.click(screen.getByRole('button', { name: /Tạo Cơ sở Y tế mới/i }));
+
+    fireEvent.change(screen.getByLabelText(/Tên Cơ sở Y tế/i), {
+      target: { value: 'AB' },
+    });
+    fireEvent.change(screen.getByLabelText(/Người đại diện/i), {
+      target: { value: 'A' },
+    });
+    fireEvent.change(screen.getByLabelText(/Email liên hệ/i), {
+      target: { value: 'invalid-email' },
+    });
+    fireEvent.change(screen.getByLabelText(/Số điện thoại/i), {
+      target: { value: '0|12345678' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Khởi tạo & Gửi Email/i }));
+
+    expect(await screen.findByText(/Tên cơ sở y tế phải từ 3 đến 255 ký tự/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tên người đại diện phải từ 2 đến 100 ký tự/i)).toBeInTheDocument();
+    expect(screen.getByText(/Định dạng email không hợp lệ/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Số điện thoại không đúng định dạng di động Việt Nam/i)
+    ).toBeInTheDocument();
+    expect(facilitiesApi.createFacilityByAdmin).not.toHaveBeenCalled();
+
+    // Fix inputs with +84 phone -> normalized to 0912345679
+    fireEvent.change(screen.getByLabelText(/Tên Cơ sở Y tế/i), {
+      target: { value: 'Phòng khám Chuẩn SĐT' },
+    });
+    fireEvent.change(screen.getByLabelText(/Người đại diện/i), {
+      target: { value: 'BS. Nguyễn Văn B' },
+    });
+    fireEvent.change(screen.getByLabelText(/Email liên hệ/i), {
+      target: { value: 'chuan@clinic.vn' },
+    });
+    fireEvent.change(screen.getByLabelText(/Số điện thoại/i), {
+      target: { value: '+84 912 345 679' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Khởi tạo & Gửi Email/i }));
+
+    await waitFor(() => {
+      expect(facilitiesApi.createFacilityByAdmin).toHaveBeenCalledWith({
+        facilityName: 'Phòng khám Chuẩn SĐT',
+        representativeName: 'BS. Nguyễn Văn B',
+        email: 'chuan@clinic.vn',
+        phone: '0912345679',
+      });
+    });
+  });
 });

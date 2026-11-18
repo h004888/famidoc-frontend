@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FacilityContractDetailView } from '../facility-contract-detail-view';
 import { contractsApi } from '@/lib/api/contracts.api';
+import { FACILITY_GATE_REFRESH_EVENT } from '@/components/layout/facility-verification-gate';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -147,19 +148,46 @@ describe('FacilityContractDetailView (/facility/contracts/[id])', () => {
 
     render(<FacilityContractDetailView contractId="ctr-b2b-002" />);
 
-    const embed = await screen.findByTestId('mock-detail-documenso');
-    expect(embed).toHaveAttribute('data-token', 'tok-b2b-detail-1');
+    const gateListener = vi.fn();
+    window.addEventListener(FACILITY_GATE_REFRESH_EVENT, gateListener);
 
-    fireEvent.click(screen.getByRole('button', { name: /Đồng bộ sau khi ký/i }));
+    try {
+      const embed = await screen.findByTestId('mock-detail-documenso');
+      expect(embed).toHaveAttribute('data-token', 'tok-b2b-detail-1');
 
-    await waitFor(() => {
-      expect(contractsApi.syncStaffingDocumenso).toHaveBeenCalledWith('ctr-b2b-002');
+      fireEvent.click(screen.getByRole('button', { name: /Đồng bộ sau khi ký/i }));
+
+      await waitFor(() => {
+        expect(contractsApi.syncStaffingDocumenso).toHaveBeenCalledWith('ctr-b2b-002');
+      });
+
+      expect(
+        await screen.findByText('Cơ sở y tế đã hoàn tất ký bước 1 — Chờ Admin ký kích hoạt')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Chờ FamiDoc ký duyệt')).toBeInTheDocument();
+      expect(gateListener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(FACILITY_GATE_REFRESH_EVENT, gateListener);
+    }
+  });
+
+  it('hides proxy PDF download button when ACTIVE contract was signed via internal fallback (no documensoItemId)', async () => {
+    vi.mocked(contractsApi.getStaffingContractById).mockResolvedValueOnce({
+      ...draftRaw,
+      status: 'ACTIVE',
+      facilitySigned: true,
+      adminSigned: true,
+      documensoItemId: null,
+      signedPdfUrl: null,
     });
 
+    render(<FacilityContractDetailView contractId="ctr-b2b-002" />);
+
     expect(
-      await screen.findByText('Cơ sở y tế đã hoàn tất ký bước 1 — Chờ Admin ký kích hoạt')
+      await screen.findByText('Hợp đồng Hợp tác B2B đang có hiệu lực')
     ).toBeInTheDocument();
-    expect(screen.getByText('Chờ FamiDoc ký duyệt')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Tải bản PDF đã ký/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Tải bản PDF đã ký/i })).not.toBeInTheDocument();
   });
 
   it('enforces 5-500 char validation on reject dialog and clears reason when closed', async () => {

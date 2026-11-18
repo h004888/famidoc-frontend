@@ -9,7 +9,13 @@ import {
   type DoctorQuotaProposalDto,
 } from '@/lib/api/doctors.api';
 import { extractErrorMessage } from '@/lib/api';
+import {
+  isValidVietnameseMobilePhone,
+  normalizeVietnameseMobilePhone,
+} from '@/lib/phone-vn';
+import { ConfirmDialog } from '@/components/shared';
 import { useFacilityVerificationGateState } from '@/components/layout/facility-verification-gate';
+import { FacilityDoctorExcelImportModal } from './facility-doctor-excel-import-modal';
 
 export interface DoctorStaff {
   id: string;
@@ -49,22 +55,27 @@ export function FacilityStaffView() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Modal Thêm Bác sĩ (tối giản)
+  // Modal Thêm Bác sĩ (tối giản) & Modal Import Excel
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [newDoctorName, setNewDoctorName] = useState('');
   const [newDoctorEmail, setNewDoctorEmail] = useState('');
   const [newDoctorPhone, setNewDoctorPhone] = useState('');
   const [newDoctorExp, setNewDoctorExp] = useState('');
-  const [newDoctorDept, setNewDoctorDept] = useState('Khoa Y học Gia đình');
+  const [newDoctorDept, setNewDoctorDept] = useState('Y học gia đình');
   const [newDoctorTitle, setNewDoctorTitle] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [confirmApproveDoctor, setConfirmApproveDoctor] = useState<DoctorStaff | null>(null);
+  const [isApprovingDoctor, setIsApprovingDoctor] = useState(false);
 
   // Modal Thông báo cấp tài khoản thành công (không hiển thị mật khẩu cứng)
   const [createdDoctorInfo, setCreatedDoctorInfo] = useState<{
     name: string;
     email: string;
     specialty: string;
+    mailSent: boolean;
+    mailWarning?: string;
   } | null>(null);
 
   // Đề xuất điều chỉnh Quota bác sĩ (Task 5.3)
@@ -184,7 +195,12 @@ export function FacilityStaffView() {
   };
 
   const filteredStaff = staffList.filter((doc) => {
-    const matchesDept = filterDepartment === 'all' || doc.department === filterDepartment;
+    const matchesDept =
+      filterDepartment === 'all' ||
+      doc.department === filterDepartment ||
+      (filterDepartment === 'Y học gia đình' &&
+        (doc.department.toLowerCase() === 'y học gia đình' ||
+          doc.department.toLowerCase() === 'khoa y học gia đình'));
     const matchesStatus =
       filterStatus === 'all' ||
       doc.status === filterStatus ||
@@ -200,6 +216,7 @@ export function FacilityStaffView() {
 
   // Thẩm định Cấp 1 hồ sơ chuyên môn của Bác sĩ
   const handleApprove = async (docId: string) => {
+    setIsApprovingDoctor(true);
     try {
       await doctorsApi.facilityApproveCredentials(docId, {
         approved: true,
@@ -215,34 +232,75 @@ export function FacilityStaffView() {
     } catch (err: any) {
       console.warn('Lỗi thẩm định Cấp 1:', err);
       toast.error(extractErrorMessage(err, 'Không thể thẩm định Cấp 1 trên máy chủ.'));
+    } finally {
+      setIsApprovingDoctor(false);
     }
+  };
+
+  const openCreateDoctorModal = () => {
+    setCreateError(null);
+    setIsModalOpen(true);
+  };
+
+  const closeCreateDoctorModal = () => {
+    setCreateError(null);
+    setIsModalOpen(false);
   };
 
   // Khởi tạo Bác sĩ mới trực thuộc (thông tin tối giản, mật khẩu sinh ngẫu nhiên gửi email)
   const handleCreateDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDoctorName || !newDoctorEmail || !newDoctorPhone) return;
+    const cleanName = newDoctorName.trim();
+    const cleanEmail = newDoctorEmail.trim();
+    const normalizedPhone = normalizeVietnameseMobilePhone(newDoctorPhone);
+
+    if (!cleanName || cleanName.length < 2 || cleanName.length > 100) {
+      setCreateError('Họ và tên bác sĩ phải từ 2 đến 100 ký tự.');
+      return;
+    }
+    if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+      setCreateError('Định dạng email đăng nhập không hợp lệ.');
+      return;
+    }
+    if (!newDoctorPhone.trim() || !isValidVietnameseMobilePhone(newDoctorPhone)) {
+      setCreateError('Số điện thoại không đúng định dạng di động Việt Nam.');
+      return;
+    }
+
+    const parsedExp = newDoctorExp.trim() !== '' ? Number(newDoctorExp) : undefined;
+    if (
+      parsedExp !== undefined &&
+      (!Number.isInteger(parsedExp) || parsedExp < 0 || parsedExp > 60)
+    ) {
+      setCreateError('Số năm kinh nghiệm phải là số nguyên từ 0 đến 60.');
+      return;
+    }
 
     setIsSubmitting(true);
     setCreateError(null);
 
-    const parsedExp = newDoctorExp.trim() !== '' ? Number(newDoctorExp) : undefined;
     const payload: CreateFacilityDoctorPayload = {
-      doctorName: newDoctorName.trim(),
-      email: newDoctorEmail.trim(),
-      phone: newDoctorPhone.trim(),
+      doctorName: cleanName,
+      email: cleanEmail,
+      phone: normalizedPhone,
       specialty: newDoctorDept,
-      ...(parsedExp !== undefined && !Number.isNaN(parsedExp) ? { experienceYears: parsedExp } : {}),
+      ...(parsedExp !== undefined ? { experienceYears: parsedExp } : {}),
       ...(newDoctorTitle.trim() ? { academicTitle: newDoctorTitle.trim() } : {}),
     };
 
     try {
       const res: any = await doctorsApi.createFacilityDoctor(payload);
-      const createdId = res?.data?.id || res?.id || 'doc-new';
+      const createdRecord = res?.data ?? res;
+      const createdId = createdRecord?.id || 'doc-new';
+      const mailSent = createdRecord?.mailSent !== false;
+      const mailWarning =
+        typeof createdRecord?.mailWarning === 'string' && createdRecord.mailWarning.trim()
+          ? createdRecord.mailWarning.trim()
+          : undefined;
 
       const newDoc: DoctorStaff = {
         id: createdId,
-        name: newDoctorName.trim(),
+        name: cleanName,
         title: newDoctorTitle.trim() ? `${newDoctorTitle.trim()} • ${newDoctorDept}` : `Bác sĩ ${newDoctorDept}`,
         department: newDoctorDept,
         cchnNumber: 'Chờ BS nộp hồ sơ',
@@ -254,8 +312,8 @@ export function FacilityStaffView() {
         totalEncounters: 0,
         status: 'pending_approval',
         onboardingStatus: 'PENDING_SUBMISSION',
-        email: newDoctorEmail.trim(),
-        phone: newDoctorPhone.trim(),
+        email: createdRecord?.email || cleanEmail,
+        phone: createdRecord?.phone || normalizedPhone,
         experienceYears: parsedExp ?? 0,
         academicTitle: newDoctorTitle.trim() || undefined,
       };
@@ -264,10 +322,13 @@ export function FacilityStaffView() {
       fetchDoctors().catch(() => {});
 
       setIsModalOpen(false);
+      setCreateError(null);
       setCreatedDoctorInfo({
-        name: newDoctorName.trim(),
-        email: newDoctorEmail.trim(),
+        name: cleanName,
+        email: createdRecord?.email || cleanEmail,
         specialty: newDoctorDept,
+        mailSent,
+        ...(mailWarning ? { mailWarning } : {}),
       });
 
       setNewDoctorName('');
@@ -275,7 +336,13 @@ export function FacilityStaffView() {
       setNewDoctorPhone('');
       setNewDoctorExp('');
       setNewDoctorTitle('');
-      toast.success(`Đã khởi tạo tài khoản Bác sĩ và gửi email thông tin đăng nhập!`);
+      if (mailSent) {
+        toast.success(`Đã khởi tạo tài khoản Bác sĩ và gửi email thông tin đăng nhập!`);
+      } else {
+        toast.warning(
+          mailWarning || 'Tài khoản đã được tạo nhưng gửi email thông tin đăng nhập thất bại.'
+        );
+      }
     } catch (err: any) {
       console.warn('Lỗi khi gọi API khởi tạo Bác sĩ:', err?.message || err);
       const errorMsg = extractErrorMessage(
@@ -325,7 +392,16 @@ export function FacilityStaffView() {
             <button
               type="button"
               disabled={hasExplicitNoActiveB2b}
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => setIsImportModalOpen(true)}
+              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs sm:text-sm rounded-xl transition-colors cursor-pointer disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+            >
+              <span className="material-symbols-outlined text-[18px]">upload_file</span>
+              <span>Import Excel</span>
+            </button>
+            <button
+              type="button"
+              disabled={hasExplicitNoActiveB2b}
+              onClick={openCreateDoctorModal}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md shadow-blue-600/20 cursor-pointer disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-[18px]">person_add</span>
@@ -391,7 +467,7 @@ export function FacilityStaffView() {
                 className="h-9 px-3 bg-slate-50 border border-input rounded-xl text-xs sm:text-sm font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="all">Tất cả chuyên khoa</option>
-                <option value="Khoa Y học Gia đình">Khoa Y học Gia đình</option>
+                <option value="Y học gia đình">Y học gia đình</option>
                 <option value="Khoa Nội Tổng quát">Khoa Nội Tổng quát</option>
                 <option value="Khoa Nhi">Khoa Nhi</option>
                 <option value="Khoa Nội tiết">Khoa Nội tiết</option>
@@ -520,7 +596,7 @@ export function FacilityStaffView() {
                             {doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' && (
                               <button
                                 type="button"
-                                onClick={() => handleApprove(doc.id)}
+                                onClick={() => setConfirmApproveDoctor(doc)}
                                 className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
                               >
                                 Duyệt Cấp 1
@@ -582,7 +658,7 @@ export function FacilityStaffView() {
                     {doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' && (
                       <button
                         type="button"
-                        onClick={() => handleApprove(doc.id)}
+                        onClick={() => setConfirmApproveDoctor(doc)}
                         className="rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-bold text-white cursor-pointer"
                       >
                         Duyệt Cấp 1
@@ -725,19 +801,19 @@ export function FacilityStaffView() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 font-bold p-1"
+                  onClick={closeCreateDoctorModal}
+                  className="text-slate-400 hover:text-slate-600 font-bold p-1 cursor-pointer"
                 >
                   ✕
                 </button>
               </div>
 
-              <form onSubmit={handleCreateDoctor} className="space-y-3.5">
+              <form onSubmit={handleCreateDoctor} noValidate className="space-y-3.5">
                 {createError && (
                   <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs flex items-start gap-2 animate-in fade-in">
                     <span className="material-symbols-outlined text-[18px] text-rose-600 shrink-0">error</span>
                     <div className="space-y-0.5">
-                      <p className="font-semibold text-rose-800">Lỗi từ máy chủ Backend:</p>
+                      <p className="font-semibold text-rose-800">Không thể khởi tạo bác sĩ:</p>
                       <p className="leading-relaxed">{createError}</p>
                     </div>
                   </div>
@@ -830,6 +906,7 @@ export function FacilityStaffView() {
                     onChange={(e) => setNewDoctorDept(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 bg-white"
                   >
+                    <option value="Y học gia đình">Y học gia đình</option>
                     <option value="Khoa Y học Gia đình">Khoa Y học Gia đình</option>
                     <option value="Khoa Nội Tổng quát">Khoa Nội Tổng quát</option>
                     <option value="Khoa Nhi">Khoa Nhi</option>
@@ -841,8 +918,8 @@ export function FacilityStaffView() {
                 <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
                   <button
                     type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                    onClick={closeCreateDoctorModal}
+                    className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer"
                   >
                     Hủy bỏ
                   </button>
@@ -863,15 +940,33 @@ export function FacilityStaffView() {
         {createdDoctorInfo && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs animate-in fade-in duration-150">
             <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold">
-                ✓
+              <div
+                className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-bold ${
+                  createdDoctorInfo.mailSent
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-amber-50 text-amber-600'
+                }`}
+              >
+                {createdDoctorInfo.mailSent ? '✓' : '!'}
               </div>
 
               <div>
                 <h3 className="text-base font-bold text-slate-900">Khởi Tạo Bác Sĩ Thành Công!</h3>
-                <p className="text-xs text-slate-500 mt-1">
-                  Tài khoản đã được tạo cho <strong>{createdDoctorInfo.name}</strong> và thông tin đăng nhập kèm mật khẩu ngẫu nhiên an toàn đã được gửi qua email.
-                </p>
+                {createdDoctorInfo.mailSent ? (
+                  <p className="text-xs text-slate-500 mt-1">
+                    Tài khoản đã được tạo cho <strong>{createdDoctorInfo.name}</strong> và thông tin đăng nhập kèm mật khẩu ngẫu nhiên an toàn đã được gửi qua email.
+                  </p>
+                ) : (
+                  <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                    <p className="font-semibold">
+                      {createdDoctorInfo.mailWarning ||
+                        'Tài khoản đã được tạo nhưng gửi email thông tin đăng nhập thất bại.'}
+                    </p>
+                    <p className="mt-1 text-[11px] text-amber-800">
+                      Vui lòng kiểm tra cấu hình gửi mail hoặc hướng dẫn bác sĩ sử dụng chức năng Quên mật khẩu để đặt lại mật khẩu.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-2 text-xs">
@@ -881,9 +976,15 @@ export function FacilityStaffView() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Mật khẩu khởi tạo:</span>
-                  <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-                    Đã gửi qua email bác sĩ
-                  </span>
+                  {createdDoctorInfo.mailSent ? (
+                    <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                      Đã gửi qua email bác sĩ
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-amber-800 bg-amber-50 px-2 py-0.5 rounded">
+                      Gửi email thất bại
+                    </span>
+                  )}
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Chuyên khoa:</span>
@@ -911,6 +1012,34 @@ export function FacilityStaffView() {
             </div>
           </div>
         )}
+
+        <ConfirmDialog
+          open={Boolean(confirmApproveDoctor)}
+          onOpenChange={(open) => {
+            if (!open && !isApprovingDoctor) setConfirmApproveDoctor(null);
+          }}
+          title="Xác nhận duyệt Cấp 1 hồ sơ bác sĩ"
+          description={
+            confirmApproveDoctor
+              ? `Bạn xác nhận đã kiểm tra đủ 3 chứng chỉ bắt buộc và phê duyệt Cấp 1 cho Bác sĩ ${confirmApproveDoctor.name}? Hồ sơ sẽ được chuyển lên Quản trị viên FamiDoc thẩm định Cấp 2.`
+              : ''
+          }
+          confirmLabel="Xác nhận duyệt Cấp 1"
+          cancelLabel="Kiểm tra lại"
+          isLoading={isApprovingDoctor}
+          onConfirm={async () => {
+            if (!confirmApproveDoctor) return;
+            const targetId = confirmApproveDoctor.id;
+            await handleApprove(targetId);
+            setConfirmApproveDoctor(null);
+          }}
+        />
+
+        <FacilityDoctorExcelImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onImported={fetchDoctors}
+        />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 import { ApiError } from '../http/errors';
 import { COOKIE_KEYS, getCookie } from '@/lib/auth-storage';
+import { extractErrorMessage } from './error-handler';
 
 const LEGACY_TOKEN_KEY = 'famidoc_auth_token';
 
@@ -112,14 +113,11 @@ class HttpClient {
 
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        const detailMessage =
-          (errorData as { error?: { detail?: string } })?.error?.detail ||
-          (errorData as { message?: string })?.message;
-        throw new ApiError(
-          detailMessage || `API error (${res.status})`,
-          res.status,
-          errorData
+        const detailMessage = extractErrorMessage(
+          { data: errorData },
+          `API error (${res.status})`
         );
+        throw new ApiError(detailMessage, res.status, errorData);
       }
 
       if (res.status === 204) {
@@ -154,7 +152,32 @@ class HttpClient {
     });
 
     if (!res.ok) {
-      throw new ApiError(`API error (${res.status})`, res.status);
+      let errorData: unknown = undefined;
+      let detailMessage = `API error (${res.status})`;
+      const contentType =
+        typeof res.headers?.get === 'function'
+          ? res.headers.get('content-type') || ''
+          : '';
+
+      if (contentType.includes('application/json') && typeof res.json === 'function') {
+        errorData = await res.json().catch(() => undefined);
+        detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+      } else if (typeof res.text === 'function') {
+        const text = await res.text().catch(() => '');
+        if (text.trim()) {
+          try {
+            errorData = JSON.parse(text);
+            detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+          } catch {
+            detailMessage = text.trim();
+          }
+        }
+      } else if (typeof res.json === 'function') {
+        errorData = await res.json().catch(() => undefined);
+        detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+      }
+
+      throw new ApiError(detailMessage, res.status, errorData);
     }
 
     return res.blob();
@@ -206,10 +229,11 @@ class HttpClient {
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
-      const detailMessage =
-        (errorData as { error?: { detail?: string } })?.error?.detail ||
-        (errorData as { message?: string })?.message;
-      throw new ApiError(detailMessage || `Upload failed (${res.status})`, res.status, errorData);
+      const detailMessage = extractErrorMessage(
+        { data: errorData },
+        `Upload failed (${res.status})`
+      );
+      throw new ApiError(detailMessage, res.status, errorData);
     }
     return (await res.json()) as T;
   }

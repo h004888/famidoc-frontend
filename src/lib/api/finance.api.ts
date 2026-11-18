@@ -37,6 +37,8 @@ export interface FacilitySettlementDto {
   createdAt: string;
   bankDestination: {
     bankName: string;
+    bankBin?: string | null;
+    bankCode?: string | null;
     accountNumber: string;
     accountHolder: string;
   };

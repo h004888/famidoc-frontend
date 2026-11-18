@@ -6,6 +6,43 @@ import { AdminFacilitiesView } from '@/features/admin-facilities/components/admi
 import { facilitiesApi } from '@/lib/api/facilities.api';
 import { doctorsApi } from '@/lib/api/doctors.api';
 
+vi.mock('@/lib/api/public.api', () => ({
+  publicApi: {
+    getBanks: vi.fn().mockResolvedValue([
+      {
+        id: 43,
+        name: 'Ngân hàng TMCP Ngoại thương Việt Nam',
+        code: 'VCB',
+        bin: '970436',
+        shortName: 'Vietcombank',
+        logo: 'https://api.vietqr.io/img/VCB.png',
+        transferSupported: 1,
+        lookupSupported: 1,
+      },
+      {
+        id: 4,
+        name: 'Ngân hàng TMCP Đầu tư và Phát triển Việt Nam',
+        code: 'BIDV',
+        bin: '970418',
+        shortName: 'BIDV',
+        logo: 'https://api.vietqr.io/img/BIDV.png',
+        transferSupported: 1,
+        lookupSupported: 1,
+      },
+      {
+        id: 99,
+        name: 'Ngân hàng Hạn chế VietQR',
+        code: 'LIM',
+        bin: '970499',
+        shortName: 'LimitBank',
+        logo: '',
+        transferSupported: 0,
+        lookupSupported: 0,
+      },
+    ]),
+  },
+}));
+
 vi.mock('@/lib/api/doctors.api', () => ({
   doctorsApi: {
     getAdminDoctors: vi.fn().mockResolvedValue([]),
@@ -53,7 +90,6 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
     const dateInput = document.querySelector('input[type="date"]') as HTMLInputElement;
     const addressInput = screen.getByPlaceholderText(/Số nhà, tên đường/i);
     const taxInput = screen.getByPlaceholderText(/0315892019/i);
-    const bankNameInput = screen.getByPlaceholderText(/Vietcombank/i);
     const bankAccountInput = screen.getByPlaceholderText(/0071000889922/i);
     const bankHolderInput = screen.getByPlaceholderText(/CTCP BENH VIEN QUOC TE FAMICARE/i);
 
@@ -64,9 +100,23 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
     }
     fireEvent.change(addressInput, { target: { value: '10 Trần Huy Liệu, Quận Phú Nhuận, TP.HCM' } });
     fireEvent.change(taxInput, { target: { value: '0315999888' } });
-    fireEvent.change(bankNameInput, { target: { value: 'Vietcombank' } });
+
+    // Chọn ngân hàng từ danh sách VietQR Combobox
+    const bankTrigger = screen.getByTestId('bank-selector-trigger');
+    fireEvent.click(bankTrigger);
+    const bankSearchInput = await screen.findByLabelText(/Tìm kiếm ngân hàng/i);
+    fireEvent.change(bankSearchInput, { target: { value: 'Vietcombank' } });
+    const vcbOption = await screen.findByRole('option', { name: /Vietcombank/i });
+    fireEvent.click(vcbOption.querySelector('button')!);
+
     fireEvent.change(bankAccountInput, { target: { value: '9988776655' } });
     fireEvent.change(bankHolderInput, { target: { value: 'CONG TY CP Y TE AN SINH' } });
+
+    // Chờ debounce 500ms để render ảnh VietQR preview chuẩn Quick Link SVG
+    const qrImg = await screen.findByAltText(/Mã VietQR VCB/i, {}, { timeout: 2000 });
+    expect(qrImg.getAttribute('src')).toBe(
+      'https://img.vietqr.io/image/970436-9988776655-compact2.svg?accountName=CONG+TY+CP+Y+TE+AN+SINH'
+    );
 
     // Attach both separate files
     const operatingFile = new File(['dummy-gphd'], 'gphd.pdf', { type: 'application/pdf' });
@@ -87,6 +137,9 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
           licenseDate: '2024-05-15',
           address: '10 Trần Huy Liệu, Quận Phú Nhuận, TP.HCM',
           taxCode: '0315999888',
+          bankName: 'Vietcombank - Ngân hàng TMCP Ngoại thương Việt Nam',
+          bankBin: '970436',
+          bankCode: 'VCB',
           bankAccountNumber: '9988776655',
           bankAccountHolder: 'CONG TY CP Y TE AN SINH',
           operatingLicenseFile: operatingFile,
@@ -133,6 +186,8 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
           bankName: 'Vietcombank',
           bankAccount: '9988776655',
           bankAccountHolder: 'CONG TY CP Y TE AN SINH',
+          hasOperatingLicense: true,
+          hasBusinessLicense: true,
           licenseFiles: ['Giay_Phep_Hoat_Dong_KCB_2026.pdf'],
           createdAt: '2026-11-13T10:00:00.000Z',
         },
@@ -162,5 +217,163 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
     // Nút Duyệt Cấp 2: Kích Hoạt ACTIVE phải được kích hoạt (không bị disabled)
     const approveL2Btn = screen.getByRole('button', { name: /Duyệt Cấp 2: Kích Hoạt ACTIVE/i });
     expect(approveL2Btn).not.toBeDisabled();
+  });
+
+  it('Hiển thị lỗi validation và không render ảnh VietQR preview khi số tài khoản chỉ gồm số 0', async () => {
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValue({
+      id: 'fac-123',
+      facilityName: 'Bệnh viện Đa khoa An Sinh',
+      representativeName: 'TS. Nguyễn Văn A',
+      email: 'ansinh@famidoc.vn',
+      phone: '0903456789',
+      address: '10 Trần Huy Liệu, TP.HCM',
+      onboardingStatus: 'PENDING_LEGAL',
+      status: 'PENDING',
+      createdAt: '2026-11-13T10:00:00.000Z',
+    });
+
+    render(<FacilityLegalView />);
+    await screen.findByText(/Hồ Sơ Pháp Lý & Giấy Phép Hoạt Động/i);
+
+    fireEvent.click(screen.getByTestId('bank-selector-trigger'));
+    const vcbOption = await screen.findByRole('option', { name: /Vietcombank/i });
+    fireEvent.click(vcbOption.querySelector('button')!);
+
+    const bankAccountInput = screen.getByPlaceholderText(/0071000889922/i);
+    fireEvent.change(bankAccountInput, { target: { value: '000000' } });
+
+    await new Promise((resolve) => setTimeout(resolve, 550));
+    expect(screen.queryByAltText(/Mã VietQR/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Gửi Hồ Sơ Pháp Lý Thẩm Định/i }));
+
+    expect(
+      await screen.findByText(/Số tài khoản ngân hàng chỉ gồm chữ hoặc số \(tối đa 19 ký tự\) và không chỉ gồm số 0/i)
+    ).toBeInTheDocument();
+    expect(facilitiesApi.updateLegalProfile).not.toHaveBeenCalled();
+  });
+
+  it('Không cắt cụt STK khi dán chuỗi > 19 ký tự có khoảng trắng, cảnh báo ngân hàng hạn chế VietQR, chuẩn hóa tên chủ TK và validate độ dài DTO', async () => {
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValue({
+      id: 'fac-123',
+      facilityName: 'Bệnh viện Đa khoa An Sinh',
+      representativeName: 'TS. Nguyễn Văn A',
+      email: 'ansinh@famidoc.vn',
+      phone: '0903456789',
+      address: '10 Trần Huy Liệu, TP.HCM',
+      onboardingStatus: 'PENDING_LEGAL',
+      status: 'PENDING',
+      createdAt: '2026-11-13T10:00:00.000Z',
+    });
+
+    render(<FacilityLegalView />);
+    await screen.findByText(/Hồ Sơ Pháp Lý & Giấy Phép Hoạt Động/i);
+
+    const bankAccountInput = screen.getByPlaceholderText(/0071000889922/i) as HTMLInputElement;
+    expect(bankAccountInput).not.toHaveAttribute('maxLength');
+    fireEvent.change(bankAccountInput, { target: { value: '0011 0022 3344 5566 77' } });
+    expect(bankAccountInput.value).toBe('001100223344556677');
+
+    // Chọn ngân hàng hạn chế VietQR
+    fireEvent.click(screen.getByTestId('bank-selector-trigger'));
+    const limitOption = await screen.findByRole('option', { name: /LimitBank/i });
+    fireEvent.click(limitOption.querySelector('button')!);
+    expect(
+      await screen.findByText(/hiện hạn chế tính năng chuyển khoản nhanh hoặc tra cứu qua VietQR/i)
+    ).toBeInTheDocument();
+
+    // Kiểm tra validate độ dài khớp DTO
+    fireEvent.change(screen.getByPlaceholderText(/08921\/BYT-GPHĐ/i), {
+      target: { value: 'AB' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/0315892019/i), {
+      target: { value: '1'.repeat(21) },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/1900 8821/i), {
+      target: { value: '0'.repeat(16) },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/CTCP BENH VIEN QUOC TE FAMICARE/i), {
+      target: { value: 'A'.repeat(101) },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Gửi Hồ Sơ Pháp Lý Thẩm Định/i }));
+
+    expect(await screen.findByText(/Số giấy phép hoạt động phải từ 3 đến 50 ký tự/i)).toBeInTheDocument();
+    expect(screen.getByText(/Mã số thuế phải từ 10 đến 20 ký tự/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hotline tối đa 15 ký tự/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tên chủ tài khoản tối đa 100 ký tự/i)).toBeInTheDocument();
+  });
+
+  it('Chấp nhận ngày cấp là hôm nay theo múi giờ Việt Nam (00:00–06:59 UTC+7) và revoke Blob URL khi xem lại tài liệu', async () => {
+    vi.useFakeTimers();
+    const revokeSpy = vi.fn();
+    const originalRevoke = URL.revokeObjectURL;
+    URL.revokeObjectURL = revokeSpy;
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    try {
+      // 2026-11-17T18:30:00.000Z === 2026-11-18 01:30:00 UTC+7
+      vi.setSystemTime(new Date('2026-11-17T18:30:00.000Z'));
+
+      vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValue({
+        id: 'fac-123',
+        facilityName: 'Bệnh viện Đa khoa An Sinh',
+        representativeName: 'TS. Nguyễn Văn A',
+        email: 'ansinh@famidoc.vn',
+        phone: '0903456789',
+        address: '10 Trần Huy Liệu, TP.HCM',
+        onboardingStatus: 'LEGAL_SUBMITTED',
+        status: 'PENDING',
+        hasOperatingLicense: true,
+        hasBusinessLicense: true,
+        operatingLicense: '09988/BYT-GPHĐ',
+        licenseIssuer: 'Bộ Y tế',
+        licenseDate: '2026-11-18',
+        taxCode: '0315999888',
+        bankName: 'Vietcombank',
+        bankAccount: '9988776655',
+        bankAccountHolder: 'CONG TY AN SINH',
+        createdAt: '2026-11-13T10:00:00.000Z',
+      });
+      vi.mocked(facilitiesApi.updateLegalProfile).mockResolvedValueOnce({
+        id: 'fac-123',
+        facilityName: 'Bệnh viện Đa khoa An Sinh',
+        representativeName: 'TS. Nguyễn Văn A',
+        email: 'ansinh@famidoc.vn',
+        phone: '0903456789',
+        address: '10 Trần Huy Liệu, TP.HCM',
+        onboardingStatus: 'LEGAL_SUBMITTED',
+        status: 'PENDING',
+        hasOperatingLicense: true,
+        hasBusinessLicense: true,
+        createdAt: '2026-11-13T10:00:00.000Z',
+      });
+
+      render(<FacilityLegalView />);
+      await vi.waitFor(() => {
+        expect(screen.getByText(/Hồ Sơ Pháp Lý & Giấy Phép Hoạt Động/i)).toBeInTheDocument();
+      });
+
+      // Preview tài liệu -> mở tab và lên lịch revokeObjectURL
+      const viewButtons = screen.getAllByRole('button', { name: /Xem lại/i });
+      fireEvent.click(viewButtons[0]);
+      await vi.waitFor(() => {
+        expect(openSpy).toHaveBeenCalledWith('blob:legal-doc', '_blank', 'noopener,noreferrer');
+      });
+      vi.advanceTimersByTime(60_000);
+      expect(revokeSpy).toHaveBeenCalledWith('blob:legal-doc');
+
+      // Submit với ngày cấp là hôm nay theo giờ VN (2026-11-18)
+      fireEvent.click(screen.getByRole('button', { name: /Gửi Hồ Sơ Pháp Lý Thẩm Định/i }));
+      await vi.waitFor(() => {
+        expect(facilitiesApi.updateLegalProfile).toHaveBeenCalledWith(
+          expect.objectContaining({ licenseDate: '2026-11-18' })
+        );
+      });
+    } finally {
+      vi.useRealTimers();
+      URL.revokeObjectURL = originalRevoke;
+      openSpy.mockRestore();
+    }
   });
 });
