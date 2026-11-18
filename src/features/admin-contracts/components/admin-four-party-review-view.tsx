@@ -482,30 +482,15 @@ export function AdminFourPartyReviewView({
             <div data-testid="admin-Documenso-signing-section">
               <DocumensoSigningEmbed
                 contractId={currentContract.id}
-                onSyncCompleted={(res) => {
-                  const updated: FourPartyContract = {
-                    ...currentContract,
-                    status:
-                      res.contractStatus === 'PENDING_PAYMENT'
-                        ? 'PENDING_PAYMENT'
-                        : res.contractStatus === 'ACTIVE'
-                        ? 'ACTIVE'
-                        : 'PLATFORM_SIGNED',
-                    signatures: {
-                      ...currentContract.signatures,
-                      platform: {
-                        signedBy: 'Ban Điều Hành FamiDoc',
-                        signerRole: 'PLATFORM',
-                        signedAt: new Date().toISOString(),
-                        sha256Hash: 'Documenso-verified-signature',
-                      },
-                    },
-                  };
-                  const msg = `Đã đồng bộ chữ ký Nền tảng trên Documenso (${res.signedRoles.length}/4 bên).`;
-                  setCurrentContract(updated);
-                  setSuccessBanner(msg);
-                  toast.success(msg);
-                  onSignSuccess?.(updated);
+                onSyncCompleted={async (res) => {
+                  try {
+                    const updated = await contractsApi.getMedicalContractById(currentContract.id);
+                    setCurrentContract(updated);
+                    setSuccessBanner(`Đã đồng bộ trạng thái trên Documenso (${res.signedRoles.length}/4 bên).`);
+                    onSignSuccess?.(updated);
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : 'Không thể tải lại hợp đồng sau khi đồng bộ.');
+                  }
                 }}
               />
             </div>

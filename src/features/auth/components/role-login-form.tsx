@@ -34,6 +34,8 @@ export function RoleLoginForm({ targetRole }: RoleLoginFormProps) {
   const searchParams = useSearchParams();
   const { applySession } = useAuth();
   const config = ROLE_AUTH_CONFIGS[targetRole];
+  const isProvisionedNotice =
+    targetRole === 'DOCTOR' && searchParams.get('from') === 'provisioned-only';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -152,6 +154,13 @@ export function RoleLoginForm({ targetRole }: RoleLoginFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5" data-purpose="role-login-form" noValidate>
+      {isProvisionedNotice && (
+        <Alert className="border-emerald-200 bg-emerald-50 text-emerald-900 py-2.5">
+          <AlertDescription className="text-xs font-medium">
+            Tài khoản Bác sĩ được cấp trực tiếp bởi Cơ sở Y tế đối tác. Vui lòng đăng nhập bằng email và mật khẩu khởi tạo đã gửi qua email.
+          </AlertDescription>
+        </Alert>
+      )}
       {/* Global Error Banner */}
       {errors.global && (
         <Alert variant="destructive" className="border-destructive/30 bg-destructive/5 py-2.5">

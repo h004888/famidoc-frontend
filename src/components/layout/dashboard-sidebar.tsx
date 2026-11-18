@@ -1,16 +1,21 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { getCurrentBrowserHost, getSubdomainPortal } from '@/lib/portal-routing';
 import { DashboardTopbarUser } from './dashboard-topbar-user';
 import {
-  isRestrictedFacilityPath,
+  getFacilityPathLockInfo,
   useFacilityVerificationGateState,
 } from './facility-verification-gate';
+import {
+  isRestrictedDoctorPath,
+  useDoctorVerificationGateState,
+} from './doctor-verification-gate';
 import {
   isRestrictedFamilyPath,
   useFamilySubscriptionGateState,
@@ -33,6 +38,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export interface NavItem {
@@ -57,7 +63,7 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
   ADMIN: {
     title: 'Phân Hệ Quản Trị Viên',
     roleLabel: 'Quản trị viên',
-    badge: 'Admin Backoffice',
+    badge: 'Quản trị hệ thống',
     badgeColor: 'bg-indigo-50 text-indigo-800 border border-indigo-200/80',
     items: [
       {
@@ -85,17 +91,16 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         shortLabel: 'AI Match',
         icon: 'tune',
       },
-      { href: '/admin/packages', label: 'Quản trị Gói dịch vụ', shortLabel: 'Gói DV', icon: 'inventory_2' },
+      { href: '/admin/packages', label: 'Quản lý Gói dịch vụ', shortLabel: 'Gói DV', icon: 'inventory_2' },
       { href: '/admin/contracts', label: 'Hợp đồng & Pháp lý', shortLabel: 'Hợp đồng', icon: 'handshake' },
-      { href: '/admin/training', label: 'Đào tạo & Khóa học', shortLabel: 'Đào tạo', icon: 'school' },
-      { href: '/admin/reconciliation', label: 'Đối soát SePay', shortLabel: 'Đối soát', icon: 'payments' },
+      { href: '/admin/reconciliation', label: 'Đối soát doanh thu', shortLabel: 'Đối soát', icon: 'payments' },
       {
         href: '/admin/disputes',
-        label: 'Trọng tài & Tranh chấp',
-        shortLabel: 'Tranh chấp',
+        label: 'Xử lý khiếu nại',
+        shortLabel: 'Khiếu nại',
         icon: 'gavel',
       },
-      { href: '/admin/users', label: 'Tài khoản, RBAC & Audit', shortLabel: 'Tài khoản', icon: 'shield_person' },
+      { href: '/admin/users', label: 'Quản lý tài khoản và phân quyền', shortLabel: 'Tài khoản', icon: 'shield_person' },
     ],
   },
   FACILITY: {
@@ -131,6 +136,7 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         icon: 'support_agent',
       },
       { href: '/facility/revenue', label: 'Đối soát Doanh thu B2B', shortLabel: 'Doanh thu', icon: 'payments' },
+      { href: '/facility/complaints', label: 'Xác minh khiếu nại', shortLabel: 'Khiếu nại', icon: 'gavel' },
     ],
   },
   DOCTOR: {
@@ -241,7 +247,8 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const pathname = usePathname() || '/family';
   const { role, isAuthenticated, logout } = useAuth();
   const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
-  const { isFacilityLocked } = useFacilityVerificationGateState();
+  const { facilityProfile, isFacilityLocked } = useFacilityVerificationGateState();
+  const { isDoctorLocked } = useDoctorVerificationGateState();
   const sidebar = useOptionalSidebar();
 
   const [mounted, setMounted] = useState(false);
@@ -256,7 +263,7 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
     if (sidebar) {
       try {
         localStorage.setItem('famidoc_sidebar_pinned', String(sidebar.open));
-      } catch {}
+      } catch { }
     }
   }, [sidebar]);
 
@@ -267,14 +274,26 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
   const isFamilyAccount = effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT';
   const settingsLabel = isFamilyAccount ? 'Cài đặt & Hồ sơ BHYT' : 'Cài đặt tài khoản';
+  const isAdminSidebar = effectiveRole === 'ADMIN';
+  const sidebarUtilities = [
+    ...(!isAdminSidebar ? [{ href: '/packages', label: 'Danh mục Gói Dịch vụ', icon: 'inventory_2' }] : []),
+    { href: '/settings', label: isAdminSidebar ? 'Cài đặt' : settingsLabel, icon: 'settings' },
+  ];
 
-  const isFacilityRestricted = (href: string) =>
-    effectiveRole === 'FACILITY' && isFacilityLocked && isRestrictedFacilityPath(href);
+  const getFacilityItemLock = (href: string) =>
+    effectiveRole === 'FACILITY'
+      ? getFacilityPathLockInfo(href, facilityProfile)
+      : { locked: false, stage: null, redirectTo: '/facility' };
+
+  const isDoctorRestricted = (href: string) =>
+    effectiveRole === 'DOCTOR' && isDoctorLocked && isRestrictedDoctorPath(href);
 
   const logoHref =
     effectiveRole === 'FACILITY' && isFacilityLocked
       ? '/facility/legal-profile'
-      : getDefaultPathForRole(effectiveRole);
+      : effectiveRole === 'DOCTOR' && isDoctorLocked
+        ? '/doctor/verification'
+        : getDefaultPathForRole(effectiveRole);
 
   const mobileMenuOpen = sidebar ? sidebar.openMobile : localMobileOpen;
   const setMobileMenuOpen = sidebar ? sidebar.setOpenMobile : setLocalMobileOpen;
@@ -326,14 +345,26 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
       <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
         <div className="space-y-1">
           {currentMenu.items.map((item) => {
-            const facilityItemLocked = isFacilityRestricted(item.href);
+            const facilityLock = getFacilityItemLock(item.href);
+            const doctorItemLocked = isDoctorRestricted(item.href);
             const isItemLocked =
               (isFamilyLocked && isRestrictedFamilyPath(item.href)) ||
-              facilityItemLocked;
-            const lockTooltip = facilityItemLocked
-              ? 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
-              : 'Cần kích hoạt gói chăm sóc để mở khóa';
-            const lockBadge = facilityItemLocked ? 'Chờ duyệt' : 'Cần gói';
+              facilityLock.locked ||
+              doctorItemLocked;
+            const lockTooltip = facilityLock.locked
+              ? facilityLock.stage === 'B2B'
+                ? 'Cần ký Hợp đồng Hợp tác B2B (ACTIVE) để mở khóa'
+                : 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
+              : doctorItemLocked
+                ? 'Cần hoàn tất xác thực CCHN 2 cấp để mở khóa'
+                : 'Cần kích hoạt gói chăm sóc để mở khóa';
+            const lockBadge = facilityLock.locked
+              ? facilityLock.stage === 'B2B'
+                ? 'Chờ HĐ B2B'
+                : 'Chờ duyệt'
+              : doctorItemLocked
+                ? 'Chờ duyệt'
+                : 'Cần gói';
             const isActive =
               !isItemLocked &&
               (item.exact ? pathname === item.href : pathname.startsWith(item.href));
@@ -537,6 +568,25 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
           })()}
         </div>
       </div>
+
+      {isAdminSidebar && (
+        <div className="shrink-0 border-t border-slate-200 p-3">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={logout}
+            aria-label="Đăng xuất"
+            title={isCollapsedState ? 'Đăng xuất' : undefined}
+            className={cn(
+              'h-10 w-full text-destructive hover:bg-destructive/10 hover:text-destructive',
+              isCollapsedState ? 'justify-center px-0' : 'justify-start'
+            )}
+          >
+            <LogOut aria-hidden="true" />
+            {!isCollapsedState && 'Đăng xuất'}
+          </Button>
+        </div>
+      )}
     </div>
   );
 
@@ -605,13 +655,19 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
           )}
         >
           {primaryMobileTabs.map((item) => {
-            const facilityItemLocked = isFacilityRestricted(item.href);
+            const facilityLock = getFacilityItemLock(item.href);
+            const doctorItemLocked = isDoctorRestricted(item.href);
             const isItemLocked =
               (isFamilyLocked && isRestrictedFamilyPath(item.href)) ||
-              facilityItemLocked;
-            const lockTooltip = facilityItemLocked
-              ? 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
-              : 'Cần kích hoạt gói chăm sóc để mở khóa';
+              facilityLock.locked ||
+              doctorItemLocked;
+            const lockTooltip = facilityLock.locked
+              ? facilityLock.stage === 'B2B'
+                ? 'Cần ký Hợp đồng Hợp tác B2B (ACTIVE) để mở khóa'
+                : 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
+              : doctorItemLocked
+                ? 'Cần hoàn tất xác thực CCHN 2 cấp để mở khóa'
+                : 'Cần kích hoạt gói chăm sóc để mở khóa';
             const isActive =
               !isItemLocked &&
               (item.exact ? pathname === item.href : pathname.startsWith(item.href));

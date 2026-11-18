@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { doctorsApi } from '@/lib/api/doctors.api';
+import { doctorsApi, type DoctorCredentialDto } from '@/lib/api/doctors.api';
+import { extractErrorMessage } from '@/lib/api';
 import { Pagination } from '@/components/ui/pagination';
 import { DashboardPageShell } from '@/components/shared';
 import { AdminQuotaProposalsPanel } from './admin-quota-proposals-panel';
@@ -24,6 +25,7 @@ interface DoctorRow {
 export function AdminDoctorsView() {
   const [doctors, setDoctors] = useState<DoctorRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string>();
   const [statusFilter, setStatusFilter] = useState<
     'ALL' | 'FACILITY_VERIFIED' | 'PENDING_FACILITY_REVIEW' | 'ACTIVE' | 'PENDING_SUBMISSION'
   >('ALL');
@@ -33,19 +35,18 @@ export function AdminDoctorsView() {
 
   const fetchDoctors = async () => {
     setIsLoading(true);
+    setLoadError(undefined);
     try {
       const data: any[] = await doctorsApi.getAdminDoctors();
       if (Array.isArray(data)) {
         const mapped: DoctorRow[] = data.map((d: any) => {
-          const creds = Array.isArray(d.credentials) ? d.credentials : [];
-          const cred =
-            creds.find((c: any) => c.credentialType === 'PRACTICE_LICENSE_CCHN') ||
-            (creds.length > 0 ? creds[0] : null);
+          const creds: DoctorCredentialDto[] = Array.isArray(d.credentials) ? d.credentials : [];
+          const cred = creds.find((c) => c.credentialType === 'PRACTICE_LICENSE_CCHN');
           return {
             id: d.id,
             doctorName: d.doctorName || d.fullName || 'Bác sĩ',
             facilityName: d.facility?.facilityName || d.facilityName || 'Cơ sở Y tế Đối tác',
-            specialty: d.specialty || 'Y học Gia đình',
+            specialty: d.specialty || 'Chưa cập nhật',
             cchnNumber: cred?.certificateNumber || 'Chưa nộp CCHN',
             issueDate: cred?.issueDate ? new Date(cred.issueDate).toLocaleDateString('vi-VN') : 'Chưa có',
             issuingAuthority: cred?.issuingAuthority || '—',
@@ -59,7 +60,7 @@ export function AdminDoctorsView() {
         setDoctors([]);
       }
     } catch (err) {
-      console.warn('Lỗi tải danh sách bác sĩ Admin:', err);
+      setLoadError(extractErrorMessage(err, 'Không thể tải danh sách bác sĩ.'));
       setDoctors([]);
     } finally {
       setIsLoading(false);
@@ -69,6 +70,12 @@ export function AdminDoctorsView() {
   useEffect(() => {
     fetchDoctors();
   }, []);
+
+  if (loadError) return (
+    <DashboardPageShell>
+      <p role="alert">{loadError} <button type="button" className="underline" onClick={fetchDoctors}>Thử lại</button></p>
+    </DashboardPageShell>
+  );
 
   const filteredDoctors = doctors.filter((doc) => {
     const matchesSearch =
@@ -131,16 +138,13 @@ export function AdminDoctorsView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 text-xs text-slate-500 font-medium mb-1">
-            <Link href="/admin" className="hover:text-primary transition-colors">Admin Backoffice</Link>
+            <Link href="/admin" className="hover:text-primary transition-colors">Quản trị hệ thống</Link>
             <span>/</span>
             <span className="text-slate-900 font-semibold">Thẩm định Nhân sự Y tế</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-            Quản lý &amp; Thẩm định CCHN Bác sĩ (Tầng 2 - Platform)
+            Quản lý &amp; Thẩm định CCHN Bác sĩ
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Quy trình Dual-tier Verification: Cơ sở y tế xác thực hồ sơ nội bộ (Tầng 1) -&gt; Admin FamiDoc đối chiếu CSDL Quốc gia và phê duyệt kích hoạt (Tầng 2).
-          </p>
         </div>
       </div>
 

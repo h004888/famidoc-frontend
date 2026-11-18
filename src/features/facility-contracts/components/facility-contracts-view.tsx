@@ -195,6 +195,11 @@ export function FacilityContractsView() {
     }
   };
 
+  const canFacilityActOnContract = (item: StaffingContractItem) =>
+    item.status === 'DRAFT' &&
+    item.rawStatus !== 'REVISION_REQUESTED' &&
+    !item.facilitySigned;
+
   const currentContract =
     staffingList.find((c) => c.status === 'DRAFT') ??
     staffingList.find((c) => c.status === 'ACTIVE') ??
@@ -363,8 +368,7 @@ export function FacilityContractsView() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                  {currentContract.status === 'DRAFT' &&
-                    !currentContract.facilitySigned && (
+                  {canFacilityActOnContract(currentContract) && (
                       <>
                         <Button
                           type="button"
@@ -396,8 +400,7 @@ export function FacilityContractsView() {
                   >
                     <Link href={`/facility/contracts/${currentContract.id}`}>
                       <span>
-                        {currentContract.status === 'DRAFT' &&
-                        !currentContract.facilitySigned
+                        {canFacilityActOnContract(currentContract)
                           ? 'Xem chi tiết & Ký số'
                           : 'Xem hợp đồng'}
                       </span>
@@ -680,18 +683,18 @@ export function FacilityContractsView() {
                               asChild
                               size="sm"
                               variant={
-                                item.status === 'DRAFT' && !item.facilitySigned
+                                canFacilityActOnContract(item)
                                   ? 'default'
                                   : 'outline'
                               }
                               className={
-                                item.status === 'DRAFT' && !item.facilitySigned
+                                canFacilityActOnContract(item)
                                   ? 'min-h-[36px] rounded-lg bg-[#0046c0] text-xs font-semibold text-white hover:bg-[#003899]'
                                   : 'min-h-[36px] rounded-lg border-[#acc0f3] bg-[#f0fbff] text-xs font-semibold text-[#0037c1] hover:bg-[#eaeffa]'
                               }
                             >
                               <Link href={`/facility/contracts/${item.id}`}>
-                                {item.status === 'DRAFT' && !item.facilitySigned
+                                {canFacilityActOnContract(item)
                                   ? 'Xem & Ký'
                                   : 'Xem chi tiết'}
                               </Link>
@@ -737,7 +740,7 @@ export function FacilityContractsView() {
                           className="min-h-[40px] rounded-lg border-[#acc0f3] bg-[#f0fbff] text-xs font-semibold text-[#0037c1]"
                         >
                           <Link href={`/facility/contracts/${item.id}`}>
-                            {item.status === 'DRAFT' && !item.facilitySigned
+                            {canFacilityActOnContract(item)
                               ? 'Xem & Ký'
                               : 'Xem chi tiết'}
                           </Link>

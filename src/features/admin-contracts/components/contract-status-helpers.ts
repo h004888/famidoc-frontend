@@ -165,7 +165,7 @@ export function matchesStaffingStatusFilter(
 ): boolean {
   if (filter === 'ALL') return true;
   if (filter === 'READY_FOR_ADMIN') {
-    return item.status === 'DRAFT' && !item.adminSigned;
+    return isStaffingReadyForAdminSign(item);
   }
   return item.status === filter;
 }

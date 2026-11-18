@@ -1,174 +1,96 @@
-import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { toast } from 'sonner';
+import { financeApi } from '@/lib/api/finance.api';
+import { paymentsApi } from '@/lib/api/payments.api';
 import { AdminReconciliationView } from '../admin-reconciliation-view';
-import { contractsApi } from '@/lib/api';
 
-vi.mock('@/lib/api', () => ({
-  contractsApi: {
-    recheckPaymentActivation: vi.fn().mockResolvedValue({ activated: true }),
-  },
-  paymentsApi: {
-    listTransactions: vi.fn().mockResolvedValue([]),
-    retryWebhook: vi.fn().mockResolvedValue({ success: true }),
+vi.mock('sonner', () => ({ toast: { error: vi.fn(), info: vi.fn(), success: vi.fn() } }));
+vi.mock('@/lib/api/finance.api', () => ({
+  financeApi: {
+    getSePayReconciliationStatus: vi.fn(),
+    listSePayReconciliations: vi.fn(),
+    runSePayReconciliation: vi.fn(),
   },
 }));
-
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
-  usePathname: () => '/admin/reconciliation',
-  useSearchParams: () => new URLSearchParams(),
+vi.mock('@/lib/api/payments.api', () => ({
+  paymentsApi: { listTransactions: vi.fn(), recheckPaymentActivation: vi.fn() },
 }));
 
-const mockTransactions = [
-  {
-    id: 'tx-sepay-901',
-    transactionId: 'SP-20261109-7712',
-    contractId: 'ct-4p-001',
-    contractNumber: 'HD-4P-2026-0001',
-    amount: 9600000,
-    syntax: 'FAMIDOC HD-4P-2026-0001',
-    bankBrand: 'MBBank',
-    accountNumber: '0912345678',
-    status: 'PENDING' as const,
-    receivedAt: '2026-11-09T10:15:00.000Z',
-    errorMessage: 'Webhook timeout do nghẽn mạng phía ngân hàng',
-  },
-  {
-    id: 'tx-sepay-902',
-    transactionId: 'SP-20261109-7713',
-    contractId: 'ct-4p-002',
-    contractNumber: 'HD-4P-2026-0002',
-    amount: 6000000,
-    syntax: 'FAMIDOC HD-4P-2026-0002',
-    bankBrand: 'Vietcombank',
-    accountNumber: '0987654321',
-    status: 'MATCHED' as const,
-    receivedAt: '2026-11-09T09:30:00.000Z',
-  },
-  {
-    id: 'tx-sepay-903',
-    transactionId: 'SP-20261109-7714',
-    contractId: 'ct-4p-003',
-    contractNumber: 'HD-4P-2026-0003',
-    amount: 5000000,
-    syntax: 'FAMIDOC 003 CHUYEN TIEN',
-    bankBrand: 'Techcombank',
-    accountNumber: '0903112233',
-    status: 'FAILED' as const,
-    receivedAt: '2026-11-09T08:00:00.000Z',
-    errorMessage: 'Thiếu 2.500.000 ₫ so với giá trị gói',
-  },
-];
-
-describe('Màn 5: AdminReconciliationView (Đối soát SePay & Kích hoạt bù)', () => {
-  it('renders SePay webhook transaction log table with syntax, amount, bank, and status', () => {
-    render(<AdminReconciliationView initialTransactions={mockTransactions} />);
-
-    // Header & Subheading
-    expect(screen.getByText(/Đối Soát Giao Dịch SePay & Kích Hoạt Bù/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Tra cứu log webhook thanh toán VietQR và xử lý kích hoạt bù hợp đồng/i),
-    ).toBeInTheDocument();
-
-    // Table headers & content
-    const desktopView = screen.getByTestId('desktop-view');
-    expect(within(desktopView).getByText(/SP-20261109-7712/i)).toBeInTheDocument();
-    expect(within(desktopView).getByText(/FAMIDOC HD-4P-2026-0001/i)).toBeInTheDocument();
-    expect(within(desktopView).getByText(/9\.600\.000/i)).toBeInTheDocument();
-    expect(within(desktopView).getAllByText(/MBBank/i).length).toBeGreaterThan(0);
-
-    // Mobile card content
-    const mobileView = screen.getByTestId('mobile-view');
-    expect(within(mobileView).getByText(/SP-20261109-7712/i)).toBeInTheDocument();
-    expect(within(mobileView).getByText(/FAMIDOC HD-4P-2026-0001/i)).toBeInTheDocument();
-    expect(within(mobileView).getAllByText(/MBBank/i).length).toBeGreaterThan(0);
-
-    // Status badges
-    expect(screen.getAllByText(/Chờ đối soát/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Đã khớp lệnh/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Sai lệch/i).length).toBeGreaterThan(0);
+describe('AdminReconciliationView', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(paymentsApi.listTransactions).mockResolvedValue({
+      items: [{
+        id: 'tx-1',
+        environment: 'TEST',
+        providerTransactionId: '789012',
+        gateway: 'MB',
+        amountVnd: 9600000,
+        transactionAt: '2026-11-16T10:00:00Z',
+        receivedAt: '2026-11-16T10:00:02Z',
+        accountNumber: '123456789',
+        paymentCode: 'FMD000001',
+        paymentRequestId: 'pay-1',
+        referenceCode: 'REF123',
+        outcome: 'MATCHED',
+        reason: null,
+        ingestionSource: 'WEBHOOK',
+      }],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    vi.mocked(financeApi.getSePayReconciliationStatus).mockResolvedValue({
+      enabled: true,
+      environment: 'TEST',
+      state: null,
+      latestRun: null,
+      unreconciledTransactions: 1,
+    });
+    vi.mocked(financeApi.listSePayReconciliations).mockResolvedValue([]);
   });
 
-  it('filters transactions by status and search query', () => {
-    render(<AdminReconciliationView initialTransactions={mockTransactions} />);
+  it('shows the webhook source and refreshes the real transaction list', async () => {
+    render(<AdminReconciliationView />);
+    const desktop = within(await screen.findByTestId('desktop-view'));
+    const mobile = within(screen.getByTestId('mobile-view'));
+    expect(desktop.getByText('Thông báo SePay')).toBeInTheDocument();
+    expect(desktop.getByText('789012')).toBeInTheDocument();
+    expect(desktop.getByText('FMD000001')).toBeInTheDocument();
+    expect(mobile.getByText('Thông báo SePay')).toBeInTheDocument();
+    expect(mobile.getByText('789012')).toBeInTheDocument();
 
-    // Filter by status: PENDING
-    const filterSelect = screen.getByLabelText(/Lọc theo trạng thái/i);
-    fireEvent.change(filterSelect, { target: { value: 'PENDING' } });
-
-    const desktopView = screen.getByTestId('desktop-view');
-    expect(within(desktopView).getByText(/SP-20261109-7712/i)).toBeInTheDocument();
-    expect(screen.queryByText(/SP-20261109-7713/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/SP-20261109-7714/i)).not.toBeInTheDocument();
-
-    // Reset filter
-    fireEvent.change(filterSelect, { target: { value: 'ALL' } });
-    expect(within(desktopView).getByText(/SP-20261109-7713/i)).toBeInTheDocument();
-
-    // Search query
-    const searchInput = screen.getByPlaceholderText(/Tìm kiếm mã giao dịch, số hợp đồng/i);
-    fireEvent.change(searchInput, { target: { value: 'HD-4P-2026-0002' } });
-
-    expect(screen.queryByText(/SP-20261109-7712/i)).not.toBeInTheDocument();
-    expect(within(desktopView).getByText(/SP-20261109-7713/i)).toBeInTheDocument();
+    vi.mocked(paymentsApi.listTransactions).mockResolvedValueOnce({ items: [], total: 0, page: 1, limit: 20 });
+    fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
+    expect(await screen.findByText('Không có giao dịch phù hợp.')).toBeInTheDocument();
+    expect(screen.queryByText('789012')).not.toBeInTheDocument();
   });
 
-  it('triggers manual fallback activation for pending transaction and logs admin audit trail', async () => {
-    render(<AdminReconciliationView initialTransactions={mockTransactions} />);
-
-    // Check PENDING button exists
-    const fallbackBtn = screen.getByRole('button', {
-      name: /Kích hoạt bù|Xử lý bù/i,
-    });
-    fireEvent.click(fallbackBtn);
-
-    // Modal dialog opens
-    expect(screen.getByText(/Xác nhận Kích hoạt Bù Hợp đồng/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/HD-4P-2026-0001/i).length).toBeGreaterThan(0);
-
-    // Input audit reason
-    const reasonInput = screen.getByLabelText(/Lý do kích hoạt bù/i);
-    fireEvent.change(reasonInput, {
-      target: { value: 'Đã kiểm tra sao kê MBBank thành công, kích hoạt bù do nghẽn webhook' },
-    });
-
-    // Confirm button in modal
-    const confirmBtn = screen.getByRole('button', { name: /Xác nhận Kích hoạt Bù/i });
-    fireEvent.click(confirmBtn);
-
-    // Success notification
+  it('uses the payment request ID and reports backend activation refusal', async () => {
+    vi.mocked(paymentsApi.recheckPaymentActivation).mockResolvedValue({ activated: false, blockingReasons: ['PANEL_CAP'] });
+    render(<AdminReconciliationView />);
+    const mobile = within(await screen.findByTestId('mobile-view'));
+    fireEvent.click(mobile.getByRole('button', { name: 'Kiểm tra kích hoạt hợp đồng' }));
     await waitFor(() => {
-      expect(screen.getByText(/Kích hoạt bù hợp đồng HD-4P-2026-0001 thành công/i)).toBeInTheDocument();
-    });
-
-    // Audit trail section should record the action
-    expect(screen.getByText(/Nhật ký Thao tác Audit Trail/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Đã kiểm tra sao kê MBBank thành công, kích hoạt bù do nghẽn webhook/i),
-    ).toBeInTheDocument();
-  });
-
-  it('calls contractsApi.recheckPaymentActivation when admin triggers fallback activation', async () => {
-    render(<AdminReconciliationView initialTransactions={mockTransactions} />);
-
-    const fallbackBtn = screen.getByRole('button', {
-      name: /Kích hoạt bù|Xử lý bù/i,
-    });
-    fireEvent.click(fallbackBtn);
-
-    const confirmBtn = screen.getByRole('button', { name: /Xác nhận Kích hoạt Bù/i });
-    fireEvent.click(confirmBtn);
-
-    await waitFor(() => {
-      expect(contractsApi.recheckPaymentActivation).toHaveBeenCalledWith('SP-20261109-7712');
+      expect(paymentsApi.recheckPaymentActivation).toHaveBeenCalledWith('pay-1');
+      expect(toast.info).toHaveBeenCalledWith('PANEL_CAP');
+      expect(toast.success).not.toHaveBeenCalled();
     });
   });
 
-  it('complies with typography design system (no tracking-wide, font-black, or font-extrabold)', () => {
-    const { container } = render(
-      <AdminReconciliationView initialTransactions={mockTransactions} />,
-    );
-    expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
+  it('runs API reconciliation in the current environment', async () => {
+    vi.mocked(financeApi.runSePayReconciliation).mockResolvedValue({
+      id: 'run-1', trigger: 'MANUAL', environment: 'TEST', status: 'SUCCEEDED',
+      fetchedCount: 1, backfilledCount: 0, linkedCount: 1, matchedCount: 1,
+      reviewRequiredCount: 0, ignoredCount: 0, localOnlyCount: 0,
+      startedAt: '2026-11-16T10:00:02Z',
+    });
+    render(<AdminReconciliationView />);
+    fireEvent.click(screen.getByText('Đồng bộ giao dịch từ SePay', { selector: 'summary' }));
+    fireEvent.change(screen.getByLabelText('Loại dữ liệu đồng bộ'), { target: { value: 'TEST' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Đồng bộ ngay' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Đồng bộ ngay' }));
+    await waitFor(() => expect(financeApi.runSePayReconciliation).toHaveBeenCalledWith({ environment: 'TEST' }));
   });
 });

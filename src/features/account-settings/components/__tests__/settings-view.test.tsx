@@ -2,9 +2,19 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { authApi } from '@/lib/api/auth.api';
 import { AccountSettingsView } from '../account-settings-view';
 import * as authContextModule from '@/features/auth/context/auth-context';
-import { authApi } from '@/lib/api/auth.api';
+
+const mockUseAuth = vi.fn();
+
+vi.mock('@/features/auth/context/auth-context', () => ({
+  useAuth: () => mockUseAuth(),
+}));
+
+vi.mock('@/lib/api/auth.api', () => ({
+  authApi: { changePassword: vi.fn() },
+}));
 
 describe('UT-CMP-14: AccountSettingsView BHYT Skeleton & Accessibility', () => {
   beforeEach(() => {
@@ -22,6 +32,10 @@ describe('UT-CMP-14: AccountSettingsView BHYT Skeleton & Accessibility', () => {
   });
 
   it('standardizes typography on AccountSettingsView (tabular-nums without font-mono, font-black, or font-extrabold)', () => {
+    mockUseAuth.mockReturnValue({
+      role: 'FAMILY',
+      user: null,
+    });
     const { container } = render(<AccountSettingsView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');

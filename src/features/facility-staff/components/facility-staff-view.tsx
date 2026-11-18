@@ -9,6 +9,7 @@ import {
   type DoctorQuotaProposalDto,
 } from '@/lib/api/doctors.api';
 import { extractErrorMessage } from '@/lib/api';
+import { useFacilityVerificationGateState } from '@/components/layout/facility-verification-gate';
 
 export interface DoctorStaff {
   id: string;
@@ -37,8 +38,13 @@ export interface DoctorStaff {
 }
 
 export function FacilityStaffView() {
+  const { facilityProfile } = useFacilityVerificationGateState();
+  const hasExplicitNoActiveB2b =
+    facilityProfile !== null && facilityProfile.hasActiveStaffingContract === false;
+
   const [staffList, setStaffList] = useState<DoctorStaff[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [filterDepartment, setFilterDepartment] = useState<string>('all');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,6 +77,7 @@ export function FacilityStaffView() {
   // Tải danh sách bác sĩ trực tiếp từ Backend API
   const fetchDoctors = async () => {
     setIsLoading(true);
+    setFetchError(null);
     try {
       const docs = await doctorsApi.getFacilityDoctors();
       if (Array.isArray(docs)) {
@@ -110,7 +117,8 @@ export function FacilityStaffView() {
         setStaffList([]);
       }
     } catch (err) {
-      console.warn('Lỗi khi tải danh sách Bác sĩ từ Backend:', err);
+      const msg = extractErrorMessage(err, 'Không thể tải danh sách bác sĩ trực thuộc từ máy chủ.');
+      setFetchError(msg);
       setStaffList([]);
     } finally {
       setIsLoading(false);
@@ -281,9 +289,9 @@ export function FacilityStaffView() {
     }
   };
 
-  const handleResetDemo = () => {
-    fetchDoctors();
-    toast.info('Đã đồng bộ lại danh sách bác sĩ từ cơ sở dữ liệu Backend.');
+  const handleRefreshList = () => {
+    void fetchDoctors();
+    toast.info('Đã đồng bộ lại danh sách bác sĩ từ cơ sở dữ liệu.');
   };
 
   return (
@@ -307,22 +315,58 @@ export function FacilityStaffView() {
           <div className="flex items-center gap-2.5">
             <button
               type="button"
-              onClick={handleResetDemo}
+              onClick={handleRefreshList}
               className="px-3.5 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
-              title="Đặt lại danh sách mẫu"
+              title="Làm mới danh sách bác sĩ"
             >
-              <span className="material-symbols-outlined text-[16px] text-slate-500">restart_alt</span>
-              <span>Reset Mẫu</span>
+              <span className="material-symbols-outlined text-[16px] text-slate-500">refresh</span>
+              <span>Làm mới</span>
             </button>
             <button
+              type="button"
+              disabled={hasExplicitNoActiveB2b}
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md shadow-blue-600/20 cursor-pointer"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md shadow-blue-600/20 cursor-pointer disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-[18px]">person_add</span>
               <span>Thêm Bác Sĩ Mới</span>
             </button>
           </div>
         </div>
+
+        {hasExplicitNoActiveB2b && (
+          <div
+            role="status"
+            className="p-4 rounded-2xl border border-amber-200 bg-amber-50 text-amber-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs sm:text-sm"
+          >
+            <div>
+              <strong className="font-bold">Chưa có Hợp đồng Hợp tác B2B đang hiệu lực:</strong>{' '}
+              Cơ sở y tế cần có Hợp đồng B2B trạng thái ACTIVE trước khi khởi tạo thêm tài khoản bác sĩ mới.
+            </div>
+            <Link
+              href="/facility/contracts"
+              className="inline-flex items-center justify-center px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold shrink-0"
+            >
+              Xem Hợp đồng B2B
+            </Link>
+          </div>
+        )}
+
+        {fetchError && (
+          <div
+            role="alert"
+            className="p-4 rounded-2xl border border-rose-200 bg-rose-50 text-rose-900 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm"
+          >
+            <span>{fetchError}</span>
+            <button
+              type="button"
+              onClick={() => void fetchDoctors()}
+              className="px-3.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 cursor-pointer"
+            >
+              Thử lại
+            </button>
+          </div>
+        )}
 
         {/* Filter Toolbar */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
@@ -473,7 +517,7 @@ export function FacilityStaffView() {
                                 Đề xuất Quota
                               </button>
                             )}
-                            {(doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' || (doc.onboardingStatus === 'PENDING_SUBMISSION' && doc.cchnNumber && doc.cchnNumber !== 'Chờ BS nộp CCHN' && doc.cchnNumber !== 'Chưa có')) && (
+                            {doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' && (
                               <button
                                 type="button"
                                 onClick={() => handleApprove(doc.id)}
@@ -502,18 +546,48 @@ export function FacilityStaffView() {
                       <div className="font-bold text-slate-900">{doc.name}</div>
                       <div className="text-[11px] text-slate-500">{doc.title}</div>
                     </div>
-                    <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700">{doc.onboardingStatus}</span>
+                    {doc.onboardingStatus === 'ACTIVE' || doc.status === 'active' ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Đang hoạt động
+                      </span>
+                    ) : doc.onboardingStatus === 'FACILITY_VERIFIED' ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                        Đã duyệt Cấp 1
+                      </span>
+                    ) : doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' ? (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        Chờ CSYT duyệt Cấp 1
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                        {doc.rejectionReason ? 'Yêu cầu bổ sung' : 'Chờ BS nộp hồ sơ'}
+                      </span>
+                    )}
                   </div>
+                  {doc.rejectionReason && (
+                    <div className="rounded-lg bg-rose-50 border border-rose-200 p-2 text-[11px] text-rose-800">
+                      <strong>Lý do từ chối:</strong> {doc.rejectionReason}
+                    </div>
+                  )}
                   <div className="rounded-xl bg-slate-50 p-2.5 text-slate-600 tabular-nums">
-                    Panel: {doc.panelCap}/{doc.maxCap} hộ
+                    Panel: {doc.panelCap}/{doc.maxCap} hộ • CCHN: {doc.cchnNumber}
                   </div>
-                  <div className="flex justify-end">
+                  <div className="flex items-center justify-end gap-2">
                     <Link
                       href={`/facility/doctors/${doc.id}`}
                       className="rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary"
                     >
                       Quản lý hồ sơ
                     </Link>
+                    {doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' && (
+                      <button
+                        type="button"
+                        onClick={() => handleApprove(doc.id)}
+                        className="rounded-lg bg-blue-600 hover:bg-blue-700 px-3 py-1.5 text-xs font-bold text-white cursor-pointer"
+                      >
+                        Duyệt Cấp 1
+                      </button>
+                    )}
                   </div>
                 </div>
               ))

@@ -106,12 +106,10 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
 
   // Staffing B2B state
   const [staffingDetail, setStaffingDetail] = useState<StaffingContractItem | null>(null);
-  const [stStatus, setStStatus] = useState<StaffingContractItem['status']>('DRAFT');
   const [stFacilityShare, setStFacilityShare] = useState(85);
   const [stValidFrom, setStValidFrom] = useState('');
   const [stValidTo, setStValidTo] = useState('');
   const [stTerms, setStTerms] = useState('');
-  const [stRejectionReason, setStRejectionReason] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -144,12 +142,10 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
           }
           setResolvedType('staffing');
           setStaffingDetail(st);
-          setStStatus(st.status);
           setStFacilityShare(st.facilitySharePercent);
           setStValidFrom(toDateInputValue(st.validFrom));
           setStValidTo(toDateInputValue(st.validTo));
           setStTerms(st.contractTerms || '');
-          setStRejectionReason(st.rejectionReason || '');
           return;
         }
 
@@ -195,12 +191,10 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
           if (!st) throw medErr;
           setResolvedType('staffing');
           setStaffingDetail(st);
-          setStStatus(st.status);
           setStFacilityShare(st.facilitySharePercent);
           setStValidFrom(toDateInputValue(st.validFrom));
           setStValidTo(toDateInputValue(st.validTo));
           setStTerms(st.contractTerms || '');
-          setStRejectionReason(st.rejectionReason || '');
         }
       } catch (err) {
         if (!active) return;
@@ -269,9 +263,25 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
     }
   };
 
+  const isStaffingEditable = Boolean(
+    staffingDetail &&
+      staffingDetail.status === 'DRAFT' &&
+      !staffingDetail.facilitySigned &&
+      (staffingDetail.rawStatus === 'PENDING_FACILITY_SIGNATURE' ||
+        staffingDetail.rawStatus === 'REVISION_REQUESTED' ||
+        !staffingDetail.rawStatus)
+  );
+
   const handleSaveStaffing = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveError(null);
+
+    if (!isStaffingEditable) {
+      setSaveError(
+        'Chỉ có thể chỉnh sửa điều khoản khi hợp đồng đang chờ CSYT ký hoặc ở trạng thái yêu cầu chỉnh sửa.'
+      );
+      return;
+    }
 
     if (stValidFrom && stValidTo && stValidFrom > stValidTo) {
       setSaveError('Ngày hết hiệu lực phải lớn hơn hoặc bằng ngày bắt đầu.');
@@ -286,13 +296,11 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
     setIsSaving(true);
     try {
       await contractsApi.updateStaffingContract(contractId, {
-        status: stStatus,
         facilitySharePercent: Number(stFacilityShare),
         platformSharePercent: 100 - Number(stFacilityShare),
         validFrom: stValidFrom || undefined,
         validTo: stValidTo || undefined,
         contractTerms: stTerms.trim(),
-        rejectionReason: stStatus === 'TERMINATED' ? stRejectionReason.trim() || undefined : undefined,
       });
 
       toast.success('Đã cập nhật Hợp đồng Cung ứng Nhân lực B2B thành công!');
@@ -409,22 +417,27 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
               </CardHeader>
 
               <CardContent className="space-y-5 pt-5">
+                {!isStaffingEditable && (
+                  <Alert className="rounded-xl border-amber-200 bg-amber-50 text-amber-900">
+                    <AlertCircle className="size-4 text-amber-700" />
+                    <AlertDescription className="text-xs">
+                      Hợp đồng hiện ở trạng thái không thể sửa trực tiếp. Để hủy dự thảo hoặc chấm dứt hợp đồng đang hiệu lực (kèm kiểm tra ràng buộc), vui lòng thao tác tại danh sách Hợp đồng B2B.
+                    </AlertDescription>
+                  </Alert>
+                )}
+
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label className="text-xs font-semibold">Trạng thái hợp đồng B2B</Label>
-                    <Select
-                      value={stStatus}
-                      onValueChange={(v) => setStStatus(v as StaffingContractItem['status'])}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="DRAFT">{STAFFING_STATUS_LABELS.DRAFT}</SelectItem>
-                        <SelectItem value="ACTIVE">{STAFFING_STATUS_LABELS.ACTIVE}</SelectItem>
-                        <SelectItem value="TERMINATED">{STAFFING_STATUS_LABELS.TERMINATED}</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex h-10 items-center justify-between rounded-lg border border-border bg-muted/40 px-3 text-xs font-semibold">
+                      <span>
+                        {staffingDetail.rawStatus === 'REVISION_REQUESTED'
+                          ? 'CSYT yêu cầu chỉnh sửa'
+                          : staffingDetail.rawStatus === 'PENDING_ADMIN_SIGNATURE'
+                            ? 'Chờ Admin ký (Bước 2)'
+                            : STAFFING_STATUS_LABELS[staffingDetail.status]}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5">
@@ -437,6 +450,7 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
                         type="number"
                         min={50}
                         max={95}
+                        disabled={!isStaffingEditable}
                         value={stFacilityShare}
                         onChange={(e) => setStFacilityShare(Number(e.target.value))}
                         className="w-28 tabular-nums"
@@ -469,6 +483,7 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
                     <Input
                       id="st-from"
                       type="date"
+                      disabled={!isStaffingEditable}
                       value={stValidFrom}
                       onChange={(e) => setStValidFrom(e.target.value)}
                     />
@@ -480,6 +495,7 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
                     <Input
                       id="st-to"
                       type="date"
+                      disabled={!isStaffingEditable}
                       value={stValidTo}
                       onChange={(e) => setStValidTo(e.target.value)}
                     />
@@ -493,6 +509,7 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
                   <Textarea
                     id="st-terms"
                     rows={5}
+                    disabled={!isStaffingEditable}
                     value={stTerms}
                     onChange={(e) => setStTerms(e.target.value)}
                     placeholder="Nhập các thỏa thuận bổ sung riêng với CSYT (nếu có). Để trống nếu giữ nguyên 10 điều khoản chuẩn B2B..."
@@ -502,28 +519,17 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
                     10 Điều khoản chuẩn B2B (cơ chế đối soát, thuế, bảo hiểm nghề nghiệp, bảo mật dữ liệu, bàn giao và Documenso) được tự động cố định trong bản PDF.
                   </p>
                 </div>
-
-                {stStatus === 'TERMINATED' && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="st-reject-reason" className="text-xs font-semibold text-destructive">
-                      Lý do chấm dứt / hủy hợp đồng
-                    </Label>
-                    <Textarea
-                      id="st-reject-reason"
-                      rows={2}
-                      value={stRejectionReason}
-                      onChange={(e) => setStRejectionReason(e.target.value)}
-                      placeholder="Ghi rõ lý do chấm dứt hoặc từ chối hiệu lực..."
-                    />
-                  </div>
-                )}
               </CardContent>
 
               <CardFooter className="flex items-center justify-end gap-2.5 border-t border-border/60 pt-4">
                 <Button asChild type="button" variant="outline" className="rounded-xl">
                   <Link href="/admin/contracts">Hủy</Link>
                 </Button>
-                <Button type="submit" disabled={isSaving} className="rounded-xl gap-1.5 cursor-pointer">
+                <Button
+                  type="submit"
+                  disabled={isSaving || !isStaffingEditable}
+                  className="rounded-xl gap-1.5 cursor-pointer"
+                >
                   {isSaving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
                   <span>{isSaving ? 'Đang lưu...' : 'Lưu cập nhật B2B'}</span>
                 </Button>
@@ -543,15 +549,15 @@ export function AdminContractEditView({ contractId, contractType }: AdminContrac
                   <span className="tabular-nums font-semibold text-primary">{staffingDetail.contractNumber}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Ban Quản Trị (Bên D)</span>
-                  <Badge variant="outline" className={cn(staffingDetail.adminSigned ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800')}>
-                    {staffingDetail.adminSigned ? 'Đã ký' : 'Chờ ký'}
+                  <span className="text-muted-foreground">Cơ sở Y tế (Bên B - Bước 1)</span>
+                  <Badge variant="outline" className={cn(staffingDetail.facilitySigned ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-amber-200 bg-amber-50 text-amber-800')}>
+                    {staffingDetail.facilitySigned ? 'Đã ký' : 'Chờ ký'}
                   </Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Cơ sở Y tế (Bên C)</span>
-                  <Badge variant="outline" className={cn(staffingDetail.facilitySigned ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-muted text-muted-foreground')}>
-                    {staffingDetail.facilitySigned ? 'Đã ký' : 'Chờ ký'}
+                  <span className="text-muted-foreground">Nền tảng FamiDoc (Bên A - Bước 2)</span>
+                  <Badge variant="outline" className={cn(staffingDetail.adminSigned ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-muted text-muted-foreground')}>
+                    {staffingDetail.adminSigned ? 'Đã ký' : 'Chờ ký'}
                   </Badge>
                 </div>
               </CardContent>

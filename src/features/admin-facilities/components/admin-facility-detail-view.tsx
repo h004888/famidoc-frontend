@@ -5,7 +5,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
-import { contractsApi, type StaffingContractItem } from '@/lib/api/contracts.api';
+import { adminApi } from '@/lib/api/admin.api';
+import { useAdminQuery } from '@/hooks/use-admin-query';
+import { AdminPageNavigation } from '@/components/shared/admin-page-navigation';
+import {
+  contractsApi,
+  normalizeStaffingContract,
+  type StaffingContractItem,
+} from '@/lib/api/contracts.api';
+import { unwrapApiEnvelope } from '@/lib/api/envelope';
 import { extractErrorMessage } from '@/lib/api';
 import { DashboardPageShell } from '@/components/shared';
 
@@ -19,12 +27,48 @@ function formatContractDate(value?: string): string {
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN');
 }
 
+function FacilityAuditTimeline({ id }: { id: string }) {
+  const [page, setPage] = useState(1);
+  const load = useCallback(() => adminApi.auditLogs({ page, resourceName: 'HealthcareFacility', resourceId: id }), [page, id]);
+  const { data, loading, error, refresh } = useAdminQuery(load);
+  const labels: Record<string, string> = {
+    FACILITY_REGISTRATION_SUBMITTED: 'Đã nộp đăng ký hợp tác',
+    FACILITY_ACCOUNT_APPROVED: 'Đã duyệt tài khoản',
+    FACILITY_ACCOUNT_REJECTED: 'Đã từ chối đăng ký',
+    FACILITY_INVITE_RESENT: 'Đã gửi lại mã đặt mật khẩu',
+    FACILITY_LEGAL_PROFILE_SUBMITTED: 'Đã nộp hồ sơ pháp lý',
+    FACILITY_LEGAL_VERIFIED: 'Đã duyệt hồ sơ pháp lý',
+    FACILITY_LEGAL_REJECTED: 'Đã yêu cầu bổ sung hồ sơ pháp lý',
+  };
+  return (
+    <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6">
+      <h3 className="font-semibold">Lịch sử thẩm định</h3>
+      {loading && <p role="status">Đang tải lịch sử…</p>}
+      {error && <p role="alert">{error} <button className="underline" onClick={refresh}>Thử lại</button></p>}
+      {data?.items.length === 0 && <p className="text-sm text-slate-500">Chưa có sự kiện trong nhật ký.</p>}
+      {data && data.items.length > 0 && (
+        <>
+          <ol className="divide-y divide-slate-200">
+            {data.items.map((event) => <li key={event.id} className="space-y-1 py-3 text-sm">
+              <p className="font-medium">{labels[event.action] ?? event.action}</p>
+              <p className="text-slate-500">{new Date(event.timestamp).toLocaleString('vi-VN')} · {event.actorUser?.fullName ?? 'Hệ thống'}</p>
+              {event.details?.reason && <p>{event.details.reason}</p>}
+            </li>)}
+          </ol>
+          <AdminPageNavigation page={page} total={data.total} limit={data.limit} onPage={setPage} />
+        </>
+      )}
+    </section>
+  );
+}
+
 export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewProps) {
   const router = useRouter();
   const [facility, setFacility] = useState<AdminFacilityItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'LEGAL' | 'BANK' | 'TIMELINE' | 'CONTRACTS'>('GENERAL');
   const [isActionLoading, setIsActionLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string>();
 
   // Danh sách hợp đồng B2B của CSYT này
   const [staffingContracts, setStaffingContracts] = useState<StaffingContractItem[]>([]);
@@ -45,7 +89,17 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
-  const fetchStaffingContracts = useCallback(async (_targetFacilityName?: string) => {
+  const handleOpenSignedContract = async (contractId: string) => {
+    try {
+      const url = await contractsApi.fetchStaffingSignedPdfBlobUrl(contractId);
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (error) {
+      toast.error(extractErrorMessage(error, 'Không thể mở hợp đồng đã ký.'));
+    }
+  };
+
+  const fetchStaffingContracts = useCallback(async () => {
     setIsContractsLoading(true);
     try {
       const res = await contractsApi.getStaffingContracts({ facilityId });
@@ -66,19 +120,18 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     let isMounted = true;
     async function loadData() {
       setIsLoading(true);
+      setLoadError(undefined);
       try {
         const data = await facilitiesApi.getAdminFacilityDetail(facilityId);
         if (isMounted) {
-          if (data && data.facilityName) {
-            setFacility(data);
-            fetchStaffingContracts(data.facilityName);
-          } else {
-            setFacility(data || null);
-            fetchStaffingContracts();
-          }
+          setFacility(data || null);
+          void fetchStaffingContracts();
         }
       } catch (err) {
-        console.warn('Lỗi khi tải chi tiết CSYT Admin:', err);
+        if (isMounted) {
+          setFacility(null);
+          setLoadError(extractErrorMessage(err, 'Không thể tải hồ sơ CSYT.'));
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -142,6 +195,10 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   // Admin Tạo & Gửi Dự Thảo Hợp Đồng B2B trực tiếp cho CSYT này
   const handleCreateAndSendContract = async () => {
     if (!facility) return;
+    if (facility.onboardingStatus !== 'ACTIVE' && facility.status !== 'ACTIVE') {
+      toast.error('Cơ sở Y tế cần được duyệt hồ sơ pháp lý (ACTIVE) trước khi khởi tạo hợp đồng B2B.');
+      return;
+    }
     if (facilityShare + platformShare !== 100) {
       toast.error('Tổng tỷ lệ phân chia doanh thu của CSYT và Nền tảng phải bằng đúng 100%.');
       return;
@@ -149,13 +206,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
 
     setIsCreatingContract(true);
     try {
-      const newContractNumber = `STAFF-2026-${facility.facilityName
-        .split(' ')
-        .map((w) => w[0])
-        .join('')
-        .toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
-
-      await contractsApi.createStaffingContract({
+      const res = await contractsApi.createStaffingContract({
         facilityId: facility.id,
         platformCommissionRate: platformShare,
         facilityRevenueRate: facilityShare,
@@ -166,28 +217,16 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
         ...(contractTerms.trim() ? { contractTerms: contractTerms.trim() } : {}),
       });
 
-      const newlyCreated: StaffingContractItem = {
-        id: `CTR-B2B-${Math.floor(1000 + Math.random() * 9000)}`,
-        contractNumber: newContractNumber,
-        facilityId: facility.id,
-        facilityName: facility.facilityName,
-        platformSharePercent: platformShare,
-        facilitySharePercent: facilityShare,
-        validFrom,
-        validTo,
-        status: 'DRAFT',
-        adminSigned: true,
-        facilitySigned: false,
-        contractTerms,
-      };
-
-      setStaffingContracts((prev) => [newlyCreated, ...prev]);
+      const rawCreated = unwrapApiEnvelope<{ id?: string } | null>(res);
+      const contractNumber = rawCreated?.id ? normalizeStaffingContract(rawCreated).contractNumber : null;
       setShowCreateContractModal(false);
+      setContractTerms('');
       setActiveTab('CONTRACTS');
       toast.success(
-        `Đã tạo dự thảo hợp đồng ${newContractNumber} thành công! Hệ thống đã ký duyệt trước và tự động gửi thông báo tới đại diện CSYT (${facility.email}) để ký số.`
+        contractNumber ? `Đã tạo dự thảo hợp đồng ${contractNumber}.` : 'Đã tạo dự thảo hợp đồng B2B.',
       );
-    } catch (err: any) {
+      void fetchStaffingContracts();
+    } catch (err) {
       toast.error(extractErrorMessage(err, 'Không thể thiết lập hợp đồng B2B trên máy chủ.'));
     } finally {
       setIsCreatingContract(false);
@@ -239,7 +278,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   if (!facility) {
     return (
       <div className="p-8 text-center bg-white rounded-2xl border border-slate-200">
-        <p className="text-slate-600 font-medium">Không tìm thấy thông tin cơ sở y tế với mã {facilityId}.</p>
+        <p className="text-slate-600 font-medium">{loadError ?? 'Không tìm thấy thông tin cơ sở y tế.'}</p>
         <Link
           href="/admin/facilities"
           className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium"
@@ -251,13 +290,21 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
     );
   }
 
+  const isFacilityActive = facility.onboardingStatus === 'ACTIVE' || facility.status === 'ACTIVE';
+  const hasCompleteLegalDocs = Boolean(
+    facility.taxCode &&
+      facility.operatingLicense &&
+      (facility.hasOperatingLicense || facility.hasLegalDocument) &&
+      facility.hasBusinessLicense,
+  );
+
   return (
     <DashboardPageShell containerClassName="pb-16">
       {/* Breadcrumb & Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-            <Link href="/admin" className="hover:text-primary transition-colors">Admin Backoffice</Link>
+            <Link href="/admin" className="hover:text-primary transition-colors">Quản trị hệ thống</Link>
             <span>/</span>
             <Link href="/admin/facilities" className="hover:text-primary transition-colors">Cơ sở y tế</Link>
             <span>/</span>
@@ -281,11 +328,17 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             Danh sách
           </button>
 
-          {/* Nút Tạo Hợp Đồng B2B trực tiếp cho CSYT này */}
+          {/* Nút Tạo Hợp Đồng B2B trực tiếp cho CSYT đã ACTIVE */}
           <button
             type="button"
+            disabled={!isFacilityActive}
+            title={
+              isFacilityActive
+                ? 'Khởi tạo dự thảo hợp đồng B2B'
+                : 'Cơ sở Y tế cần được duyệt pháp lý (ACTIVE) trước khi tạo hợp đồng B2B'
+            }
             onClick={() => setShowCreateContractModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-sm transition-colors"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-sm transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
           >
             <span className="material-symbols-outlined text-sm">add_circle</span>
             Tạo Hợp Đồng B2B
@@ -301,17 +354,19 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
               Quy trình thẩm định đối tác y tế (Flow 2.1)
             </p>
             <p className="text-sm text-slate-200">
-              {(facility.onboardingStatus === 'PENDING_LEGAL' || facility.onboardingStatus === 'LEGAL_SUBMITTED') &&
-                'CSYT đã có tài khoản Portal. Kiểm tra GPHĐ bản scan, duyệt kích hoạt ACTIVE rồi thiết lập hợp đồng B2B.'}
+              {facility.onboardingStatus === 'PENDING_LEGAL' &&
+                'CSYT đã có tài khoản Portal nhưng chưa nộp đủ hồ sơ pháp lý (GPHĐ, MST và 2 tệp scan).'}
+              {facility.onboardingStatus === 'LEGAL_SUBMITTED' &&
+                'CSYT đã nộp hồ sơ pháp lý. Kiểm tra GPHĐ & ĐKKD bản scan rồi duyệt kích hoạt ACTIVE hoặc yêu cầu bổ sung.'}
               {facility.onboardingStatus === 'ACTIVE' &&
-                'Hồ sơ đã kích hoạt ACTIVE. Admin có thể thiết lập thêm hợp đồng cung ứng nhân lực y tế B2B bất cứ lúc nào.'}
+                'Hồ sơ đã kích hoạt ACTIVE. Admin có thể thiết lập hợp đồng cung ứng nhân lực y tế B2B cho cơ sở này.'}
               {facility.onboardingStatus === 'REJECTED' &&
-                'Hồ sơ pháp lý đã bị từ chối hoặc yêu cầu bổ sung thông tin từ phía cơ sở y tế.'}
+                `Hồ sơ pháp lý đã bị từ chối / yêu cầu bổ sung (${facility.legalRejectionReason || 'Đang chờ CSYT cập nhật và nộp lại'}).`}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
-            {(facility.onboardingStatus === 'PENDING_LEGAL' || facility.onboardingStatus === 'LEGAL_SUBMITTED') && (
+            {facility.onboardingStatus === 'LEGAL_SUBMITTED' && (
               <>
                 <button
                   type="button"
@@ -322,9 +377,9 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                 </button>
                 <button
                   type="button"
-                  disabled={isActionLoading}
+                  disabled={isActionLoading || !hasCompleteLegalDocs}
                   onClick={handleVerifyLegal}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md transition-colors disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-sm">verified</span>
                   Duyệt Pháp Lý &amp; Kích Hoạt (ACTIVE)
@@ -344,14 +399,10 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             )}
 
             {facility.onboardingStatus === 'REJECTED' && (
-              <button
-                type="button"
-                disabled={isActionLoading}
-                onClick={handleVerifyLegal}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs sm:text-sm font-medium transition-colors"
-              >
-                Kích hoạt lại (ACTIVE)
-              </button>
+              <span className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/20 border border-amber-400/40 text-amber-200 text-xs font-semibold">
+                <span className="material-symbols-outlined text-sm">hourglass_top</span>
+                Đang chờ CSYT nộp lại hồ sơ
+              </span>
             )}
           </div>
         </div>
@@ -491,7 +542,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             <div>
               <label className="text-xs text-slate-500 block">Cơ quan cấp phép</label>
               <p className="text-sm font-medium text-slate-900 mt-1">
-                {facility.licenseIssuer || 'Bộ Y Tế / Sở Y Tế địa phương'}
+                {facility.licenseIssuer || 'Chưa cập nhật'}
               </p>
             </div>
             <div>
@@ -619,13 +670,13 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             <div>
               <label className="text-xs text-slate-500 block">Chủ tài khoản thụ hưởng</label>
               <p className="text-sm font-medium text-slate-900 mt-0.5 uppercase">
-                {facility.bankAccountHolder || facility.facilityName}
+                {facility.bankAccountHolder || 'Chưa cập nhật'}
               </p>
             </div>
             <div className="pt-2">
               <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs bg-slate-100 text-slate-600">
                 <span className="material-symbols-outlined text-sm">lock</span>
-                Tài khoản này được dùng để quyết toán 85% doanh thu định kỳ ngày 05 hàng tháng.
+                Tài khoản thụ hưởng cho kỳ đối soát doanh thu.
               </span>
             </div>
           </div>
@@ -731,8 +782,9 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
 
             <button
               type="button"
+              disabled={!isFacilityActive}
               onClick={() => setShowCreateContractModal(true)}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-colors self-start md:self-auto shrink-0"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-sm transition-colors self-start md:self-auto shrink-0 disabled:bg-slate-300 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-sm">add_circle</span>
               Tạo Dự Thảo Mới
@@ -745,13 +797,19 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             ) : staffingContracts.length === 0 ? (
               <div className="p-12 text-center text-slate-500 text-xs sm:text-sm space-y-3">
                 <p>Cơ sở y tế này chưa có hợp đồng cung ứng nhân lực B2B nào.</p>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateContractModal(true)}
-                  className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-semibold"
-                >
-                  Thiết lập hợp đồng đầu tiên ngay
-                </button>
+                {isFacilityActive ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateContractModal(true)}
+                    className="px-4 py-2 bg-primary text-white rounded-xl text-xs font-semibold"
+                  >
+                    Thiết lập hợp đồng đầu tiên ngay
+                  </button>
+                ) : (
+                  <p className="text-xs text-amber-700 font-medium">
+                    Cần duyệt hồ sơ pháp lý của cơ sở y tế sang ACTIVE trước khi thiết lập hợp đồng B2B.
+                  </p>
+                )}
               </div>
             ) : (
               <>
@@ -762,7 +820,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                       <th className="py-3 px-4">Số hợp đồng</th>
                       <th className="py-3 px-4">Tỷ lệ phân chia</th>
                       <th className="py-3 px-4">Thời hạn hiệu lực</th>
-                      <th className="py-3 px-4">Tiến trình Ký số</th>
+                      <th className="py-3 px-4">Hồ sơ hợp đồng</th>
                       <th className="py-3 px-4">Trạng thái</th>
                       <th className="py-3 px-4 text-right">Thao tác</th>
                     </tr>
@@ -791,17 +849,39 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
 
                         <td className="py-3.5 px-4">
                           <div className="space-y-0.5 text-[11px]">
-                            <div className="flex items-center gap-1 text-emerald-700 font-medium">
-                              <span>✓</span> Admin: Đã ký số duyệt
+                            <div
+                              className={`flex items-center gap-1 font-medium ${
+                                c.facilitySigned ? 'text-emerald-700' : 'text-amber-600'
+                              }`}
+                            >
+                              <span>{c.facilitySigned ? '✓' : '●'}</span> Bước 1 - CSYT:{' '}
+                              {c.facilitySigned ? 'Đã ký số' : 'Chờ CSYT ký'}
                             </div>
                             <div
                               className={`flex items-center gap-1 font-medium ${
-                                c.facilitySigned ? 'text-emerald-700' : 'text-amber-600 animate-pulse'
+                                c.adminSigned
+                                  ? 'text-emerald-700'
+                                  : c.facilitySigned
+                                    ? 'text-blue-700'
+                                    : 'text-slate-400'
                               }`}
                             >
-                              <span>{c.facilitySigned ? '✓' : '●'}</span> CSYT:{' '}
-                              {c.facilitySigned ? 'Đã ký số' : 'Chờ CSYT ký'}
+                              <span>{c.adminSigned ? '✓' : c.facilitySigned ? '●' : '○'}</span> Bước 2 - Admin:{' '}
+                              {c.adminSigned
+                                ? 'Đã ký kích hoạt'
+                                : c.facilitySigned
+                                  ? 'Tới lượt Admin ký'
+                                  : 'Chờ CSYT ký trước'}
                             </div>
+                            {c.signedPdfUrl && (
+                              <button
+                                type="button"
+                                onClick={() => void handleOpenSignedContract(c.id)}
+                                className="text-xs text-primary underline"
+                              >
+                                Mở bản đã ký
+                              </button>
+                            )}
                           </div>
                         </td>
 
@@ -810,6 +890,20 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               Đang có hiệu lực (ACTIVE)
+                            </span>
+                          ) : c.rawStatus === 'REVISION_REQUESTED' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-rose-50 text-rose-800 border border-rose-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                              CSYT yêu cầu chỉnh sửa
+                            </span>
+                          ) : c.rawStatus === 'PENDING_ADMIN_SIGNATURE' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                              Chờ Admin ký (Bước 2)
+                            </span>
+                          ) : c.status === 'TERMINATED' ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                              Đã chấm dứt / Hủy
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
@@ -821,11 +915,15 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
 
                         <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <Link
-                            href={`/facility/contracts/${c.id}`}
+                            href={
+                              c.rawStatus === 'REVISION_REQUESTED'
+                                ? `/admin/contracts/${c.id}/edit?type=staffing`
+                                : '/admin/contracts'
+                            }
                             className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors border border-slate-200 inline-flex items-center gap-1"
                           >
                             <span className="material-symbols-outlined text-xs">visibility</span>
-                            Xem chi tiết
+                            {c.rawStatus === 'REVISION_REQUESTED' ? 'Chỉnh sửa lại' : 'Quản lý HĐ B2B'}
                           </Link>
                         </td>
                       </tr>
@@ -845,10 +943,24 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                         className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${
                           c.status === 'ACTIVE'
                             ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                            : c.rawStatus === 'REVISION_REQUESTED'
+                              ? 'bg-rose-50 text-rose-800 border-rose-200'
+                              : c.rawStatus === 'PENDING_ADMIN_SIGNATURE'
+                                ? 'bg-blue-50 text-blue-800 border-blue-200'
+                                : c.status === 'TERMINATED'
+                                  ? 'bg-slate-100 text-slate-700 border-slate-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
                         }`}
                       >
-                        {c.status === 'ACTIVE' ? 'ACTIVE' : 'Dự thảo'}
+                        {c.status === 'ACTIVE'
+                          ? 'ACTIVE'
+                          : c.rawStatus === 'REVISION_REQUESTED'
+                            ? 'Yêu cầu sửa'
+                            : c.rawStatus === 'PENDING_ADMIN_SIGNATURE'
+                              ? 'Chờ Admin ký'
+                              : c.status === 'TERMINATED'
+                                ? 'Đã hủy'
+                                : 'Chờ CSYT ký'}
                       </span>
                     </div>
                     <div className="rounded-xl bg-slate-50 p-2.5 space-y-1 text-slate-600 tabular-nums">
@@ -863,11 +975,15 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                     </div>
                     <div className="flex justify-end">
                       <Link
-                        href={`/facility/contracts/${c.id}`}
+                        href={
+                          c.rawStatus === 'REVISION_REQUESTED'
+                            ? `/admin/contracts/${c.id}/edit?type=staffing`
+                            : '/admin/contracts'
+                        }
                         className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200"
                       >
                         <span className="material-symbols-outlined text-xs">visibility</span>
-                        Xem chi tiết
+                        {c.rawStatus === 'REVISION_REQUESTED' ? 'Chỉnh sửa lại' : 'Quản lý HĐ B2B'}
                       </Link>
                     </div>
                   </div>
@@ -924,8 +1040,8 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                     <strong>Email tiếp nhận:</strong> {facility.email}
                   </span>
                   <span>
-                    <strong>Tài khoản thụ hưởng:</strong> {facility.bankAccount || '0071001234567'} (
-                    {facility.bankName || 'Vietcombank'})
+                    <strong>Tài khoản thụ hưởng:</strong> {facility.bankAccount || 'Chưa cập nhật'} (
+                    {facility.bankName || 'Chưa cập nhật'})
                   </span>
                 </div>
               </div>
@@ -1031,7 +1147,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                 className="inline-flex items-center gap-1.5 px-5 py-2.5 text-xs sm:text-sm font-bold bg-primary text-white rounded-xl hover:bg-primary/90 shadow-md transition-colors disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-sm">send</span>
-                {isCreatingContract ? 'Đang tạo & Gửi...' : 'Ký Duyệt & Gửi Dự Thảo tới CSYT'}
+                {isCreatingContract ? 'Đang tạo & Gửi...' : 'Tạo & Gửi Dự Thảo tới CSYT'}
               </button>
             </div>
           </div>

@@ -45,6 +45,9 @@ export async function readServerAuthSession(): Promise<ServerAuthSession | null>
           role,
           avatarText: parsed.avatarText || parsed.name.slice(0, 2).toUpperCase(),
           ...(parsed.facilityOrTitle ? { facilityOrTitle: parsed.facilityOrTitle } : {}),
+          ...(typeof parsed.mustChangePassword === 'boolean'
+            ? { mustChangePassword: parsed.mustChangePassword }
+            : {}),
         };
       }
     } catch {

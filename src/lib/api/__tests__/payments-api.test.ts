@@ -60,10 +60,13 @@ describe('paymentsApi', () => {
   });
 
   it('listTransactions calls GET /api/v1/payments/transactions', async () => {
-    const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValueOnce([]);
+    const transaction = { id: 'tx-1', ingestionSource: 'WEBHOOK', outcome: 'MATCHED' };
+    const data = { items: [transaction], total: 1, page: 1, limit: 10 };
+    const getSpy = vi.spyOn(httpClient, 'get').mockResolvedValueOnce({ success: true, data });
 
-    await paymentsApi.listTransactions({ limit: 10 });
+    const response = await paymentsApi.listTransactions({ limit: 10 });
 
-    expect(getSpy).toHaveBeenCalledWith('/api/v1/payments/transactions', { limit: 10 });
+    expect(getSpy).toHaveBeenCalledWith('/api/v1/payments/transactions', { limit: 10 }, { cache: 'no-store' });
+    expect(response).toEqual(data);
   });
 });

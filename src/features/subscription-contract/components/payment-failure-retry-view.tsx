@@ -29,16 +29,6 @@ export interface PaymentFailureRetryViewProps {
   onContactSupport?: () => void;
 }
 
-const DEFAULT_ERROR_DETAILS: PaymentErrorDetails = {
-  reasonCode: 'INVALID_SYNTAX',
-  message: 'Cú pháp chuyển khoản ngân hàng không trùng khớp với mã hợp đồng',
-  transactionCode: 'TXN-882910',
-  contractId: 'FMD-2026-REGR821',
-  amountExpected: 9600000,
-  amountReceived: 9600000,
-  occurredAt: '01/11/2026 09:30',
-};
-
 const REASON_CONFIG: Record<
   PaymentFailureReasonCode,
   { title: string; hint: string }
@@ -66,17 +56,20 @@ const REASON_CONFIG: Record<
 };
 
 export function PaymentFailureRetryView({
-  errorDetails = DEFAULT_ERROR_DETAILS,
+  errorDetails = {},
   onRetryPayment,
   onContactSupport,
 }: PaymentFailureRetryViewProps) {
   const router = useRouter();
 
-  const code = errorDetails.reasonCode || 'INVALID_SYNTAX';
-  const reasonMeta = REASON_CONFIG[code] || REASON_CONFIG.INVALID_SYNTAX;
-  const transactionCode = errorDetails.transactionCode || 'TXN-882910';
-  const contractId = errorDetails.contractId || 'FMD-2026-REGR821';
-  const amountExpected = errorDetails.amountExpected ?? 9600000;
+  const code = errorDetails.reasonCode;
+  const reasonMeta = code ? REASON_CONFIG[code] : {
+    title: 'Kiểm tra thanh toán',
+    hint: 'Mở mục Thanh toán để xem trạng thái hiện tại và lấy lại thông tin chuyển khoản.',
+  };
+  const transactionCode = errorDetails.transactionCode;
+  const contractId = errorDetails.contractId ?? '—';
+  const amountExpected = errorDetails.amountExpected;
   const amountReceived = errorDetails.amountReceived;
 
   const handleRetry = () => {
@@ -131,9 +124,9 @@ export function PaymentFailureRetryView({
               <span className="px-2 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wider bg-amber-100 text-amber-900 border border-amber-200">
                 {reasonMeta.title}
               </span>
-              <span className="text-xs text-slate-500 tabular-nums">
+              {code && <span className="text-xs text-slate-500 tabular-nums">
                 Mã lỗi: {code}
-              </span>
+              </span>}
             </div>
             <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight mt-1">
               Giao dịch thanh toán chưa được ghi nhận
@@ -156,12 +149,12 @@ export function PaymentFailureRetryView({
             </div>
             <div className="p-3 bg-white border border-slate-200 rounded-lg">
               <span className="text-slate-500 block mb-0.5">Mã tham chiếu ngân hàng</span>
-              <span className="font-semibold text-slate-900 tabular-nums">{transactionCode}</span>
+              <span className="font-semibold text-slate-900 tabular-nums">{transactionCode ?? '—'}</span>
             </div>
             <div className="p-3 bg-white border border-slate-200 rounded-lg">
               <span className="text-slate-500 block mb-0.5">Số tiền hợp đồng cần thu</span>
               <span className="font-semibold text-slate-900 tabular-nums">
-                {formatCurrencyVND(amountExpected)}
+                {amountExpected === undefined ? '—' : formatCurrencyVND(amountExpected)}
               </span>
             </div>
             <div className="p-3 bg-white border border-slate-200 rounded-lg">
@@ -192,8 +185,8 @@ export function PaymentFailureRetryView({
                   Kiểm tra lịch sử biến động số dư ngân hàng
                 </p>
                 <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">
-                  Mở ứng dụng ngân hàng và kiểm tra xem tài khoản của bạn đã bị trừ tiền cho mã giao dịch{' '}
-                  <span className="font-semibold text-slate-800 tabular-nums">{transactionCode}</span> chưa.
+                  Mở ứng dụng ngân hàng để kiểm tra biến động số dư
+                  {transactionCode && <> theo mã giao dịch <span className="font-semibold text-slate-800 tabular-nums">{transactionCode}</span></>}.
                 </p>
               </div>
             </div>
@@ -205,7 +198,7 @@ export function PaymentFailureRetryView({
               <div>
                 <p className="font-semibold text-slate-900">Nếu tài khoản đã bị trừ tiền</p>
                 <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">
-                  Quý khách <span className="font-semibold text-slate-800">không cần chuyển khoản lại</span>. Hệ thống đối soát SePay tự động quét sao kê định kỳ mỗi 60 giây và kích hoạt bù ngay khi tìm thấy giao dịch. Vui lòng bấm vào nút hỗ trợ nếu sau 10 phút hợp đồng chưa chuyển sang trạng thái có hiệu lực.
+                  Giữ lại chứng từ và kiểm tra trạng thái trong mục Thanh toán. Liên hệ hỗ trợ để đối soát nếu khoản tiền chưa được ghi nhận.
                 </p>
               </div>
             </div>

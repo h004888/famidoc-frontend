@@ -513,8 +513,8 @@ export function FamilyDashboardView() {
             </div>
 
             <Link
-              href="/family/subscription/new"
-              className="px-6 py-3 bg-white hover:bg-slate-100 text-[#2E37A4] rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all self-start md:self-center shrink-0 flex items-center gap-2 cursor-pointer"
+              href="/doctors"
+              className="px-6 py-3 bg-white hover:bg-slate-100 text-[#0037c1] rounded-xl text-xs sm:text-sm font-bold shadow-md transition-all self-start md:self-center shrink-0 flex items-center gap-2 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">person_search</span>
               <span>Chọn Bác Sĩ &amp; Đăng Ký Gói Ngay</span>

@@ -68,6 +68,20 @@ const activeProfile: AdminFacilityItem = {
   verificationStatus: 'ACTIVE',
   status: 'ACTIVE',
   legalRejectionReason: null,
+  hasActiveStaffingContract: true,
+  hasHistoricalStaffingContract: true,
+};
+
+const activeNoB2bProfile: AdminFacilityItem = {
+  ...activeProfile,
+  hasActiveStaffingContract: false,
+  hasHistoricalStaffingContract: false,
+};
+
+const activeHistoricalB2bProfile: AdminFacilityItem = {
+  ...activeProfile,
+  hasActiveStaffingContract: false,
+  hasHistoricalStaffingContract: true,
 };
 
 describe('FacilityVerificationGateGuard & DashboardSidebar Facility Gate', () => {
@@ -190,5 +204,104 @@ describe('FacilityVerificationGateGuard & DashboardSidebar Facility Gate', () =>
         .filter((el) => el.getAttribute('href') === '/facility/doctors');
       expect(doctorLinks).toHaveLength(1);
     });
+  });
+
+  it('enforces Stage 2 B2B gate: allows /facility and /facility/contracts while locking /facility/doctors, /facility/coordination, and /facility/revenue when no active B2B contract exists', async () => {
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValue(activeNoB2bProfile);
+
+    for (const allowedPath of ['/facility', '/facility/contracts', '/facility/legal-profile']) {
+      mockPathname = allowedPath;
+      mockReplace.mockClear();
+
+      const { unmount } = render(
+        <FacilityVerificationGateProvider>
+          <FacilityVerificationGateGuard>
+            <div data-testid="stage2-allowed">Allowed</div>
+          </FacilityVerificationGateGuard>
+        </FacilityVerificationGateProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('stage2-allowed')).toBeInTheDocument();
+      });
+      expect(mockReplace).not.toHaveBeenCalled();
+      unmount();
+    }
+
+    for (const lockedPath of ['/facility/doctors', '/facility/staff', '/facility/coordination', '/facility/revenue']) {
+      mockPathname = lockedPath;
+      mockReplace.mockClear();
+
+      const { unmount } = render(
+        <FacilityVerificationGateProvider>
+          <FacilityVerificationGateGuard>
+            <div data-testid="stage2-protected">Protected</div>
+          </FacilityVerificationGateGuard>
+        </FacilityVerificationGateProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('facility-b2b-gate-blocked')).toBeInTheDocument();
+        expect(mockReplace).toHaveBeenCalledWith('/facility/contracts');
+      });
+      expect(screen.queryByTestId('stage2-protected')).not.toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('allows /facility/revenue and /facility/coordination when hasHistoricalStaffingContract is true', async () => {
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValue(activeHistoricalB2bProfile);
+
+    for (const allowedPath of ['/facility/revenue', '/facility/coordination']) {
+      mockPathname = allowedPath;
+      mockReplace.mockClear();
+
+      const { unmount } = render(
+        <FacilityVerificationGateProvider>
+          <FacilityVerificationGateGuard>
+            <div data-testid="historical-allowed">Allowed</div>
+          </FacilityVerificationGateGuard>
+        </FacilityVerificationGateProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('historical-allowed')).toBeInTheDocument();
+      });
+      expect(mockReplace).not.toHaveBeenCalled();
+      unmount();
+    }
+  });
+
+  it('does not bounce newly approved ACTIVE facility back to /facility/legal-profile during pathname transition refresh', async () => {
+    mockPathname = '/facility/legal-profile';
+    vi.mocked(facilitiesApi.getMyFacilityProfile)
+      .mockResolvedValueOnce(pendingProfile)
+      .mockResolvedValueOnce(activeProfile);
+
+    const { rerender } = render(
+      <FacilityVerificationGateProvider>
+        <FacilityVerificationGateGuard>
+          <div data-testid="facility-content">Content</div>
+        </FacilityVerificationGateGuard>
+      </FacilityVerificationGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('facility-content')).toBeInTheDocument();
+    });
+
+    mockPathname = '/facility';
+    rerender(
+      <FacilityVerificationGateProvider>
+        <FacilityVerificationGateGuard>
+          <div data-testid="facility-content">Content</div>
+        </FacilityVerificationGateGuard>
+      </FacilityVerificationGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('facility-content')).toBeInTheDocument();
+    });
+    expect(mockReplace).not.toHaveBeenCalledWith('/facility/legal-profile');
   });
 });

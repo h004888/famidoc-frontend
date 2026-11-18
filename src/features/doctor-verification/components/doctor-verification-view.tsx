@@ -10,6 +10,7 @@ import {
   type DoctorProfileDto,
 } from '@/lib/api';
 import { REQUIRED_CREDENTIAL_DEFS } from '@/components/shared';
+import { DOCTOR_GATE_REFRESH_EVENT } from '@/components/layout/doctor-verification-gate';
 import { Button } from '@/components/ui/button';
 
 type CredentialType = DoctorCredentialDto['credentialType'];
@@ -259,6 +260,9 @@ export function DoctorVerificationView() {
         setRejectionReason(null);
       }
 
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(DOCTOR_GATE_REFRESH_EVENT));
+      }
       toast.success(
         'Đã nộp đủ 3 chứng chỉ & hồ sơ cá nhân! Hồ sơ đang chờ Cơ sở y tế thẩm định Cấp 1.',
       );
@@ -293,6 +297,10 @@ export function DoctorVerificationView() {
   const isLevel1Approved =
     onboardingStatus === 'FACILITY_VERIFIED' || onboardingStatus === 'ACTIVE';
   const isLevel2Approved = onboardingStatus === 'ACTIVE';
+  const isFormLocked =
+    isLevel2Approved ||
+    onboardingStatus === 'FACILITY_VERIFIED' ||
+    onboardingStatus === 'SUSPENDED';
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
@@ -563,7 +571,7 @@ export function DoctorVerificationView() {
                 </label>
                 <select
                   id="doctor-academic-title"
-                  disabled={isLevel2Approved}
+                  disabled={isFormLocked}
                   value={formAcademicTitle}
                   onChange={(e) => setFormAcademicTitle(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
@@ -589,7 +597,7 @@ export function DoctorVerificationView() {
                   id="doctor-specialty"
                   type="text"
                   required
-                  disabled={isLevel2Approved}
+                  disabled={isFormLocked}
                   value={formSpecialty}
                   onChange={(e) => setFormSpecialty(e.target.value)}
                   placeholder="Khoa Y học Gia đình"
@@ -610,7 +618,7 @@ export function DoctorVerificationView() {
                   min={0}
                   max={60}
                   required
-                  disabled={isLevel2Approved}
+                  disabled={isFormLocked}
                   value={formExperienceYears}
                   onChange={(e) => setFormExperienceYears(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 tabular-nums focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
@@ -628,7 +636,7 @@ export function DoctorVerificationView() {
               <textarea
                 id="doctor-bio"
                 rows={3}
-                disabled={isLevel2Approved}
+                disabled={isFormLocked}
                 value={formBio}
                 onChange={(e) => setFormBio(e.target.value)}
                 placeholder="Giới thiệu quá trình công tác, kinh nghiệm khám chữa bệnh gia đình..."
@@ -713,7 +721,7 @@ export function DoctorVerificationView() {
                           aria-label={`Số hiệu ${def.shortLabel}`}
                           type="text"
                           required
-                          disabled={isLevel2Approved}
+                          disabled={isFormLocked}
                           value={entry.certificateNumber}
                           onChange={(e) =>
                             updateCredentialField(def.type, {
@@ -737,7 +745,7 @@ export function DoctorVerificationView() {
                           aria-label={`Nơi cấp ${def.shortLabel}`}
                           type="text"
                           required
-                          disabled={isLevel2Approved}
+                          disabled={isFormLocked}
                           value={entry.issuingAuthority}
                           onChange={(e) =>
                             updateCredentialField(def.type, {
@@ -761,7 +769,7 @@ export function DoctorVerificationView() {
                           aria-label={`Ngày cấp ${def.shortLabel}`}
                           type="date"
                           required
-                          disabled={isLevel2Approved}
+                          disabled={isFormLocked}
                           value={entry.issueDate}
                           onChange={(e) =>
                             updateCredentialField(def.type, { issueDate: e.target.value })
@@ -784,7 +792,7 @@ export function DoctorVerificationView() {
                           id={`cert-file-${def.type}`}
                           aria-label={`Tệp scan ${def.shortLabel}`}
                           type="file"
-                          disabled={isLevel2Approved}
+                          disabled={isFormLocked}
                           accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
                           onChange={(e) =>
                             handleFileChange(
@@ -824,7 +832,7 @@ export function DoctorVerificationView() {
           </div>
 
           {/* Submit Footer */}
-          {!isLevel2Approved && (
+          {!isFormLocked && (
             <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="text-xs text-slate-600 space-y-0.5">
                 <p className="font-semibold text-slate-900">
