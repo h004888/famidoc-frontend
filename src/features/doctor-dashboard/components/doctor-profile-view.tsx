@@ -6,6 +6,7 @@ import { doctorsApi, type DoctorProfileDto } from '@/lib/api/doctors.api';
 import { DashboardPageShell, DoctorCredentialsList } from '@/components/shared';
 
 export function DoctorProfileView() {
+  const { user } = useAuth();
   const [doctor, setDoctor] = useState<DoctorProfileDto | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -29,7 +30,7 @@ export function DoctorProfileView() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user]);
 
   if (isLoading) {
     return (
@@ -147,10 +148,10 @@ export function DoctorProfileView() {
             <div className="space-y-2">
               <label className="text-xs text-slate-500 block">Đơn vị công tác</label>
               <p className="text-sm font-bold text-slate-900">
-                {doctor.facilityName || doctor.facility?.facilityName || 'Bệnh viện Đa khoa Quốc tế An Sinh'}
+                {doctor.facilityName || doctor.facility?.facilityName || 'Chưa liên kết cơ sở y tế'}
               </p>
               <p className="text-xs text-slate-500">
-                Mã CSYT: <span className="tabular-nums">{doctor.facilityId}</span>
+                Mã CSYT: <span className="tabular-nums">{doctor.facilityId || 'N/A'}</span>
               </p>
             </div>
           </div>

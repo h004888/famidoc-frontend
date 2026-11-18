@@ -137,16 +137,12 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         shortLabel: 'Lâm sàng',
         icon: 'dashboard',
         exact: true,
-        badge: '12 Ca',
-        badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200',
       },
       {
         href: '/doctor/contracts',
         label: 'Hợp đồng & Phụ trách Hộ',
         shortLabel: 'HĐ Phụ trách',
         icon: 'assignment_turned_in',
-        badge: 'SCR-16',
-        badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200',
       },
       { href: '/doctor/timetable', label: 'Lịch trực & Panel Cap', shortLabel: 'Lịch trực', icon: 'calendar_clock' },
       { href: '/doctor/encounters', label: 'Khám SOAP & Kê đơn', shortLabel: 'Khám SOAP', icon: 'clinical_notes' },
@@ -155,8 +151,6 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         label: 'Tư vấn WebRTC 24/7',
         shortLabel: 'Telemed',
         icon: 'videocam',
-        badge: 'HD',
-        badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
       },
       { href: '/doctor/verification', label: 'Xác thực CCHN Y tế', shortLabel: 'CCHN', icon: 'verified_user' },
       { href: '/doctor/profile', label: 'Hồ sơ Chuyên môn', shortLabel: 'Hồ sơ', icon: 'account_circle' },
@@ -344,15 +338,17 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                   title={lockTooltip}
                   aria-label={`${item.label} (Đã khóa)`}
                   className={cn(
-                    'flex w-full cursor-not-allowed items-center justify-between rounded-xl bg-slate-50/70 px-3 py-2.5 text-xs font-medium text-slate-400 opacity-75 sm:text-sm',
+                    'flex w-full cursor-not-allowed items-center justify-between gap-2 rounded-xl bg-slate-50/70 px-3 py-2.5 text-xs font-medium text-slate-400 opacity-75 sm:text-sm',
                     isCollapsedState && 'justify-center px-2'
                   )}
                 >
-                  <div className="flex items-center gap-3 truncate">
+                  <div className="flex min-w-0 items-center gap-3">
                     <span className="material-symbols-outlined shrink-0 text-[20px] text-slate-400">
                       lock
                     </span>
-                    {!isCollapsedState && <span className="truncate">{item.label}</span>}
+                    {!isCollapsedState && (
+                      <span className="text-left leading-snug">{item.label}</span>
+                    )}
                   </div>
                   {!isCollapsedState && (
                     <Badge
@@ -383,14 +379,14 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                 title={isCollapsedState ? item.label : undefined}
                 aria-label={item.label}
                 className={cn(
-                  'group flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
+                  'group flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
                   isActive
                     ? 'bg-primary font-semibold text-primary-foreground shadow-2xs'
                     : 'text-slate-700 hover:bg-accent hover:text-primary',
                   isCollapsedState && 'justify-center px-2'
                 )}
               >
-                <div className="flex items-center gap-3 truncate">
+                <div className="flex min-w-0 items-center gap-3">
                   <span
                     className={cn(
                       'material-symbols-outlined shrink-0 text-[20px] transition-colors',
@@ -399,7 +395,9 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                   >
                     {item.icon}
                   </span>
-                  {!isCollapsedState && <span className="truncate">{item.label}</span>}
+                  {!isCollapsedState && (
+                    <span className="leading-snug">{item.label}</span>
+                  )}
                 </div>
                 {!isCollapsedState && item.badge && (
                   <span
@@ -461,43 +459,6 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
 
         {/* Global Settings & Utilities */}
         <div className="space-y-1 border-t border-slate-100 pt-2">
-          {(() => {
-            const packagesEl = (
-              <Link
-                href="/packages"
-                onClick={() => setMobileMenuOpen(false)}
-                title={isCollapsedState ? 'Danh mục Gói Dịch vụ' : undefined}
-                aria-label="Danh mục Gói Dịch vụ"
-                className={cn(
-                  'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
-                  pathname === '/packages'
-                    ? 'bg-primary font-semibold text-primary-foreground'
-                    : 'text-slate-700 hover:bg-accent hover:text-primary',
-                  isCollapsedState && 'justify-center px-2'
-                )}
-              >
-                <span
-                  className={cn(
-                    'material-symbols-outlined shrink-0 text-[20px] transition-colors',
-                    pathname === '/packages' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
-                  )}
-                >
-                  inventory_2
-                </span>
-                {!isCollapsedState && <span>Danh mục Gói Dịch vụ</span>}
-              </Link>
-            );
-
-            return isCollapsedState ? (
-              <Tooltip>
-                <TooltipTrigger asChild>{packagesEl}</TooltipTrigger>
-                <TooltipContent side="right">Danh mục Gói Dịch vụ</TooltipContent>
-              </Tooltip>
-            ) : (
-              packagesEl
-            );
-          })()}
-
           {(() => {
             const settingsEl = (
               <Link

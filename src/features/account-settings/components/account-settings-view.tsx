@@ -1,8 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { profileSettingsSchema, changePasswordSchema } from '../schemas/settings.schema';
+import { useAuth } from '@/features/auth/context/auth-context';
+import { AuthUser } from '@/lib/auth-storage';
+import { authApi } from '@/lib/api/auth.api';
+import { doctorsApi, DoctorProfileDto } from '@/lib/api/doctors.api';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -20,18 +25,59 @@ import {
 import { Separator } from '@/components/ui/separator';
 
 export function AccountSettingsView() {
+  const { user, role, applySession } = useAuth();
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'insurance'>('profile');
+
   const [profileData, setProfileData] = useState({
-    fullName: 'Nguyễn Văn An',
-    phone: '0912345678',
-    email: 'an.nguyen@famidoc.vn',
+    fullName: user?.name || (role === 'DOCTOR' ? 'BS.CKII Trần Thanh Mai' : 'Nguyễn Văn An'),
+    phone: user?.phone || (role === 'DOCTOR' ? '0988123789' : '0912345678'),
+    email: user?.email || (role === 'DOCTOR' ? 'mai.tt@famidoc.pro' : 'an.nguyen@famidoc.vn'),
     birthDate: '1985-05-15',
-    gender: 'MALE',
-    address: 'Số 123 Phố Huế, Q. Hai Bà Trưng, Hà Nội',
-    insuranceCardNumber: 'GD4010123456789',
+    gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
+    address:
+      role === 'DOCTOR'
+        ? '215 Hồng Bàng, Phường 11, Quận 5, TP.HCM'
+        : 'Số 123 Phố Huế, Q. Hai Bà Trưng, Hà Nội',
+    insuranceCardNumber: role === 'DOCTOR' ? 'BS7901012345678' : 'GD4010123456789',
     bloodType: 'O+',
-    allergies: 'Dị ứng phấn hoa, Penicillin',
+    allergies: 'Không có tiền sử dị ứng đã ghi nhận',
   });
+
+  const [doctorInfo, setDoctorInfo] = useState<DoctorProfileDto | null>(null);
+
+  // Sync profile data when user changes in auth context
+  useEffect(() => {
+    if (user) {
+      setProfileData((prev) => ({
+        ...prev,
+        fullName: user.name || prev.fullName,
+        phone: user.phone || prev.phone,
+        email: user.email || prev.email,
+      }));
+    }
+  }, [user]);
+
+  // Fetch real doctor info if logged in as DOCTOR
+  useEffect(() => {
+    if (role === 'DOCTOR') {
+      doctorsApi
+        .getDoctorMe()
+        .then((doc) => {
+          if (doc) {
+            setDoctorInfo(doc);
+            if (doc.doctorName) {
+              setProfileData((prev) => ({
+                ...prev,
+                fullName: doc.doctorName,
+              }));
+            }
+          }
+        })
+        .catch(() => {
+          // Fallback gracefully
+        });
+    }
+  }, [role]);
 
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
@@ -41,6 +87,8 @@ export function AccountSettingsView() {
 
   const [profileError, setProfileError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [showCurrentPwd, setShowCurrentPwd] = useState(false);
   const [showNewPwd, setShowNewPwd] = useState(false);
   const [showCfmPwd, setShowCfmPwd] = useState(false);
@@ -53,10 +101,38 @@ export function AccountSettingsView() {
       return;
     }
     setProfileError(null);
-    toast.success('Thông tin hồ sơ cá nhân đã được cập nhật thành công!');
+    setIsSavingProfile(true);
+
+    try {
+      if (user) {
+        const initials =
+          profileData.fullName
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((w) => w[0])
+            .slice(-2)
+            .join('')
+            .toUpperCase() || user.avatarText;
+
+        const updatedUser: AuthUser = {
+          ...user,
+          name: profileData.fullName,
+          phone: profileData.phone,
+          email: profileData.email || user.email,
+          avatarText: initials,
+        };
+        applySession(role, updatedUser);
+      }
+      toast.success('Thông tin hồ sơ cá nhân đã được cập nhật thành công!');
+    } catch {
+      toast.error('Có lỗi xảy ra khi lưu thông tin');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const result = changePasswordSchema.safeParse(passwordData);
     if (!result.success) {
@@ -64,9 +140,106 @@ export function AccountSettingsView() {
       return;
     }
     setPasswordError(null);
-    toast.success('Mật khẩu bảo mật đã được thay đổi thành công!');
-    setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+    setIsChangingPassword(true);
+
+    try {
+      await authApi.changePassword({
+        oldPassword: passwordData.currentPassword,
+        newPassword: passwordData.newPassword,
+      });
+      toast.success('Mật khẩu bảo mật đã được thay đổi thành công!');
+      setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+    } catch (err: any) {
+      const msg =
+        err?.message ||
+        err?.details?.message ||
+        'Không thể cập nhật mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.';
+      setPasswordError(msg);
+      toast.error(msg);
+    } finally {
+      setIsChangingPassword(false);
+    }
   };
+
+  const getInitials = (name?: string, fallback = 'FD') => {
+    if (!name) return fallback;
+    const parts = name.trim().split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
+
+  const avatarFallback = user?.avatarText || getInitials(profileData.fullName, 'NA');
+
+  const getRoleHeaderInfo = () => {
+    switch (role) {
+      case 'DOCTOR':
+        return {
+          roleBadge: 'Bác sĩ Gia đình CCHN',
+          verifyBadge: 'Đã Định Danh & Xác Thực BYT',
+          subtitle: (
+            <>
+              {doctorInfo?.specialty || 'Nội Tim Mạch & Y học Gia đình'} •{' '}
+              {doctorInfo?.facilityName || doctorInfo?.facility?.facilityName || 'BV Đại Học Y Dược TP.HCM'} • CCHN:{' '}
+              <span className="font-bold text-primary tabular-nums">
+                {doctorInfo?.credentials?.[0]?.certificateNumber || '004128/HCM'}
+              </span>
+            </>
+          ),
+          rightStatusLabel: 'Trạng thái CCHN:',
+          rightStatusBadge: 'Hiệu lực Toàn quốc',
+        };
+      case 'FACILITY':
+        return {
+          roleBadge: 'Quản trị Cơ sở Y tế',
+          verifyBadge: 'Đối tác Y tế Chính thức',
+          subtitle: (
+            <>
+              Đơn vị Y tế Thành viên FamiDoc • Mã đơn vị:{' '}
+              <span className="font-bold text-primary tabular-nums">{user?.id || 'FAC-79012'}</span>
+            </>
+          ),
+          rightStatusLabel: 'Ký quỹ Y tế:',
+          rightStatusBadge: 'Đang hoạt động',
+        };
+      case 'ADMIN':
+        return {
+          roleBadge: 'Quản trị viên Hệ thống',
+          verifyBadge: 'Toàn quyền Quản trị',
+          subtitle: <>Hệ sinh thái Quản trị Y tế Gia đình Toàn diện FamiDoc</>,
+          rightStatusLabel: 'Bảo mật 2FA:',
+          rightStatusBadge: 'Đang kích hoạt',
+        };
+      case 'PATIENT':
+        return {
+          roleBadge: 'Bệnh nhân Thành viên',
+          verifyBadge: 'Đã Định Danh BYT',
+          subtitle: (
+            <>
+              Thành viên Hộ gia đình FamiDoc • Mã hồ sơ:{' '}
+              <span className="font-bold text-primary tabular-nums">{user?.id || 'PT-01'}</span>
+            </>
+          ),
+          rightStatusLabel: 'Trạng thái BHYT:',
+          rightStatusBadge: 'Hiệu lực đến 12/2027',
+        };
+      case 'FAMILY':
+      default:
+        return {
+          roleBadge: 'Đại diện Hộ gia đình',
+          verifyBadge: 'Đã Định Danh BYT',
+          subtitle: (
+            <>
+              Đại diện Hộ gia đình FamiDoc • Mã hồ sơ:{' '}
+              <span className="font-bold text-primary tabular-nums">{user?.id || 'FMD-88219'}</span>
+            </>
+          ),
+          rightStatusLabel: 'Trạng thái BHYT:',
+          rightStatusBadge: 'Hiệu lực đến 12/2027',
+        };
+    }
+  };
+
+  const headerInfo = getRoleHeaderInfo();
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] font-sans text-slate-900 antialiased">
@@ -77,7 +250,7 @@ export function AccountSettingsView() {
             <div className="flex items-center gap-4">
               <Avatar className="h-16 w-16 shadow-xs">
                 <AvatarFallback className="bg-primary text-2xl font-bold text-primary-foreground">
-                  NA
+                  {avatarFallback}
                 </AvatarFallback>
               </Avatar>
               <div>
@@ -88,24 +261,60 @@ export function AccountSettingsView() {
                     className="gap-1 rounded-full border-[#b7eb8f] bg-[#f6ffed] px-2.5 py-0.5 text-xs font-semibold text-[#03864b]"
                   >
                     <span className="material-symbols-outlined text-[14px]">verified</span>
-                    Đã Định Danh BYT
+                    {headerInfo.verifyBadge}
                   </Badge>
                 </div>
-                <p className="mt-0.5 text-xs text-slate-500">
-                  Đại diện Hộ gia đình FamiDoc • Mã hồ sơ:{' '}
-                  <span className="font-bold text-primary tabular-nums">FMD-88219</span>
-                </p>
+                <p className="mt-0.5 text-xs text-slate-500">{headerInfo.subtitle}</p>
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">Trạng thái BHYT:</span>
+              <span className="text-xs text-slate-500">{headerInfo.rightStatusLabel}</span>
               <Badge variant="secondary" className="rounded-lg bg-accent px-2.5 py-1 text-xs font-bold text-primary">
-                Hiệu lực đến 12/2027
+                {headerInfo.rightStatusBadge}
               </Badge>
             </div>
           </CardContent>
         </Card>
+
+        {/* Doctor Quick Access Banner if role is DOCTOR */}
+        {role === 'DOCTOR' && (
+          <div className="flex flex-col gap-3 rounded-2xl border border-sky-100 bg-sky-50/70 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined rounded-xl bg-sky-100 p-2 text-sky-700">
+                medical_information
+              </span>
+              <div>
+                <h4 className="text-xs font-bold text-slate-900">
+                  Hồ sơ Hành nghề &amp; Chứng chỉ Bác sĩ Gia đình
+                </h4>
+                <p className="text-xs text-slate-600">
+                  Cập nhật danh mục kỹ thuật, chứng chỉ CCHN hoặc thiết lập lịch khám chuyên môn.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Link href="/doctor/profile">
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg border-sky-200 bg-white text-xs font-semibold text-sky-800 hover:bg-sky-50">
+                  <span className="material-symbols-outlined text-[14px]">badge</span>
+                  Hồ sơ chuyên môn
+                </Button>
+              </Link>
+              <Link href="/doctor/verification">
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg border-sky-200 bg-white text-xs font-semibold text-sky-800 hover:bg-sky-50">
+                  <span className="material-symbols-outlined text-[14px]">verified</span>
+                  Chứng chỉ CCHN
+                </Button>
+              </Link>
+              <Link href="/doctor/timetable">
+                <Button size="sm" variant="outline" className="h-8 gap-1.5 rounded-lg border-sky-200 bg-white text-xs font-semibold text-sky-800 hover:bg-sky-50">
+                  <span className="material-symbols-outlined text-[14px]">calendar_month</span>
+                  Lịch làm việc
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* Main Settings Grid */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12">
@@ -122,7 +331,9 @@ export function AccountSettingsView() {
                   }`}
                 >
                   <span className="material-symbols-outlined text-[18px]">person</span>
-                  <span>Thông tin cá nhân &amp; Y tế</span>
+                  <span>
+                    {role === 'DOCTOR' ? 'Thông tin Bác sĩ & Liên hệ' : 'Thông tin cá nhân & Y tế'}
+                  </span>
                 </Button>
 
                 <Button
@@ -159,7 +370,9 @@ export function AccountSettingsView() {
                 <form onSubmit={handleProfileSubmit} className="space-y-4">
                   <div>
                     <h3 className="text-base font-bold text-slate-900">
-                      Hồ sơ Hành chính &amp; Chỉ số Y khoa
+                      {role === 'DOCTOR'
+                        ? 'Hồ sơ Định danh & Thông tin Công tác Bác sĩ'
+                        : 'Hồ sơ Hành chính & Chỉ số Y khoa'}
                     </h3>
                     <Separator className="mt-2" />
                   </div>
@@ -176,7 +389,7 @@ export function AccountSettingsView() {
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-1">
                       <Label htmlFor="settings-fullname" className="text-xs font-semibold text-slate-800">
-                        Họ và tên
+                        {role === 'DOCTOR' ? 'Họ và tên Bác sĩ' : 'Họ và tên'}
                       </Label>
                       <Input
                         id="settings-fullname"
@@ -203,42 +416,127 @@ export function AccountSettingsView() {
 
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-1">
-                      <Label htmlFor="settings-birthdate" className="text-xs font-semibold text-slate-800">
-                        Ngày sinh
+                      <Label htmlFor="settings-email" className="text-xs font-semibold text-slate-800">
+                        Địa chỉ Email
                       </Label>
                       <Input
-                        id="settings-birthdate"
-                        type="date"
-                        value={profileData.birthDate}
-                        onChange={(e) => setProfileData({ ...profileData, birthDate: e.target.value })}
-                        className="rounded-lg bg-slate-50/70 text-sm tabular-nums"
+                        id="settings-email"
+                        type="email"
+                        value={profileData.email}
+                        onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                        className="rounded-lg bg-slate-50/70 text-sm"
                       />
                     </div>
 
-                    <div className="space-y-1">
-                      <Label htmlFor="settings-bloodtype" className="text-xs font-semibold text-slate-800">
-                        Nhóm máu
-                      </Label>
-                      <Select
-                        value={profileData.bloodType}
-                        onValueChange={(value) => setProfileData({ ...profileData, bloodType: value })}
-                      >
-                        <SelectTrigger id="settings-bloodtype" className="w-full rounded-lg bg-slate-50/70 text-sm">
-                          <SelectValue placeholder="Chọn nhóm máu" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="A+">A+</SelectItem>
-                          <SelectItem value="B+">B+</SelectItem>
-                          <SelectItem value="AB+">AB+</SelectItem>
-                          <SelectItem value="O+">O+</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    {role === 'DOCTOR' ? (
+                      <div className="space-y-1">
+                        <Label htmlFor="settings-specialty" className="text-xs font-semibold text-slate-800">
+                          Chuyên khoa chính
+                        </Label>
+                        <Input
+                          id="settings-specialty"
+                          type="text"
+                          disabled
+                          value={doctorInfo?.specialty || 'Nội Tim Mạch & Y học Gia đình'}
+                          className="rounded-lg bg-slate-100 text-sm text-slate-600"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        <Label htmlFor="settings-birthdate" className="text-xs font-semibold text-slate-800">
+                          Ngày sinh
+                        </Label>
+                        <Input
+                          id="settings-birthdate"
+                          type="date"
+                          value={profileData.birthDate}
+                          onChange={(e) => setProfileData({ ...profileData, birthDate: e.target.value })}
+                          className="rounded-lg bg-slate-50/70 text-sm tabular-nums"
+                        />
+                      </div>
+                    )}
                   </div>
+
+                  {role === 'DOCTOR' ? (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="settings-facility" className="text-xs font-semibold text-slate-800">
+                          Cơ sở Y tế công tác
+                        </Label>
+                        <Input
+                          id="settings-facility"
+                          type="text"
+                          disabled
+                          value={
+                            doctorInfo?.facilityName ||
+                            doctorInfo?.facility?.facilityName ||
+                            'BV Đại Học Y Dược TP.HCM'
+                          }
+                          className="rounded-lg bg-slate-100 text-sm text-slate-600"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="settings-experience" className="text-xs font-semibold text-slate-800">
+                          Kinh nghiệm chuyên khoa
+                        </Label>
+                        <Input
+                          id="settings-experience"
+                          type="text"
+                          disabled
+                          value={`${doctorInfo?.experienceYears || 15} năm kinh nghiệm`}
+                          className="rounded-lg bg-slate-100 text-sm text-slate-600 tabular-nums"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div className="space-y-1">
+                        <Label htmlFor="settings-bloodtype" className="text-xs font-semibold text-slate-800">
+                          Nhóm máu
+                        </Label>
+                        <Select
+                          value={profileData.bloodType}
+                          onValueChange={(value) => setProfileData({ ...profileData, bloodType: value })}
+                        >
+                          <SelectTrigger id="settings-bloodtype" className="w-full rounded-lg bg-slate-50/70 text-sm">
+                            <SelectValue placeholder="Chọn nhóm máu" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="A+">A+</SelectItem>
+                            <SelectItem value="B+">B+</SelectItem>
+                            <SelectItem value="AB+">AB+</SelectItem>
+                            <SelectItem value="O+">O+</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label htmlFor="settings-gender" className="text-xs font-semibold text-slate-800">
+                          Giới tính
+                        </Label>
+                        <Select
+                          value={profileData.gender}
+                          onValueChange={(value: 'MALE' | 'FEMALE' | 'OTHER') =>
+                            setProfileData({ ...profileData, gender: value })
+                          }
+                        >
+                          <SelectTrigger id="settings-gender" className="w-full rounded-lg bg-slate-50/70 text-sm">
+                            <SelectValue placeholder="Chọn giới tính" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="MALE">Nam</SelectItem>
+                            <SelectItem value="FEMALE">Nữ</SelectItem>
+                            <SelectItem value="OTHER">Khác</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <Label htmlFor="settings-address" className="text-xs font-semibold text-slate-800">
-                      Địa chỉ thường trú
+                      {role === 'DOCTOR' ? 'Địa chỉ phòng khám / Cơ quan' : 'Địa chỉ thường trú'}
                     </Label>
                     <Input
                       id="settings-address"
@@ -249,24 +547,30 @@ export function AccountSettingsView() {
                     />
                   </div>
 
-                  <div className="space-y-1">
-                    <Label htmlFor="settings-allergies" className="text-xs font-semibold text-slate-800">
-                      Tiền sử dị ứng thuốc &amp; thực phẩm
-                    </Label>
-                    <Input
-                      id="settings-allergies"
-                      type="text"
-                      value={profileData.allergies}
-                      onChange={(e) => setProfileData({ ...profileData, allergies: e.target.value })}
-                      placeholder="Ví dụ: Dị ứng kháng sinh Penicillin, dị ứng hải sản"
-                      className="rounded-lg bg-slate-50/70 text-sm"
-                    />
-                  </div>
+                  {role !== 'DOCTOR' && (
+                    <div className="space-y-1">
+                      <Label htmlFor="settings-allergies" className="text-xs font-semibold text-slate-800">
+                        Tiền sử dị ứng thuốc &amp; thực phẩm
+                      </Label>
+                      <Input
+                        id="settings-allergies"
+                        type="text"
+                        value={profileData.allergies}
+                        onChange={(e) => setProfileData({ ...profileData, allergies: e.target.value })}
+                        placeholder="Ví dụ: Dị ứng kháng sinh Penicillin, dị ứng hải sản"
+                        className="rounded-lg bg-slate-50/70 text-sm"
+                      />
+                    </div>
+                  )}
 
                   <div className="flex justify-end pt-4">
-                    <Button type="submit" className="cursor-pointer rounded-lg px-6 text-xs font-semibold shadow-xs">
+                    <Button
+                      type="submit"
+                      disabled={isSavingProfile}
+                      className="cursor-pointer rounded-lg px-6 text-xs font-semibold shadow-xs"
+                    >
                       <span className="material-symbols-outlined text-[16px]">save</span>
-                      <span>Lưu thay đổi hồ sơ</span>
+                      <span>{isSavingProfile ? 'Đang lưu...' : 'Lưu thay đổi hồ sơ'}</span>
                     </Button>
                   </div>
                 </form>
@@ -377,9 +681,13 @@ export function AccountSettingsView() {
                   </div>
 
                   <div className="flex justify-end pt-4">
-                    <Button type="submit" className="cursor-pointer rounded-lg px-6 text-xs font-semibold shadow-xs">
+                    <Button
+                      type="submit"
+                      disabled={isChangingPassword}
+                      className="cursor-pointer rounded-lg px-6 text-xs font-semibold shadow-xs"
+                    >
                       <span className="material-symbols-outlined text-[16px]">lock_reset</span>
-                      <span>Cập nhật mật khẩu</span>
+                      <span>{isChangingPassword ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}</span>
                     </Button>
                   </div>
                 </form>
@@ -393,29 +701,63 @@ export function AccountSettingsView() {
                     </h3>
                     <Separator className="mt-2" />
                   </div>
-                  <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-semibold text-slate-600">Mã thẻ BHYT Điện tử:</span>
                       <span className="text-sm font-bold text-primary tabular-nums">
                         {profileData.insuranceCardNumber}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-600">
-                        Bệnh viện Đăng ký KCB Ban đầu:
-                      </span>
-                      <span className="text-xs font-bold text-slate-900">
-                        BV Đại học Y Dược TP.HCM (Mã 79-021)
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-semibold text-slate-600">
-                        Tài khoản Ký quỹ Escrow Y tế:
-                      </span>
-                      <span className="text-xs font-bold text-[#03864b]">
-                        Đang hoạt động (Được bảo chứng 100%)
-                      </span>
-                    </div>
+
+                    {role === 'DOCTOR' ? (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-600">
+                            Số Chứng chỉ Hành nghề (CCHN):
+                          </span>
+                          <span className="text-xs font-bold text-slate-900 tabular-nums">
+                            {doctorInfo?.credentials?.[0]?.certificateNumber || '004128/HCM'} (Đã định danh BYT)
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-600">
+                            Đơn vị KCB Tiếp nhận BHYT:
+                          </span>
+                          <span className="text-xs font-bold text-slate-900">
+                            {doctorInfo?.facilityName ||
+                              doctorInfo?.facility?.facilityName ||
+                              'BV Đại học Y Dược TP.HCM (Mã 79-021)'}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-600">
+                            Tài khoản Ký quỹ Escrow Y tế:
+                          </span>
+                          <span className="text-xs font-bold text-[#03864b]">
+                            Đang hoạt động (Được bảo chứng 100% qua FamiDoc)
+                          </span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-600">
+                            Bệnh viện Đăng ký KCB Ban đầu:
+                          </span>
+                          <span className="text-xs font-bold text-slate-900">
+                            BV Đại học Y Dược TP.HCM (Mã 79-021)
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-slate-600">
+                            Tài khoản Ký quỹ Escrow Y tế:
+                          </span>
+                          <span className="text-xs font-bold text-[#03864b]">
+                            Đang hoạt động (Được bảo chứng 100%)
+                          </span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}

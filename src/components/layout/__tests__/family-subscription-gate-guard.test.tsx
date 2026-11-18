@@ -1,6 +1,8 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
+import { hydrateRoot } from 'react-dom/client';
 import {
   FamilySubscriptionGateGuard,
   FamilySubscriptionGateProvider,
@@ -466,5 +468,69 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     expect(
       within(notice).getByRole('link', { name: /Không gian chuẩn bị/i })
     ).toHaveAttribute('href', '/onboarding');
+  });
+
+  it('hydrates cleanly without mismatch even when auth flips authenticated before guard mounts', async () => {
+    mockPathname = '/family';
+    mockAuthState = {
+      role: 'FAMILY',
+      isAuthenticated: false,
+      isLoading: true,
+      user: null,
+      logout: vi.fn(),
+    };
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: true,
+      activeContract: {
+        id: 'mc-active-1',
+        contractNumber: 'HD-4P-2026-0001',
+        contractStatus: 'ACTIVE',
+        memberCount: 4,
+        endDate: '2027-01-01T00:00:00.000Z',
+      },
+      pendingContract: null,
+      patientCount: 3,
+    });
+
+    const tree = (
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="hydrated-child">Bảng điều khiển gia đình</div>
+        </FamilySubscriptionGateGuard>
+      </FamilySubscriptionGateProvider>
+    );
+
+    const ssrHtml = renderToString(tree);
+    const container = document.createElement('div');
+    container.innerHTML = ssrHtml;
+    document.body.appendChild(container);
+
+    // Client auth state is already authenticated before guard's Suspense subtree hydrates
+    mockAuthState = {
+      role: 'FAMILY',
+      isAuthenticated: true,
+      isLoading: false,
+      user: { name: 'Nguyễn Hoàng Nam', avatarText: 'NH', phone: '+84919112233' },
+      logout: vi.fn(),
+    };
+
+    const recoverableErrors: unknown[] = [];
+    let root: ReturnType<typeof hydrateRoot> | null = null;
+    await act(async () => {
+      root = hydrateRoot(container, tree, {
+        onRecoverableError: (err) => recoverableErrors.push(err),
+      });
+    });
+
+    expect(recoverableErrors).toHaveLength(0);
+
+    await waitFor(() => {
+      expect(within(container).getByTestId('hydrated-child')).toBeTruthy();
+    });
+
+    act(() => {
+      root?.unmount();
+    });
+    container.remove();
   });
 });

@@ -47,8 +47,6 @@ export interface CareNeedsSummaryDto {
     ageGroup?: 'CHILD' | 'ADOLESCENT' | 'ADULT' | 'ELDERLY';
     gender: string;
     relationshipToHead: string;
-    citizenId?: string | null;
-    healthInsuranceNumber?: string | null;
     allergies: {
       id?: string;
       allergen?: string;

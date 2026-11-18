@@ -7,6 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { FamilyMembersView } from '../family-members-view';
 import { contractsApi, patientsApi } from '@/lib/api';
+import { FAMILY_GATE_REFRESH_EVENT } from '@/components/layout/family-subscription-gate';
 
 describe('FamilyMembersView full real API integration', () => {
   beforeEach(() => {
@@ -69,7 +70,6 @@ describe('FamilyMembersView full real API integration', () => {
       gender: 'FEMALE',
       relationshipToHead: 'CHILD',
       bloodType: 'O+',
-      registeredHospital: 'BV Đại học Y Dược TP.HCM',
       status: 'ACTIVE',
       createdAt: '2026-11-14T00:00:00.000Z',
       updatedAt: '2026-11-14T00:00:00.000Z',
@@ -85,26 +85,36 @@ describe('FamilyMembersView full real API integration', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Thêm thành viên đầu tiên/i }));
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Số CCCD/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Mã số thẻ BHYT/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nơi ĐKKCB ban đầu/i)).not.toBeInTheDocument();
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 
+    const gateEventListener = vi.fn();
+    window.addEventListener(FAMILY_GATE_REFRESH_EVENT, gateEventListener);
+
     await userEvent.click(screen.getByRole('button', { name: /Thêm thành viên đầu tiên/i }));
+    expect(screen.getByText(/Còn 2\/2 suất/)).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText(/Ví dụ: Nguyễn Thị Lan/i), 'Trần Thị Mai');
+    await userEvent.type(screen.getByLabelText(/Ngày tháng năm sinh/i), '1988-08-20');
     await userEvent.click(screen.getByRole('button', { name: /Lưu thành viên/i }));
 
     await waitFor(() => {
       expect(createSpy).toHaveBeenCalledWith(
         expect.objectContaining({
           fullName: 'Trần Thị Mai',
+          dateOfBirth: '1988-08-20',
           relationshipToRepresentative: 'CHILD',
           bloodType: 'O+',
-          registeredHospital: 'BV Đại học Y Dược TP.HCM',
         })
       );
       expect(screen.getByText('Trần Thị Mai')).toBeInTheDocument();
       expect(screen.getByTestId('member-quota-badge')).toHaveTextContent('1 / 2 thành viên');
+      expect(gateEventListener).toHaveBeenCalledTimes(1);
       expect(toastSpy).toHaveBeenCalled();
     });
+    window.removeEventListener(FAMILY_GATE_REFRESH_EVENT, gateEventListener);
   });
 
   it('hiển thị lỗi API thật và KHÔNG tạo bản ghi/toast giả khi createFamilyMember trả lỗi', async () => {
@@ -121,6 +131,7 @@ describe('FamilyMembersView full real API integration', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Thêm thành viên đầu tiên/i }));
     await userEvent.type(screen.getByPlaceholderText(/Ví dụ: Nguyễn Thị Lan/i), 'Thành Viên Lỗi');
+    await userEvent.type(screen.getByLabelText(/Ngày tháng năm sinh/i), '1992-03-10');
     await userEvent.click(screen.getByRole('button', { name: /Lưu thành viên/i }));
 
     await waitFor(() => {
@@ -129,6 +140,123 @@ describe('FamilyMembersView full real API integration', () => {
       );
       expect(screen.queryByText('Thành Viên Lỗi')).not.toBeInTheDocument();
       expect(screen.queryByText(/Đã thêm thành công/)).not.toBeInTheDocument();
+    });
+  });
+
+  it('chặn gửi form khi thiếu ngày sinh hoặc ngày sinh tương lai / > 120 tuổi', async () => {
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([]);
+    const createSpy = vi.spyOn(patientsApi, 'createFamilyMember');
+
+    render(<FamilyMembersView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('family-members-empty-state')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Thêm thành viên đầu tiên/i }));
+    await userEvent.type(screen.getByPlaceholderText(/Ví dụ: Nguyễn Thị Lan/i), 'Nguyễn Test');
+    await userEvent.click(screen.getByRole('button', { name: /Lưu thành viên/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Vui lòng nhập ngày tháng năm sinh của thành viên.'
+    );
+
+    const dobInput = screen.getByLabelText(/Ngày tháng năm sinh/i);
+    await userEvent.type(dobInput, '2999-01-01');
+    await userEvent.click(screen.getByRole('button', { name: /Lưu thành viên/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ngày sinh không thể là ngày trong tương lai.'
+    );
+
+    await userEvent.clear(dobInput);
+    await userEvent.type(dobInput, '1850-01-01');
+    await userEvent.click(screen.getByRole('button', { name: /Lưu thành viên/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ngày sinh không hợp lệ (tuổi vượt quá 120 năm).'
+    );
+    expect(createSpy).not.toHaveBeenCalled();
+  });
+
+  it('gửi giới tính Khác, nhóm máu AB- và các dòng dị ứng có cấu trúc, cảnh báo nếu 1 dị ứng lỗi', async () => {
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([]);
+    const createSpy = vi.spyOn(patientsApi, 'createFamilyMember').mockResolvedValueOnce({
+      id: 'pt-200',
+      familyId: 'fam-1',
+      fullName: 'Lê Minh Khang',
+      dateOfBirth: '1995-04-12',
+      gender: 'OTHER',
+      relationshipToHead: 'OTHER',
+      bloodType: 'AB-',
+      status: 'ACTIVE',
+      createdAt: '2026-11-14T00:00:00.000Z',
+      updatedAt: '2026-11-14T00:00:00.000Z',
+    });
+    const allergySpy = vi
+      .spyOn(patientsApi, 'addMemberAllergy')
+      .mockResolvedValueOnce({
+        id: 'al-1',
+        allergenType: 'FOOD',
+        allergenName: 'Hải sản',
+        severity: 'LIFE_THREATENING_ANAPHYLAXIS',
+        clinicalManifestation: 'Khó thở',
+      })
+      .mockRejectedValueOnce(new Error('Network error'));
+    const toastSpy = vi.spyOn(toast, 'success');
+
+    render(<FamilyMembersView />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('family-members-empty-state')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Thêm thành viên đầu tiên/i }));
+    await userEvent.type(screen.getByLabelText(/Họ và tên người thân/i), 'Lê Minh Khang');
+    await userEvent.selectOptions(screen.getByLabelText(/Quan hệ với chủ hộ/i), 'Khác');
+    await userEvent.type(screen.getByLabelText(/Ngày tháng năm sinh/i), '1995-04-12');
+    await userEvent.click(screen.getByRole('button', { name: 'Khác' }));
+    await userEvent.selectOptions(screen.getByLabelText(/Nhóm máu/i), 'AB-');
+
+    await userEvent.click(screen.getByRole('button', { name: /\+ Thêm dị ứng/i }));
+    await userEvent.type(screen.getByLabelText('Tên dị nguyên 1'), 'Hải sản');
+    await userEvent.selectOptions(screen.getByLabelText('Nhóm dị ứng 1'), 'FOOD');
+    await userEvent.selectOptions(
+      screen.getByLabelText('Mức độ dị ứng 1'),
+      'LIFE_THREATENING_ANAPHYLAXIS'
+    );
+    await userEvent.type(screen.getByLabelText('Biểu hiện lâm sàng 1'), 'Khó thở');
+
+    await userEvent.click(screen.getByRole('button', { name: /\+ Thêm dị ứng/i }));
+    await userEvent.type(screen.getByLabelText('Tên dị nguyên 2'), 'Phấn hoa');
+    await userEvent.selectOptions(screen.getByLabelText('Nhóm dị ứng 2'), 'ENVIRONMENTAL');
+
+    await userEvent.click(screen.getByRole('button', { name: /Lưu thành viên/i }));
+
+    await waitFor(() => {
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          fullName: 'Lê Minh Khang',
+          dateOfBirth: '1995-04-12',
+          gender: 'OTHER',
+          relationshipToRepresentative: 'OTHER',
+          bloodType: 'AB-',
+        })
+      );
+      expect(allergySpy).toHaveBeenCalledTimes(2);
+      expect(allergySpy).toHaveBeenNthCalledWith(1, 'pt-200', {
+        allergenType: 'FOOD',
+        allergenName: 'Hải sản',
+        severity: 'LIFE_THREATENING_ANAPHYLAXIS',
+        clinicalManifestation: 'Khó thở',
+      });
+      expect(allergySpy).toHaveBeenNthCalledWith(2, 'pt-200', {
+        allergenType: 'ENVIRONMENTAL',
+        allergenName: 'Phấn hoa',
+        severity: 'MILD',
+        clinicalManifestation: undefined,
+      });
+      expect(toastSpy).toHaveBeenCalledWith(
+        expect.stringContaining('chưa lưu được toàn bộ ghi chú dị ứng')
+      );
     });
   });
 

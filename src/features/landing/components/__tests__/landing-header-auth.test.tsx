@@ -195,6 +195,8 @@ describe('LandingHeader - menu tài khoản nhận biết vai trò và trạng t
     vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue(gateStatus({}));
 
     render(<LandingHeader />);
+    expect(screen.queryByRole('link', { name: /Không gian gia đình/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Vào Dashboard/i })).not.toBeInTheDocument();
     await openUserMenu();
 
     await waitFor(() => {
@@ -283,6 +285,11 @@ describe('LandingHeader - menu tài khoản nhận biết vai trò và trạng t
     );
 
     render(<LandingHeader />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('link', { name: /Vào Dashboard/i })).toHaveAttribute('href', '/family');
+    });
+
     await openUserMenu();
 
     await waitFor(() => {

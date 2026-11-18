@@ -19,10 +19,14 @@ import {
   contractsApi,
   patientsApi,
   extractErrorMessage,
+  type AllergenType,
+  type AllergySeverity,
   type FamilyGateStatusDto,
   type PatientDto,
+  type PatientGender,
   type PatientRelationship,
 } from '@/lib/api';
+import { FAMILY_GATE_REFRESH_EVENT } from '@/components/layout/family-subscription-gate';
 
 export interface MemberProfile {
   id: string;
@@ -30,51 +34,74 @@ export interface MemberProfile {
   relationship: string;
   rawDateOfBirth: string;
   birthDate: string;
-  gender: 'Nam' | 'Nữ';
+  gender: 'Nam' | 'Nữ' | 'Khác';
   avatar: string;
   bloodType: string;
-  bhytNumber: string;
-  bhytHospital: string;
   allergies: string[];
   chronicDiseases: string[];
   emergencyContact: { name: string; phone: string; relation: string };
   isHouseholdHead?: boolean;
 }
 
-export interface EHREntry {
+interface DraftAllergyItem {
   id: string;
-  date: string;
-  type: 'home_visit' | 'telehealth' | 'lab_result' | 'prescription';
-  typeLabel: string;
-  doctorName: string;
-  hospital: string;
-  diagnosis: string;
-  icd10: string;
-  vitalSigns: { bp: string; heartRate: string; weight: string; spo2: string };
-  doctorNotes: string;
-  prescriptions?: { name: string; dosage: string; frequency: string; duration: string }[];
-  labResults?: { test: string; result: string; unit: string; reference: string; status: 'normal' | 'abnormal' }[];
-  attachmentName?: string;
+  allergenName: string;
+  allergenType: AllergenType;
+  severity: AllergySeverity;
+  clinicalManifestation: string;
 }
 
-/** Giữ lại fixture lịch sử khám cho trang chi tiết /family/members/[id] ngoài phạm vi change này. */
-export const MOCK_EHR: Record<string, EHREntry[]> = {
-  'mem-01': [
-    {
-      id: 'ehr-01',
-      date: '24/10/2026 (3 ngày trước)',
-      type: 'home_visit',
-      typeLabel: 'Khám Bác sĩ Tại Nhà',
-      doctorName: 'Bác sĩ Gia đình phụ trách',
-      hospital: 'Hệ thống FamiDoc',
-      diagnosis: 'Tăng huyết áp vô căn (nguyên phát) • Đái tháo đường typ 2 có kiểm soát',
-      icd10: 'I10 • E11.9',
-      vitalSigns: { bp: '135/85 mmHg', heartRate: '78 bpm', weight: '65 kg', spo2: '98%' },
-      doctorNotes:
-        'Bệnh nhân tuân thủ dùng thuốc đều đặn. Huyết áp mục tiêu duy trì tốt dưới 140/90.',
-    },
-  ],
-};
+const BLOOD_TYPE_OPTIONS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'] as const;
+
+const ALLERGEN_TYPE_OPTIONS: { value: AllergenType; label: string }[] = [
+  { value: 'DRUG', label: 'Thuốc' },
+  { value: 'FOOD', label: 'Thực phẩm' },
+  { value: 'ENVIRONMENTAL', label: 'Môi trường' },
+];
+
+const ALLERGY_SEVERITY_OPTIONS: { value: AllergySeverity; label: string }[] = [
+  { value: 'MILD', label: 'Nhẹ' },
+  { value: 'MODERATE', label: 'Trung bình' },
+  { value: 'LIFE_THREATENING_ANAPHYLAXIS', label: 'Nguy hiểm (Sốc phản vệ)' },
+];
+
+function getTodayIsoInVietnam(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(new Date());
+}
+
+function validateBirthDateInput(rawDate: string, required: boolean): string | null {
+  const trimmed = rawDate.trim();
+  if (!trimmed) {
+    return required ? 'Vui lòng nhập ngày tháng năm sinh của thành viên.' : null;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return 'Ngày tháng năm sinh không hợp lệ.';
+  }
+
+  const dobIso = parsed.toISOString().slice(0, 10);
+  const todayVn = getTodayIsoInVietnam();
+  if (dobIso > todayVn) {
+    return 'Ngày sinh không thể là ngày trong tương lai.';
+  }
+
+  const minYear = Number(todayVn.slice(0, 4)) - 120;
+  const minDobIso = `${String(minYear).padStart(4, '0')}${todayVn.slice(4)}`;
+  if (dobIso < minDobIso) {
+    return 'Ngày sinh không hợp lệ (tuổi vượt quá 120 năm).';
+  }
+
+  return null;
+}
+
+function mapGenderLabelToCode(gender: MemberProfile['gender']): PatientGender {
+  if (gender === 'Nữ') return 'FEMALE';
+  if (gender === 'Khác') return 'OTHER';
+  return 'MALE';
+}
 
 export function getInitials(fullName: string): string {
   return fullName
@@ -172,11 +199,9 @@ export function mapPatientDtoToMemberProfile(
     relationship: RELATION_CODE_TO_LABEL[relKey] || p.relationshipToHead || 'Người thân',
     rawDateOfBirth: rawDate,
     birthDate: display,
-    gender: p.gender === 'FEMALE' ? 'Nữ' : 'Nam',
-    avatar: p.gender === 'FEMALE' ? '👩' : '👨',
+    gender: p.gender === 'FEMALE' ? 'Nữ' : p.gender === 'OTHER' ? 'Khác' : 'Nam',
+    avatar: p.gender === 'FEMALE' ? '👩' : p.gender === 'OTHER' ? '🧑' : '👨',
     bloodType: p.bloodType?.trim() || 'Chưa rõ',
-    bhytNumber: p.healthInsuranceNumber?.trim() || 'ĐANG CẬP NHẬT',
-    bhytHospital: p.registeredHospital?.trim() || 'Chưa cập nhật',
     allergies: allergyList,
     chronicDiseases: chronicList,
     emergencyContact: {
@@ -212,11 +237,9 @@ export function FamilyMembersView() {
   const [newName, setNewName] = useState('');
   const [newBirthDate, setNewBirthDate] = useState('');
   const [newRelation, setNewRelation] = useState('Con gái');
-  const [newGender, setNewGender] = useState<'Nam' | 'Nữ'>('Nữ');
+  const [newGender, setNewGender] = useState<'Nam' | 'Nữ' | 'Khác'>('Nữ');
   const [newBloodType, setNewBloodType] = useState('O+');
-  const [newBhyt, setNewBhyt] = useState('');
-  const [newBhytHospital, setNewBhytHospital] = useState('BV Đại học Y Dược TP.HCM');
-  const [newAllergies, setNewAllergies] = useState('');
+  const [newAllergyRows, setNewAllergyRows] = useState<DraftAllergyItem[]>([]);
   const [newChronic, setNewChronic] = useState('');
 
   const showToast = (msg: string) => {
@@ -269,6 +292,7 @@ export function FamilyMembersView() {
   const familyUnit = gateStatus?.familyUnit ?? null;
   const assignedDoctor = activeContract?.doctor ?? null;
   const memberLimit = activeContract?.memberCount ?? null;
+  const remainingSlots = memberLimit !== null ? Math.max(0, memberLimit - membersList.length) : null;
   const isQuotaReached = memberLimit !== null && membersList.length >= memberLimit;
 
   const contractBadgeCode = activeContract?.contractNumber || 'Đang đồng bộ hợp đồng';
@@ -283,29 +307,52 @@ export function FamilyMembersView() {
   const resetAddForm = () => {
     setNewName('');
     setNewBirthDate('');
-    setNewBhyt('');
-    setNewAllergies('');
+    setNewRelation('Con gái');
+    setNewGender('Nữ');
+    setNewBloodType('O+');
+    setNewAllergyRows([]);
     setNewChronic('');
     setAddError(null);
   };
 
+  const addDraftAllergyRow = () => {
+    setNewAllergyRows((prev) => [
+      ...prev,
+      {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        allergenName: '',
+        allergenType: 'DRUG',
+        severity: 'MILD',
+        clinicalManifestation: '',
+      },
+    ]);
+  };
+
+  const updateDraftAllergyRow = (
+    id: string,
+    patch: Partial<Omit<DraftAllergyItem, 'id'>>
+  ) => {
+    setNewAllergyRows((prev) =>
+      prev.map((row) => (row.id === id ? { ...row, ...patch } : row))
+    );
+  };
+
+  const removeDraftAllergyRow = (id: string) => {
+    setNewAllergyRows((prev) => prev.filter((row) => row.id !== id));
+  };
+
   const handleAddMemberSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName.trim() || isSubmittingAdd) return;
+    if (isSubmittingAdd) return;
+    if (!newName.trim()) {
+      setAddError('Vui lòng nhập họ và tên người thân.');
+      return;
+    }
 
-    if (newBirthDate) {
-      const dob = new Date(newBirthDate);
-      if (!isNaN(dob.getTime())) {
-        if (dob > new Date()) {
-          setAddError('Ngày sinh không thể là ngày trong tương lai.');
-          return;
-        }
-        const ageYears = (Date.now() - dob.getTime()) / (1000 * 3600 * 24 * 365.25);
-        if (ageYears > 120) {
-          setAddError('Ngày sinh không hợp lệ (tuổi vượt quá 120 năm).');
-          return;
-        }
-      }
+    const dobValidationError = validateBirthDateInput(newBirthDate, true);
+    if (dobValidationError) {
+      setAddError(dobValidationError);
+      return;
     }
 
     setAddError(null);
@@ -314,41 +361,50 @@ export function FamilyMembersView() {
     try {
       const created = await patientsApi.createFamilyMember({
         fullName: newName.trim(),
-        dateOfBirth: newBirthDate || '2000-01-01',
-        gender: newGender === 'Nữ' ? 'FEMALE' : 'MALE',
+        dateOfBirth: newBirthDate.trim(),
+        gender: mapGenderLabelToCode(newGender),
         relationshipToRepresentative: mapRelationLabelToCode(newRelation),
-        healthInsuranceNumber: newBhyt.trim() ? newBhyt.trim().toUpperCase() : undefined,
         bloodType: newBloodType !== 'Chưa rõ' ? newBloodType : undefined,
-        registeredHospital: newBhytHospital.trim() || undefined,
         chronicDiseases: newChronic.trim() || undefined,
       });
 
-      const parsedAllergies = newAllergies
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean);
+      const validAllergies = newAllergyRows
+        .map((row) => ({
+          ...row,
+          allergenName: row.allergenName.trim(),
+          clinicalManifestation: row.clinicalManifestation.trim(),
+        }))
+        .filter((row) => Boolean(row.allergenName));
 
       let allergyWarning = false;
-      if (parsedAllergies.length > 0) {
+      let savedAllergyNames: string[] = [];
+      if (validAllergies.length > 0) {
         const allergyResults = await Promise.allSettled(
-          parsedAllergies.map((allergenName) =>
+          validAllergies.map((row) =>
             patientsApi.addMemberAllergy(created.id, {
-              allergenType: 'DRUG',
-              allergenName,
-              severity: 'MILD',
+              allergenType: row.allergenType,
+              allergenName: row.allergenName,
+              severity: row.severity,
+              clinicalManifestation: row.clinicalManifestation || undefined,
             })
           )
         );
         allergyWarning = allergyResults.some((r) => r.status === 'rejected');
+        savedAllergyNames = validAllergies
+          .filter((_, idx) => allergyResults[idx].status === 'fulfilled')
+          .map((row) => row.allergenName);
       }
 
       const createdProfile = mapPatientDtoToMemberProfile(
         created,
         { name: repName, phone: repPhone },
-        parsedAllergies
+        savedAllergyNames
       );
 
       setMembersList((prev) => [...prev, createdProfile]);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(FAMILY_GATE_REFRESH_EVENT));
+      }
       setShowAddMemberModal(false);
       resetAddForm();
       showToast(
@@ -371,19 +427,10 @@ export function FamilyMembersView() {
     e.preventDefault();
     if (!editingMember || isSubmittingEdit) return;
 
-    if (editingMember.rawDateOfBirth) {
-      const dob = new Date(editingMember.rawDateOfBirth);
-      if (!isNaN(dob.getTime())) {
-        if (dob > new Date()) {
-          setEditError('Ngày sinh không thể là ngày trong tương lai.');
-          return;
-        }
-        const ageYears = (Date.now() - dob.getTime()) / (1000 * 3600 * 24 * 365.25);
-        if (ageYears > 120) {
-          setEditError('Ngày sinh không hợp lệ (tuổi vượt quá 120 năm).');
-          return;
-        }
-      }
+    const dobValidationError = validateBirthDateInput(editingMember.rawDateOfBirth, false);
+    if (dobValidationError) {
+      setEditError(dobValidationError);
+      return;
     }
 
     setEditError(null);
@@ -397,14 +444,9 @@ export function FamilyMembersView() {
       const updated = await patientsApi.updateFamilyMember(editingMember.id, {
         fullName: editingMember.name.trim(),
         dateOfBirth: editingMember.rawDateOfBirth || undefined,
-        gender: editingMember.gender === 'Nữ' ? 'FEMALE' : 'MALE',
+        gender: mapGenderLabelToCode(editingMember.gender),
         relationshipToRepresentative: mapRelationLabelToCode(editingMember.relationship),
         bloodType: editingMember.bloodType !== 'Chưa rõ' ? editingMember.bloodType : '',
-        healthInsuranceNumber:
-          editingMember.bhytNumber && editingMember.bhytNumber !== 'ĐANG CẬP NHẬT'
-            ? editingMember.bhytNumber.trim().toUpperCase()
-            : '',
-        registeredHospital: editingMember.bhytHospital.trim() || '',
         chronicDiseases: chronicValue,
       });
 
@@ -457,7 +499,6 @@ export function FamilyMembersView() {
     const q = searchQuery.toLowerCase();
     return (
       m.name.toLowerCase().includes(q) ||
-      m.bhytNumber.toLowerCase().includes(q) ||
       m.relationship.toLowerCase().includes(q) ||
       m.chronicDiseases.some((cd) => cd.toLowerCase().includes(q))
     );
@@ -516,7 +557,7 @@ export function FamilyMembersView() {
               </h1>
 
               <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                Quản lý tập trung hồ sơ sức khỏe người thân, mã thẻ BHYT và kết nối dài hạn với{' '}
+                Quản lý tập trung hồ sơ sức khỏe người thân và kết nối dài hạn với{' '}
                 <strong className="text-slate-800 font-semibold">01 Bác sĩ Gia đình trực thuộc</strong>{' '}
                 phụ trách toàn bộ hộ gia đình.
               </p>
@@ -734,7 +775,7 @@ export function FamilyMembersView() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Tìm theo tên hoặc BHYT..."
+                  placeholder="Tìm theo tên, quan hệ hoặc bệnh nền..."
                   className="w-full pl-9 pr-3 py-1.5 text-xs sm:text-sm bg-white rounded-xl"
                 />
               </div>
@@ -883,24 +924,8 @@ export function FamilyMembersView() {
                       </div>
                     </div>
 
-                    {/* Cột 2: BHYT & Sức khỏe tóm tắt */}
+                    {/* Cột 2: Sức khỏe tóm tắt */}
                     <div className="min-w-0 lg:w-4/12 space-y-1 text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="text-slate-400">BHYT:</span>
-                        <span className="font-bold tabular-nums text-slate-800">{m.bhytNumber}</span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard?.writeText(m.bhytNumber);
-                            showToast(`Đã sao chép mã BHYT: ${m.bhytNumber}`);
-                          }}
-                          className="text-slate-400 hover:text-primary p-0.5 cursor-pointer"
-                          title="Sao chép"
-                        >
-                          <span className="material-symbols-outlined text-[14px]">content_copy</span>
-                        </button>
-                      </div>
-
                       <div className="text-slate-600 truncate flex items-center gap-1.5">
                         <span className="text-slate-400 shrink-0">Sức khỏe:</span>
                         {hasChronic ? (
@@ -981,8 +1006,8 @@ export function FamilyMembersView() {
 
       {/* MODAL 1: THÊM THÀNH VIÊN MỚI */}
       <Dialog open={showAddMemberModal} onOpenChange={setShowAddMemberModal}>
-        <DialogContent className="sm:max-w-lg rounded-2xl p-0 overflow-hidden border-slate-200/80 gap-0">
-          <DialogHeader className="px-6 py-5 bg-primary text-primary-foreground text-left">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col rounded-2xl p-0 overflow-hidden border-slate-200/80 gap-0">
+          <DialogHeader className="px-6 py-5 bg-primary text-primary-foreground text-left shrink-0">
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
                 <span className="material-symbols-outlined text-[22px]">person_add</span>
@@ -993,12 +1018,15 @@ export function FamilyMembersView() {
                 </DialogTitle>
                 <DialogDescription className="text-xs text-blue-100 truncate mt-0.5">
                   HĐ {contractBadgeCode} · {assignedDoctor?.fullName || 'Bác sĩ Gia đình FamiDoc'}
+                  {remainingSlots !== null && memberLimit !== null
+                    ? ` · Còn ${remainingSlots}/${memberLimit} suất`
+                    : ''}
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <form onSubmit={handleAddMemberSubmit} className="p-6 space-y-4 text-xs">
+          <form onSubmit={handleAddMemberSubmit} noValidate className="p-6 space-y-4 text-xs overflow-y-auto">
             {addError && (
               <div
                 role="alert"
@@ -1009,10 +1037,11 @@ export function FamilyMembersView() {
             )}
 
             <div>
-              <Label className="block font-semibold text-slate-700 mb-1">
+              <Label htmlFor="add-member-name" className="block font-semibold text-slate-700 mb-1">
                 Họ và tên người thân <span className="text-rose-500">*</span>
               </Label>
               <Input
+                id="add-member-name"
                 type="text"
                 required
                 value={newName}
@@ -1024,10 +1053,11 @@ export function FamilyMembersView() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="block font-semibold text-slate-700 mb-1">
+                <Label htmlFor="add-member-relation" className="block font-semibold text-slate-700 mb-1">
                   Quan hệ với chủ hộ
                 </Label>
                 <select
+                  id="add-member-relation"
                   value={newRelation}
                   onChange={(e) => setNewRelation(e.target.value)}
                   className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-primary outline-none"
@@ -1043,11 +1073,14 @@ export function FamilyMembersView() {
               </div>
 
               <div>
-                <Label className="block font-semibold text-slate-700 mb-1">
-                  Ngày tháng năm sinh
+                <Label htmlFor="add-member-dob" className="block font-semibold text-slate-700 mb-1">
+                  Ngày tháng năm sinh <span className="text-rose-500">*</span>
                 </Label>
                 <Input
+                  id="add-member-dob"
                   type="date"
+                  required
+                  max={getTodayIsoInVietnam()}
                   value={newBirthDate}
                   onChange={(e) => setNewBirthDate(e.target.value)}
                   className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm"
@@ -1060,7 +1093,7 @@ export function FamilyMembersView() {
                 <Label className="block font-semibold text-slate-700 mb-1">
                   Giới tính
                 </Label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setNewGender('Nam')}
@@ -1083,82 +1116,155 @@ export function FamilyMembersView() {
                   >
                     Nữ
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewGender('Khác')}
+                    className={`py-2 rounded-xl font-semibold border transition-all cursor-pointer ${
+                      newGender === 'Khác'
+                        ? 'bg-slate-100 border-slate-500 text-slate-800'
+                        : 'border-slate-200 text-slate-600'
+                    }`}
+                  >
+                    Khác
+                  </button>
                 </div>
               </div>
 
               <div>
-                <Label className="block font-semibold text-slate-700 mb-1">
+                <Label htmlFor="add-member-blood-type" className="block font-semibold text-slate-700 mb-1">
                   Nhóm máu
                 </Label>
                 <select
+                  id="add-member-blood-type"
                   value={newBloodType}
                   onChange={(e) => setNewBloodType(e.target.value)}
                   className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-primary outline-none"
                 >
-                  <option value="O+">Nhóm máu O+</option>
-                  <option value="A+">Nhóm máu A+</option>
-                  <option value="B+">Nhóm máu B+</option>
-                  <option value="AB+">Nhóm máu AB+</option>
+                  {BLOOD_TYPE_OPTIONS.map((bt) => (
+                    <option key={bt} value={bt}>
+                      Nhóm máu {bt}
+                    </option>
+                  ))}
                   <option value="Chưa rõ">Chưa rõ nhóm máu</option>
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-3">
               <div>
-                <Label className="block font-semibold text-slate-700 mb-1">
-                  Mã số thẻ BHYT
+                <Label htmlFor="add-member-chronic" className="block font-semibold text-slate-600 mb-1 text-[11px]">
+                  Bệnh nền đang theo dõi
                 </Label>
                 <Input
+                  id="add-member-chronic"
                   type="text"
-                  value={newBhyt}
-                  onChange={(e) => setNewBhyt(e.target.value)}
-                  placeholder="VD: GD4790123891024"
-                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-bold tabular-nums uppercase text-xs"
+                  value={newChronic}
+                  onChange={(e) => setNewChronic(e.target.value)}
+                  placeholder="VD: Huyết áp, Dạ dày..."
+                  className="h-9 rounded-lg bg-white text-slate-900 text-xs"
                 />
               </div>
 
-              <div>
-                <Label className="block font-semibold text-slate-700 mb-1">
-                  Nơi ĐKKCB ban đầu
-                </Label>
-                <Input
-                  type="text"
-                  value={newBhytHospital}
-                  onChange={(e) => setNewBhytHospital(e.target.value)}
-                  placeholder="VD: BV Đại học Y Dược"
-                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs"
-                />
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 space-y-2.5">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <div>
-                  <Label className="block font-semibold text-slate-600 mb-1 text-[11px]">
-                    Dị ứng thuốc / thức ăn
-                  </Label>
-                  <Input
-                    type="text"
-                    value={newAllergies}
-                    onChange={(e) => setNewAllergies(e.target.value)}
-                    placeholder="VD: Penicillin, Tôm cua..."
-                    className="h-9 rounded-lg bg-white text-slate-900 text-xs"
-                  />
+              <div className="space-y-2 pt-1 border-t border-slate-200/70">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-slate-700 text-[11px]">
+                    Tiền sử dị ứng (tùy chọn)
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addDraftAllergyRow}
+                    className="h-7 rounded-lg px-2.5 text-[11px] font-semibold"
+                  >
+                    + Thêm dị ứng
+                  </Button>
                 </div>
 
-                <div>
-                  <Label className="block font-semibold text-slate-600 mb-1 text-[11px]">
-                    Bệnh nền đang theo dõi
-                  </Label>
-                  <Input
-                    type="text"
-                    value={newChronic}
-                    onChange={(e) => setNewChronic(e.target.value)}
-                    placeholder="VD: Huyết áp, Dạ dày..."
-                    className="h-9 rounded-lg bg-white text-slate-900 text-xs"
-                  />
-                </div>
+                {newAllergyRows.length === 0 ? (
+                  <p className="text-[11px] text-slate-500">
+                    Chưa khai báo dị ứng. Nhấn &quot;+ Thêm dị ứng&quot; nếu thành viên có tiền sử dị ứng thuốc, thực phẩm hoặc môi trường.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {newAllergyRows.map((row, idx) => (
+                      <div
+                        key={row.id}
+                        className="p-2.5 rounded-lg bg-white border border-slate-200/80 space-y-2"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="text"
+                            aria-label={`Tên dị nguyên ${idx + 1}`}
+                            value={row.allergenName}
+                            onChange={(e) =>
+                              updateDraftAllergyRow(row.id, { allergenName: e.target.value })
+                            }
+                            placeholder="Tên dị nguyên (VD: Penicillin, Tôm cua)"
+                            className="h-8 rounded-lg bg-slate-50/50 text-slate-900 text-xs flex-1"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeDraftAllergyRow(row.id)}
+                            aria-label={`Xóa dị ứng ${idx + 1}`}
+                            className="h-8 w-8 rounded-lg border border-slate-200 text-slate-400 hover:text-rose-600 hover:border-rose-200 flex items-center justify-center shrink-0 cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">close</span>
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <select
+                            aria-label={`Nhóm dị ứng ${idx + 1}`}
+                            value={row.allergenType}
+                            onChange={(e) =>
+                              updateDraftAllergyRow(row.id, {
+                                allergenType: e.target.value as AllergenType,
+                              })
+                            }
+                            className="h-8 px-2.5 rounded-lg border border-input bg-slate-50/50 text-slate-900 text-xs outline-none focus:border-primary"
+                          >
+                            {ALLERGEN_TYPE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+
+                          <select
+                            aria-label={`Mức độ dị ứng ${idx + 1}`}
+                            value={row.severity}
+                            onChange={(e) =>
+                              updateDraftAllergyRow(row.id, {
+                                severity: e.target.value as AllergySeverity,
+                              })
+                            }
+                            className="h-8 px-2.5 rounded-lg border border-input bg-slate-50/50 text-slate-900 text-xs outline-none focus:border-primary"
+                          >
+                            {ALLERGY_SEVERITY_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <Input
+                          type="text"
+                          aria-label={`Biểu hiện lâm sàng ${idx + 1}`}
+                          value={row.clinicalManifestation}
+                          onChange={(e) =>
+                            updateDraftAllergyRow(row.id, {
+                              clinicalManifestation: e.target.value,
+                            })
+                          }
+                          placeholder="Biểu hiện lâm sàng (VD: Nổi mề đay, khó thở...)"
+                          className="h-8 rounded-lg bg-slate-50/50 text-slate-900 text-xs"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1249,38 +1355,13 @@ export function FamilyMembersView() {
                       }
                       className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs sm:text-sm focus:border-primary outline-none"
                     >
-                      <option value="O+">Nhóm máu O+</option>
-                      <option value="A+">Nhóm máu A+</option>
-                      <option value="B+">Nhóm máu B+</option>
-                      <option value="AB+">Nhóm máu AB+</option>
+                      {BLOOD_TYPE_OPTIONS.map((bt) => (
+                        <option key={bt} value={bt}>
+                          Nhóm máu {bt}
+                        </option>
+                      ))}
                       <option value="Chưa rõ">Chưa rõ nhóm máu</option>
                     </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label className="block font-semibold text-slate-700 mb-1">Mã số thẻ BHYT</Label>
-                    <Input
-                      type="text"
-                      value={editingMember.bhytNumber}
-                      onChange={(e) =>
-                        setEditingMember({ ...editingMember, bhytNumber: e.target.value.toUpperCase() })
-                      }
-                      className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-bold tabular-nums text-xs"
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="block font-semibold text-slate-700 mb-1">Nơi ĐKKCB ban đầu</Label>
-                    <Input
-                      type="text"
-                      value={editingMember.bhytHospital}
-                      onChange={(e) =>
-                        setEditingMember({ ...editingMember, bhytHospital: e.target.value })
-                      }
-                      className="h-10 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 font-semibold text-xs"
-                    />
                   </div>
                 </div>
 

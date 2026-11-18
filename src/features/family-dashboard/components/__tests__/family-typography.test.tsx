@@ -2,10 +2,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { FamilyDashboardView } from '../family-dashboard-view';
+import { contractsApi } from '@/lib/api';
 
 vi.mock('sonner', () => ({
   toast: {
@@ -72,5 +73,48 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
   it('renders FamilyDashboardView without nested <main> landmark', () => {
     const { container } = render(<FamilyDashboardView />);
     expect(container.querySelector('main')).toBeNull();
+  });
+
+  it('normalizes FourPartyContract shape from getMedicalContracts without crashing on undefined totalAmountVnd', async () => {
+    vi.spyOn(contractsApi, 'getMedicalContracts').mockResolvedValueOnce([
+      {
+        id: 'ctr-1',
+        contractNumber: 'MC-175418-ANTAM',
+        status: 'ACTIVE',
+        packageId: 'pkg-1',
+        packageName: 'An tâm',
+        packagePrice: 6475000,
+        durationMonths: 6,
+        familyId: 'fam-1',
+        familyRepresentativeName: 'Trần Gia Bảo',
+        familyRepresentativePhone: '0919888777',
+        familyRepresentativeEmail: 'family.active@famidoc.vn',
+        membersCount: 4,
+        doctorName: 'BS. CKI Lê Quang Minh',
+        facilityName: 'HMU Clinic',
+        createdAt: '2026-11-18T00:00:00.000Z',
+        updatedAt: '2026-11-18T00:00:00.000Z',
+        signatures: {},
+      },
+    ]);
+    vi.spyOn(contractsApi, 'getFamilyGateStatus').mockResolvedValueOnce({
+      hasActiveContract: true,
+      activeContract: {
+        id: 'ctr-1',
+        contractNumber: 'MC-175418-ANTAM',
+        memberCount: 4,
+        endDate: '2027-05-18T00:00:00.000Z',
+        packageName: 'An tâm',
+      },
+      pendingContract: null,
+      patientCount: 1,
+    });
+
+    render(<FamilyDashboardView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/MC-175418-ANTAM/).length).toBeGreaterThan(0);
+    });
+    expect(screen.queryByText(/Thanh Toán VietQR Để Kích Hoạt/i)).not.toBeInTheDocument();
   });
 });

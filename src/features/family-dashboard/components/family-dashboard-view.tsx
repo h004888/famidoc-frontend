@@ -4,7 +4,13 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { useContractWorkflow } from '@/lib/contract-workflow-storage';
-import { contractsApi, patientsApi, type MedicalContractListItem, type PatientDto } from '@/lib/api';
+import {
+  contractsApi,
+  patientsApi,
+  type FourPartyContract,
+  type MedicalContractListItem,
+  type PatientDto,
+} from '@/lib/api';
 import { getStoredAuthSession } from '@/lib/auth-storage';
 import {
   INITIAL_FAMILY_MEMBERS_DATA,
@@ -149,7 +155,7 @@ function convertPatientsToMembersData(
       relation: relation,
       age: age,
       avatar: avatar,
-      bhyt: p.healthInsuranceNumber || 'Chưa cập nhật BHYT',
+      bhyt: 'Đã kích hoạt gói FamiDoc',
       bloodType: 'O+',
       allergies: allergiesStr,
       chronicCondition: isElderly
@@ -174,6 +180,46 @@ function convertPatientsToMembersData(
   return result;
 }
 
+function normalizeToContractListItem(
+  raw: FourPartyContract | MedicalContractListItem
+): MedicalContractListItem {
+  const item = raw as MedicalContractListItem & Partial<FourPartyContract>;
+  const amount = Number(item.totalAmountVnd ?? item.packagePrice ?? 0);
+  const sigCount =
+    typeof item.signaturesCount === 'number'
+      ? item.signaturesCount
+      : item.signatures
+        ? Object.keys(item.signatures).length
+        : 0;
+
+  return {
+    id: item.id,
+    contractNumber: item.contractNumber,
+    contractStatus: item.contractStatus ?? item.status ?? 'DRAFT',
+    packageId: item.packageId || 'pkg-default',
+    packageName: item.packageName || 'Gói Chăm Sóc Sức Khỏe Gia Đình',
+    facilityId: item.facilityId || '',
+    facilityName: item.facilityName || '',
+    doctorId: item.doctorId ?? item.assignedDoctorId,
+    doctorName: item.doctorName ?? item.assignedDoctorName,
+    familyId: item.familyId || '',
+    familyHeadName: item.familyHeadName ?? item.familyRepresentativeName,
+    memberCount: item.memberCount ?? item.membersCount ?? 1,
+    totalAmountVnd: Number.isFinite(amount) ? amount : 0,
+    signaturesCount: sigCount,
+    createdAt: item.createdAt,
+    startDate: item.startDate,
+    endDate: item.endDate,
+    doctorTitle: item.doctorTitle,
+    doctorSpecialty: item.doctorSpecialty,
+    doctorPhone: item.doctorPhone,
+    remainingHomeVisits: item.remainingHomeVisits,
+    totalHomeVisits: item.totalHomeVisits,
+    remainingTelehealth: item.remainingTelehealth,
+    totalTelehealth: item.totalTelehealth,
+  };
+}
+
 export function FamilyDashboardView() {
   const workflow = useContractWorkflow();
   const [session, setSession] = useState<{ user: any; role: string | null; token: string | null }>({
@@ -195,33 +241,70 @@ export function FamilyDashboardView() {
   useEffect(() => {
     let isMounted = true;
     setSession(getStoredAuthSession());
-    contractsApi
-      .getMedicalContracts()
-      .then((res) => {
-        if (!isMounted) return;
-        const list: MedicalContractListItem[] = Array.isArray(res)
-          ? res
-          : (res as any)?.data && Array.isArray((res as any).data)
-          ? (res as any).data
-          : (res as any)?.data?.items && Array.isArray((res as any).data.items)
-          ? (res as any).data.items
+    Promise.allSettled([
+      contractsApi.getMedicalContracts(),
+      contractsApi.getFamilyGateStatus(),
+    ]).then(([contractsRes, gateRes]) => {
+      if (!isMounted) return;
+
+      const rawList =
+        contractsRes.status === 'fulfilled'
+          ? Array.isArray(contractsRes.value)
+            ? contractsRes.value
+            : (contractsRes.value as any)?.data && Array.isArray((contractsRes.value as any).data)
+              ? (contractsRes.value as any).data
+              : (contractsRes.value as any)?.data?.items &&
+                  Array.isArray((contractsRes.value as any).data.items)
+                ? (contractsRes.value as any).data.items
+                : []
           : [];
-        setContracts(list);
-        if (list.length > 0) {
-          const found = list.find((c: MedicalContractListItem) => c.contractStatus === 'ACTIVE') || list[0];
-          setActiveContract(found);
-          // Đồng bộ nếu đã có realPatients
-          setRealPatients((currentPatients) => {
-            if (currentPatients.length > 0) {
-              setMembersData(convertPatientsToMembersData(currentPatients, found));
-            }
-            return currentPatients;
-          });
-        }
-      })
-      .catch((err) => {
-        console.warn('Contracts API fetch fallback:', err);
-      });
+
+      const list: MedicalContractListItem[] = rawList.map(normalizeToContractListItem);
+      const gateActive =
+        gateRes.status === 'fulfilled' ? gateRes.value.activeContract : null;
+
+      setContracts(list);
+
+      let found =
+        list.find((c) => c.contractStatus === 'ACTIVE') || list[0] || null;
+      if (gateActive) {
+        found = {
+          ...(found ?? {
+            id: gateActive.id,
+            contractNumber: gateActive.contractNumber,
+            contractStatus: 'ACTIVE',
+            packageId: 'pkg-active',
+            packageName: gateActive.packageName || 'Gói Chăm Sóc Sức Khỏe Gia Đình',
+            facilityId: '',
+            facilityName: gateActive.doctor?.hospitalName || '',
+            familyId: '',
+            memberCount: gateActive.memberCount,
+            totalAmountVnd: 0,
+            signaturesCount: 4,
+            createdAt: new Date().toISOString(),
+          }),
+          contractStatus: 'ACTIVE',
+          memberCount: gateActive.memberCount ?? found?.memberCount ?? 1,
+          endDate: gateActive.endDate ?? found?.endDate,
+          packageName: gateActive.packageName ?? found?.packageName ?? 'Gói Chăm Sóc Sức Khỏe Gia Đình',
+          doctorId: gateActive.doctor?.id ?? found?.doctorId,
+          doctorName: gateActive.doctor?.fullName ?? found?.doctorName,
+          doctorTitle: gateActive.doctor?.title ?? found?.doctorTitle,
+          doctorPhone: gateActive.doctor?.phone ?? found?.doctorPhone,
+          facilityName: gateActive.doctor?.hospitalName ?? found?.facilityName ?? '',
+        };
+      }
+
+      if (found) {
+        setActiveContract(found);
+        setRealPatients((currentPatients) => {
+          if (currentPatients.length > 0) {
+            setMembersData(convertPatientsToMembersData(currentPatients, found));
+          }
+          return currentPatients;
+        });
+      }
+    });
 
     patientsApi
       .getFamilyMembers()
@@ -397,7 +480,7 @@ export function FamilyDashboardView() {
                 Thanh Toán VietQR Để Kích Hoạt Quyền Lợi Chăm Sóc Sức Khỏe
               </h2>
               <p className="text-xs sm:text-sm text-emerald-100 leading-relaxed">
-                Hợp đồng y tế 4 bên đã được xác nhận. Vui lòng hoàn tất thanh toán {activeContract.totalAmountVnd.toLocaleString('vi-VN')} đ để bắt đầu lịch khám và kết nối với bác sĩ gia đình.
+                Hợp đồng y tế 4 bên đã được xác nhận. Vui lòng hoàn tất thanh toán {(activeContract.totalAmountVnd ?? 0).toLocaleString('vi-VN')} đ để bắt đầu lịch khám và kết nối với bác sĩ gia đình.
               </p>
             </div>
 

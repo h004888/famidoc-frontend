@@ -59,6 +59,23 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
       };
   const secondaryActions = isFamilyRole ? familyGate.secondaryActions : [];
   const showRoleProfileLink = !isFamilyRole;
+  const headerShortcut = (() => {
+    if (!isFamilyRole) {
+      return {
+        href: primaryAction.href,
+        label: 'Vào Dashboard',
+        icon: 'dashboard',
+      };
+    }
+    if (familyGate.state === 'active') {
+      return {
+        href: '/family',
+        label: 'Vào Dashboard',
+        icon: 'dashboard',
+      };
+    }
+    return null;
+  })();
 
   useEffect(() => {
     if (!isUserMenuOpen) return;
@@ -168,7 +185,20 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                 className="h-9 w-28 sm:w-36 rounded-lg bg-slate-100 animate-pulse"
               />
             ) : isAuthenticated && user ? (
-              <div className="relative" ref={userMenuRef}>
+              <div className="flex items-center gap-2">
+                {headerShortcut && (
+                  <Link
+                    href={headerShortcut.href}
+                    className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#0046c0] hover:bg-[#003899] text-white text-xs sm:text-sm font-semibold transition-colors shadow-xs"
+                  >
+                    <span className="material-symbols-outlined text-[17px]" aria-hidden="true">
+                      {headerShortcut.icon}
+                    </span>
+                    <span>{headerShortcut.label}</span>
+                  </Link>
+                )}
+
+                <div className="relative" ref={userMenuRef}>
                 <button
                   type="button"
                   onClick={() => setIsUserMenuOpen((prev) => !prev)}
@@ -319,6 +349,7 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                     </button>
                   </div>
                 )}
+              </div>
               </div>
             ) : (
               <>

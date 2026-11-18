@@ -54,13 +54,15 @@ vi.mock('next/link', () => ({
   ),
 }));
 
+const mockLogout = vi.fn();
+
 vi.mock('@/features/auth/context/auth-context', () => ({
   useAuth: () => ({
     role: mockRole,
     isAuthenticated: true,
     isLoading: false,
     user: { name: 'Nguyễn Admin', avatarText: 'NA', phone: '0909000111' },
-    logout: vi.fn(),
+    logout: mockLogout,
   }),
   getDefaultPathForRole: (role: string) =>
     role === 'ADMIN' ? '/admin' : role === 'FACILITY' ? '/facility' : role === 'DOCTOR' ? '/doctor' : '/family',
@@ -262,5 +264,24 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
       });
       window.matchMedia = originalMatchMedia;
     }
+  });
+
+  it('removes "Danh mục Gói Dịch vụ" from sidebar and provides Đăng xuất in DashboardTopbarUser dropdown', async () => {
+    const user = userEvent.setup();
+    mockRole = 'DOCTOR';
+    mockPathname = '/doctor/profile';
+
+    renderShell();
+
+    expect(screen.queryByRole('link', { name: /Danh mục Gói Dịch vụ/i })).not.toBeInTheDocument();
+
+    const userMenuBtn = screen.getByRole('button', { name: 'Mở menu tài khoản người dùng' });
+    await user.click(userMenuBtn);
+
+    const logoutItem = await screen.findByRole('menuitem', { name: /Đăng xuất/i });
+    expect(logoutItem).toBeInTheDocument();
+
+    await user.click(logoutItem);
+    expect(mockLogout).toHaveBeenCalledTimes(1);
   });
 });

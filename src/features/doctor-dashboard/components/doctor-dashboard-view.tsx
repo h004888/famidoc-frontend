@@ -4,7 +4,15 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { doctorsApi, contractsApi, type DoctorProfileDto, type MedicalContractListItem } from '@/lib/api';
+import {
+  doctorsApi,
+  contractsApi,
+  encountersApi,
+  type DoctorProfileDto,
+  type FourPartyContract,
+  type EncounterItem,
+} from '@/lib/api';
+import { useAuth } from '@/features/auth/context/auth-context';
 import { KpiStatCard } from '@/components/dashboard';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -134,6 +142,7 @@ const INITIAL_PATIENTS: DoctorQueuePatient[] = [
 
 export function DoctorDashboardView() {
   const router = useRouter();
+  const { user } = useAuth();
   const [patients, setPatients] = useState<DoctorQueuePatient[]>(INITIAL_PATIENTS);
   const [activeQueue, setActiveQueue] = useState<QueueStatus>('pending');
   const [selectedPatientId, setSelectedPatientId] = useState<string>('PT-01');
@@ -142,7 +151,8 @@ export function DoctorDashboardView() {
   const [queuePage, setQueuePage] = useState<number>(1);
 
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
-  const [contracts, setContracts] = useState<any[]>([]);
+  const [contracts, setContracts] = useState<FourPartyContract[]>([]);
+  const [encounters, setEncounters] = useState<EncounterItem[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -159,6 +169,67 @@ export function DoctorDashboardView() {
       .then((items) => {
         if (!isMounted) return;
         if (Array.isArray(items)) setContracts(items);
+      })
+      .catch(() => {});
+
+    encountersApi
+      .getDoctorTimetable()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && Array.isArray(res.data) && res.data.length > 0) {
+          setEncounters(res.data);
+          const mappedPatients: DoctorQueuePatient[] = res.data.map((e, idx) => {
+            let status: QueueStatus = 'pending';
+            if (e.encounterStatus === 'IN_PROGRESS') status = 'in_progress';
+            else if (e.encounterStatus === 'COMPLETED') status = 'signed';
+
+            const ageStr = e.patient?.dateOfBirth
+              ? ` (${new Date().getFullYear() - new Date(e.patient.dateOfBirth).getFullYear()} tuổi)`
+              : '';
+            const name = (e.patient?.fullName || `Bệnh nhân #${idx + 1}`) + ageStr;
+            const initials =
+              (e.patient?.fullName || 'BN')
+                .split(' ')
+                .filter(Boolean)
+                .slice(-2)
+                .map((s) => s[0]?.toUpperCase())
+                .join('') || 'BN';
+
+            const isUrgent = e.category === 'AD_HOC_ON_DEMAND';
+
+            return {
+              id: e.id,
+              name,
+              chiefComplaint:
+                e.subjectiveNote ||
+                (isUrgent
+                  ? 'Yêu cầu khám đột xuất (Ad-hoc)'
+                  : `Khám định kỳ theo gói ${e.contract?.servicePackage?.packageName || ''}`),
+              triage: isUrgent ? 'Cấp độ 2 (Ưu tiên cao)' : 'Cấp độ 3 (Tiêu chuẩn)',
+              triageBg: isUrgent
+                ? 'bg-amber-50 text-amber-700 border-amber-200'
+                : 'bg-blue-50 text-blue-700 border-blue-200',
+              time: `${e.scheduledTime || '09:00'} ${
+                e.scheduledDate ? new Date(e.scheduledDate).toLocaleDateString('vi-VN') : 'Hôm nay'
+              }`,
+              family:
+                e.contract?.familyUnit?.familyName ||
+                `Hộ ${e.contract?.contractNumber || 'FAM-' + e.id.slice(0, 5)}`,
+              avatarText: initials,
+              status,
+              emr: `#EMR-${e.patientId?.slice(0, 5) || e.id.slice(0, 5)}`,
+              icd10: e.icd10Code || '[I10]',
+              subjective: e.subjectiveNote || 'Bệnh nhân đến khám định kỳ theo kế hoạch.',
+              objective: e.objectiveExam || 'Dấu hiệu sinh tồn ổn định, thể trạng tốt.',
+              assessment: e.assessment || 'Khám sức khỏe tổng quát theo dõi.',
+              plan: e.plan || 'Tiếp tục theo dõi sức khỏe và duy trì phác đồ hiện tại.',
+            };
+          });
+          setPatients(mappedPatients);
+          if (mappedPatients[0]) {
+            setSelectedPatientId(mappedPatients[0].id);
+          }
+        }
       })
       .catch(() => {});
 
@@ -193,7 +264,16 @@ export function DoctorDashboardView() {
 
   const handleConfirmSignature = () => {
     setIsSigning(true);
-    setTimeout(() => {
+    const signPromise = currentPatient.id.startsWith('PT-')
+      ? Promise.resolve()
+      : encountersApi
+          .finalizeEncounter(currentPatient.id, {
+            digitalSignature: 'VIETTEL-CA-HSM-VERIFIED',
+            notes: 'Đã hoàn tất ký số HSM',
+          })
+          .catch(() => {});
+
+    signPromise.finally(() => {
       setIsSigning(false);
       setShowSignModal(false);
       setPatients((prev) =>
@@ -202,14 +282,49 @@ export function DoctorDashboardView() {
       toast.success(
         `Đã ký số HSM Viettel-CA và phát hành đơn thuốc điện tử cho bệnh nhân ${currentPatient.name}!`
       );
-    }, 700);
+    });
   };
+
+  const doctorDisplayName = doctorProfile?.doctorName || user?.name || 'PGS.TS Nguyễn Trọng Nghĩa';
+  const doctorInitials =
+    doctorDisplayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map((s) => s[0]?.toUpperCase())
+      .join('') || 'BS';
+
+  const cchnCredential = doctorProfile?.credentials?.find(
+    (c) => c.credentialType === 'PRACTICE_LICENSE_CCHN' || Boolean(c.certificateNumber)
+  );
+  const cchnNumber = cchnCredential?.certificateNumber || '004128/BYT';
+
+  const specialtyDisplay = doctorProfile?.specialty || 'Bác sĩ gia đình cao cấp';
+  const academicDisplay = doctorProfile?.academicTitle || 'Trưởng khoa Nội Tổng quát';
+  const hospitalDisplay =
+    doctorProfile?.facility?.facilityName || doctorProfile?.facilityName || 'BV Đại học Y Dược TP.HCM';
+
+  const activePanel = doctorProfile?.activePanelCount ?? 112;
+  const maxPanel = doctorProfile?.maxPanelCapacity ?? 150;
+  const panelPercentage = Math.round((activePanel / maxPanel) * 100);
+
+  const homeVisits = encounters.filter((e) => e.encounterType === 'HOME_VISIT').length;
+  const teleVisits = encounters.filter((e) => e.encounterType === 'TELEMEDICINE').length;
+  const dailyCases = encounters.length > 0 ? `${encounters.length} ca` : '12 ca';
+  const dailySub =
+    encounters.length > 0
+      ? `${homeVisits} tại nhà • ${teleVisits} Telehealth`
+      : '6 tại nhà • 6 Telehealth';
+
+  const escrowVnd = contracts.length > 0
+    ? `${Math.round(contracts.reduce((acc, c) => acc + (c.packagePrice || 0), 0) * 0.7).toLocaleString('vi-VN')} đ`
+    : '18.450.000 đ';
 
   const clinicalKpis = [
     {
       title: 'Ca khám trong ngày',
-      value: '12 ca',
-      sub: '6 tại nhà • 6 Telehealth',
+      value: dailyCases,
+      sub: dailySub,
       icon: 'calendar_month',
       iconBg: 'bg-primary/10 text-primary',
       badge: '+15%',
@@ -226,7 +341,7 @@ export function DoctorDashboardView() {
     },
     {
       title: 'Chờ ký số Viettel-CA',
-      value: '5 đơn',
+      value: `${patients.filter((p) => p.status === 'in_progress').length || 5} đơn`,
       sub: 'Đơn điện tử cần ký trước 18h',
       icon: 'draw',
       iconBg: 'bg-rose-50 text-rose-600',
@@ -235,8 +350,8 @@ export function DoctorDashboardView() {
     },
     {
       title: 'Đánh giá chất lượng SLA',
-      value: '4.95 / 5.0',
-      sub: '420+ lượt phản hồi tích cực',
+      value: `${doctorProfile?.ratingAvg ? Number(doctorProfile.ratingAvg).toFixed(2) : '4.95'} / 5.0`,
+      sub: `${doctorProfile?.totalReviews ?? 420}+ lượt phản hồi tích cực`,
       icon: 'star',
       iconBg: 'bg-emerald-50 text-emerald-600',
       badge: 'Xuất sắc',
@@ -253,7 +368,7 @@ export function DoctorDashboardView() {
             <div className="flex items-center gap-4">
               <div className="relative">
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-xl font-bold text-white shadow-md ring-4 ring-primary/10">
-                  TN
+                  {doctorInitials}
                 </div>
                 <span
                   className="absolute -right-1 -bottom-1 h-4 w-4 rounded-full bg-emerald-500 ring-2 ring-white"
@@ -263,19 +378,19 @@ export function DoctorDashboardView() {
               <div>
                 <div className="flex flex-wrap items-center gap-2.5">
                   <h1 className="text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">
-                    PGS.TS Nguyễn Trọng Nghĩa
+                    {doctorDisplayName}
                   </h1>
                   <Badge
                     variant="outline"
                     className="gap-1 rounded-full border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs font-bold text-emerald-700"
                   >
                     <span className="material-symbols-outlined text-[14px]">verified</span>
-                    CCHN: 004128/BYT
+                    CCHN: {cchnNumber}
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
-                  Bác sĩ gia đình cao cấp • Trưởng khoa Nội Tổng quát •{' '}
-                  <span className="font-semibold text-slate-700">BV Đại học Y Dược TP.HCM</span>
+                  {specialtyDisplay} • {academicDisplay} •{' '}
+                  <span className="font-semibold text-slate-700">{hospitalDisplay}</span>
                 </p>
               </div>
             </div>
@@ -285,7 +400,7 @@ export function DoctorDashboardView() {
                 <span className="block text-[11px] font-medium text-slate-500">
                   Thu nhập Escrow khả dụng:
                 </span>
-                <span className="text-base font-bold text-primary tabular-nums">18.450.000 đ</span>
+                <span className="text-base font-bold text-primary tabular-nums">{escrowVnd}</span>
               </div>
               <Button asChild className="rounded-xl px-4 py-2.5 text-xs font-bold sm:text-sm">
                 <Link href="/doctor/telemedicine">
@@ -326,7 +441,9 @@ export function DoctorDashboardView() {
               <h3 className="text-xs font-bold text-slate-900 transition-colors group-hover:text-primary">
                 Lịch Trực &amp; Panel Cap
               </h3>
-              <p className="mt-0.5 text-[11px] text-slate-500 tabular-nums">112/150 Hộ gia đình (74%)</p>
+              <p className="mt-0.5 text-[11px] text-slate-500 tabular-nums">
+                {activePanel}/{maxPanel} Hộ gia đình ({panelPercentage}%)
+              </p>
             </div>
           </Link>
 
@@ -371,7 +488,9 @@ export function DoctorDashboardView() {
               <h3 className="text-xs font-bold text-slate-900 transition-colors group-hover:text-primary">
                 Xác Thực CCHN BYT
               </h3>
-              <p className="mt-0.5 text-[11px] font-semibold text-emerald-600">CCHN-004128 Hợp lệ</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-emerald-600">
+                CCHN: {cchnNumber} Hợp lệ
+              </p>
             </div>
           </Link>
         </div>

@@ -101,4 +101,15 @@ describe('DashboardSidebar Navigation', () => {
     expect(screen.getAllByText('Hợp đồng Hợp tác B2B').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Hợp đồng Y tế 4 bên').length).toBeGreaterThan(0);
   });
+
+  it('renders full doctor contract sidebar label without truncation when expanded', () => {
+    mockPathname = '/doctor/contracts';
+    const { container } = render(<DashboardSidebar initialRole="DOCTOR" />);
+
+    const aside = container.querySelector('aside')!;
+    const label = within(aside).getByText('Hợp đồng & Phụ trách Hộ');
+    expect(label).toBeInTheDocument();
+    expect(label).not.toHaveClass('truncate');
+    expect(label.parentElement).not.toHaveClass('truncate');
+  });
 });
