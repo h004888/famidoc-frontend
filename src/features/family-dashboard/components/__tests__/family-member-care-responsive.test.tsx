@@ -198,10 +198,13 @@ const SAMPLE_ENCOUNTERS = [
 
 function buildSampleVitals() {
   const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-  const latestToday = new Date(Math.max(now.getTime(), startOfToday.getTime() + 60_000));
+  const vnTodayDateStr = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).format(now);
+  const startOfVnToday = new Date(`${vnTodayDateStr}T00:00:00+07:00`);
+  const latestToday = new Date(Math.max(now.getTime(), startOfVnToday.getTime() + 60_000));
   const earlierToday = new Date(
-    Math.max(startOfToday.getTime() + 1_000, latestToday.getTime() - 2 * 3_600_000)
+    Math.max(startOfVnToday.getTime() + 1_000, latestToday.getTime() - 2 * 3_600_000)
   );
   const threeDaysAgo = new Date(now.getTime() - 3 * 86_400_000);
   const tenDaysAgo = new Date(now.getTime() - 10 * 86_400_000);
