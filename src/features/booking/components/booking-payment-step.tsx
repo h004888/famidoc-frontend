@@ -14,6 +14,7 @@ import {
   type VietQRPaymentRequestDto,
 } from '@/lib/api/contracts.api';
 import { FAMILY_GATE_REFRESH_EVENT } from '@/components/layout/family-subscription-gate';
+import { ApiError } from '@/lib/http/errors';
 import { useBookingNavigationOptional } from './booking-navigation-context';
 
 export interface BookingPaymentStepProps {
