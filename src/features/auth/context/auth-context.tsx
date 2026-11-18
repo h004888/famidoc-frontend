@@ -15,6 +15,7 @@ import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
 import {
   getCurrentBrowserHost,
   getCurrentBrowserProto,
+  getLoginUrlForRole,
   isRoleAllowedOnPortal,
   resolveClientActivePortal,
   resolveLogoutRedirectUrl,
@@ -32,6 +33,7 @@ interface AuthContextType {
     nextUser: AuthUser,
     token?: string,
     rememberMe?: boolean,
+    refreshToken?: string,
   ) => void;
   clearMustChangePassword?: () => void;
   login: (
@@ -72,6 +74,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const session = getStoredAuthSession();
     if (session.role && session.token) {
+      if (session.refreshToken) {
+        httpClient.setRefreshToken(session.refreshToken);
+      }
       const currentHost = getCurrentBrowserHost();
       const currentPathname = typeof window !== 'undefined' ? window.location.pathname : '';
       const subdomainMode = supportsSubdomainRouting(currentHost);
@@ -106,16 +111,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  useEffect(() => {
+    httpClient.setTokenRefreshedHandler((payload) => {
+      const stored = getStoredAuthSession();
+      const nextRole = stored.role || role;
+      const nextUser = stored.user || user;
+      if (nextUser) {
+        const rememberMe =
+          typeof window !== 'undefined' &&
+          Boolean(localStorage.getItem('famidoc_token'));
+        saveAuthSession(
+          nextRole,
+          nextUser,
+          payload.accessToken,
+          rememberMe,
+          payload.refreshToken || stored.refreshToken || undefined,
+        );
+      }
+    });
+
+    httpClient.setUnauthorizedHandler(() => {
+      clearAuthSession();
+      httpClient.clearToken();
+      setIsAuthenticated(false);
+      setUser(null);
+      setRole('FAMILY');
+
+      if (typeof window !== 'undefined') {
+        const currentPath = window.location.pathname;
+        const isAlreadyAuth =
+          currentPath === '/login' ||
+          currentPath.endsWith('/login') ||
+          currentPath.startsWith('/register');
+        if (!isAlreadyAuth) {
+          const redirectParam = encodeURIComponent(
+            `${window.location.pathname}${window.location.search}`,
+          );
+          const loginUrl = getLoginUrlForRole(
+            role,
+            getCurrentBrowserHost(),
+            getCurrentBrowserProto(),
+          );
+          const sep = loginUrl.includes('?') ? '&' : '?';
+          window.location.replace(`${loginUrl}${sep}redirect=${redirectParam}`);
+        }
+      }
+    });
+
+    return () => {
+      httpClient.setTokenRefreshedHandler(null);
+      httpClient.setUnauthorizedHandler(null);
+    };
+  }, [role, user]);
+
   const applySession = (
     nextRole: LoginRole,
     nextUser: AuthUser,
     token?: string,
     rememberMe = true,
+    refreshToken?: string,
   ) => {
     if (token) {
       httpClient.setToken(token, rememberMe);
     }
-    saveAuthSession(nextRole, nextUser, token, rememberMe);
+    if (refreshToken) {
+      httpClient.setRefreshToken(refreshToken, rememberMe);
+    }
+    if (refreshToken) {
+      saveAuthSession(nextRole, nextUser, token, rememberMe, refreshToken);
+    } else {
+      saveAuthSession(nextRole, nextUser, token, rememberMe);
+    }
     setRole(nextRole);
     setUser(nextUser);
     setIsAuthenticated(true);
@@ -172,7 +238,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         mustChangePassword: Boolean(data.user?.mustChangePassword),
       };
 
-      applySession(assignedRole, assignedUser, data.accessToken, isRemember);
+      applySession(
+        assignedRole,
+        assignedUser,
+        data.accessToken,
+        isRemember,
+        data.refreshToken,
+      );
 
       const redirectPath = getDefaultPathForRole(assignedRole);
       if (typeof window !== 'undefined') {

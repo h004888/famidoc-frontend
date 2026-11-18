@@ -431,3 +431,23 @@ describe('proxy - dọn cookie sai cổng trên trang khách hàng và matcher c
     );
   });
 });
+
+describe('proxy - JWT exp check', () => {
+  it('chuyển hướng về /login và xóa cookie khi famidoc_token đã hết hạn và không có refresh token', () => {
+    const pastExp = Math.floor(Date.now() / 1000) - 60;
+    const expiredJwt = `${btoa(JSON.stringify({ alg: 'HS256' }))}.${btoa(
+      JSON.stringify({ sub: 'u-1', exp: pastExp }),
+    )}.sig`;
+
+    const response = proxy(
+      makeRequest('/booking/payment?contractId=abc', {
+        [COOKIE_KEYS.ROLE]: 'FAMILY',
+        [COOKIE_KEYS.TOKEN]: expiredJwt,
+      }),
+    );
+
+    expect(response.status).toBe(307);
+    expect(new URL(response.headers.get('location')!).pathname).toBe('/login');
+    expect(loginRedirectTarget(response)).toBe('/booking/payment?contractId=abc');
+  });
+});

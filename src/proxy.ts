@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { COOKIE_KEYS } from '@/lib/auth-storage';
+import { COOKIE_KEYS, isJwtExpired } from '@/lib/auth-storage';
 import {
   getPortalOrigin,
   getRoleHomePath,
@@ -174,9 +174,19 @@ export function proxy(request: NextRequest) {
   // Lấy role và token từ cookies
   const roleCookie = request.cookies.get(COOKIE_KEYS.ROLE)?.value;
   const tokenCookie = request.cookies.get(COOKIE_KEYS.TOKEN)?.value;
+  const refreshTokenCookie = request.cookies.get(COOKIE_KEYS.REFRESH_TOKEN)?.value;
 
-  const currentRole = roleCookie ? decodeURIComponent(roleCookie).trim().toUpperCase() : null;
-  const isAuthenticated = Boolean(tokenCookie && currentRole);
+  const decodedToken = tokenCookie ? decodeURIComponent(tokenCookie) : null;
+  const isTokenHardExpired =
+    Boolean(decodedToken && isJwtExpired(decodedToken)) && !refreshTokenCookie;
+
+  const currentRole =
+    !isTokenHardExpired && roleCookie
+      ? decodeURIComponent(roleCookie).trim().toUpperCase()
+      : null;
+  const isAuthenticated = Boolean(
+    !isTokenHardExpired && decodedToken && currentRole,
+  );
   const hasStaleStaffCookie = Boolean(currentRole && STAFF_PORTAL_ROLES.has(currentRole));
 
   // 2. Xử lý khi truy cập qua 3 subdomain riêng (`admin.*`, `csyt.*`, `bacsi.*`)

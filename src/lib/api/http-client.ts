@@ -3,9 +3,30 @@ import { COOKIE_KEYS, getCookie } from '@/lib/auth-storage';
 
 const LEGACY_TOKEN_KEY = 'famidoc_auth_token';
 
+export interface TokenRefreshPayload {
+  accessToken: string;
+  refreshToken?: string;
+  expiresInSeconds?: number;
+  role?: string;
+  user?: unknown;
+}
+
+const SKIP_AUTH_REFRESH_PATHS = [
+  '/api/v1/auth/login',
+  '/api/v1/auth/refresh',
+  '/api/v1/auth/register-representative',
+  '/api/v1/auth/verify-email-otp',
+  '/api/v1/auth/reset-password',
+];
+
 class HttpClient {
   private baseUrl: string;
   private token: string | null = null;
+  private refreshToken: string | null = null;
+  private inFlightRefresh: Promise<TokenRefreshPayload | null> | null = null;
+  private onTokenRefreshed: ((payload: TokenRefreshPayload) => void) | null = null;
+  private onUnauthorized: (() => void) | null = null;
+  private unauthorizedNotified = false;
 
   constructor() {
     this.baseUrl =
@@ -17,11 +38,16 @@ class HttpClient {
         sessionStorage.getItem(COOKIE_KEYS.TOKEN) ||
         localStorage.getItem(COOKIE_KEYS.TOKEN) ||
         getCookie(COOKIE_KEYS.TOKEN);
+      this.refreshToken =
+        sessionStorage.getItem(COOKIE_KEYS.REFRESH_TOKEN) ||
+        localStorage.getItem(COOKIE_KEYS.REFRESH_TOKEN) ||
+        getCookie(COOKIE_KEYS.REFRESH_TOKEN);
     }
   }
 
   setToken(token: string, rememberMe = true) {
     this.token = token;
+    this.unauthorizedNotified = false;
     if (typeof window !== 'undefined') {
       const targetStorage = rememberMe ? localStorage : sessionStorage;
       const staleStorage = rememberMe ? sessionStorage : localStorage;
@@ -33,12 +59,49 @@ class HttpClient {
     }
   }
 
+  setRefreshToken(refreshToken: string | null, rememberMe = true) {
+    this.refreshToken = refreshToken;
+    if (typeof window !== 'undefined') {
+      if (refreshToken) {
+        const targetStorage = rememberMe ? localStorage : sessionStorage;
+        const staleStorage = rememberMe ? sessionStorage : localStorage;
+        targetStorage.setItem(COOKIE_KEYS.REFRESH_TOKEN, refreshToken);
+        staleStorage.removeItem(COOKIE_KEYS.REFRESH_TOKEN);
+      } else {
+        localStorage.removeItem(COOKIE_KEYS.REFRESH_TOKEN);
+        sessionStorage.removeItem(COOKIE_KEYS.REFRESH_TOKEN);
+      }
+    }
+  }
+
+  getRefreshToken(): string | null {
+    if (this.refreshToken) return this.refreshToken;
+    if (typeof window !== 'undefined') {
+      this.refreshToken =
+        sessionStorage.getItem(COOKIE_KEYS.REFRESH_TOKEN) ||
+        localStorage.getItem(COOKIE_KEYS.REFRESH_TOKEN) ||
+        getCookie(COOKIE_KEYS.REFRESH_TOKEN);
+    }
+    return this.refreshToken;
+  }
+
+  setTokenRefreshedHandler(handler: ((payload: TokenRefreshPayload) => void) | null) {
+    this.onTokenRefreshed = handler;
+  }
+
+  setUnauthorizedHandler(handler: (() => void) | null) {
+    this.onUnauthorized = handler;
+  }
+
   clearToken() {
     this.token = null;
+    this.refreshToken = null;
     if (typeof window !== 'undefined') {
       localStorage.removeItem(COOKIE_KEYS.TOKEN);
+      localStorage.removeItem(COOKIE_KEYS.REFRESH_TOKEN);
       localStorage.removeItem(LEGACY_TOKEN_KEY);
       sessionStorage.removeItem(COOKIE_KEYS.TOKEN);
+      sessionStorage.removeItem(COOKIE_KEYS.REFRESH_TOKEN);
       sessionStorage.removeItem(LEGACY_TOKEN_KEY);
     }
   }
@@ -70,29 +133,117 @@ class HttpClient {
     return url.toString();
   }
 
+  private shouldAttemptRefresh(path: string): boolean {
+    return !SKIP_AUTH_REFRESH_PATHS.some((skip) => path.includes(skip));
+  }
+
+  private notifyUnauthorizedOnce() {
+    this.clearToken();
+    if (!this.unauthorizedNotified) {
+      this.unauthorizedNotified = true;
+      this.onUnauthorized?.();
+    }
+  }
+
+  private async refreshAccessTokenSingleFlight(): Promise<TokenRefreshPayload | null> {
+    if (this.inFlightRefresh) {
+      return this.inFlightRefresh;
+    }
+
+    const currentRefreshToken = this.getRefreshToken();
+    if (!currentRefreshToken) {
+      return null;
+    }
+
+    this.inFlightRefresh = (async () => {
+      try {
+        const res = await fetch(this.buildUrl('/api/v1/auth/refresh'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: currentRefreshToken }),
+        });
+        if (!res.ok) {
+          return null;
+        }
+        const json = (await res.json()) as
+          | { data?: TokenRefreshPayload }
+          | TokenRefreshPayload;
+        const payload =
+          json && typeof json === 'object' && 'data' in json && json.data
+            ? json.data
+            : (json as TokenRefreshPayload);
+        if (!payload?.accessToken) {
+          return null;
+        }
+        const rememberMe =
+          typeof window !== 'undefined' &&
+          Boolean(localStorage.getItem(COOKIE_KEYS.TOKEN));
+        this.setToken(payload.accessToken, rememberMe);
+        if (payload.refreshToken) {
+          this.setRefreshToken(payload.refreshToken, rememberMe);
+        }
+        this.onTokenRefreshed?.(payload);
+        return payload;
+      } catch {
+        return null;
+      } finally {
+        this.inFlightRefresh = null;
+      }
+    })();
+
+    return this.inFlightRefresh;
+  }
+
+  private async fetchWithAuthRetry(
+    path: string,
+    executeFetch: (authHeader?: string) => Promise<Response>,
+    explicitAuthHeader?: string,
+  ): Promise<Response> {
+    const token = this.getToken();
+    const initialAuth =
+      explicitAuthHeader ?? (token ? `Bearer ${token}` : undefined);
+    let res = await executeFetch(initialAuth);
+
+    if (res.status === 401 && this.shouldAttemptRefresh(path)) {
+      const refreshed = await this.refreshAccessTokenSingleFlight();
+      if (refreshed?.accessToken) {
+        res = await executeFetch(`Bearer ${refreshed.accessToken}`);
+      }
+      if (res.status === 401) {
+        this.notifyUnauthorizedOnce();
+      }
+    }
+
+    return res;
+  }
+
   async request<T>(
     path: string,
     options: RequestInit = {},
     params?: Record<string, string | number | boolean | undefined>
   ): Promise<T> {
     const url = this.buildUrl(path, params);
-    const headers: Record<string, string> = {
+    const baseHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string> || {}),
     };
 
-    const token = this.getToken();
-    if (token && !headers['Authorization']) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     try {
       let res: Response;
       try {
-        res = await fetch(url, {
-          ...options,
-          headers,
-        });
+        res = await this.fetchWithAuthRetry(
+          path,
+          (authHeader) => {
+            const headers = { ...baseHeaders };
+            if (authHeader && !headers['Authorization']) {
+              headers['Authorization'] = authHeader;
+            } else if (authHeader && authHeader !== baseHeaders['Authorization']) {
+              headers['Authorization'] = authHeader;
+            }
+            return fetch(url, { ...options, headers });
+          },
+          baseHeaders['Authorization'],
+        );
       } catch (networkErr) {
         const fallbackBase = process.env.NEXT_PUBLIC_API_URL;
         const canFallback =
@@ -104,10 +255,12 @@ class HttpClient {
           throw networkErr;
         }
         const fallbackUrl = this.buildUrl(path, params, fallbackBase);
-        res = await fetch(fallbackUrl, {
-          ...options,
-          headers,
-        });
+        const headers = { ...baseHeaders };
+        const token = this.getToken();
+        if (token && !headers['Authorization']) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        res = await fetch(fallbackUrl, { ...options, headers });
       }
 
       if (!res.ok) {

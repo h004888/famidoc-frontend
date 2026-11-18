@@ -419,8 +419,12 @@ export function BookingPaymentStep({
           activate();
           toast.success('Hợp đồng đã kích hoạt ACTIVE. Dashboard gia đình đã được mở khóa!');
         }
-      } catch {
-        // Bỏ qua lỗi tạm thời của nhịp kiểm tra nền.
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          activePolling = false;
+          clearInterval(timer);
+        }
+        // Bỏ qua lỗi tạm thời khác của nhịp kiểm tra nền.
       } finally {
         checking = false;
       }
