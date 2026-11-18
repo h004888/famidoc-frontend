@@ -28,6 +28,7 @@ import {
   StaffingDetailSheet,
   StaffingSignConfirmDialog,
 } from './staffing-detail-sheet';
+import { StaffingTerminationDialog } from './staffing-termination-dialog';
 
 export function AdminContractsView() {
   const [contracts, setContracts] = useState<FourPartyContract[]>([]);
@@ -46,6 +47,7 @@ export function AdminContractsView() {
   const [selectedStaffing, setSelectedStaffing] = useState<StaffingContractItem | null>(null);
   const [showStaffingSheet, setShowStaffingSheet] = useState(false);
   const [confirmSignStaffing, setConfirmSignStaffing] = useState<StaffingContractItem | null>(null);
+  const [terminateTargetStaffing, setTerminateTargetStaffing] = useState<StaffingContractItem | null>(null);
   const [signingStaffingId, setSigningStaffingId] = useState<string | null>(null);
 
   const [showCreateB2BModal, setShowCreateB2BModal] = useState(false);
@@ -112,7 +114,6 @@ export function AdminContractsView() {
     try {
       await contractsApi.signStaffingContract(contractId, {
         confirmed: true,
-        signedPdfUrl: `https://cdn.famidoc.vn/contracts/staffing/${contractId}-admin-signed.pdf`,
         signatureHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
       });
       toast.success('Admin đã hoàn tất ký số điện tử SmartCA cho Hợp đồng B2B!');
@@ -246,6 +247,7 @@ export function AdminContractsView() {
             onFilterStatusChange={setStaffingFilter}
             signingStaffingId={signingStaffingId}
             onRequestSign={(item) => setConfirmSignStaffing(item)}
+            onRequestTerminate={(item) => setTerminateTargetStaffing(item)}
             onOpenDetail={(item) => {
               setSelectedStaffing(item);
               setShowStaffingSheet(true);
@@ -279,6 +281,10 @@ export function AdminContractsView() {
         onOpenChange={setShowStaffingSheet}
         signingStaffingId={signingStaffingId}
         onRequestSign={(item) => setConfirmSignStaffing(item)}
+        onRequestTerminate={(item) => {
+          setShowStaffingSheet(false);
+          setTerminateTargetStaffing(item);
+        }}
       />
 
       <StaffingSignConfirmDialog
@@ -286,6 +292,13 @@ export function AdminContractsView() {
         isSigning={Boolean(confirmSignStaffing && signingStaffingId === confirmSignStaffing.id)}
         onClose={() => setConfirmSignStaffing(null)}
         onConfirm={handleConfirmSignStaffing}
+        onSynced={triggerReload}
+      />
+
+      <StaffingTerminationDialog
+        contract={terminateTargetStaffing}
+        onClose={() => setTerminateTargetStaffing(null)}
+        onTerminated={triggerReload}
       />
     </div>
   );

@@ -16,10 +16,16 @@ vi.mock('@/lib/api/facilities.api', () => ({
       email: 'fac@test.vn',
       phone: '0901234567',
       address: 'Hà Nội',
+      operatingLicense: '01293/BYT-GPHĐ',
+      taxCode: '0102030405',
+      hasLegalDocument: true,
+      hasOperatingLicense: true,
+      hasBusinessLicense: true,
       onboardingStatus: 'ACTIVE',
       status: 'ACTIVE',
       createdAt: '2026-11-10T08:00:00.000Z',
     }),
+    fetchLegalDocumentBlobUrl: vi.fn().mockResolvedValue('blob:mock-doc'),
   },
 }));
 
@@ -56,5 +62,16 @@ describe('AdminFacilityDetailView Responsive Contracts Table', () => {
     fireEvent.click(contractsTab);
 
     expect(screen.getByTestId('facility-contracts-mobile')).toBeInTheDocument();
+  });
+
+  it('displays separate preview buttons for Operating License and Business Registration Certificate on LEGAL tab', async () => {
+    render(<AdminFacilityDetailView facilityId="FAC-1" />);
+    await screen.findAllByText('Bệnh viện Kiểm Thử');
+
+    const legalTab = screen.getByRole('button', { name: /2\. Hồ sơ pháp lý & GPHĐ/i });
+    fireEvent.click(legalTab);
+
+    expect(screen.getByRole('button', { name: /Xem \/ Tải GPHĐ KBCB/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xem \/ Tải Giấy ĐKKD/i })).toBeInTheDocument();
   });
 });

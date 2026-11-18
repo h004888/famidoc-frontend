@@ -10,14 +10,13 @@ import {
   Clock,
   ExternalLink,
   FileText,
-  KeyRound,
   Lightbulb,
   Mail,
   Phone,
+  Plus,
   RefreshCw,
   Search,
   SearchCheck,
-  Send,
   ShieldCheck,
   Stethoscope,
   User,
@@ -55,7 +54,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
 type WorkspaceTab = 'FACILITIES' | 'DOCTOR_VERIFY';
-type FacilityStatusFilter = 'ALL' | 'PENDING_APPROVAL' | 'PENDING_LEGAL' | 'ACTIVE' | 'REJECTED';
+type FacilityStatusFilter = 'ALL' | 'PENDING_LEGAL' | 'LEGAL_SUBMITTED' | 'ACTIVE' | 'REJECTED';
 type DoctorStatusFilter = 'ALL' | 'FACILITY_VERIFIED' | 'PENDING_SUBMISSION';
 
 interface DoctorVerificationItem {
@@ -75,8 +74,7 @@ function getEffectiveOnboardingStatus(
   if (fac.onboardingStatus === 'ACTIVE' || fac.status === 'ACTIVE') return 'ACTIVE';
   if (fac.onboardingStatus === 'REJECTED') return 'REJECTED';
   if (fac.onboardingStatus === 'LEGAL_SUBMITTED') return 'LEGAL_SUBMITTED';
-  if (fac.onboardingStatus === 'PENDING_LEGAL') return 'PENDING_LEGAL';
-  return 'PENDING_APPROVAL';
+  return 'PENDING_LEGAL';
 }
 
 function formatDateTimeVN(value?: string): string {
@@ -111,16 +109,6 @@ function FacilityStatusBadge({
   const effective = getEffectiveOnboardingStatus(facility);
 
   switch (effective) {
-    case 'PENDING_APPROVAL':
-      return (
-        <Badge
-          variant="outline"
-          className="gap-1.5 rounded-full border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800"
-        >
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" aria-hidden="true" />
-          {compact ? 'Chờ Duyệt Cấp 1' : 'Chờ Duyệt Cấp 1 (Cấp Portal)'}
-        </Badge>
-      );
     case 'PENDING_LEGAL':
       return (
         <Badge
@@ -181,7 +169,6 @@ export function AdminFacilitiesView() {
   const [selectedFacility, setSelectedFacility] = useState<AdminFacilityItem | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [isActionLoading, setIsActionLoading] = useState(false);
-  const [isResendingInvite, setIsResendingInvite] = useState(false);
   const [approvingDoctorId, setApprovingDoctorId] = useState<string | null>(null);
 
   // Pagination states
@@ -189,10 +176,18 @@ export function AdminFacilitiesView() {
   const [doctorPage, setDoctorPage] = useState(1);
   const itemsPerPage = 6;
 
-  // Rejection & Approval dialog states
+  // Rejection & Create Facility dialog states
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
-  const [showApproveAccountModal, setShowApproveAccountModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isCreatingFacility, setIsCreatingFacility] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    facilityName: '',
+    representativeName: '',
+    email: '',
+    phone: '',
+    address: '',
+  });
 
   const fetchFacilitiesData = useCallback(async () => {
     setIsLoading(true);
@@ -260,23 +255,23 @@ export function AdminFacilitiesView() {
   };
 
   // Counters
-  const { countPendingApproval, countPendingLegal, countActive, countRejected } = useMemo(() => {
-    let pendingApproval = 0;
+  const { countPendingLegal, countLegalSubmitted, countActive, countRejected } = useMemo(() => {
     let pendingLegal = 0;
+    let legalSubmitted = 0;
     let active = 0;
     let rejected = 0;
 
     for (const fac of facilities) {
       const effective = getEffectiveOnboardingStatus(fac);
-      if (effective === 'PENDING_APPROVAL') pendingApproval += 1;
-      else if (effective === 'PENDING_LEGAL' || effective === 'LEGAL_SUBMITTED') pendingLegal += 1;
+      if (effective === 'PENDING_LEGAL') pendingLegal += 1;
+      else if (effective === 'LEGAL_SUBMITTED') legalSubmitted += 1;
       else if (effective === 'ACTIVE') active += 1;
       else if (effective === 'REJECTED') rejected += 1;
     }
 
     return {
-      countPendingApproval: pendingApproval,
       countPendingLegal: pendingLegal,
+      countLegalSubmitted: legalSubmitted,
       countActive: active,
       countRejected: rejected,
     };
@@ -298,8 +293,8 @@ export function AdminFacilitiesView() {
 
       const effective = getEffectiveOnboardingStatus(fac);
       if (statusFilter === 'ALL') return true;
-      if (statusFilter === 'PENDING_APPROVAL') return effective === 'PENDING_APPROVAL';
-      if (statusFilter === 'PENDING_LEGAL') return effective === 'PENDING_LEGAL' || effective === 'LEGAL_SUBMITTED';
+      if (statusFilter === 'PENDING_LEGAL') return effective === 'PENDING_LEGAL';
+      if (statusFilter === 'LEGAL_SUBMITTED') return effective === 'LEGAL_SUBMITTED';
       if (statusFilter === 'ACTIVE') return effective === 'ACTIVE';
       if (statusFilter === 'REJECTED') return effective === 'REJECTED';
       return true;
@@ -354,30 +349,47 @@ export function AdminFacilitiesView() {
     setIsDetailModalOpen(true);
   };
 
-  // Duyệt Lần 1: Cấp tài khoản portal
-  const handleExecuteApproveAccount = async () => {
-    if (!selectedFacility) return;
-    setIsActionLoading(true);
+  // Admin tạo mới tài khoản CSYT và gửi mật khẩu ngẫu nhiên qua email
+  const handleCreateFacility = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      !createForm.facilityName.trim() ||
+      !createForm.representativeName.trim() ||
+      !createForm.email.trim() ||
+      !createForm.phone.trim()
+    ) {
+      toast.error('Vui lòng nhập đầy đủ Tên CSYT, Người đại diện, Email và Số điện thoại.');
+      return;
+    }
+    setIsCreatingFacility(true);
     try {
-      await facilitiesApi.approveAccount(selectedFacility.id);
-      setFacilities((prev) =>
-        prev.map((f) =>
-          f.id === selectedFacility.id ? { ...f, onboardingStatus: 'PENDING_LEGAL' as const } : f
-        )
-      );
-      setSelectedFacility((prev) => (prev ? { ...prev, onboardingStatus: 'PENDING_LEGAL' } : null));
+      const created = await facilitiesApi.createFacilityByAdmin({
+        facilityName: createForm.facilityName.trim(),
+        representativeName: createForm.representativeName.trim(),
+        email: createForm.email.trim(),
+        phone: createForm.phone.trim(),
+        ...(createForm.address.trim() ? { address: createForm.address.trim() } : {}),
+      });
+      setFacilities((prev) => [created, ...prev]);
       toast.success(
-        `Đã duyệt Cấp 1 thành công! Hệ thống đã gửi email cấp tài khoản Portal kèm mật khẩu khởi tạo "FamiDoc@Facility2026" tới ${selectedFacility.email}.`
+        `Đã khởi tạo tài khoản Cơ sở Y tế "${created.facilityName}". Mật khẩu ngẫu nhiên đã được gửi tới email ${created.email}.`
       );
+      setShowCreateModal(false);
+      setCreateForm({
+        facilityName: '',
+        representativeName: '',
+        email: '',
+        phone: '',
+        address: '',
+      });
     } catch (err: any) {
-      toast.error(extractErrorMessage(err, 'Không thể duyệt cấp 1 trên máy chủ.'));
+      toast.error(extractErrorMessage(err, 'Không thể khởi tạo tài khoản Cơ sở Y tế.'));
     } finally {
-      setIsActionLoading(false);
-      setShowApproveAccountModal(false);
+      setIsCreatingFacility(false);
     }
   };
 
-  // Duyệt Lần 2: Hậu kiểm pháp lý & Kích hoạt ACTIVE
+  // Thẩm định pháp lý & Kích hoạt ACTIVE
   const handleExecuteVerifyLegal = async () => {
     if (!selectedFacility) return;
     setIsActionLoading(true);
@@ -386,50 +398,44 @@ export function AdminFacilitiesView() {
       setFacilities((prev) =>
         prev.map((f) =>
           f.id === selectedFacility.id
-            ? { ...f, onboardingStatus: 'ACTIVE' as const, status: 'ACTIVE' as const }
+            ? { ...f, onboardingStatus: 'ACTIVE' as const, status: 'ACTIVE' as const, legalRejectionReason: null }
             : f
         )
       );
       setSelectedFacility((prev) =>
-        prev ? { ...prev, onboardingStatus: 'ACTIVE', status: 'ACTIVE' } : null
+        prev ? { ...prev, onboardingStatus: 'ACTIVE', status: 'ACTIVE', legalRejectionReason: null } : null
       );
       toast.success(
-        `Hậu kiểm pháp lý thành công! Cơ sở y tế "${selectedFacility.facilityName}" đã chính thức chuyển sang trạng thái ACTIVE.`
+        `Thẩm định pháp lý thành công! Cơ sở y tế "${selectedFacility.facilityName}" đã chính thức chuyển sang trạng thái ACTIVE.`
       );
       setIsDetailModalOpen(false);
     } catch (err: any) {
-      toast.error(extractErrorMessage(err, 'Không thể hậu kiểm pháp lý trên máy chủ.'));
+      toast.error(extractErrorMessage(err, 'Không thể thẩm định pháp lý trên máy chủ.'));
     } finally {
       setIsActionLoading(false);
     }
   };
 
-  // Gửi lại email mời kích hoạt Portal
-  const handleResendInvite = async () => {
-    if (!selectedFacility) return;
-    setIsResendingInvite(true);
-    try {
-      await facilitiesApi.resendFacilityInvite(selectedFacility.id);
-      toast.success(`Đã gửi lại email kích hoạt Portal tới ${selectedFacility.email}.`);
-    } catch (err: any) {
-      toast.error(extractErrorMessage(err, 'Không thể gửi lại email kích hoạt Portal.'));
-    } finally {
-      setIsResendingInvite(false);
-    }
-  };
-
-  // Từ chối / Yêu cầu bổ sung
+  // Từ chối / Yêu cầu bổ sung hồ sơ pháp lý
   const handleExecuteReject = async () => {
     if (!selectedFacility || !rejectReason.trim()) return;
     setIsActionLoading(true);
+    const reason = rejectReason.trim();
     try {
-      await facilitiesApi.rejectFacility(selectedFacility.id, rejectReason.trim());
+      await facilitiesApi.verifyLegal(selectedFacility.id, {
+        approved: false,
+        rejectionReason: reason,
+      });
       setFacilities((prev) =>
         prev.map((f) =>
-          f.id === selectedFacility.id ? { ...f, onboardingStatus: 'REJECTED' as const } : f
+          f.id === selectedFacility.id
+            ? { ...f, onboardingStatus: 'REJECTED' as const, legalRejectionReason: reason }
+            : f
         )
       );
-      setSelectedFacility((prev) => (prev ? { ...prev, onboardingStatus: 'REJECTED' } : null));
+      setSelectedFacility((prev) =>
+        prev ? { ...prev, onboardingStatus: 'REJECTED', legalRejectionReason: reason } : null
+      );
       toast.success('Đã gửi thông báo từ chối / yêu cầu bổ sung hồ sơ tới cơ sở y tế.');
       setRejectReason('');
       setShowRejectModal(false);
@@ -438,6 +444,18 @@ export function AdminFacilitiesView() {
       toast.error(extractErrorMessage(err, 'Không thể từ chối hồ sơ trên máy chủ.'));
     } finally {
       setIsActionLoading(false);
+    }
+  };
+
+  const handleOpenLegalDocument = async (
+    facilityId: string,
+    docType: 'operating' | 'business' = 'operating',
+  ) => {
+    try {
+      const url = await facilitiesApi.fetchLegalDocumentBlobUrl(facilityId, docType);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err: any) {
+      toast.error(extractErrorMessage(err, 'Không thể tải bản scan hồ sơ pháp lý.'));
     }
   };
 
@@ -482,20 +500,20 @@ export function AdminFacilitiesView() {
       iconBoxClass: 'bg-primary/10 text-primary',
     },
     {
-      key: 'PENDING_APPROVAL',
-      label: 'Chờ Duyệt Cấp 1',
-      value: countPendingApproval,
-      description: 'Yêu cầu đăng ký mới chưa cấp tài khoản',
-      pill: 'Cấp Portal',
+      key: 'PENDING_LEGAL',
+      label: 'Chờ nộp pháp lý',
+      value: countPendingLegal,
+      description: 'Đã cấp tài khoản, chờ CSYT gửi GPHĐ',
+      pill: 'Chờ hồ sơ',
       pillClass: 'border-amber-200 bg-amber-50 text-amber-800',
       icon: <Clock className="h-5 w-5" aria-hidden="true" />,
       iconBoxClass: 'bg-amber-50 text-amber-600',
     },
     {
-      key: 'PENDING_LEGAL',
-      label: 'Chờ Duyệt Cấp 2',
-      value: countPendingLegal,
-      description: 'Cần đối soát CSDL Cục QLKCB',
+      key: 'LEGAL_SUBMITTED',
+      label: 'Chờ Duyệt Pháp Lý',
+      value: countLegalSubmitted,
+      description: 'Cần đối soát GPHĐ & MST',
       pill: 'Pháp lý GPHĐ',
       pillClass: 'border-indigo-200 bg-indigo-50 text-indigo-800',
       icon: <ShieldCheck className="h-5 w-5" aria-hidden="true" />,
@@ -515,8 +533,8 @@ export function AdminFacilitiesView() {
 
   const facilityFilterTabs: Array<{ key: FacilityStatusFilter; label: string; count: number }> = [
     { key: 'ALL', label: 'Tất cả', count: facilities.length },
-    { key: 'PENDING_APPROVAL', label: 'Chờ Duyệt Cấp 1', count: countPendingApproval },
-    { key: 'PENDING_LEGAL', label: 'Chờ Pháp Lý Cấp 2', count: countPendingLegal },
+    { key: 'PENDING_LEGAL', label: 'Chờ Nộp Pháp Lý', count: countPendingLegal },
+    { key: 'LEGAL_SUBMITTED', label: 'Chờ Pháp Lý Cấp 2', count: countLegalSubmitted },
     { key: 'ACTIVE', label: 'Đang Hoạt Động', count: countActive },
     { key: 'REJECTED', label: 'Từ chối / Bổ sung', count: countRejected },
   ];
@@ -530,23 +548,34 @@ export function AdminFacilitiesView() {
             { label: 'Admin Backoffice', href: '/admin' },
             { label: 'Quản trị & Thẩm định Cơ sở Y tế' },
           ]}
-          title="Quản trị & Thẩm định Cơ sở Y tế (Duyệt 2 Cấp)"
-          description="Quy trình hợp tác nền tảng B2B: Duyệt cấp tài khoản Portal (Cấp 1) & Hậu kiểm pháp lý CSDL Quốc gia (Cấp 2)."
+          title="Quản trị & Thẩm định Cơ sở Y tế"
+          description="Quy trình hợp tác nền tảng B2B: Admin khởi tạo tài khoản đối tác qua email & thẩm định hồ sơ pháp lý."
           actions={
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={handleRefreshAll}
-              disabled={isLoading || isDoctorsLoading}
-              className="cursor-pointer rounded-xl bg-white text-xs font-semibold"
-            >
-              <RefreshCw
-                className={cn('h-3.5 w-3.5 text-slate-500', (isLoading || isDoctorsLoading) && 'animate-spin')}
-                aria-hidden="true"
-              />
-              <span>Làm mới</span>
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => setShowCreateModal(true)}
+                className="cursor-pointer rounded-xl text-xs font-bold shadow-xs"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                <span>Tạo Cơ sở Y tế mới</span>
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshAll}
+                disabled={isLoading || isDoctorsLoading}
+                className="cursor-pointer rounded-xl bg-white text-xs font-semibold"
+              >
+                <RefreshCw
+                  className={cn('h-3.5 w-3.5 text-slate-500', (isLoading || isDoctorsLoading) && 'animate-spin')}
+                  aria-hidden="true"
+                />
+                <span>Làm mới</span>
+              </Button>
+            </div>
           }
         />
 
@@ -1264,13 +1293,9 @@ export function AdminFacilitiesView() {
                         <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-primary">
                           1
                         </span>
-                        Thông Tin Đăng Ký Cơ Bản (Duyệt Lần 1 - Portal)
+                        Thông Tin Tài Khoản &amp; Đại Diện Cơ Sở Y Tế
                       </h3>
-                      {selectedEffectiveStatus === 'PENDING_APPROVAL' ? (
-                        <Badge className="rounded-full bg-amber-100 text-[10px] font-bold text-amber-800 hover:bg-amber-100">
-                          Chờ duyệt cấp tài khoản
-                        </Badge>
-                      ) : selectedEffectiveStatus === 'REJECTED' ? (
+                      {selectedEffectiveStatus === 'REJECTED' ? (
                         <Badge className="rounded-full bg-rose-100 text-[10px] font-bold text-rose-800 hover:bg-rose-100">
                           Đã từ chối / Cần bổ sung
                         </Badge>
@@ -1389,14 +1414,56 @@ export function AdminFacilitiesView() {
                     </div>
 
                     {/* Danh sách tài liệu pháp lý đính kèm */}
-                    {selectedFacility.licenseFiles && selectedFacility.licenseFiles.length > 0 && (
+                    {(selectedFacility.hasLegalDocument ||
+                      (selectedFacility.licenseFiles && selectedFacility.licenseFiles.length > 0)) && (
                       <div>
                         <span className="mb-1.5 block text-xs font-semibold text-slate-600">
                           Tài liệu pháp lý scan đính kèm:
                         </span>
                         <div className="flex flex-wrap gap-2">
-                          {selectedFacility.licenseFiles.map((fileRef, idx) =>
-                            isExternalUrl(fileRef) ? (
+                          {(selectedFacility.hasOperatingLicense || selectedFacility.hasLegalDocument) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenLegalDocument(selectedFacility.id, 'operating')}
+                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-primary hover:bg-blue-100"
+                            >
+                              <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                              <span>Xem / Tải GPHĐ KBCB</span>
+                              <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            </Button>
+                          )}
+                          {selectedFacility.hasBusinessLicense && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenLegalDocument(selectedFacility.id, 'business')}
+                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                            >
+                              <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                              <span>Xem / Tải Giấy ĐKKD</span>
+                              <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            </Button>
+                          )}
+                          {(selectedFacility.licenseFiles ?? []).map((fileRef, idx) =>
+                            fileRef.startsWith('/api/v1/facilities/') ? (
+                              selectedFacility.hasLegalDocument ? null : (
+                                <Button
+                                  key={idx}
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenLegalDocument(selectedFacility.id)}
+                                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-primary hover:bg-blue-100"
+                                >
+                                  <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                                  <span>Xem / Tải bản scan pháp lý</span>
+                                  <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
+                                </Button>
+                              )
+                            ) : isExternalUrl(fileRef) ? (
                               <a
                                 key={idx}
                                 href={fileRef}
@@ -1423,32 +1490,21 @@ export function AdminFacilitiesView() {
                     )}
 
                     {/* Hướng dẫn & Cảnh báo điều kiện duyệt */}
-                    {selectedEffectiveStatus === 'PENDING_APPROVAL' && (
-                      <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
-                        <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
-                        <div>
-                          <strong>Bước tiếp theo:</strong> Bấm <em>&ldquo;Duyệt Cấp 1 (Cấp Portal)&rdquo;</em> để hệ thống tự động sinh tài khoản với mật khẩu mặc định{' '}
-                          <code className="rounded bg-amber-100 px-1 py-0.5 font-semibold">FamiDoc@Facility2026</code> và gửi email kích hoạt cho người đại diện.
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedEffectiveStatus !== 'PENDING_APPROVAL' &&
-                      selectedEffectiveStatus !== 'ACTIVE' &&
+                    {selectedEffectiveStatus !== 'ACTIVE' &&
                       selectedEffectiveStatus !== 'REJECTED' &&
                       (hasCompleteLegalDocs ? (
                         <div className="flex items-start gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-xs leading-relaxed text-indigo-900">
                           <SearchCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" aria-hidden="true" />
                           <div>
                             <strong>Hồ sơ sẵn sàng thẩm định:</strong> CSYT đã nộp đầy đủ MST và GPHĐ. Quản trị viên vui lòng tra cứu đối soát trên CSDL Quốc gia trước khi bấm{' '}
-                            <em>&ldquo;Duyệt Cấp 2: Kích hoạt ACTIVE&rdquo;</em>.
+                            <em>&ldquo;Duyệt Pháp Lý: Kích Hoạt ACTIVE&rdquo;</em>.
                           </div>
                         </div>
                       ) : (
-                        <div className="flex items-start gap-2.5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-900">
-                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-600" aria-hidden="true" />
+                        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
+                          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
                           <div>
-                            <strong>Chưa đủ điều kiện duyệt Cấp 2:</strong> CSYT chưa hoàn tất nộp Giấy phép hoạt động KCB hoặc Mã số thuế trên Portal. Nút kích hoạt ACTIVE sẽ được mở khi cơ sở hoàn thiện hồ sơ.
+                            <strong>Chờ CSYT nộp hồ sơ pháp lý:</strong> CSYT đã được cấp tài khoản qua email nhưng chưa hoàn tất nộp Giấy phép hoạt động KCB hoặc Mã số thuế trên Portal.
                           </div>
                         </div>
                       ))}
@@ -1475,20 +1531,6 @@ export function AdminFacilitiesView() {
                   </div>
 
                   <div className="flex flex-wrap items-center gap-2">
-                    {selectedEffectiveStatus === 'PENDING_LEGAL' && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={isResendingInvite}
-                        onClick={handleResendInvite}
-                        className="cursor-pointer rounded-xl bg-white text-xs font-semibold text-slate-700"
-                      >
-                        <Send className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>{isResendingInvite ? 'Đang gửi...' : 'Gửi lại invite Portal'}</span>
-                      </Button>
-                    )}
-
                     {selectedEffectiveStatus !== 'ACTIVE' && selectedEffectiveStatus !== 'REJECTED' && (
                       <Button
                         type="button"
@@ -1501,19 +1543,7 @@ export function AdminFacilitiesView() {
                       </Button>
                     )}
 
-                    {selectedEffectiveStatus === 'PENDING_APPROVAL' && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => setShowApproveAccountModal(true)}
-                        className="cursor-pointer rounded-xl text-xs font-bold shadow-md shadow-primary/20"
-                      >
-                        <span>Duyệt Cấp 1 (Cấp Portal)</span>
-                      </Button>
-                    )}
-
-                    {selectedEffectiveStatus !== 'PENDING_APPROVAL' &&
-                      selectedEffectiveStatus !== 'ACTIVE' &&
+                    {selectedEffectiveStatus !== 'ACTIVE' &&
                       selectedEffectiveStatus !== 'REJECTED' && (
                         <Button
                           type="button"
@@ -1544,50 +1574,109 @@ export function AdminFacilitiesView() {
         </Dialog>
 
         {/* ========================================================================= */}
-        {/* POPUP CONFIRM: DUYỆT CẤP 1 (CẤP TÀI KHOẢN PORTAL)                         */}
+        {/* DIALOG: ADMIN TẠO TÀI KHOẢN CƠ SỞ Y TẾ MỚI                                */}
         {/* ========================================================================= */}
-        <ConfirmDialog
-          open={showApproveAccountModal && Boolean(selectedFacility)}
-          onOpenChange={setShowApproveAccountModal}
-          title="Xác nhận Duyệt Lần 1: Cấp Tài Khoản Portal"
-          description={
-            selectedFacility ? (
-              <>
-                Hệ thống sẽ cấp tài khoản đăng nhập cho cơ sở y tế{' '}
-                <strong className="text-slate-900">{selectedFacility.facilityName}</strong> với thông tin sau:
-              </>
-            ) : undefined
-          }
-          headerIcon={<KeyRound className="h-6 w-6 text-primary" aria-hidden="true" />}
-          confirmLabel="Xác nhận cấp tài khoản"
-          cancelLabel="Hủy bỏ"
-          isLoading={isActionLoading}
-          onConfirm={handleExecuteApproveAccount}
-        >
-          {selectedFacility && (
-            <div className="space-y-3">
-              <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-3.5 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-500">Email Portal:</span>
-                  <span className="font-semibold text-slate-900 break-all">{selectedFacility.email}</span>
+        <Dialog open={showCreateModal} onOpenChange={setShowCreateModal}>
+          <DialogContent className="rounded-2xl border-slate-200 sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-slate-900">
+                Tạo tài khoản Cơ sở Y tế mới
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500">
+                Hệ thống sẽ sinh mật khẩu ngẫu nhiên an toàn và tự động gửi thông tin đăng nhập qua email liên hệ của cơ sở y tế.
+              </DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreateFacility} className="space-y-3">
+              <div className="space-y-1">
+                <Label htmlFor="create-facility-name" className="text-xs font-semibold">
+                  Tên Cơ sở Y tế <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  id="create-facility-name"
+                  required
+                  value={createForm.facilityName}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, facilityName: e.target.value }))}
+                  placeholder="Bệnh viện Đa khoa Quốc tế FamiDoc"
+                  className="rounded-xl text-xs"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="create-facility-rep" className="text-xs font-semibold">
+                  Người đại diện <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  id="create-facility-rep"
+                  required
+                  value={createForm.representativeName}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, representativeName: e.target.value }))}
+                  placeholder="TS.BS Nguyễn Văn A"
+                  className="rounded-xl text-xs"
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <Label htmlFor="create-facility-email" className="text-xs font-semibold">
+                    Email liên hệ <span className="text-rose-500">*</span>
+                  </Label>
+                  <Input
+                    id="create-facility-email"
+                    type="email"
+                    required
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, email: e.target.value }))}
+                    placeholder="contact@hospital.vn"
+                    className="rounded-xl text-xs"
+                  />
                 </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-500">Mật khẩu khởi tạo:</span>
-                  <code className="rounded bg-blue-50 px-2 py-0.5 font-bold tracking-wide text-primary">
-                    FamiDoc@Facility2026
-                  </code>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-slate-500">Trạng thái mới:</span>
-                  <span className="font-semibold text-sky-700">Đã cấp Portal • Chờ nộp Pháp lý</span>
+                <div className="space-y-1">
+                  <Label htmlFor="create-facility-phone" className="text-xs font-semibold">
+                    Số điện thoại <span className="text-rose-500">*</span>
+                  </Label>
+                  <Input
+                    id="create-facility-phone"
+                    required
+                    value={createForm.phone}
+                    onChange={(e) => setCreateForm((p) => ({ ...p, phone: e.target.value }))}
+                    placeholder="0912345678"
+                    className="rounded-xl text-xs"
+                  />
                 </div>
               </div>
-              <p className="text-[11px] italic text-slate-500">
-                Email thông báo kích hoạt kèm mật khẩu sẽ được tự động gửi tới hòm thư người đại diện.
-              </p>
-            </div>
-          )}
-        </ConfirmDialog>
+              <div className="space-y-1">
+                <Label htmlFor="create-facility-address" className="text-xs font-semibold">
+                  Địa chỉ trụ sở
+                </Label>
+                <Input
+                  id="create-facility-address"
+                  value={createForm.address}
+                  onChange={(e) => setCreateForm((p) => ({ ...p, address: e.target.value }))}
+                  placeholder="Số 10 Phố Huế, Hai Bà Trưng, Hà Nội"
+                  className="rounded-xl text-xs"
+                />
+              </div>
+              <DialogFooter className="gap-2 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isCreatingFacility}
+                  onClick={() => setShowCreateModal(false)}
+                  className="rounded-xl text-xs font-semibold"
+                >
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isCreatingFacility}
+                  className="cursor-pointer rounded-xl text-xs font-bold"
+                >
+                  {isCreatingFacility ? 'Đang khởi tạo...' : 'Khởi tạo & Gửi Email'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
 
         {/* ========================================================================= */}
         {/* DIALOG: TỪ CHỐI / YÊU CẦU BỔ SUNG HỒ SƠ                                   */}

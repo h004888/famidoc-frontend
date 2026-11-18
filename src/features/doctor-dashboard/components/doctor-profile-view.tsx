@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { doctorsApi, type DoctorProfileDto } from '@/lib/api/doctors.api';
-import { DashboardPageShell } from '@/components/shared';
+import { DashboardPageShell, DoctorCredentialsList } from '@/components/shared';
 
 export function DoctorProfileView() {
   const [doctor, setDoctor] = useState<DoctorProfileDto | null>(null);
@@ -16,38 +16,11 @@ export function DoctorProfileView() {
       try {
         const data = await doctorsApi.getDoctorMe();
         if (isMounted) {
-          if (data && data.doctorName) {
-            setDoctor(data);
-          } else {
-            // Mock fallback
-            setDoctor({
-              id: 'DOC-2026-ME',
-              doctorName: 'BS. CKI Trần Thị Mai',
-              specialty: 'Y học Gia đình & Nội tổng quát',
-              academicTitle: 'BS. CKI',
-              experienceYears: 8,
-              onboardingStatus: 'ACTIVE',
-              facilityId: 'FAC-ANSINH-001',
-              facilityName: 'Bệnh viện Đa khoa Quốc tế An Sinh',
-              activePanelCount: 18,
-              maxPanelCapacity: 150,
-              credentials: [
-                {
-                  id: 'CRED-001',
-                  credentialType: 'PRACTICE_LICENSE_CCHN',
-                  certificateNumber: '003928/BYT-CCHN',
-                  issueDate: '2020-08-15',
-                  issuingAuthority: 'Sở Y Tế TP. Hồ Chí Minh',
-                  fileUrl: 'https://storage.famidoc.vn/sample-cchn-doctor.pdf',
-                  facilityVerified: true,
-                  platformApproved: true,
-                },
-              ],
-            });
-          }
+          setDoctor(data && data.doctorName ? data : null);
         }
       } catch (err) {
         console.warn('Lỗi tải thông tin bác sĩ:', err);
+        if (isMounted) setDoctor(null);
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -74,8 +47,6 @@ export function DoctorProfileView() {
       </div>
     );
   }
-
-  const primaryCred = doctor.credentials?.[0];
 
   return (
     <DashboardPageShell containerClassName="pb-16">
@@ -187,56 +158,22 @@ export function DoctorProfileView() {
 
         {/* Credentials & Capacity */}
         <div className="lg:col-span-2 space-y-6">
-          {/* CCHN Details */}
+          {/* Credentials Details */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-700">
-                Chứng chỉ Hành nghề Y (CCHN)
+                Bộ 3 Chứng chỉ &amp; Văn bằng Hành nghề Y
               </h3>
-              <span className="text-xs tabular-nums font-bold bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded">
-                {primaryCred?.certificateNumber || '003928/BYT-CCHN'}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs text-slate-500 block">Số hiệu CCHN</label>
-                <p className="text-sm font-bold text-slate-900 tabular-nums mt-0.5">
-                  {primaryCred?.certificateNumber || '003928/BYT-CCHN'}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 block">Cơ quan cấp</label>
-                <p className="text-sm font-medium text-slate-900 mt-0.5">
-                  {primaryCred?.issuingAuthority || 'Bộ Y Tế / Sở Y Tế TP. Hồ Chí Minh'}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 block">Ngày cấp</label>
-                <p className="text-sm font-medium text-slate-900 mt-0.5">
-                  {primaryCred?.issueDate ? new Date(primaryCred.issueDate).toLocaleDateString('vi-VN') : '15/08/2020'}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500 block">Phạm vi chuyên môn</label>
-                <p className="text-sm font-medium text-slate-900 mt-0.5">
-                  Khám bệnh, chữa bệnh chuyên khoa Y học Gia đình
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-xs text-slate-600">
-                File tài liệu đã nộp: <strong className="tabular-nums">CCHN_SCAN_MAI_TT.pdf</strong>
-              </span>
               <Link
                 href="/doctor/verification"
                 className="text-xs font-semibold text-primary hover:underline flex items-center gap-1"
               >
-                Tải lại file mới
+                Cập nhật hồ sơ
                 <span className="material-symbols-outlined text-xs">arrow_forward</span>
               </Link>
             </div>
+
+            <DoctorCredentialsList doctorId="me" credentials={doctor.credentials} />
           </div>
 
           {/* Panel Capacity (BR-04) */}
@@ -245,16 +182,16 @@ export function DoctorProfileView() {
               Định mức Tải Hộ Gia đình (Panel Capacity Ceiling - BR-04)
             </h3>
             <p className="text-xs text-slate-500">
-              Theo quy chuẩn an toàn y tế FamiDoc, mỗi bác sĩ gia đình chỉ được phụ trách tối đa 150 hộ gia đình cùng lúc nhằm đảm bảo chất lượng theo dõi sức khỏe liên tục.
+              Theo quy chuẩn an toàn y tế FamiDoc, mỗi bác sĩ gia đình chỉ được phụ trách tối đa {doctor.maxPanelCapacity || 30} hộ gia đình cùng lúc nhằm đảm bảo chất lượng theo dõi sức khỏe liên tục.
             </p>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between text-xs font-semibold">
                 <span className="text-slate-700">
-                  Số hộ đang phụ trách: {doctor.activePanelCount || 18} hộ
+                  Số hộ đang phụ trách: {doctor.activePanelCount ?? 0} hộ
                 </span>
                 <span className="text-primary font-bold">
-                  {Math.round(((doctor.activePanelCount || 18) / (doctor.maxPanelCapacity || 150)) * 100)}% dung lượng
+                  {Math.round(((doctor.activePanelCount ?? 0) / (doctor.maxPanelCapacity || 30)) * 100)}% dung lượng
                 </span>
               </div>
               <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
@@ -263,14 +200,14 @@ export function DoctorProfileView() {
                   style={{
                     width: `${Math.min(
                       100,
-                      Math.round(((doctor.activePanelCount || 18) / (doctor.maxPanelCapacity || 150)) * 100)
+                      Math.round(((doctor.activePanelCount ?? 0) / (doctor.maxPanelCapacity || 30)) * 100)
                     )}%`,
                   }}
                 />
               </div>
               <div className="flex justify-between text-[11px] text-slate-400">
                 <span>0 hộ</span>
-                <span>Tối đa: {doctor.maxPanelCapacity || 150} hộ gia đình</span>
+                <span>Tối đa: {doctor.maxPanelCapacity || 30} hộ gia đình</span>
               </div>
             </div>
           </div>

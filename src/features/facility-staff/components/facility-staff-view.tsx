@@ -13,12 +13,19 @@ export interface DoctorStaff {
   department: string;
   cchnNumber: string;
   issueDate: string;
+  credentialsCount?: number;
+  rejectionReason?: string | null;
   panelCap: number;
   maxCap: number;
   rating: number;
   totalEncounters: number;
   status: 'active' | 'on_leave' | 'pending_approval';
-  onboardingStatus?: 'PENDING_SUBMISSION' | 'PENDING_FACILITY_REVIEW' | 'FACILITY_VERIFIED' | 'ACTIVE' | 'REJECTED';
+  onboardingStatus?:
+    | 'PENDING_SUBMISSION'
+    | 'PENDING_FACILITY_REVIEW'
+    | 'FACILITY_VERIFIED'
+    | 'ACTIVE'
+    | 'SUSPENDED';
   email?: string;
   phone?: string;
   experienceYears?: number;
@@ -32,22 +39,21 @@ export function FacilityStaffView() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Modal Thêm Bác sĩ
+  // Modal Thêm Bác sĩ (tối giản)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newDoctorName, setNewDoctorName] = useState('');
   const [newDoctorEmail, setNewDoctorEmail] = useState('');
   const [newDoctorPhone, setNewDoctorPhone] = useState('');
-  const [newDoctorExp, setNewDoctorExp] = useState('5');
+  const [newDoctorExp, setNewDoctorExp] = useState('');
   const [newDoctorDept, setNewDoctorDept] = useState('Khoa Y học Gia đình');
-  const [newDoctorTitle, setNewDoctorTitle] = useState('BS.CKI');
+  const [newDoctorTitle, setNewDoctorTitle] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
-  // Modal Thông báo cấp tài khoản thành công
+  // Modal Thông báo cấp tài khoản thành công (không hiển thị mật khẩu cứng)
   const [createdDoctorInfo, setCreatedDoctorInfo] = useState<{
     name: string;
     email: string;
-    defaultPassword: string;
     specialty: string;
   } | null>(null);
 
@@ -58,16 +64,26 @@ export function FacilityStaffView() {
       const docs = await doctorsApi.getFacilityDoctors();
       if (Array.isArray(docs)) {
         const mapped: DoctorStaff[] = docs.map((d: any, idx: number) => {
-          const cred = Array.isArray(d.credentials) && d.credentials.length > 0 ? d.credentials[0] : null;
-          const cchnNumber = cred?.certificateNumber || d.cchnNumber || (d.onboardingStatus === 'PENDING_SUBMISSION' && !cred ? 'Chờ BS nộp CCHN' : 'Chưa có');
-          const issueDate = cred?.issueDate ? new Date(cred.issueDate).toLocaleDateString('vi-VN') : d.cchnIssueDate || 'Chưa có';
+          const creds = Array.isArray(d.credentials) ? d.credentials : [];
+          const cred =
+            creds.find((c: any) => c.credentialType === 'PRACTICE_LICENSE_CCHN') ||
+            (creds.length > 0 ? creds[0] : null);
+          const cchnNumber =
+            cred?.certificateNumber ||
+            d.cchnNumber ||
+            (d.onboardingStatus === 'PENDING_SUBMISSION' && !cred ? 'Chờ BS nộp hồ sơ' : 'Chưa có');
+          const issueDate = cred?.issueDate
+            ? new Date(cred.issueDate).toLocaleDateString('vi-VN')
+            : d.cchnIssueDate || 'Chưa có';
           return {
             id: d.id || `DOC-00${idx + 1}`,
             name: d.doctorName || d.fullName || 'Bác sĩ',
-            title: d.specialty ? `Bác sĩ ${d.specialty}` : 'Bác sĩ Gia đình',
+            title: d.academicTitle ? `${d.academicTitle} • ${d.specialty || 'Y học Gia đình'}` : d.specialty ? `Bác sĩ ${d.specialty}` : 'Bác sĩ Gia đình',
             department: d.specialty || 'Khoa Y học Gia đình',
             cchnNumber,
             issueDate,
+            credentialsCount: creds.length,
+            rejectionReason: d.rejectionReason || null,
             panelCap: d.activePanelCount ?? 0,
             maxCap: d.maxPanelCapacity ?? 30,
             rating: d.ratingAvg ?? 5.0,
@@ -117,13 +133,18 @@ export function FacilityStaffView() {
     return matchesDept && matchesStatus && matchesSearch;
   });
 
-  // Thẩm định Cấp 1 hồ sơ CCHN của Bác sĩ (Flow 2.1 - Giai đoạn 5)
+  // Thẩm định Cấp 1 hồ sơ chuyên môn của Bác sĩ
   const handleApprove = async (docId: string) => {
     try {
       await doctorsApi.facilityApproveCredentials(docId, {
         approved: true,
         verificationNotes: 'Cơ sở y tế đã thẩm định và phê duyệt Cấp 1 hồ sơ chuyên môn',
       });
+      setStaffList((prev) =>
+        prev.map((d) =>
+          d.id === docId ? { ...d, onboardingStatus: 'FACILITY_VERIFIED', rejectionReason: null } : d
+        )
+      );
       toast.success(`Đã duyệt Cấp 1 cho Bác sĩ. Hồ sơ đã chuyển sang Admin để đối soát CSDL Quốc gia.`);
       await fetchDoctors();
     } catch (err: any) {
@@ -132,7 +153,7 @@ export function FacilityStaffView() {
     }
   };
 
-  // Khởi tạo Bác sĩ mới trực thuộc (Flow 2.1 - Giai đoạn 4)
+  // Khởi tạo Bác sĩ mới trực thuộc (thông tin tối giản, mật khẩu sinh ngẫu nhiên gửi email)
   const handleCreateDoctor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDoctorName || !newDoctorEmail || !newDoctorPhone) return;
@@ -140,13 +161,14 @@ export function FacilityStaffView() {
     setIsSubmitting(true);
     setCreateError(null);
 
+    const parsedExp = newDoctorExp.trim() !== '' ? Number(newDoctorExp) : undefined;
     const payload: CreateFacilityDoctorPayload = {
       doctorName: newDoctorName.trim(),
       email: newDoctorEmail.trim(),
       phone: newDoctorPhone.trim(),
       specialty: newDoctorDept,
-      experienceYears: Number(newDoctorExp) || 3,
-      academicTitle: newDoctorTitle,
+      ...(parsedExp !== undefined && !Number.isNaN(parsedExp) ? { experienceYears: parsedExp } : {}),
+      ...(newDoctorTitle.trim() ? { academicTitle: newDoctorTitle.trim() } : {}),
     };
 
     try {
@@ -156,10 +178,11 @@ export function FacilityStaffView() {
       const newDoc: DoctorStaff = {
         id: createdId,
         name: newDoctorName.trim(),
-        title: `${newDoctorTitle} • ${newDoctorDept}`,
+        title: newDoctorTitle.trim() ? `${newDoctorTitle.trim()} • ${newDoctorDept}` : `Bác sĩ ${newDoctorDept}`,
         department: newDoctorDept,
-        cchnNumber: 'Chờ BS nộp CCHN',
+        cchnNumber: 'Chờ BS nộp hồ sơ',
         issueDate: 'Chưa nộp',
+        credentialsCount: 0,
         panelCap: 0,
         maxCap: 30,
         rating: 5.0,
@@ -168,31 +191,26 @@ export function FacilityStaffView() {
         onboardingStatus: 'PENDING_SUBMISSION',
         email: newDoctorEmail.trim(),
         phone: newDoctorPhone.trim(),
-        experienceYears: Number(newDoctorExp) || 3,
-        academicTitle: newDoctorTitle,
+        experienceYears: parsedExp ?? 0,
+        academicTitle: newDoctorTitle.trim() || undefined,
       };
 
-      // Cập nhật ngay lập tức bác sĩ vừa tạo lên bảng giao diện
       setStaffList((prev) => [newDoc, ...prev]);
+      fetchDoctors().catch(() => {});
 
-      // Đồng bộ ngầm với backend
-      fetchDoctors().catch(() => { });
-
-      // Đóng form tạo, mở modal thông báo cấp tài khoản thành công
       setIsModalOpen(false);
       setCreatedDoctorInfo({
         name: newDoctorName.trim(),
         email: newDoctorEmail.trim(),
-        defaultPassword: 'FamiDoc@Doctor2026',
         specialty: newDoctorDept,
       });
 
-      // Reset input fields
       setNewDoctorName('');
       setNewDoctorEmail('');
       setNewDoctorPhone('');
-      setNewDoctorExp('5');
-      toast.success(`Khởi tạo Bác sĩ thành công trên Database!`);
+      setNewDoctorExp('');
+      setNewDoctorTitle('');
+      toast.success(`Đã khởi tạo tài khoản Bác sĩ và gửi email thông tin đăng nhập!`);
     } catch (err: any) {
       console.warn('Lỗi khi gọi API khởi tạo Bác sĩ:', err?.message || err);
       const errorMsg = extractErrorMessage(
@@ -368,14 +386,16 @@ export function FacilityStaffView() {
                             <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
                               ● Đã duyệt Cấp 1 (Chờ Admin)
                             </span>
-                          ) : (doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' || (doc.onboardingStatus === 'PENDING_SUBMISSION' && doc.cchnNumber && doc.cchnNumber !== 'Chờ BS nộp CCHN' && doc.cchnNumber !== 'Chưa có')) ? (
+                          ) : doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' ? (
                             <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
                               ● Chờ CSYT duyệt Cấp 1
                             </span>
                           ) : (
-                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
-                              Chờ BS nộp CCHN
-                            </span>
+                            <div className="inline-flex flex-col items-center gap-1">
+                              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                                {doc.rejectionReason ? 'Yêu cầu bổ sung hồ sơ' : 'Chờ BS nộp hồ sơ'}
+                              </span>
+                            </div>
                           )}
                         </td>
 
@@ -385,9 +405,9 @@ export function FacilityStaffView() {
                               href={`/facility/doctors/${doc.id}`}
                               className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors border border-slate-200"
                             >
-                              Hồ sơ CCHN
+                              Hồ sơ chuyên môn
                             </Link>
-                            {(doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' || (doc.onboardingStatus === 'PENDING_SUBMISSION' && doc.cchnNumber && doc.cchnNumber !== 'Chờ BS nộp CCHN' && doc.cchnNumber !== 'Chưa có')) && (
+                            {doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' && (
                               <button
                                 type="button"
                                 onClick={() => handleApprove(doc.id)}
@@ -442,7 +462,7 @@ export function FacilityStaffView() {
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div>
                   <h3 className="font-bold text-slate-900 text-base">Khởi tạo Tài khoản Bác sĩ Trực thuộc</h3>
-                  <p className="text-xs text-slate-500 mt-0.5">Flow 2.1 • Cấp tài khoản mặc định để bác sĩ đăng nhập nộp CCHN</p>
+                  <p className="text-xs text-slate-500 mt-0.5">Cấp tài khoản tối giản • Bác sĩ tự hoàn thiện hồ sơ chuyên môn và nộp 3 chứng chỉ bắt buộc</p>
                 </div>
                 <button
                   type="button"
@@ -509,13 +529,14 @@ export function FacilityStaffView() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Học vị / Học hàm
+                      Học vị / Học hàm (tùy chọn)
                     </label>
                     <select
                       value={newDoctorTitle}
                       onChange={(e) => setNewDoctorTitle(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 bg-white"
                     >
+                      <option value="">-- Để bác sĩ tự cập nhật --</option>
                       <option value="BS">Bác sĩ (BS)</option>
                       <option value="ThS.BS">Thạc sĩ Bác sĩ (ThS.BS)</option>
                       <option value="BS.CKI">Bác sĩ Chuyên khoa 1 (BS.CKI)</option>
@@ -527,12 +548,13 @@ export function FacilityStaffView() {
 
                   <div>
                     <label className="block text-xs font-semibold text-slate-700 mb-1">
-                      Số năm kinh nghiệm
+                      Số năm kinh nghiệm (tùy chọn)
                     </label>
                     <input
                       type="number"
-                      min={1}
-                      max={50}
+                      min={0}
+                      max={60}
+                      placeholder="Bác sĩ có thể cập nhật sau"
                       value={newDoctorExp}
                       onChange={(e) => setNewDoctorExp(e.target.value)}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm tabular-nums focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
@@ -552,20 +574,10 @@ export function FacilityStaffView() {
                     <option value="Khoa Y học Gia đình">Khoa Y học Gia đình</option>
                     <option value="Khoa Nội Tổng quát">Khoa Nội Tổng quát</option>
                     <option value="Khoa Nhi">Khoa Nhi</option>
-                    <option value="Khoa Cấp cứu & Y tế Gia đình">Khoa Cấp cứu & Y tế Gia đình</option>
+                    <option value="Khoa Cấp cứu & Y tế Gia đình">Khoa Cấp cứu &amp; Y tế Gia đình</option>
                     <option value="Khoa Nội tiết">Khoa Nội tiết</option>
                   </select>
-                </div>
-
-                <div className="p-3 bg-blue-50/70 rounded-xl border border-blue-200 text-xs text-blue-900 space-y-1">
-                  <p className="font-bold flex items-center gap-1.5 text-blue-700">
-                    <span className="material-symbols-outlined text-[16px]">info</span>
-                    <span>Quy trình kích hoạt nhân sự (Flow 2.1):</span>
-                  </p>
-                  <p className="text-[11px] leading-relaxed">
-                    Hệ thống tự động cấp mật khẩu khởi tạo: <strong className="tracking-wide">FamiDoc@Doctor2026</strong>. Bác sĩ sẽ đăng nhập lần đầu để đổi mật khẩu và nộp Chứng chỉ hành nghề (CCHN) để được CSYT duyệt Cấp 1.
-                  </p>
-                </div>
+                </div>  
 
                 <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
                   <button
@@ -599,19 +611,19 @@ export function FacilityStaffView() {
               <div>
                 <h3 className="text-base font-bold text-slate-900">Khởi Tạo Bác Sĩ Thành Công!</h3>
                 <p className="text-xs text-slate-500 mt-1">
-                  Thông tin đăng nhập ban đầu đã được thiết lập cho <strong>{createdDoctorInfo.name}</strong>.
+                  Tài khoản đã được tạo cho <strong>{createdDoctorInfo.name}</strong> và thông tin đăng nhập kèm mật khẩu ngẫu nhiên an toàn đã được gửi qua email.
                 </p>
               </div>
 
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100 space-y-2 text-xs">
                 <div className="flex justify-between items-center">
-                  <span className="text-slate-500">Email đăng nhập:</span>
+                  <span className="text-slate-500">Email nhận thông báo:</span>
                   <span className="font-semibold text-slate-900 tracking-wide">{createdDoctorInfo.email}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Mật khẩu khởi tạo:</span>
-                  <span className="font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded tracking-wide">
-                    {createdDoctorInfo.defaultPassword}
+                  <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+                    Đã gửi qua email bác sĩ
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
@@ -620,27 +632,15 @@ export function FacilityStaffView() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">Trạng thái:</span>
-                  <span className="font-bold text-amber-700">PENDING_SUBMISSION (Chờ nộp CCHN)</span>
+                  <span className="font-bold text-amber-700">PENDING_SUBMISSION (Chờ nộp hồ sơ)</span>
                 </div>
               </div>
 
               <p className="text-[11px] text-slate-500 italic">
-                * Bác sĩ cần đăng nhập vào Portal Bác sĩ, thực hiện đổi mật khẩu bắt buộc và tải lên hồ sơ CCHN để CSYT thẩm định Cấp 1.
+                * Bác sĩ cần đăng nhập vào Portal Bác sĩ, cập nhật thông tin cá nhân và tải lên đủ 3 chứng chỉ bắt buộc để CSYT thẩm định Cấp 1.
               </p>
 
               <div className="flex items-center justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const text = `Tài khoản Bác sĩ FamiDoc:\n- Email đăng nhập: ${createdDoctorInfo.email}\n- Mật khẩu khởi tạo: ${createdDoctorInfo.defaultPassword}\n- Cổng đăng nhập: ${typeof window !== 'undefined' ? window.location.origin : ''}/login`;
-                    void navigator.clipboard.writeText(text);
-                    toast.success('Đã sao chép thông tin tài khoản bác sĩ vào bộ nhớ tạm!');
-                  }}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">content_copy</span>
-                  <span>Sao chép thông tin</span>
-                </button>
                 <button
                   type="button"
                   onClick={() => setCreatedDoctorInfo(null)}

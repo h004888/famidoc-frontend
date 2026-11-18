@@ -5,6 +5,12 @@ import { FacilityContractsView } from '../facility-contracts-view';
 import { contractsApi } from '@/lib/api/contracts.api';
 import { facilitiesApi } from '@/lib/api/facilities.api';
 
+vi.mock('@documenso/embed-react', () => ({
+  EmbedSignDocument: ({ token, host }: { token: string; host?: string }) => (
+    <div data-testid="mock-facility-b2b-documenso" data-token={token} data-host={host} />
+  ),
+}));
+
 vi.mock('@/lib/api/facilities.api', () => ({
   facilitiesApi: {
     getMyFacilityProfile: vi.fn().mockResolvedValue({
@@ -18,6 +24,9 @@ vi.mock('@/lib/api/contracts.api', () => ({
     getStaffingContracts: vi.fn(),
     signStaffingContract: vi.fn(),
     rejectStaffingContract: vi.fn(),
+    getStaffingSigningSession: vi.fn(),
+    syncStaffingDocumenso: vi.fn(),
+    fetchStaffingSignedPdfBlobUrl: vi.fn(),
   },
 }));
 
@@ -65,7 +74,7 @@ describe('FacilityContractsView (/facility/contracts — B2B Only)', () => {
 
     const summaryCard = await screen.findByTestId('facility-b2b-summary-card');
     expect(contractsApi.getStaffingContracts).toHaveBeenCalledWith(
-      { limit: 100 },
+      { limit: 50 },
       { throwOnError: true }
     );
     expect(summaryCard).toBeInTheDocument();
@@ -142,35 +151,60 @@ describe('FacilityContractsView (/facility/contracts — B2B Only)', () => {
     expect(contractsApi.getStaffingContracts).toHaveBeenCalledTimes(2);
   });
 
-  it('allows quick signing via shadcn Dialog and updates contract status to ACTIVE', async () => {
-    vi.mocked(contractsApi.getStaffingContracts).mockResolvedValue({
-      data: [draftContract],
-      total: 1,
+  it('opens Documenso sequential signing dialog for B2B contract and syncs completion', async () => {
+    vi.mocked(contractsApi.getStaffingContracts)
+      .mockResolvedValueOnce({
+        data: [draftContract],
+        total: 1,
+      })
+      .mockResolvedValue({
+        data: [{ ...draftContract, rawStatus: 'PENDING_ADMIN_SIGNATURE', facilitySigned: true, adminSigned: false }],
+        total: 1,
+      });
+    vi.mocked(contractsApi.getStaffingSigningSession).mockResolvedValue({
+      contractId: 'ctr-b2b-002',
+      contractCode: 'HĐHT-2026-ND1-002',
+      status: 'PENDING_FACILITY_SIGNATURE',
+      signerRole: 'HEALTHCARE_FACILITY',
+      alreadySigned: false,
+      canSign: true,
+      signingToken: 'tok-b2b-fac-1',
+      signingUrl: 'https://sign.famidoc.online/sign/tok-b2b-fac-1',
+      facilitySigned: false,
+      adminSigned: false,
+      signedPdfUrl: null,
     });
-    vi.mocked(contractsApi.signStaffingContract).mockResolvedValue({ statusCode: 200 });
+    vi.mocked(contractsApi.syncStaffingDocumenso).mockResolvedValue({
+      synced: true,
+      contractId: 'ctr-b2b-002',
+      status: 'PENDING_ADMIN_SIGNATURE',
+      facilitySigned: true,
+      adminSigned: false,
+      signedPdfUrl: null,
+    });
 
     render(<FacilityContractsView />);
 
     await screen.findByTestId('facility-b2b-summary-card');
-    fireEvent.click(screen.getByRole('button', { name: /Ký số nhanh/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Ký số \(Documenso\)/i }));
 
     expect(
-      await screen.findByText(/Xác nhận ký số Hợp đồng Hợp tác B2B/i)
+      await screen.findByText(/Ký Hợp Đồng B2B Trên Documenso — Cơ sở Y tế/i)
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Xác nhận ký số/i }));
+    const embed = await screen.findByTestId('mock-facility-b2b-documenso');
+    expect(embed).toHaveAttribute('data-token', 'tok-b2b-fac-1');
+
+    fireEvent.click(screen.getByRole('button', { name: /Đồng bộ sau khi ký/i }));
 
     await waitFor(() => {
-      expect(contractsApi.signStaffingContract).toHaveBeenCalledWith(
-        'ctr-b2b-002',
-        expect.objectContaining({ confirmed: true })
-      );
+      expect(contractsApi.syncStaffingDocumenso).toHaveBeenCalledWith('ctr-b2b-002');
     });
 
-    expect(await screen.findByText('Đang hiệu lực')).toBeInTheDocument();
+    expect(await screen.findByText('Đã ký · Chờ Admin ký')).toBeInTheDocument();
   });
 
-  it('allows rejecting draft via shadcn Dialog with 5-char validation and renders TERMINATED banner', async () => {
+  it('allows requesting revision via shadcn Dialog with 5-char validation and renders REVISION_REQUESTED banner', async () => {
     vi.mocked(contractsApi.getStaffingContracts).mockResolvedValue({
       data: [draftContract],
       total: 1,
@@ -204,7 +238,7 @@ describe('FacilityContractsView (/facility/contracts — B2B Only)', () => {
     });
 
     expect(
-      await screen.findByText(/Đã từ chối \/ Đàm phán lại/i)
+      await screen.findByText(/Đã gửi yêu cầu sửa/i)
     ).toBeInTheDocument();
     const terminatedBanner = screen.getByTestId('facility-b2b-terminated-banner');
     expect(terminatedBanner).toHaveTextContent(

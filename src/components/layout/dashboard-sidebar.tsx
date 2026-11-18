@@ -6,6 +6,10 @@ import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
 import {
+  isRestrictedFacilityPath,
+  useFacilityVerificationGateState,
+} from './facility-verification-gate';
+import {
   isRestrictedFamilyPath,
   useFamilySubscriptionGateState,
 } from './family-subscription-gate';
@@ -235,6 +239,7 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const pathname = usePathname() || '/family';
   const { role, user } = useAuth();
   const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
+  const { isFacilityLocked } = useFacilityVerificationGateState();
   const sidebar = useOptionalSidebar();
 
   const [mounted, setMounted] = useState(false);
@@ -257,6 +262,14 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const effectiveRole: LoginRole = pathRole || initialRole || (mounted ? role : 'FAMILY');
   const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
 
+  const isFacilityRestricted = (href: string) =>
+    effectiveRole === 'FACILITY' && isFacilityLocked && isRestrictedFacilityPath(href);
+
+  const logoHref =
+    effectiveRole === 'FACILITY' && isFacilityLocked
+      ? '/facility/legal-profile'
+      : getDefaultPathForRole(effectiveRole);
+
   const avatarText = mounted ? (user?.avatarText || 'FD') : 'FD';
 
   const mobileMenuOpen = sidebar ? sidebar.openMobile : localMobileOpen;
@@ -274,7 +287,7 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
         )}
       >
         <Link
-          href={getDefaultPathForRole(effectiveRole)}
+          href={logoHref}
           className="flex items-center overflow-hidden outline-hidden"
           title="Bảng điều khiển FamiDoc"
           aria-label="Bảng điều khiển FamiDoc"
@@ -309,7 +322,14 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
       <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
         <div className="space-y-1">
           {currentMenu.items.map((item) => {
-            const isItemLocked = isFamilyLocked && isRestrictedFamilyPath(item.href);
+            const facilityItemLocked = isFacilityRestricted(item.href);
+            const isItemLocked =
+              (isFamilyLocked && isRestrictedFamilyPath(item.href)) ||
+              facilityItemLocked;
+            const lockTooltip = facilityItemLocked
+              ? 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
+              : 'Cần kích hoạt gói chăm sóc để mở khóa';
+            const lockBadge = facilityItemLocked ? 'Chờ duyệt' : 'Cần gói';
             const isActive =
               !isItemLocked &&
               (item.exact ? pathname === item.href : pathname.startsWith(item.href));
@@ -321,8 +341,8 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                   type="button"
                   disabled
                   aria-disabled="true"
-                  title="Cần kích hoạt gói chăm sóc để mở khóa"
-                  aria-label={`${item.label} (Đã khóa - cần kích hoạt gói)`}
+                  title={lockTooltip}
+                  aria-label={`${item.label} (Đã khóa)`}
                   className={cn(
                     'flex w-full cursor-not-allowed items-center justify-between rounded-xl bg-slate-50/70 px-3 py-2.5 text-xs font-medium text-slate-400 opacity-75 sm:text-sm',
                     isCollapsedState && 'justify-center px-2'
@@ -339,7 +359,7 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                       variant="outline"
                       className="shrink-0 rounded-full border-amber-200/80 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800"
                     >
-                      Cần gói
+                      {lockBadge}
                     </Badge>
                   )}
                 </button>
@@ -591,7 +611,13 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
           )}
         >
           {primaryMobileTabs.map((item) => {
-            const isItemLocked = isFamilyLocked && isRestrictedFamilyPath(item.href);
+            const facilityItemLocked = isFacilityRestricted(item.href);
+            const isItemLocked =
+              (isFamilyLocked && isRestrictedFamilyPath(item.href)) ||
+              facilityItemLocked;
+            const lockTooltip = facilityItemLocked
+              ? 'Chờ Admin duyệt hồ sơ pháp lý để mở khóa'
+              : 'Cần kích hoạt gói chăm sóc để mở khóa';
             const isActive =
               !isItemLocked &&
               (item.exact ? pathname === item.href : pathname.startsWith(item.href));
@@ -603,7 +629,8 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                   type="button"
                   disabled
                   aria-disabled="true"
-                  title="Cần kích hoạt gói chăm sóc để mở khóa"
+                  title={lockTooltip}
+                  aria-label={`${item.label} (Đã khóa)`}
                   className="relative flex cursor-not-allowed flex-col items-center justify-center rounded-xl px-1 py-1.5 font-medium text-slate-400 opacity-70"
                 >
                   <span className="material-symbols-outlined text-[20px] leading-none text-slate-400">

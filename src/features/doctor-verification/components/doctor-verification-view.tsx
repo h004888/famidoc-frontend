@@ -1,36 +1,108 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
-import { doctorsApi, extractErrorMessage, type DoctorProfileDto } from '@/lib/api';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  doctorsApi,
+  extractErrorMessage,
+  type DoctorCredentialDto,
+  type DoctorProfileDto,
+} from '@/lib/api';
+import { REQUIRED_CREDENTIAL_DEFS } from '@/components/shared';
+import { Button } from '@/components/ui/button';
+
+type CredentialType = DoctorCredentialDto['credentialType'];
+
+interface CredentialFormItem {
+  id?: string;
+  certificateNumber: string;
+  issuingAuthority: string;
+  issueDate: string;
+  file: File | null;
+  existingFileUrl?: string;
+  facilityVerified?: boolean;
+  platformApproved?: boolean;
+}
+
+const createEmptyCredentialsForm = (): Record<CredentialType, CredentialFormItem> => ({
+  PRACTICE_LICENSE_CCHN: {
+    certificateNumber: '',
+    issuingAuthority: '',
+    issueDate: '',
+    file: null,
+  },
+  DEGREE: {
+    certificateNumber: '',
+    issuingAuthority: '',
+    issueDate: '',
+    file: null,
+  },
+  FAMILY_MEDICINE_CERT: {
+    certificateNumber: '',
+    issuingAuthority: '',
+    issueDate: '',
+    file: null,
+  },
+});
+
+const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'];
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 export function DoctorVerificationView() {
+  const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<DoctorProfileDto | null>(null);
-  const [cchnNumber, setCchnNumber] = useState('');
-  const [issueDate, setIssueDate] = useState('');
-  const [issuingAuthority, setIssuingAuthority] = useState('');
-  const [scopeOfPractice, setScopeOfPractice] = useState('Khám bệnh, chữa bệnh Nội khoa & Y học gia đình');
-  const [selectedHospital, setSelectedHospital] = useState('');
-
   const [onboardingStatus, setOnboardingStatus] = useState<string>('PENDING_SUBMISSION');
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState<string | null>(null);
+  const [selectedHospital, setSelectedHospital] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
-  // Form states in modal
-  const [formCchn, setFormCchn] = useState('');
-  const [formScope, setFormScope] = useState('Khám bệnh, chữa bệnh Nội khoa & Y học gia đình');
-  const [formIssuer, setFormIssuer] = useState('');
-  const [formDate, setFormDate] = useState('');
-  const [formFiles, setFormFiles] = useState<string[]>([]);
-  const [selectedFileObjects, setSelectedFileObjects] = useState<{ name: string; size: string }[]>([]);
+  // Editable professional profile fields
+  const [formAcademicTitle, setFormAcademicTitle] = useState('');
+  const [formSpecialty, setFormSpecialty] = useState('Khoa Y học Gia đình');
+  const [formExperienceYears, setFormExperienceYears] = useState('0');
+  const [formBio, setFormBio] = useState('');
+
+  // All 3 required credential entries
+  const [credentialsForm, setCredentialsForm] = useState<Record<CredentialType, CredentialFormItem>>(
+    createEmptyCredentialsForm,
+  );
+
+  const hydrateFromProfile = (data: DoctorProfileDto | null) => {
+    if (!data) return;
+    setProfile(data);
+    if (data.onboardingStatus) {
+      setOnboardingStatus(data.onboardingStatus);
+    }
+    setRejectionReason(data.rejectionReason || null);
+    const hospitalName = data.facility?.facilityName || data.facilityName;
+    if (hospitalName) {
+      setSelectedHospital(hospitalName);
+    }
+    setFormAcademicTitle(data.academicTitle || '');
+    setFormSpecialty(data.specialty || 'Khoa Y học Gia đình');
+    setFormExperienceYears(String(data.experienceYears ?? 0));
+    setFormBio(data.bio || '');
+
+    const nextForm = createEmptyCredentialsForm();
+    if (Array.isArray(data.credentials)) {
+      for (const cred of data.credentials) {
+        if (!cred || !nextForm[cred.credentialType]) continue;
+        nextForm[cred.credentialType] = {
+          id: cred.id,
+          certificateNumber: cred.certificateNumber || '',
+          issuingAuthority: cred.issuingAuthority || '',
+          issueDate: cred.issueDate ? new Date(cred.issueDate).toISOString().split('T')[0] : '',
+          file: null,
+          existingFileUrl: cred.fileUrl || undefined,
+          facilityVerified: cred.facilityVerified,
+          platformApproved: cred.platformApproved,
+        };
+      }
+    }
+    setCredentialsForm(nextForm);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -39,287 +111,406 @@ export function DoctorVerificationView() {
       .then((res: any) => {
         if (!isMounted) return;
         const data: DoctorProfileDto | null =
-          res && typeof res === 'object' && 'data' in res && res.data && typeof res.data === 'object' && !Array.isArray(res.data)
+          res &&
+          typeof res === 'object' &&
+          'data' in res &&
+          res.data &&
+          typeof res.data === 'object' &&
+          !Array.isArray(res.data)
             ? (res.data as DoctorProfileDto)
             : (res as DoctorProfileDto);
-
-        if (data) {
-          setProfile(data);
-          if (data.onboardingStatus) {
-            setOnboardingStatus(data.onboardingStatus);
-          }
-          const hospitalName = data.facility?.facilityName || data.facilityName;
-          if (hospitalName) {
-            setSelectedHospital(hospitalName);
-          }
-          if (data.specialty) {
-            const scopeText = `Khám bệnh, chữa bệnh chuyên khoa ${data.specialty}`;
-            setScopeOfPractice(scopeText);
-            setFormScope(scopeText);
-          }
-          if (data.credentials && data.credentials.length > 0) {
-            const primary =
-              data.credentials.find((c) => c.credentialType === 'PRACTICE_LICENSE_CCHN') ||
-              data.credentials[0];
-
-            if (primary.certificateNumber) {
-              setCchnNumber(primary.certificateNumber);
-              setFormCchn(primary.certificateNumber);
-            }
-            if (primary.issuingAuthority) {
-              setIssuingAuthority(primary.issuingAuthority);
-              setFormIssuer(primary.issuingAuthority);
-            }
-            if (primary.issueDate) {
-              const dStr = new Date(primary.issueDate).toISOString().split('T')[0];
-              setIssueDate(dStr);
-              setFormDate(dStr);
-            }
-
-            const uploadedFiles = data.credentials
-              .map((c) => c.fileUrl)
-              .filter(Boolean);
-            if (uploadedFiles.length > 0) {
-              setFormFiles(uploadedFiles);
-            }
-          }
-        }
+        hydrateFromProfile(data);
       })
       .catch((err) => {
         console.warn('Doctor profile fetch fallback:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
       });
     return () => {
       isMounted = false;
     };
   }, []);
 
+  const updateCredentialField = (
+    type: CredentialType,
+    patch: Partial<CredentialFormItem>,
+  ) => {
+    setCredentialsForm((prev) => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        ...patch,
+      },
+    }));
+  };
+
+  const handleFileChange = (type: CredentialType, file: File | null, label: string) => {
+    if (!file) {
+      updateCredentialField(type, { file: null });
+      return;
+    }
+    const lower = file.name.toLowerCase();
+    const hasValidExt = ALLOWED_EXTENSIONS.some((ext) => lower.endsWith(ext));
+    if (!hasValidExt) {
+      toast.error(`${label}: Chỉ chấp nhận định dạng PDF, PNG hoặc JPG/JPEG.`);
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE_BYTES) {
+      toast.error(`${label}: File "${file.name}" vượt quá giới hạn 10MB.`);
+      return;
+    }
+    updateCredentialField(type, { file });
+    toast.success(`Đã chọn tệp "${file.name}" cho ${label}.`);
+  };
+
+  const handlePreviewExistingFile = async (type: CredentialType) => {
+    const entry = credentialsForm[type];
+    const targetKey = entry.id || type;
+    setOpeningId(targetKey);
+    try {
+      if (entry.id) {
+        const blobUrl = await doctorsApi.fetchCredentialFileBlobUrl('me', entry.id);
+        window.open(blobUrl, '_blank', 'noopener,noreferrer');
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 60_000);
+      } else if (entry.existingFileUrl && entry.existingFileUrl.startsWith('http')) {
+        window.open(entry.existingFileUrl, '_blank', 'noopener,noreferrer');
+      } else {
+        toast.error('Không tìm thấy tệp chứng chỉ hợp lệ để mở.');
+      }
+    } catch (err: any) {
+      toast.error(extractErrorMessage(err, 'Không thể tải tệp chứng chỉ từ máy chủ.'));
+    } finally {
+      setOpeningId(null);
+    }
+  };
+
   const handleSubmitCredentials = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formCchn.trim()) {
-      toast.error('Vui lòng nhập Số chứng chỉ hành nghề (CCHN).');
+    if (!formSpecialty.trim()) {
+      toast.error('Vui lòng nhập Chuyên khoa hành nghề.');
       return;
     }
-    if (!formIssuer.trim()) {
-      toast.error('Vui lòng nhập Cơ quan cấp phép CCHN.');
+
+    const expNum = Number(formExperienceYears);
+    if (Number.isNaN(expNum) || expNum < 0 || expNum > 60) {
+      toast.error('Số năm kinh nghiệm phải nằm trong khoảng 0 - 60 năm.');
       return;
     }
-    if (!formDate.trim()) {
-      toast.error('Vui lòng chọn Ngày cấp CCHN.');
-      return;
-    }
-    const issueDateObj = new Date(formDate);
-    if (!isNaN(issueDateObj.getTime()) && issueDateObj > new Date()) {
-      toast.error('Ngày cấp chứng chỉ không thể là ngày trong tương lai.');
-      return;
+
+    const today = new Date();
+    for (const def of REQUIRED_CREDENTIAL_DEFS) {
+      const item = credentialsForm[def.type];
+      if (!item.certificateNumber.trim()) {
+        toast.error(`Vui lòng nhập Số hiệu cho ${def.shortLabel}.`);
+        return;
+      }
+      if (!item.issuingAuthority.trim()) {
+        toast.error(`Vui lòng nhập Cơ quan cấp cho ${def.shortLabel}.`);
+        return;
+      }
+      if (!item.issueDate.trim()) {
+        toast.error(`Vui lòng chọn Ngày cấp cho ${def.shortLabel}.`);
+        return;
+      }
+      const parsedDate = new Date(item.issueDate);
+      if (Number.isNaN(parsedDate.getTime()) || parsedDate > today) {
+        toast.error(`Ngày cấp của ${def.shortLabel} không hợp lệ hoặc nằm trong tương lai.`);
+        return;
+      }
+      if (!item.file && !item.existingFileUrl) {
+        toast.error(`Vui lòng tải lên tệp scan (PDF/PNG/JPG) cho ${def.shortLabel}.`);
+        return;
+      }
     }
 
     setIsSubmitting(true);
     try {
-      const res = await doctorsApi.submitMyCredentials({
-        cchnNumber: formCchn.trim(),
-        scopeOfPractice: formScope.trim(),
-        issuedBy: formIssuer.trim(),
-        issuedDate: formDate.trim(),
-        certificateFiles: formFiles,
+      const credentialsPayload = REQUIRED_CREDENTIAL_DEFS.map((def) => {
+        const item = credentialsForm[def.type];
+        return {
+          credentialType: def.type,
+          certificateNumber: item.certificateNumber.trim(),
+          issueDate: item.issueDate.trim(),
+          issuingAuthority: item.issuingAuthority.trim(),
+        };
       });
 
-      if (res) {
-        setProfile(res);
-        if (res.onboardingStatus) {
-          setOnboardingStatus(res.onboardingStatus);
-        }
-        if (res.credentials && res.credentials.length > 0) {
-          const primary =
-            res.credentials.find((c: any) => c.credentialType === 'PRACTICE_LICENSE_CCHN') ||
-            res.credentials[0];
-          setCchnNumber(primary.certificateNumber || formCchn);
-          setIssuingAuthority(primary.issuingAuthority || formIssuer);
-          if (primary.issueDate) {
-            setIssueDate(new Date(primary.issueDate).toISOString().split('T')[0]);
-          }
-          const files = res.credentials.map((c: any) => c.fileUrl).filter(Boolean);
-          if (files.length > 0) {
-            setFormFiles(files);
-          }
-        } else {
-          setCchnNumber(formCchn);
-          setIssuingAuthority(formIssuer);
-          setIssueDate(formDate);
-        }
+      const res: any = await doctorsApi.submitMyCredentials({
+        academicTitle: formAcademicTitle.trim() || undefined,
+        specialty: formSpecialty.trim(),
+        experienceYears: expNum,
+        bio: formBio.trim() || undefined,
+        credentials: credentialsPayload,
+        cchnFile: credentialsForm.PRACTICE_LICENSE_CCHN.file,
+        degreeFile: credentialsForm.DEGREE.file,
+        familyMedicineFile: credentialsForm.FAMILY_MEDICINE_CERT.file,
+      });
+
+      if (
+        res &&
+        typeof res === 'object' &&
+        ('id' in res || 'credentials' in res || 'onboardingStatus' in res)
+      ) {
+        hydrateFromProfile(res as DoctorProfileDto);
       } else {
-        setCchnNumber(formCchn);
-        setScopeOfPractice(formScope);
-        setIssuingAuthority(formIssuer);
-        setIssueDate(formDate);
-        setOnboardingStatus('PENDING_SUBMISSION');
+        setOnboardingStatus('PENDING_FACILITY_REVIEW');
+        setRejectionReason(null);
       }
 
-      toast.success('Đã nộp hồ sơ CCHN lên hệ thống! Hồ sơ đang chờ Cơ sở y tế thẩm định Cấp 1.');
-      setShowUpdateModal(false);
+      toast.success(
+        'Đã nộp đủ 3 chứng chỉ & hồ sơ cá nhân! Hồ sơ đang chờ Cơ sở y tế thẩm định Cấp 1.',
+      );
     } catch (err: any) {
-      console.warn('Lỗi khi nộp CCHN:', err?.message || err);
-      toast.error(extractErrorMessage(err, 'Có lỗi khi nộp hồ sơ CCHN lên máy chủ.'));
+      console.warn('Lỗi khi nộp hồ sơ chuyên môn:', err?.message || err);
+      toast.error(extractErrorMessage(err, 'Có lỗi khi nộp hồ sơ chuyên môn lên máy chủ.'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const isLevel1Approved =
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-8">
+        <div className="w-9 h-9 border-3 border-blue-600/20 border-t-blue-600 rounded-full animate-spin" />
+        <span className="text-xs font-medium text-slate-500 mt-3">
+          Đang tải hồ sơ y khoa &amp; chứng chỉ hành nghề...
+        </span>
+      </div>
+    );
+  }
+
+  const cchnNumber = credentialsForm.PRACTICE_LICENSE_CCHN.certificateNumber;
+  const uploadedCount = REQUIRED_CREDENTIAL_DEFS.filter((def) => {
+    const entry = credentialsForm[def.type];
+    return Boolean(entry.file || entry.existingFileUrl);
+  }).length;
+  const isSubmitted =
+    onboardingStatus === 'PENDING_FACILITY_REVIEW' ||
     onboardingStatus === 'FACILITY_VERIFIED' ||
-    onboardingStatus === 'FACILITY_APPROVED' ||
     onboardingStatus === 'ACTIVE';
+  const isLevel1Approved =
+    onboardingStatus === 'FACILITY_VERIFIED' || onboardingStatus === 'ACTIVE';
   const isLevel2Approved = onboardingStatus === 'ACTIVE';
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans antialiased">
-      <main className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* Header */}
-        <Card className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border-slate-200 shadow-xs">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a]">
-                Hồ Sơ Y Khoa &amp; Xác Thực Chứng Chỉ Hành Nghề (CCHN)
-              </h1>
-              {isLevel2Approved ? (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#f6ffed] text-[#03864b] border border-[#b7eb8f]">
-                  Đã duyệt 2 cấp · Hoạt động hợp pháp
-                </span>
-              ) : isLevel1Approved ? (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                  CSYT đã duyệt Cấp 1 · Chờ Nền tảng
-                </span>
-              ) : (
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 animate-pulse">
-                  Chờ CSYT thẩm định Cấp 1
-                </span>
-              )}
-            </div>
-            <p className="text-xs text-[#475569] mt-1">
-              Quy trình thẩm định năng lực 2 cấp chuẩn Bộ Y Tế: Cơ sở y tế bệnh viện thẩm định (Cấp 1) &amp; Nền tảng FamiDoc phê duyệt chính thức (Cấp 2).
-            </p>
-          </div>
-
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setShowUpdateModal(true)}
-            className="rounded-xl text-xs font-bold gap-1.5 self-start md:self-auto"
-          >
-            <span className="material-symbols-outlined text-[16px]">upload_file</span>
-            <span>Cập nhật / Nộp hồ sơ CCHN</span>
-          </Button>
-        </Card>
-
-        {/* Warning khi bị từ chối */}
-        {onboardingStatus === 'REJECTED' && (
-          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs sm:text-sm text-rose-900 flex items-start justify-between gap-3 shadow-xs">
-            <div className="flex items-start gap-2.5">
-              <span className="material-symbols-outlined text-rose-600 text-xl shrink-0 mt-0.5">error</span>
-              <div>
-                <p className="font-bold text-rose-900">Hồ sơ CCHN cần bổ sung hoặc đã bị từ chối</p>
-                <p className="text-xs text-rose-700 mt-0.5">
-                  Thông tin chứng chỉ hoặc phạm vi hoạt động chuyên môn chưa khớp với CSDL y tế. Vui lòng kiểm tra lại thông tin và nộp lại hồ sơ.
-                </p>
-              </div>
-            </div>
-            <Button
-              type="button"
-              size="sm"
-              onClick={() => setShowUpdateModal(true)}
-              className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shrink-0"
-            >
-              Cập nhật lại
-            </Button>
-          </div>
-        )}
-
-        {/* Verification Status Banner (2-Tier Pipeline chuẩn BYT) */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
-            <div>
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-                Tiến trình thẩm định hồ sơ y khoa 2 cấp
-              </span>
-              <h3 className="text-base font-bold text-[#0f172a] mt-0.5">
-                {isLevel2Approved
-                  ? 'Hồ sơ đã được phê duyệt toàn diện & Cấp quyền Kê đơn điện tử HSM'
-                  : isLevel1Approved
-                  ? 'Cấp 1 hoàn tất: Đang chờ Nền tảng FamiDoc phê duyệt kích hoạt tiếp nhận bệnh nhân'
-                  : 'Đang thẩm định hồ sơ: Chờ Hội đồng chuyên môn CSYT xác minh CCHN'}
-              </h3>
-            </div>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto ${
-                isLevel2Approved
-                  ? 'bg-[#f6ffed] text-[#03864b] border border-[#b7eb8f]'
-                  : 'bg-amber-50 text-amber-800 border border-amber-200'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">
-                {isLevel2Approved ? 'verified' : 'pending'}
-              </span>
-              {isLevel2Approved ? 'Hoạt động hợp pháp 100%' : 'Chờ hoàn tất duyệt'}
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased">
+      <main className="max-w-6xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        {/* Breadcrumb & Navigation */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Link href="/doctor" className="hover:text-blue-600 transition-colors">
+              Portal Bác sĩ
+            </Link>
+            <span>/</span>
+            <span className="text-slate-800 font-medium">
+              Hồ Sơ Chuyên Môn &amp; Xác Thực CCHN
             </span>
           </div>
 
-          {/* 3 Step Visual Flow */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Bước 1 */}
-            <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 space-y-1.5">
-              <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs">
-                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px]">
-                  {cchnNumber ? '✓' : '1'}
-                </span>
-                <span>Bước 1: Nộp CCHN &amp; Bằng cấp</span>
-              </div>
-              <p className="text-[11px] text-emerald-900 leading-snug">
-                {cchnNumber ? (
-                  <>Đã tiếp nhận số CCHN <strong>{cchnNumber}</strong> và hồ sơ chuyên khoa.</>
-                ) : (
-                  'Chưa nộp CCHN. Bấm nút phía trên để nộp hồ sơ thẩm định.'
-                )}
-              </p>
-              <div className="text-[10px] text-slate-500 pt-1">
-                {issueDate ? `Ngày cấp: ${issueDate}` : 'Chưa có thông tin ngày cấp'}
-              </div>
-            </div>
+          <Link
+            href="/doctor"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 shadow-2xs"
+          >
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            <span>Về Bảng Lâm sàng</span>
+          </Link>
+        </div>
 
-            {/* Bước 2: Cấp 1 */}
+        {/* Header Banner */}
+        <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
+                Hồ Sơ Y Khoa &amp; Xác Thực Chứng Chỉ Hành Nghề (CCHN)
+              </h1>
+              {isLevel2Approved ? (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                  Đã duyệt 2 cấp · Hoạt động hợp pháp
+                </span>
+              ) : isLevel1Approved ? (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                  CSYT đã duyệt Cấp 1 · Chờ Admin FamiDoc
+                </span>
+              ) : onboardingStatus === 'PENDING_FACILITY_REVIEW' ? (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                  Đã nộp hồ sơ · Chờ CSYT thẩm định Cấp 1
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                  Chờ nộp hồ sơ (3 chứng chỉ)
+                </span>
+              )}
+            </div>
+            <p className="text-xs sm:text-sm text-slate-500">
+              Bác sĩ:{' '}
+              <span className="font-semibold text-slate-800">
+                {profile?.doctorName || 'Bác sĩ Gia đình'}
+              </span>{' '}
+              {selectedHospital ? (
+                <>
+                  • Trực thuộc:{' '}
+                  <span className="font-semibold text-blue-700">{selectedHospital}</span>
+                </>
+              ) : null}{' '}
+              • Định mức Panel:{' '}
+              <span className="font-semibold text-slate-800 tabular-nums">
+                {profile?.activePanelCount ?? 0} / {profile?.maxPanelCapacity ?? 30} hộ gia đình
+              </span>
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 self-start md:self-auto">
+            <div className="px-3.5 py-2 rounded-xl bg-blue-50/80 border border-blue-200/60 text-blue-900 text-xs">
+              <span className="block font-semibold">Thẩm định 2 Cấp</span>
+              <span className="text-slate-600">CSYT (Cấp 1) → Admin FamiDoc (Cấp 2)</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Status / Rejection Banners */}
+        {rejectionReason && (
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-xl text-xs sm:text-sm text-rose-900 space-y-1">
+            <div className="flex items-center gap-2 font-bold text-rose-800">
+              <span className="material-symbols-outlined text-base">error</span>
+              <span>Hồ sơ cần bổ sung / chỉnh sửa theo yêu cầu thẩm định:</span>
+            </div>
+            <p className="pl-6 text-rose-900 font-medium">{rejectionReason}</p>
+            <p className="pl-6 text-xs text-rose-700">
+              Vui lòng chỉnh sửa thông tin bên dưới hoặc tải lại bản scan rõ nét rồi gửi lại thẩm định.
+            </p>
+          </div>
+        )}
+
+        {onboardingStatus === 'PENDING_FACILITY_REVIEW' && (
+          <div className="p-4 bg-indigo-50 border border-indigo-200 rounded-xl text-xs sm:text-sm text-indigo-900 flex items-start gap-3">
+            <span className="material-symbols-outlined text-xl text-indigo-600 shrink-0 mt-0.5">
+              hourglass_top
+            </span>
+            <div className="space-y-1">
+              <p className="font-bold text-indigo-950">
+                Hồ sơ chuyên môn đã nộp đủ và đang chờ Hội đồng chuyên môn CSYT duyệt Cấp 1
+              </p>
+              <p className="text-indigo-800 text-xs leading-relaxed">
+                Sau khi {selectedHospital || 'Cơ sở Y tế'} xác thực Cấp 1, hồ sơ sẽ tự động chuyển lên Quản trị viên FamiDoc hậu kiểm Cấp 2 để kích hoạt hành nghề.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {onboardingStatus === 'FACILITY_VERIFIED' && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs sm:text-sm text-blue-900 flex items-start gap-3">
+            <span className="material-symbols-outlined text-xl text-blue-600 shrink-0 mt-0.5">
+              verified
+            </span>
+            <div className="space-y-1">
+              <p className="font-bold text-blue-950">
+                CSYT đã duyệt Cấp 1! Hồ sơ đang chờ Quản trị viên FamiDoc thẩm định Cấp 2
+              </p>
+              <p className="text-blue-800 text-xs leading-relaxed">
+                Ngay khi Admin phê duyệt Cấp 2, bạn và Cơ sở Y tế sẽ cùng nhận được thông báo kích hoạt quyền tiếp nhận hộ gia đình.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {isLevel2Approved && (
+          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs sm:text-sm text-emerald-900 flex items-center gap-3">
+            <span className="material-symbols-outlined text-xl text-emerald-600">verified</span>
+            <div>
+              <p className="font-bold text-emerald-800">
+                Bác sĩ đã hoàn tất cả 2 cấp thẩm định và chính thức hoạt động (ACTIVE)!
+              </p>
+              <p className="text-emerald-700 text-xs">
+                Hồ sơ đã được khóa để đảm bảo tính pháp lý; bạn có thể nhận tối đa{' '}
+                {profile?.maxPanelCapacity ?? 30} hộ gia đình.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Progress 3 Steps */}
+        <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200/80 shadow-xs">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div
-              className={`p-4 rounded-2xl border space-y-1.5 ${
-                isLevel1Approved
-                  ? 'bg-emerald-50/60 border-emerald-200'
-                  : 'bg-amber-50/60 border-amber-200'
+              className={`p-4 rounded-xl border space-y-1.5 ${
+                isSubmitted ? 'bg-emerald-50/60 border-emerald-200' : 'bg-slate-50 border-slate-200'
               }`}
             >
               <div
                 className={`flex items-center gap-2 font-bold text-xs ${
-                  isLevel1Approved ? 'text-emerald-800' : 'text-amber-800'
+                  isSubmitted ? 'text-emerald-800' : 'text-slate-700'
                 }`}
               >
                 <span
                   className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
-                    isLevel1Approved ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'
+                    isSubmitted ? 'bg-emerald-600 text-white' : 'bg-slate-300 text-slate-700'
+                  }`}
+                >
+                  {isSubmitted ? '✓' : '1'}
+                </span>
+                <span>Bước 1: Nộp hồ sơ &amp; 3 chứng chỉ</span>
+              </div>
+              <p className="text-[11px] text-slate-700 leading-snug">
+                {uploadedCount >= 3 ? (
+                  <>
+                    Đã chuẩn bị <strong>{uploadedCount}/3</strong> tài liệu chuyên môn bắt buộc.
+                  </>
+                ) : (
+                  'Điền đầy đủ hồ sơ cá nhân và tải lên đủ 3 tài liệu bắt buộc bên dưới.'
+                )}
+              </p>
+              <div className="text-[10px] text-slate-500">
+                {cchnNumber ? `Số CCHN: ${cchnNumber}` : 'Chưa có số CCHN'}
+              </div>
+            </div>
+
+            <div
+              className={`p-4 rounded-xl border space-y-1.5 ${
+                isLevel1Approved
+                  ? 'bg-emerald-50/60 border-emerald-200'
+                  : onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                    ? 'bg-amber-50/60 border-amber-200'
+                    : 'bg-slate-50 border-slate-200'
+              }`}
+            >
+              <div
+                className={`flex items-center gap-2 font-bold text-xs ${
+                  isLevel1Approved
+                    ? 'text-emerald-800'
+                    : onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                      ? 'text-amber-800'
+                      : 'text-slate-600'
+                }`}
+              >
+                <span
+                  className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] ${
+                    isLevel1Approved
+                      ? 'bg-emerald-600 text-white'
+                      : onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                        ? 'bg-amber-500 text-white'
+                        : 'bg-slate-300 text-slate-700'
                   }`}
                 >
                   {isLevel1Approved ? '✓' : '2'}
                 </span>
-                <span>Cấp 1: CSYT / Bệnh viện thẩm định</span>
+                <span>Cấp 1: CSYT thẩm định</span>
               </div>
-              <p className={`text-[11px] leading-snug ${isLevel1Approved ? 'text-emerald-900' : 'text-amber-900'}`}>
+              <p className="text-[11px] leading-snug text-slate-700">
                 {isLevel1Approved
-                  ? `Hội đồng Y khoa ${selectedHospital} đã thẩm định & xác nhận hồ sơ chuyên môn.`
-                  : `Đang chờ ${selectedHospital} đối chiếu CCHN trên cổng thông tin Bộ Y Tế.`}
+                  ? `${selectedHospital || 'Cơ sở Y tế'} đã xác nhận hồ sơ nhân sự.`
+                  : onboardingStatus === 'PENDING_FACILITY_REVIEW'
+                    ? `Đang chờ ${selectedHospital || 'Cơ sở Y tế'} duyệt Cấp 1.`
+                    : 'Mở sau khi bác sĩ nộp đủ hồ sơ.'}
               </p>
-              <div className="text-[10px] text-slate-500 pt-1">
-                {isLevel1Approved ? 'Trạng thái: FACILITY_APPROVED' : 'Trạng thái: PENDING_FACILITY'}
-              </div>
             </div>
 
-            {/* Bước 3: Cấp 2 */}
             <div
-              className={`p-4 rounded-2xl border space-y-1.5 ${
+              className={`p-4 rounded-xl border space-y-1.5 ${
                 isLevel2Approved
                   ? 'bg-emerald-50/60 border-emerald-200'
                   : 'bg-slate-50 border-slate-200'
@@ -337,270 +528,328 @@ export function DoctorVerificationView() {
                 >
                   {isLevel2Approved ? '✓' : '3'}
                 </span>
-                <span>Cấp 2: Nền tảng FamiDoc phê duyệt</span>
+                <span>Cấp 2: Admin FamiDoc phê duyệt</span>
               </div>
-              <p className={`text-[11px] leading-snug ${isLevel2Approved ? 'text-emerald-900' : 'text-slate-600'}`}>
+              <p className="text-[11px] leading-snug text-slate-700">
                 {isLevel2Approved
-                  ? 'Đã cấp chứng thư số HSM Viettel-CA và quyền nhận tối đa 30 hộ gia đình.'
-                  : 'Kích hoạt sau khi CSYT hoàn tất thẩm định Cấp 1.'}
+                  ? `Đã kích hoạt với định mức ${profile?.maxPanelCapacity ?? 30} hộ gia đình.`
+                  : 'Hậu kiểm CSDL Quốc gia sau khi CSYT hoàn tất duyệt Cấp 1.'}
               </p>
-              <div className="text-[10px] text-slate-500 pt-1">
-                {isLevel2Approved ? 'Trạng thái: ACTIVE' : 'Trạng thái: CHỜ DUYỆT'}
-              </div>
             </div>
           </div>
         </div>
 
-        {/* Thông tin CCHN chi tiết */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
-              <h3 className="font-bold text-sm text-slate-900">
-                Thông Tin Giấy Phép Hành Nghề Khám Bệnh, Chữa Bệnh
-              </h3>
-              {profile?.doctorName && (
-                <span className="text-xs font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
-                  {profile.academicTitle ? `${profile.academicTitle}. ` : ''}{profile.doctorName}
-                </span>
-              )}
+        {/* Full-Page Submission Form (đồng bộ phong cách với FacilityLegalView) */}
+        <form onSubmit={handleSubmitCredentials} className="space-y-6">
+          {/* Section 1: Thông tin hồ sơ cá nhân bác sĩ */}
+          <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200/80 shadow-xs space-y-5">
+            <div className="border-b border-slate-100 pb-3">
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                <span className="material-symbols-outlined text-blue-600 text-lg">badge</span>
+                <span>1. Thông tin Hồ sơ Cá nhân Bác sĩ</span>
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Bổ sung học hàm/học vị, chuyên khoa, số năm kinh nghiệm và tiểu sử công tác để hoàn thiện hồ sơ hành nghề
+              </p>
             </div>
 
-            {!cchnNumber && (
-              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-900">
-                <span className="material-symbols-outlined text-amber-600 text-[18px] shrink-0 mt-0.5">info</span>
-                <div className="space-y-1">
-                  <p className="font-semibold">Hồ sơ CCHN chưa được khởi tạo trên hệ thống.</p>
-                  <p className="text-[11px] text-amber-800">
-                    Bác sĩ vui lòng bấm nút ở góc trên để gửi chứng chỉ hành nghề và bằng cấp cho Hội đồng Y khoa CSYT thẩm định Cấp 1.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-3 text-xs">
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500">Bác sĩ phụ trách:</span>
-                <strong className="text-slate-900">
-                  {profile?.doctorName ? `${profile?.academicTitle ? profile.academicTitle + ' ' : ''}${profile.doctorName}` : 'Đang tải...'}
-                </strong>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500">Số CCHN / Số giấy phép:</span>
-                <strong className={cchnNumber ? 'text-slate-900 font-bold' : 'text-amber-700 italic'}>
-                  {cchnNumber || 'Chưa nộp CCHN'}
-                </strong>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500">Cơ quan cấp phép:</span>
-                <strong className={issuingAuthority ? 'text-slate-900' : 'text-slate-400 italic'}>
-                  {issuingAuthority || 'Chưa cập nhật'}
-                </strong>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500">Ngày cấp chứng chỉ:</span>
-                <strong className={issueDate ? 'text-slate-900' : 'text-slate-400 italic'}>
-                  {issueDate || 'Chưa cập nhật'}
-                </strong>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500">Phạm vi hoạt động chuyên môn:</span>
-                <strong className="text-slate-900 text-right max-w-xs">{scopeOfPractice || 'Y học Gia đình'}</strong>
-              </div>
-              <div className="flex justify-between py-1 border-b border-slate-50">
-                <span className="text-slate-500">Cơ sở y tế liên kết:</span>
-                <strong className="text-blue-700">{selectedHospital || 'Chưa liên kết'}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-            <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2">
-              Tài Liệu &amp; Văn Bằng Đã Tải Lên ({formFiles.length})
-            </h3>
-            <div className="space-y-2 text-xs">
-              {formFiles.length === 0 ? (
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center text-slate-400">
-                  Chưa có tài liệu đính kèm nào được tải lên.
-                </div>
-              ) : (
-                formFiles.map((file, idx) => {
-                  const displayName = file.includes('/') ? file.split('/').pop() : file;
-                  return (
-                    <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                        <span className="material-symbols-outlined text-blue-600 text-[20px] shrink-0">description</span>
-                        <div className="truncate">
-                          <span className="font-bold text-[#0f172a] block truncate" title={file}>
-                            {displayName}
-                          </span>
-                          <span className="text-[10px] text-slate-400">Bản sao công chứng y khoa</span>
-                        </div>
-                      </div>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-[#f6ffed] text-[#03864b] border border-[#b7eb8f] shrink-0">
-                        Đã ghi nhận
-                      </span>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* Modal Nộp / Cập nhật hồ sơ CCHN */}
-      <Dialog open={showUpdateModal} onOpenChange={setShowUpdateModal}>
-        <DialogContent className="sm:max-w-lg rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="border-b border-slate-100 pb-2">
-            <DialogTitle className="font-bold text-base text-[#0f172a]">
-              Nộp Hồ Sơ Xác Thực Chứng Chỉ Hành Nghề (CCHN)
-            </DialogTitle>
-          </DialogHeader>
-
-            <form onSubmit={handleSubmitCredentials} className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">Số chứng chỉ hành nghề (CCHN) *</label>
-                <input
-                  type="text"
-                  required
-                  value={formCchn}
-                  onChange={(e) => setFormCchn(e.target.value)}
-                  placeholder="Ví dụ: 004128/BYT-CCHN"
-                  className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#2563eb]"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-5">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="doctor-academic-title"
+                  className="block text-xs font-semibold text-slate-700"
+                >
+                  Học hàm / Học vị
+                </label>
+                <select
+                  id="doctor-academic-title"
+                  disabled={isLevel2Approved}
+                  value={formAcademicTitle}
+                  onChange={(e) => setFormAcademicTitle(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                >
+                  <option value="">Chọn học vị</option>
+                  <option value="BS">Bác sĩ (BS)</option>
+                  <option value="ThS.BS">Thạc sĩ Bác sĩ (ThS.BS)</option>
+                  <option value="BS.CKI">BS.CKI</option>
+                  <option value="BS.CKII">BS.CKII</option>
+                  <option value="TS.BS">TS.BS</option>
+                  <option value="PGS.TS.BS">PGS.TS.BS</option>
+                </select>
               </div>
 
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">Cơ quan cấp phép *</label>
-                <input
-                  type="text"
-                  required
-                  value={formIssuer}
-                  onChange={(e) => setFormIssuer(e.target.value)}
-                  placeholder="Ví dụ: Cục Quản lý Khám chữa bệnh - Bộ Y Tế"
-                  className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#2563eb]"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#475569] mb-1">Ngày cấp *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#2563eb]"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#475569] mb-1">Cơ sở y tế thẩm định</label>
-                  <input
-                    type="text"
-                    disabled
-                    value={selectedHospital}
-                    className="w-full p-2.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-600"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">Phạm vi hoạt động chuyên môn *</label>
-                <textarea
-                  rows={2}
-                  required
-                  value={formScope}
-                  onChange={(e) => setFormScope(e.target.value)}
-                  placeholder="Ví dụ: Khám bệnh, chữa bệnh Nội khoa & Y học gia đình"
-                  className="w-full p-2.5 rounded-lg border border-slate-200 focus:ring-2 focus:ring-[#2563eb]"
-                />
-              </div>
-
-              <div>
-                <label className="block font-semibold text-[#475569] mb-1">
-                  Hồ sơ scan đính kèm: CCHN 2 mặt, Bằng tốt nghiệp &amp; Chứng chỉ Y học Gia đình (JPG, PNG, PDF)
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="doctor-specialty"
+                  className="block text-xs font-semibold text-slate-700"
+                >
+                  Chuyên khoa hành nghề <span className="text-rose-500">*</span>
                 </label>
                 <input
-                  type="file"
-                  multiple
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  className="w-full p-2 rounded-lg border border-dashed border-slate-300 bg-slate-50 cursor-pointer"
-                  onChange={(e) => {
-                    if (e.target.files) {
-                      const files = Array.from(e.target.files);
-                      const validFiles = files.filter((f) => {
-                        if (f.size > 10 * 1024 * 1024) {
-                          toast.error(`File "${f.name}" vượt quá giới hạn 10MB!`);
-                          return false;
-                        }
-                        return true;
-                      });
-                      const fileInfos = validFiles.map((f) => ({
-                        name: f.name,
-                        size: f.size > 1024 * 1024 ? `${(f.size / (1024 * 1024)).toFixed(1)} MB` : `${Math.round(f.size / 1024)} KB`,
-                      }));
-                      setSelectedFileObjects((prev) => [...prev, ...fileInfos]);
-                      setFormFiles((prev) => [...prev, ...validFiles.map((f) => f.name)]);
-                    }
-                  }}
+                  id="doctor-specialty"
+                  type="text"
+                  required
+                  disabled={isLevel2Approved}
+                  value={formSpecialty}
+                  onChange={(e) => setFormSpecialty(e.target.value)}
+                  placeholder="Khoa Y học Gia đình"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
                 />
-                <p className="text-[10px] text-slate-400 mt-1">
-                  Bao gồm: (1) Bản chụp CCHN, (2) Bằng cấp chuyên môn, (3) Chứng chỉ bồi dưỡng Y học Gia đình. Tối đa 10MB/file.
-                </p>
+              </div>
 
-                {selectedFileObjects.length > 0 && (
-                  <div className="space-y-1.5 mt-2">
-                    {selectedFileObjects.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-blue-50/60 border border-blue-200 text-xs">
-                        <div className="flex items-center gap-2 truncate">
-                          <span className="material-symbols-outlined text-[16px] text-blue-600">description</span>
-                          <span className="font-semibold text-slate-800 truncate">{file.name}</span>
-                          <span className="text-[10px] text-slate-500 font-medium">({file.size})</span>
-                        </div>
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="doctor-experience-years"
+                  className="block text-xs font-semibold text-slate-700"
+                >
+                  Số năm kinh nghiệm <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  id="doctor-experience-years"
+                  type="number"
+                  min={0}
+                  max={60}
+                  required
+                  disabled={isLevel2Approved}
+                  value={formExperienceYears}
+                  onChange={(e) => setFormExperienceYears(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 tabular-nums focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label
+                htmlFor="doctor-bio"
+                className="block text-xs font-semibold text-slate-700"
+              >
+                Tiểu sử &amp; định hướng chuyên môn
+              </label>
+              <textarea
+                id="doctor-bio"
+                rows={3}
+                disabled={isLevel2Approved}
+                value={formBio}
+                onChange={(e) => setFormBio(e.target.value)}
+                placeholder="Giới thiệu quá trình công tác, kinh nghiệm khám chữa bệnh gia đình..."
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+              />
+            </div>
+          </div>
+
+          {/* Section 2: Bộ 3 chứng chỉ & văn bằng bắt buộc */}
+          <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200/80 shadow-xs space-y-5">
+            <div className="border-b border-slate-100 pb-3 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-blue-600 text-lg">
+                    verified_user
+                  </span>
+                  <span>2. Bộ 3 Chứng chỉ &amp; Văn bằng Bắt buộc (PDF, PNG, JPG ≤ 10MB)</span>
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Tải lên bản scan rõ nét kèm số hiệu, nơi cấp và ngày cấp cho cả 3 loại giấy tờ theo quy chuẩn
+                </p>
+              </div>
+              <span className="text-xs font-semibold bg-slate-100 text-slate-700 px-3 py-1 rounded-full tabular-nums">
+                Đã có tệp: {uploadedCount}/3
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {REQUIRED_CREDENTIAL_DEFS.map((def) => {
+                const entry = credentialsForm[def.type];
+                const hasAnyFile = Boolean(entry.file || entry.existingFileUrl);
+                const targetKey = entry.id || def.type;
+                return (
+                  <div
+                    key={def.type}
+                    className={`rounded-xl border p-4 sm:p-5 space-y-4 ${
+                      hasAnyFile ? 'border-slate-200 bg-slate-50/40' : 'border-amber-200 bg-amber-50/30'
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-200/70 pb-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-slate-900">{def.label}</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">{def.description}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {entry.platformApproved ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold">
+                            Admin đã duyệt
+                          </span>
+                        ) : entry.facilityVerified ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 text-[11px] font-semibold">
+                            CSYT đã xác thực
+                          </span>
+                        ) : null}
+
+                        {entry.file ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-semibold">
+                            Đã chọn file mới
+                          </span>
+                        ) : entry.existingFileUrl ? (
+                          <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-semibold">
+                            Đã lưu trên hệ thống
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-semibold">
+                            Chưa tải tệp
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1">
+                        <label
+                          htmlFor={`cert-number-${def.type}`}
+                          className="block text-xs font-semibold text-slate-700"
+                        >
+                          Số hiệu / Số quyết định <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          id={`cert-number-${def.type}`}
+                          aria-label={`Số hiệu ${def.shortLabel}`}
+                          type="text"
+                          required
+                          disabled={isLevel2Approved}
+                          value={entry.certificateNumber}
+                          onChange={(e) =>
+                            updateCredentialField(def.type, {
+                              certificateNumber: e.target.value,
+                            })
+                          }
+                          placeholder={`Nhập số hiệu ${def.shortLabel}`}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label
+                          htmlFor={`cert-issuer-${def.type}`}
+                          className="block text-xs font-semibold text-slate-700"
+                        >
+                          Cơ quan / Nơi cấp <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          id={`cert-issuer-${def.type}`}
+                          aria-label={`Nơi cấp ${def.shortLabel}`}
+                          type="text"
+                          required
+                          disabled={isLevel2Approved}
+                          value={entry.issuingAuthority}
+                          onChange={(e) =>
+                            updateCredentialField(def.type, {
+                              issuingAuthority: e.target.value,
+                            })
+                          }
+                          placeholder={`Nhập nơi cấp ${def.shortLabel}`}
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label
+                          htmlFor={`cert-date-${def.type}`}
+                          className="block text-xs font-semibold text-slate-700"
+                        >
+                          Ngày cấp <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          id={`cert-date-${def.type}`}
+                          aria-label={`Ngày cấp ${def.shortLabel}`}
+                          type="date"
+                          required
+                          disabled={isLevel2Approved}
+                          value={entry.issueDate}
+                          onChange={(e) =>
+                            updateCredentialField(def.type, { issueDate: e.target.value })
+                          }
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                      <div className="flex-1 space-y-1">
+                        <label
+                          htmlFor={`cert-file-${def.type}`}
+                          className="block text-xs font-semibold text-slate-700"
+                        >
+                          Tệp scan {def.shortLabel} (PDF, PNG, JPG){' '}
+                          {!entry.existingFileUrl && <span className="text-rose-500">*</span>}
+                        </label>
+                        <input
+                          id={`cert-file-${def.type}`}
+                          aria-label={`Tệp scan ${def.shortLabel}`}
+                          type="file"
+                          disabled={isLevel2Approved}
+                          accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg"
+                          onChange={(e) =>
+                            handleFileChange(
+                              def.type,
+                              e.target.files?.[0] || null,
+                              def.shortLabel,
+                            )
+                          }
+                          className="w-full p-2.5 rounded-xl border border-dashed border-slate-300 bg-white text-xs cursor-pointer disabled:bg-slate-100 disabled:cursor-not-allowed"
+                        />
+                        {entry.file && (
+                          <p className="text-xs text-blue-700 font-medium">
+                            Tệp mới: {entry.file.name} (
+                            {Math.max(1, Math.round(entry.file.size / 1024))} KB)
+                          </p>
+                        )}
+                      </div>
+
+                      {(entry.id || entry.existingFileUrl) && (
                         <button
                           type="button"
-                          onClick={() => {
-                            setSelectedFileObjects((prev) => prev.filter((_, i) => i !== idx));
-                            setFormFiles((prev) => prev.filter((_, i) => i !== idx));
-                          }}
-                          className="text-slate-400 hover:text-rose-600 cursor-pointer p-0.5 rounded"
-                          title="Xóa tệp này"
+                          disabled={openingId === targetKey}
+                          onClick={() => void handlePreviewExistingFile(def.type)}
+                          className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-primary hover:bg-slate-50 shrink-0 cursor-pointer disabled:opacity-50 self-start sm:self-end"
                         >
-                          <span className="material-symbols-outlined text-[16px]">close</span>
+                          <span className="material-symbols-outlined text-sm">open_in_new</span>
+                          <span>
+                            {openingId === targetKey ? 'Đang mở...' : 'Xem bản scan đã nộp'}
+                          </span>
                         </button>
-                      </div>
-                    ))}
+                      )}
+                    </div>
                   </div>
-                )}
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Submit Footer */}
+          {!isLevel2Approved && (
+            <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="text-xs text-slate-600 space-y-0.5">
+                <p className="font-semibold text-slate-900">
+                  Xác nhận nộp hồ sơ thẩm định 2 cấp
+                </p>
+                <p>
+                  Hồ sơ sẽ gửi trực tiếp tới {selectedHospital || 'Cơ sở Y tế'} để duyệt Cấp 1, sau đó chuyển Admin FamiDoc duyệt Cấp 2.
+                </p>
               </div>
 
-              <div className="flex gap-2 pt-3 border-t border-slate-100">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowUpdateModal(false)}
-                  className="flex-1 rounded-lg text-xs font-semibold"
-                >
-                  Hủy
-                </Button>
-                <Button
-                  type="submit"
-                  size="sm"
-                  disabled={isSubmitting}
-                  className="flex-1 text-xs font-semibold rounded-lg shadow-xs flex items-center justify-center gap-1.5"
-                >
-                  {isSubmitting ? (
-                    <span>Đang nộp hồ sơ...</span>
-                  ) : (
-                    <span>Gửi Thẩm Định 2 Cấp</span>
-                  )}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
-
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="rounded-xl px-6 py-2.5 text-xs sm:text-sm font-bold shadow-sm cursor-pointer shrink-0"
+              >
+                {isSubmitting
+                  ? 'Đang tải lên & nộp hồ sơ...'
+                  : isSubmitted
+                    ? 'Cập nhật & Gửi lại Thẩm định'
+                    : 'Gửi Thẩm Định'}
+              </Button>
+            </div>
+          )}
+        </form>
+      </main>
+    </div>
+  );
+}

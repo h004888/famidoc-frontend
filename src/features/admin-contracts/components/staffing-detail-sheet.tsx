@@ -1,10 +1,18 @@
 'use client';
 
 import React from 'react';
-import { CheckCircle2, Clock, Handshake, ShieldCheck } from 'lucide-react';
+import Link from 'next/link';
+import { CheckCircle2, Clock, Handshake, ShieldAlert, ShieldCheck } from 'lucide-react';
 import type { StaffingContractItem } from '@/lib/api';
-import { ConfirmDialog } from '@/components/shared';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Sheet,
   SheetContent,
@@ -15,6 +23,8 @@ import {
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { formatShortDate } from './contract-status-helpers';
+import { B2bDocumensoSignPanel } from './b2b-documenso-sign-panel';
+import { buildB2bStandardArticles } from '@/features/facility-contracts/b2b-standard-terms';
 
 export interface StaffingDetailSheetProps {
   item: StaffingContractItem | null;
@@ -22,6 +32,7 @@ export interface StaffingDetailSheetProps {
   onOpenChange: (open: boolean) => void;
   signingStaffingId: string | null;
   onRequestSign: (item: StaffingContractItem) => void;
+  onRequestTerminate?: (item: StaffingContractItem) => void;
 }
 
 export function StaffingDetailSheet({
@@ -30,6 +41,7 @@ export function StaffingDetailSheet({
   onOpenChange,
   signingStaffingId,
   onRequestSign,
+  onRequestTerminate,
 }: StaffingDetailSheetProps) {
   return (
     <Sheet open={open && Boolean(item)} onOpenChange={onOpenChange}>
@@ -81,7 +93,7 @@ export function StaffingDetailSheet({
                     <span>Ban Quản Trị Hệ Thống</span>
                   </div>
                   <p className="mt-1 text-[11px] opacity-90">
-                    {item.adminSigned ? 'Đã ký số SmartCA (Bên D)' : 'Chưa hoàn tất ký số'}
+                    {item.adminSigned ? 'Đã ký số (Bước 2)' : item.facilitySigned ? 'Đến lượt Admin ký' : 'Chờ CSYT ký trước'}
                   </p>
                 </div>
 
@@ -102,23 +114,58 @@ export function StaffingDetailSheet({
                     <span>Cơ Sở Y Tế Đối Tác</span>
                   </div>
                   <p className="mt-1 text-[11px] opacity-90">
-                    {item.facilitySigned ? 'Đã ký số SmartCA' : 'Đang chờ CSYT ký'}
+                    {item.facilitySigned ? 'Đã ký số (Bước 1)' : 'Đang chờ CSYT ký'}
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-1.5">
-                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
-                  Điều khoản pháp lý hợp tác
-                </p>
-                <div className="max-h-72 overflow-y-auto whitespace-pre-wrap rounded-xl border border-slate-200 bg-white p-3.5 text-xs leading-relaxed text-slate-600">
-                  {item.contractTerms ||
-                    'Điều khoản chuẩn theo Nghị định 130/2018/NĐ-CP và Thông tư 04/2022/TT-BYT.'}
+              {item.revisionReason && (
+                <div className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-900">
+                  <strong className="block font-bold">Lý do CSYT yêu cầu chỉnh sửa:</strong>
+                  <p className="mt-1">{item.revisionReason}</p>
+                </div>
+              )}
+
+              {item.terminationRequestStatus === 'PENDING' && item.terminationRequestReason && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-950">
+                  <strong className="block font-bold">CSYT đề nghị chấm dứt hợp đồng đang hiệu lực:</strong>
+                  <p className="mt-1">{item.terminationRequestReason}</p>
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700">
+                    Khung điều khoản B2B chuẩn (10 Điều)
+                  </p>
+                  <span className="text-[10px] font-medium text-slate-500">
+                    Luật GDĐT 20/2023/QH15
+                  </span>
+                </div>
+                <div className="max-h-60 overflow-y-auto space-y-2 rounded-xl border border-slate-200 bg-white p-3.5 text-xs leading-relaxed text-slate-600">
+                  {buildB2bStandardArticles({
+                    facilitySharePercent: item.facilitySharePercent,
+                    platformSharePercent: item.platformSharePercent,
+                    endDateText: formatShortDate(item.validTo),
+                  }).map((art) => (
+                    <div key={art.title}>
+                      <p className="font-semibold text-slate-800">{art.title}</p>
+                      <p className="text-[11px] text-slate-600">{art.body}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Điều khoản bổ sung / Thỏa thuận đặc thù
+                  </p>
+                  <p className="whitespace-pre-wrap text-slate-600">
+                    {item.contractTerms?.trim() || 'Không có thỏa thuận bổ sung nào khác.'}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <SheetFooter className="gap-2 border-t border-slate-100 pt-3">
+            <SheetFooter className="flex-row flex-wrap gap-2 border-t border-slate-100 pt-3">
               <Button
                 type="button"
                 variant="outline"
@@ -128,7 +175,25 @@ export function StaffingDetailSheet({
               >
                 Đóng
               </Button>
-              {item.status === 'DRAFT' && !item.adminSigned && (
+              {item.status === 'DRAFT' && !item.facilitySigned && (
+                <Button asChild size="sm" variant="outline" className="rounded-xl text-xs font-semibold">
+                  <Link href={`/admin/contracts/${item.id}/edit?type=staffing`}>Chỉnh sửa điều khoản</Link>
+                </Button>
+              )}
+              {item.status !== 'TERMINATED' && onRequestTerminate && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  onClick={() => onRequestTerminate(item)}
+                  className="rounded-xl text-xs font-semibold cursor-pointer gap-1"
+                >
+                  <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
+                  <span>{item.status === 'DRAFT' ? 'Hủy dự thảo' : 'Chấm dứt hợp đồng'}</span>
+                </Button>
+              )}
+              {(item.rawStatus === 'PENDING_ADMIN_SIGNATURE' ||
+                (item.status === 'DRAFT' && item.facilitySigned && !item.adminSigned)) && (
                 <Button
                   type="button"
                   size="sm"
@@ -136,7 +201,7 @@ export function StaffingDetailSheet({
                   onClick={() => onRequestSign(item)}
                   className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
                 >
-                  {signingStaffingId === item.id ? 'Đang ký số...' : 'Ký Duyệt (SmartCA)'}
+                  {signingStaffingId === item.id ? 'Đang ký số...' : 'Ký Duyệt (Documenso)'}
                 </Button>
               )}
             </SheetFooter>
@@ -149,57 +214,86 @@ export function StaffingDetailSheet({
 
 export interface StaffingSignConfirmDialogProps {
   item: StaffingContractItem | null;
-  isSigning: boolean;
+  signerRole?: 'FACILITY' | 'ADMIN';
+  isSigning?: boolean;
   onClose: () => void;
-  onConfirm: (contractId: string) => Promise<void>;
+  onConfirm?: (contractId: string) => Promise<void>;
+  onSynced?: () => void;
 }
 
 export function StaffingSignConfirmDialog({
   item,
-  isSigning,
+  signerRole = 'ADMIN',
   onClose,
-  onConfirm,
+  onSynced,
 }: StaffingSignConfirmDialogProps) {
   return (
-    <ConfirmDialog
-      open={Boolean(item)}
-      onOpenChange={(open) => !open && onClose()}
-      title="Xác nhận ký số SmartCA Hợp đồng B2B"
-      description="Hành động ký số điện tử có giá trị pháp lý và không thể hoàn tác. Vui lòng kiểm tra thông tin trước khi xác nhận."
-      headerIcon={<ShieldCheck className="h-6 w-6 text-emerald-600" aria-hidden="true" />}
-      confirmLabel="Xác nhận Ký SmartCA"
-      cancelLabel="Hủy bỏ"
-      isLoading={isSigning}
-      onConfirm={() => {
-        if (item) {
-          void onConfirm(item.id);
-        }
-      }}
-    >
-      {item && (
-        <div className="space-y-1.5 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500">Mã hợp đồng:</span>
-            <strong className="text-primary tabular-nums">{item.contractNumber}</strong>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500">Đối tác CSYT:</span>
-            <strong className="text-slate-900 text-right">{item.facilityName}</strong>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500">Phân chia doanh thu:</span>
-            <strong className="text-slate-900 tabular-nums">
-              {item.facilitySharePercent}% CSYT / {item.platformSharePercent}% FamiDoc
-            </strong>
-          </div>
-          <div className="flex justify-between gap-2">
-            <span className="text-slate-500">Hiệu lực:</span>
-            <strong className="text-slate-900 tabular-nums">
-              {formatShortDate(item.validFrom)} – {formatShortDate(item.validTo)}
-            </strong>
-          </div>
-        </div>
-      )}
-    </ConfirmDialog>
+    <Dialog open={Boolean(item)} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl border-slate-200 sm:max-w-3xl">
+        {item && (
+          <>
+            <DialogHeader className="border-b border-slate-100 pb-3">
+              <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
+                <ShieldCheck className="h-5 w-5 text-emerald-600" aria-hidden="true" />
+                <span>
+                  {signerRole === 'FACILITY'
+                    ? 'Ký Hợp Đồng B2B Trên Documenso — Cơ sở Y tế (Bước 1)'
+                    : 'Ký Hợp Đồng B2B Trên Documenso — Quản trị viên Nền tảng (Bước 2)'}
+                </span>
+              </DialogTitle>
+              <DialogDescription className="text-xs text-slate-500 tabular-nums">
+                Mã HĐ: <strong className="text-primary">{item.contractNumber}</strong> · Đối tác:{' '}
+                <strong>{item.facilityName}</strong> ({item.facilitySharePercent}% CSYT /{' '}
+                {item.platformSharePercent}% FamiDoc · {formatShortDate(item.validFrom)} –{' '}
+                {formatShortDate(item.validTo)})
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div
+                className={`rounded-xl border p-2.5 ${
+                  item.facilitySigned
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                    : 'border-amber-200 bg-amber-50 text-amber-900'
+                }`}
+              >
+                <strong className="block">Bước 1: Cơ sở Y tế đối tác</strong>
+                <div className="mt-0.5">
+                  {item.facilitySigned ? 'Đã ký số' : 'Chờ CSYT ký trước'}
+                </div>
+              </div>
+              <div
+                className={`rounded-xl border p-2.5 ${
+                  item.adminSigned
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
+                    : item.facilitySigned
+                      ? 'border-blue-200 bg-blue-50 text-blue-900'
+                      : 'border-slate-200 bg-slate-50 text-slate-700'
+                }`}
+              >
+                <strong className="block">Bước 2: Quản trị viên FamiDoc</strong>
+                <div className="mt-0.5">
+                  {item.adminSigned ? 'Đã ký số' : item.facilitySigned ? 'Tới lượt Admin ký' : 'Chờ CSYT ký trước'}
+                </div>
+              </div>
+            </div>
+
+            <B2bDocumensoSignPanel
+              contractId={item.id}
+              onSyncCompleted={() => {
+                onSynced?.();
+                onClose();
+              }}
+            />
+
+            <DialogFooter className="border-t border-slate-100 pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={onClose}>
+                Đóng
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }

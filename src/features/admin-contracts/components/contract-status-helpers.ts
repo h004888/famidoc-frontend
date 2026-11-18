@@ -18,6 +18,8 @@ export type StaffingStatusFilter =
 
 export type MedicalSortOption = 'NEWEST' | 'OLDEST_WAITING' | 'HIGHEST_VALUE';
 
+export type StaffingSortOption = 'NEWEST' | 'EXPIRING_SOON' | 'HIGHEST_FACILITY_SHARE';
+
 export interface MedicalBadgeInfo {
   label: string;
   className: string;
@@ -29,6 +31,14 @@ export interface PartySignatureState {
   signed: boolean;
   isAdminTurn: boolean;
   signedAt?: string;
+}
+
+export interface StaffingPartySignatureState {
+  key: 'CSYT' | 'Admin';
+  roleLabel: string;
+  signed: boolean;
+  isAdminTurn: boolean;
+  signedAt?: string | null;
 }
 
 export function resolveMedicalContractBadge(contract: FourPartyContract): MedicalBadgeInfo {
@@ -158,6 +168,67 @@ export function matchesStaffingStatusFilter(
     return item.status === 'DRAFT' && !item.adminSigned;
   }
   return item.status === filter;
+}
+
+export function isStaffingReadyForAdminSign(item: StaffingContractItem): boolean {
+  return (
+    item.rawStatus === 'PENDING_ADMIN_SIGNATURE' ||
+    (item.status === 'DRAFT' && item.facilitySigned && !item.adminSigned)
+  );
+}
+
+export function resolveStaffingContractBadge(item: StaffingContractItem): MedicalBadgeInfo {
+  if (item.status === 'ACTIVE') {
+    return {
+      label: 'Đang hiệu lực',
+      className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    };
+  }
+  if (item.rawStatus === 'REVISION_REQUESTED') {
+    return {
+      label: 'Yêu cầu chỉnh sửa',
+      className: 'bg-rose-50 text-rose-800 border-rose-200',
+    };
+  }
+  if (isStaffingReadyForAdminSign(item)) {
+    return {
+      label: 'Chờ Admin ký (Bước 2)',
+      className: 'bg-blue-50 text-primary border-blue-200',
+    };
+  }
+  if (item.status === 'DRAFT') {
+    return {
+      label: 'Chờ CSYT ký (Bước 1)',
+      className: 'bg-amber-50 text-amber-800 border-amber-200',
+    };
+  }
+  return {
+    label: 'Đã chấm dứt / Hủy',
+    className: 'bg-rose-50 text-rose-700 border-rose-200',
+  };
+}
+
+export function getStaffingPartySignatureMatrix(
+  item: StaffingContractItem
+): StaffingPartySignatureState[] {
+  const readyForAdmin = isStaffingReadyForAdminSign(item);
+
+  return [
+    {
+      key: 'CSYT',
+      roleLabel: 'Bước 1: Cơ sở Y tế đối tác',
+      signed: item.facilitySigned,
+      isAdminTurn: false,
+      signedAt: item.facilitySignedAt,
+    },
+    {
+      key: 'Admin',
+      roleLabel: 'Bước 2: Admin nền tảng',
+      signed: item.adminSigned,
+      isAdminTurn: readyForAdmin,
+      signedAt: item.adminSignedAt,
+    },
+  ];
 }
 
 export function computeContractTriageCounts(

@@ -7,6 +7,5 @@ export * from './components/role-auth-shell';
 export * from './components/role-login-form';
 export * from './components/family-register-form';
 export * from './components/doctor-register-form';
-export * from './components/facility-register-form';
 export * from './context/auth-context';
 

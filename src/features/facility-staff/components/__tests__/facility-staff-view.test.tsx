@@ -95,10 +95,17 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
     fireEvent.click(screen.getByRole('button', { name: 'Khởi tạo Bác sĩ' }));
 
     await waitFor(() => {
-      expect(doctorsApi.createFacilityDoctor).toHaveBeenCalled();
-      // Success modal displayed with default password
+      expect(doctorsApi.createFacilityDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({
+          doctorName: 'BS. Phan Văn Minh',
+          email: 'minh.phan@ansinhhospital.vn',
+          phone: '0988123456',
+        })
+      );
+      // Success modal displayed without hardcoded password
       expect(screen.getByText('Khởi Tạo Bác Sĩ Thành Công!')).toBeInTheDocument();
-      expect(screen.getByText('FamiDoc@Doctor2026')).toBeInTheDocument();
+      expect(screen.getByText(/Đã gửi qua email bác sĩ/i)).toBeInTheDocument();
+      expect(screen.queryByText('FamiDoc@Doctor2026')).not.toBeInTheDocument();
     });
 
     // Close success modal
