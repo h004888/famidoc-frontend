@@ -60,4 +60,59 @@ describe('UT-CMP-04, UT-ACT-06: PackageCard Component Interactions', () => {
 
     spy.mockRestore();
   });
+
+  it('navigates to /family/subscription?packageId=... when authenticated as FAMILY', async () => {
+    mockPush.mockClear();
+    const spy = vi.spyOn(authContextModule, 'useAuth').mockReturnValue({
+      isAuthenticated: true,
+      isLoading: false,
+      user: {
+        id: 'fam-1',
+        name: 'Nguyễn Văn An',
+        phone: '0912345678',
+        role: 'FAMILY',
+        avatarText: 'NA',
+      },
+      role: 'FAMILY',
+      applySession: vi.fn(),
+      login: vi.fn(),
+      logout: vi.fn(),
+      getDefaultPathForRole: authContextModule.getDefaultPathForRole,
+    });
+
+    render(<PackageCard pkg={mockPkg} />);
+    await userEvent.click(screen.getByRole('button', { name: /Đăng ký gói này/i }));
+    expect(mockPush).toHaveBeenCalledWith('/family/subscription?packageId=pkg-family');
+
+    spy.mockRestore();
+  });
+
+  it.each(['ADMIN', 'FACILITY', 'DOCTOR'] as const)(
+    'navigates to /register?packageId=... instead of /family/subscription when role is %s',
+    async (staffRole) => {
+      mockPush.mockClear();
+      const spy = vi.spyOn(authContextModule, 'useAuth').mockReturnValue({
+        isAuthenticated: true,
+        isLoading: false,
+        user: {
+          id: 'staff-1',
+          name: 'Staff',
+          phone: '0912345678',
+          role: staffRole,
+          avatarText: 'ST',
+        },
+        role: staffRole,
+        applySession: vi.fn(),
+        login: vi.fn(),
+        logout: vi.fn(),
+        getDefaultPathForRole: authContextModule.getDefaultPathForRole,
+      });
+
+      render(<PackageCard pkg={mockPkg} />);
+      await userEvent.click(screen.getByRole('button', { name: /Đăng ký gói này/i }));
+      expect(mockPush).toHaveBeenCalledWith('/register?packageId=pkg-family');
+
+      spy.mockRestore();
+    },
+  );
 });

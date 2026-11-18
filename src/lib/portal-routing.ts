@@ -119,6 +119,45 @@ export function isLocalOrIpHost(rawHost: string | null | undefined): boolean {
 }
 
 /**
+ * Trả về `true` cho domain thật và `localhost` / `*.localhost` (hỗ trợ subdomain routing);
+ * chỉ trả về `false` cho địa chỉ IP thuần như `127.0.0.1` hoặc `[::1]` hay khi thiếu host.
+ */
+export function supportsSubdomainRouting(rawHost: string | null | undefined): boolean {
+  const hostname = extractHostname(rawHost);
+  if (!hostname) return false;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.startsWith('[')) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Xác định cổng hiện tại ở phía trình duyệt dựa trên host và pathname.
+ * - Nếu host có subdomain (`admin.*`, `csyt.*`, `bacsi.*`) -> cổng tương ứng.
+ * - Nếu host hỗ trợ subdomain (`famidoc.online`, `localhost:3000`) và không có subdomain -> luôn là `'FAMILY'`.
+ * - Nếu là địa chỉ IP thuần (`127.0.0.1`) -> suy ra từ prefix `/admin`, `/facility`, `/doctor`, ngược lại `'FAMILY'`.
+ */
+export function resolveClientActivePortal(
+  rawHost: string | null | undefined,
+  pathname?: string | null,
+): PortalRole {
+  const subdomainPortal = getSubdomainPortal(rawHost);
+  if (subdomainPortal) {
+    return subdomainPortal;
+  }
+
+  if (supportsSubdomainRouting(rawHost)) {
+    return 'FAMILY';
+  }
+
+  const path = (pathname || '').trim();
+  if (path === '/admin' || path.startsWith('/admin/')) return 'ADMIN';
+  if (path === '/facility' || path.startsWith('/facility/')) return 'FACILITY';
+  if (path === '/doctor' || path.startsWith('/doctor/')) return 'DOCTOR';
+  return 'FAMILY';
+}
+
+/**
  * Xác định domain gốc (loại bỏ prefix subdomain như `admin.`, `csyt.`, `bacsi.`, `www.`).
  */
 export function getRootHostname(rawHost: string | null | undefined): string {
@@ -206,8 +245,8 @@ export function getRoleInternalLoginPath(role: LoginRole | PortalRole | string):
  * Trả về URL đăng nhập phù hợp cho `role` dựa trên host hiện tại:
  * - Nếu đang ở đúng subdomain của vai trò đó -> `/login`
  * - Nếu đang ở subdomain khác -> URL tuyệt đối sang subdomain của vai trò đích
- * - Nếu đang ở domain chính production (`famidoc.online`) -> URL tuyệt đối sang subdomain đích (hoặc `/login` cho `FAMILY`)
- * - Nếu đang ở `localhost` không có subdomain -> `/admin/login`, `/facility/login`, `/doctor/login` (hoặc `/login` cho `FAMILY`)
+ * - Nếu đang ở domain chính (`famidoc.online` hoặc `localhost:3000`) -> URL tuyệt đối sang subdomain đích (hoặc `/login` cho `FAMILY`)
+ * - Nếu đang ở IP thuần không hỗ trợ subdomain (`127.0.0.1:3000`) -> `/admin/login`, `/facility/login`, `/doctor/login` (hoặc `/login` cho `FAMILY`)
  */
 export function getLoginUrlForRole(
   role: LoginRole | PortalRole | string,
@@ -228,7 +267,7 @@ export function getLoginUrlForRole(
     return '/login';
   }
 
-  if (currentHost && !isLocalOrIpHost(currentHost)) {
+  if (currentHost && supportsSubdomainRouting(currentHost)) {
     return `${getPortalOrigin(targetPortal, currentHost, currentProto)}/login`;
   }
 

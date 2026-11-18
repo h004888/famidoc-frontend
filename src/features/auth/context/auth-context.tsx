@@ -15,7 +15,10 @@ import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
 import {
   getCurrentBrowserHost,
   getCurrentBrowserProto,
+  isRoleAllowedOnPortal,
+  resolveClientActivePortal,
   resolveLogoutRedirectUrl,
+  supportsSubdomainRouting,
 } from '@/lib/portal-routing';
 import { useInitialAuthSession } from './initial-auth-session-context';
 
@@ -65,10 +68,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Sync state từ cookies/localStorage khi mount
+  // Sync state từ cookies/localStorage khi mount, kèm Portal Audience Guard
   useEffect(() => {
     const session = getStoredAuthSession();
     if (session.role && session.token) {
+      const currentHost = getCurrentBrowserHost();
+      const currentPathname = typeof window !== 'undefined' ? window.location.pathname : '';
+      const subdomainMode = supportsSubdomainRouting(currentHost);
+      const activePortal = resolveClientActivePortal(currentHost, currentPathname);
+      const isSharedIpRoute =
+        !subdomainMode &&
+        (currentPathname === '/settings' ||
+          currentPathname.startsWith('/settings/') ||
+          currentPathname === '/notifications' ||
+          currentPathname.startsWith('/notifications/'));
+
+      if (!isSharedIpRoute && !isRoleAllowedOnPortal(session.role, activePortal)) {
+        httpClient.clearToken();
+        if (subdomainMode) {
+          clearAuthSession();
+        }
+        setRole('FAMILY');
+        setUser(null);
+        setIsAuthenticated(false);
+        setIsLoading(false);
+        return;
+      }
+
       setRole(session.role);
       setUser(session.user || DEFAULT_USERS[session.role]);
       setIsAuthenticated(true);

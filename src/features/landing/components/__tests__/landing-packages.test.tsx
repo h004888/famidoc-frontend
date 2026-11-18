@@ -5,6 +5,7 @@ import { mockPublicPackages } from '@/test/mocks/handlers/landing.handler';
 
 let mockIsAuthenticated = false;
 let mockIsLoading = false;
+let mockRole = 'FAMILY';
 
 vi.mock('next/link', () => ({
   default: ({
@@ -26,6 +27,7 @@ vi.mock('@/features/auth/context/auth-context', () => ({
   useAuth: () => ({
     isAuthenticated: mockIsAuthenticated,
     isLoading: mockIsLoading,
+    role: mockRole,
   }),
 }));
 
@@ -33,6 +35,7 @@ describe('LandingPackages', () => {
   beforeEach(() => {
     mockIsAuthenticated = false;
     mockIsLoading = false;
+    mockRole = 'FAMILY';
   });
 
   it('không hiển thị link /register khi auth đang isLoading', () => {
@@ -78,6 +81,23 @@ describe('LandingPackages', () => {
       '/doctors?packageId=40000000-0000-4000-8000-000000000004',
     ]);
   });
+
+  it.each(['ADMIN', 'FACILITY', 'DOCTOR'])(
+    'giữ nút "Đăng ký ngay" tới /register?packageId=<uuid> khi role là %s',
+    (staffRole) => {
+      mockIsAuthenticated = true;
+      mockRole = staffRole;
+      render(<LandingPackages packages={mockPublicPackages} />);
+
+      const links = screen.getAllByRole('link');
+      const registerLinks = links.filter((el) =>
+        el.getAttribute('href')?.startsWith('/register?packageId='),
+      );
+      expect(registerLinks).toHaveLength(4);
+      expect(screen.getAllByText(/Đăng ký ngay/i)).toHaveLength(4);
+      expect(screen.queryByText(/Chọn gói này/i)).not.toBeInTheDocument();
+    },
+  );
 
   it('hiển thị trạng thái rỗng an toàn khi không có gói nào từ Backend', () => {
     render(<LandingPackages packages={[]} />);

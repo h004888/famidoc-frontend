@@ -1,21 +1,35 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
+import { COOKIE_KEYS } from '@/lib/auth-storage';
 import {
   getPortalOrigin,
   getRoleHomePath,
   getRoleInternalLoginPath,
   getSubdomainPortal,
   isFamilyPortalRole,
-  isLocalOrIpHost,
   isRoleAllowedOnPortal,
   normalizeHostHeader,
-  normalizeToPortalRole,
+  supportsSubdomainRouting,
   type PortalRole,
 } from '@/lib/portal-routing';
 
 const SUBDOMAIN_REGISTER_ALLOWED: ReadonlySet<Exclude<PortalRole, 'FAMILY'>> = new Set([
   'DOCTOR',
 ]);
+
+const STAFF_PORTAL_ROLES: ReadonlySet<string> = new Set([
+  'ADMIN',
+  'FACILITY',
+  'HEALTHCARE_FACILITY',
+  'DOCTOR',
+]);
+
+function clearStaleCookiesOnResponse(response: NextResponse): NextResponse {
+  response.cookies.delete({ name: COOKIE_KEYS.ROLE, path: '/' });
+  response.cookies.delete({ name: COOKIE_KEYS.TOKEN, path: '/' });
+  response.cookies.delete({ name: COOKIE_KEYS.USER, path: '/' });
+  return response;
+}
 
 function resolveRequestOrigin(request: NextRequest): {
   rawHost: string;
@@ -155,14 +169,15 @@ export function proxy(request: NextRequest) {
 
   const { rawHost, rawProto, baseOrigin } = resolveRequestOrigin(request);
   const activeSubdomain = getSubdomainPortal(rawHost);
-  const isLocal = isLocalOrIpHost(rawHost);
+  const canUseSubdomains = supportsSubdomainRouting(rawHost);
 
   // Lấy role và token từ cookies
-  const roleCookie = request.cookies.get('famidoc_role')?.value;
-  const tokenCookie = request.cookies.get('famidoc_token')?.value;
+  const roleCookie = request.cookies.get(COOKIE_KEYS.ROLE)?.value;
+  const tokenCookie = request.cookies.get(COOKIE_KEYS.TOKEN)?.value;
 
-  const currentRole = roleCookie ? roleCookie.toUpperCase() : null;
+  const currentRole = roleCookie ? decodeURIComponent(roleCookie).trim().toUpperCase() : null;
   const isAuthenticated = Boolean(tokenCookie && currentRole);
+  const hasStaleStaffCookie = Boolean(currentRole && STAFF_PORTAL_ROLES.has(currentRole));
 
   // 2. Xử lý khi truy cập qua 3 subdomain riêng (`admin.*`, `csyt.*`, `bacsi.*`)
   if (activeSubdomain) {
@@ -175,7 +190,7 @@ export function proxy(request: NextRequest) {
     );
   }
 
-  // 3. Domain chính (`famidoc.online` hoặc `localhost:3000`)
+  // 3. Domain chính (`famidoc.online` hoặc `localhost:3000`) và fallback IP thuần (`127.0.0.1:3000`)
   const pathPortal = getTargetPortalForPath(pathname);
   const isRoleAuthPage =
     pathname === '/admin/login' ||
@@ -183,8 +198,9 @@ export function proxy(request: NextRequest) {
     pathname === '/doctor/login' ||
     pathname === '/doctor/register';
 
-  // Trên production domain chính (`famidoc.online`), điều hướng mọi route của 3 cổng riêng sang subdomain tương ứng
-  if (!isLocal && pathPortal) {
+  // Trên domain hỗ trợ subdomain (`famidoc.online` và `localhost:3000`),
+  // chuyển hướng mọi route của 3 cổng nghiệp vụ sang subdomain tương ứng.
+  if (canUseSubdomains && pathPortal) {
     const targetOrigin = getPortalOrigin(pathPortal, rawHost, rawProto);
     const mappedPath =
       pathname === '/admin/login' ||
@@ -197,7 +213,14 @@ export function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(`${mappedPath}${search}`, targetOrigin));
   }
 
-  // Cho phép trang auth công khai & các cổng auth riêng trên localhost
+  const finalizeCustomerResponse = (response: NextResponse): NextResponse => {
+    if (canUseSubdomains && hasStaleStaffCookie) {
+      return clearStaleCookiesOnResponse(response);
+    }
+    return response;
+  };
+
+  // Cho phép trang auth công khai & các cổng auth riêng trên IP fallback
   const isAuthPage =
     pathname.startsWith('/login') ||
     pathname.startsWith('/register') ||
@@ -208,10 +231,10 @@ export function proxy(request: NextRequest) {
     isRoleAuthPage;
 
   if (isAuthPage) {
-    return NextResponse.next();
+    return finalizeCustomerResponse(NextResponse.next());
   }
 
-  // Route bảo vệ của Admin / Facility / Doctor trên localhost (fallback không subdomain)
+  // Route bảo vệ của Admin / Facility / Doctor trên IP thuần (fallback không subdomain)
   if (pathPortal) {
     if (!isAuthenticated || !currentRole) {
       return buildLoginRedirect(
@@ -235,15 +258,16 @@ export function proxy(request: NextRequest) {
 
   if (isProtectedFamily || isProtectedBooking) {
     if (!isAuthenticated || !currentRole) {
-      return buildLoginRedirect('/login', pathname, search, baseOrigin);
+      return finalizeCustomerResponse(
+        buildLoginRedirect('/login', pathname, search, baseOrigin),
+      );
     }
 
     if (!isFamilyPortalRole(currentRole)) {
-      if (!isLocal) {
-        const targetPortal = normalizeToPortalRole(currentRole);
-        const targetOrigin = getPortalOrigin(targetPortal, rawHost, rawProto);
-        return NextResponse.redirect(
-          new URL(getRoleHomePath(currentRole), targetOrigin),
+      if (canUseSubdomains) {
+        // Phiên ADMIN/FACILITY/DOCTOR trên origin khách hàng bị vô hiệu hóa hoàn toàn và dọn cookie.
+        return clearStaleCookiesOnResponse(
+          buildLoginRedirect('/login', pathname, search, baseOrigin),
         );
       }
       return redirectUserToRoleHome(currentRole, request, baseOrigin);
@@ -255,12 +279,21 @@ export function proxy(request: NextRequest) {
   // Route dùng chung (/settings, /notifications) yêu cầu đã đăng nhập
   if (isSharedProtectedPath(pathname)) {
     if (!isAuthenticated || !currentRole) {
-      return buildLoginRedirect('/login', pathname, search, baseOrigin);
+      return finalizeCustomerResponse(
+        buildLoginRedirect('/login', pathname, search, baseOrigin),
+      );
     }
+
+    if (canUseSubdomains && !isFamilyPortalRole(currentRole)) {
+      return clearStaleCookiesOnResponse(
+        buildLoginRedirect('/login', pathname, search, baseOrigin),
+      );
+    }
+
     return NextResponse.next();
   }
 
-  return NextResponse.next();
+  return finalizeCustomerResponse(NextResponse.next());
 }
 
 // Giữ thêm alias export default để hỗ trợ mọi cách import
@@ -290,5 +323,17 @@ export const config = {
     '/notifications/:path*',
     '/login',
     '/register',
+    '/packages',
+    '/packages/:path*',
+    '/doctors',
+    '/doctors/:path*',
+    '/facilities',
+    '/facilities/:path*',
+    '/onboarding',
+    '/contact',
+    '/blog',
+    '/blog/:path*',
+    '/privacy',
+    '/terms',
   ],
 };

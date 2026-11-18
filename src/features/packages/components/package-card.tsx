@@ -8,17 +8,19 @@ import { Card } from '@/components/ui/card';
 import { PackageItem } from '../schemas/package.schema';
 import { formatCurrencyVND } from '@/lib/utils';
 import { useAuth } from '@/features/auth/context/auth-context';
+import { isFamilyPortalRole } from '@/lib/portal-routing';
 
 export function PackageCard({ pkg, onSelect }: { pkg: PackageItem; onSelect?: (pkg: PackageItem) => void }) {
   const router = useRouter();
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, role } = useAuth();
+  const isCustomerAuthenticated = isAuthenticated && isFamilyPortalRole(role);
 
   const handleRegister = () => {
     if (isLoading) return;
     if (onSelect) {
       onSelect(pkg);
     } else {
-      if (isAuthenticated) {
+      if (isCustomerAuthenticated) {
         router.push(`/family/subscription?packageId=${pkg.id}`);
       } else {
         router.push(`/register?packageId=${pkg.id}`);

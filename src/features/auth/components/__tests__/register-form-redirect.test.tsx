@@ -5,6 +5,7 @@ import { RegisterForm } from '../register-form';
 const replaceMock = vi.fn();
 let mockSearchParams = new URLSearchParams();
 let mockIsLoading = false;
+let mockRole = 'FAMILY';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), replace: replaceMock }),
@@ -15,7 +16,7 @@ vi.mock('@/features/auth/context/auth-context', () => ({
   useAuth: () => ({
     isAuthenticated: true,
     isLoading: mockIsLoading,
-    role: 'FAMILY',
+    role: mockRole,
     getDefaultPathForRole: () => '/family',
   }),
 }));
@@ -25,6 +26,7 @@ describe('RegisterForm - điều hướng tài khoản hộ gia đình đã đă
     vi.clearAllMocks();
     mockSearchParams = new URLSearchParams();
     mockIsLoading = false;
+    mockRole = 'FAMILY';
   });
 
   it('không điều hướng sớm khi auth vẫn đang isLoading', () => {
@@ -57,4 +59,13 @@ describe('RegisterForm - điều hướng tài khoản hộ gia đình đã đă
       );
     });
   });
+
+  it.each(['ADMIN', 'FACILITY', 'DOCTOR'])(
+    'không điều hướng tài khoản %s khỏi trang /register của khách hàng',
+    (staffRole) => {
+      mockRole = staffRole;
+      render(<RegisterForm />);
+      expect(replaceMock).not.toHaveBeenCalled();
+    },
+  );
 });
