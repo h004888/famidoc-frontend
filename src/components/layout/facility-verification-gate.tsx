@@ -131,7 +131,7 @@ const DEFAULT_FACILITY_GATE_CONTEXT: FacilityVerificationGateContextValue = {
   isFacilityB2bReady: false,
   isFacilityLocked: false,
   isFacilityB2bLocked: false,
-  refreshFacilityGate: async () => {},
+  refreshFacilityGate: async () => { },
 };
 
 const FacilityVerificationGateContext = createContext<FacilityVerificationGateContextValue>(

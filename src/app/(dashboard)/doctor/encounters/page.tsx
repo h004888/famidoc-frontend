@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { DoctorEncountersView } from '@/features/doctor-encounters';
 
@@ -8,6 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function DoctorEncountersPage() {
-  return <DoctorEncountersView />;
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-sm text-slate-500">Đang tải hồ sơ khám...</div>}>
+      <DoctorEncountersView />
+    </Suspense>
+  );
 }
-

@@ -160,7 +160,7 @@ export function DoctorDashboardView() {
           if (!isMounted) return;
           if (data && data.id) setStandaloneDoctorProfile(data);
         })
-        .catch(() => {});
+        .catch(() => { });
     }
 
     contractsApi
@@ -169,7 +169,7 @@ export function DoctorDashboardView() {
         if (!isMounted) return;
         if (Array.isArray(items)) setContracts(items);
       })
-      .catch(() => {});
+      .catch(() => { });
 
     return () => {
       isMounted = false;
@@ -501,11 +501,10 @@ export function DoctorDashboardView() {
                   <div
                     key={p.id}
                     onClick={() => setSelectedPatientId(p.id)}
-                    className={`cursor-pointer space-y-2.5 rounded-xl border p-4 shadow-2xs transition-all ${
-                      isSelected
+                    className={`cursor-pointer space-y-2.5 rounded-xl border p-4 shadow-2xs transition-all ${isSelected
                         ? 'border-primary bg-white shadow-xs ring-2 ring-primary/20'
                         : 'border-slate-200/80 bg-slate-50/50 hover:border-primary/40 hover:bg-white'
-                    }`}
+                      }`}
                   >
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2.5">

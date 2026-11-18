@@ -1,9 +1,8 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LogOut } from 'lucide-react';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
 import { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { getCurrentBrowserHost, getSubdomainPortal } from '@/lib/portal-routing';
@@ -38,7 +37,6 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export interface NavItem {
@@ -151,16 +149,12 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         shortLabel: 'Lâm sàng',
         icon: 'dashboard',
         exact: true,
-        badge: '12 Ca',
-        badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200',
       },
       {
         href: '/doctor/contracts',
         label: 'Hợp đồng & Phụ trách Hộ',
         shortLabel: 'HĐ Phụ trách',
         icon: 'assignment_turned_in',
-        badge: 'SCR-16',
-        badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200',
       },
       { href: '/doctor/timetable', label: 'Lịch trực & Panel Cap', shortLabel: 'Lịch trực', icon: 'calendar_clock' },
       { href: '/doctor/encounters', label: 'Khám SOAP & Kê đơn', shortLabel: 'Khám SOAP', icon: 'clinical_notes' },
@@ -169,8 +163,6 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         label: 'Tư vấn WebRTC 24/7',
         shortLabel: 'Telemed',
         icon: 'videocam',
-        badge: 'HD',
-        badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
       },
       { href: '/doctor/verification', label: 'Xác thực CCHN Y tế', shortLabel: 'CCHN', icon: 'verified_user' },
       { href: '/doctor/profile', label: 'Hồ sơ Chuyên môn', shortLabel: 'Hồ sơ', icon: 'account_circle' },
@@ -189,18 +181,14 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         label: 'Đặt lịch Home & Tele',
         shortLabel: 'Lịch hẹn',
         icon: 'event_available',
-        badge: '1 Sắp tới',
-        badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200',
       },
       {
         href: '/family/telemedicine',
         label: 'Phòng khám Video 24/7',
         shortLabel: 'Telemed',
         icon: 'videocam',
-        badge: 'HD',
-        badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
       },
-      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo IoT', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
+      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo sức khỏe', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
       { href: '/family/subscription', label: 'Gói Chăm sóc & Tiến trình ký', shortLabel: 'Gói & HĐ', icon: 'history_edu', exact: true },
       { href: '/family/subscription/contract', label: 'Hợp đồng điện tử', shortLabel: 'HĐ điện tử', icon: 'description' },
       { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
@@ -219,18 +207,14 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
         label: 'Đặt lịch Home & Tele',
         shortLabel: 'Lịch hẹn',
         icon: 'event_available',
-        badge: '1 Sắp tới',
-        badgeColor: 'bg-blue-50 text-blue-800 border border-blue-200',
       },
       {
         href: '/family/telemedicine',
         label: 'Phòng khám Video 24/7',
         shortLabel: 'Telemed',
         icon: 'videocam',
-        badge: 'HD',
-        badgeColor: 'bg-emerald-50 text-emerald-800 border border-emerald-200',
       },
-      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo IoT', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
+      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo sức khỏe', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
       { href: '/family/subscription', label: 'Gói Chăm sóc & Tiến trình ký', shortLabel: 'Gói & HĐ', icon: 'history_edu', exact: true },
       { href: '/family/subscription/contract', label: 'Hợp đồng điện tử', shortLabel: 'HĐ điện tử', icon: 'description' },
       { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
@@ -269,7 +253,7 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
     if (sidebar) {
       try {
         localStorage.setItem('famidoc_sidebar_pinned', String(sidebar.open));
-      } catch {}
+      } catch { }
     }
   }, [sidebar]);
 
@@ -279,12 +263,12 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
     pathRole || hostPortalRole || initialRole || (isAuthenticated ? role : mounted ? role : 'FAMILY');
   const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
   const isFamilyAccount = effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT';
-  const settingsLabel = isFamilyAccount ? 'Cài đặt & Hồ sơ BHYT' : 'Cài đặt tài khoản';
   const isAdminSidebar = effectiveRole === 'ADMIN';
-  const sidebarUtilities = [
-    ...(!isAdminSidebar ? [{ href: '/packages', label: 'Danh mục Gói Dịch vụ', icon: 'inventory_2' }] : []),
-    { href: '/settings', label: isAdminSidebar ? 'Cài đặt' : settingsLabel, icon: 'settings' },
-  ];
+  const settingsLabel = isAdminSidebar
+    ? 'Cài đặt'
+    : isFamilyAccount
+      ? 'Cài đặt & Hồ sơ BHYT'
+      : 'Cài đặt tài khoản';
 
   const getFacilityItemLock = (href: string) =>
     effectiveRole === 'FACILITY'
@@ -385,15 +369,17 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                   title={lockTooltip}
                   aria-label={`${item.label} (Đã khóa)`}
                   className={cn(
-                    'flex w-full cursor-not-allowed items-center justify-between rounded-xl bg-slate-50/70 px-3 py-2.5 text-xs font-medium text-slate-400 opacity-75 sm:text-sm',
+                    'flex w-full cursor-not-allowed items-center justify-between gap-2 rounded-xl bg-slate-50/70 px-3 py-2.5 text-xs font-medium text-slate-400 opacity-75 sm:text-sm',
                     isCollapsedState && 'justify-center px-2'
                   )}
                 >
-                  <div className="flex items-center gap-3 truncate">
+                  <div className="flex min-w-0 items-center gap-3">
                     <span className="material-symbols-outlined shrink-0 text-[20px] text-slate-400">
                       lock
                     </span>
-                    {!isCollapsedState && <span className="truncate">{item.label}</span>}
+                    {!isCollapsedState && (
+                      <span className="text-left leading-snug">{item.label}</span>
+                    )}
                   </div>
                   {!isCollapsedState && (
                     <Badge
@@ -424,14 +410,14 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                 title={isCollapsedState ? item.label : undefined}
                 aria-label={item.label}
                 className={cn(
-                  'group flex items-center justify-between rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
+                  'group flex items-center justify-between gap-2 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
                   isActive
                     ? 'bg-primary font-semibold text-primary-foreground shadow-2xs'
                     : 'text-slate-700 hover:bg-accent hover:text-primary',
                   isCollapsedState && 'justify-center px-2'
                 )}
               >
-                <div className="flex items-center gap-3 truncate">
+                <div className="flex min-w-0 items-center gap-3">
                   <span
                     className={cn(
                       'material-symbols-outlined shrink-0 text-[20px] transition-colors',
@@ -440,7 +426,9 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                   >
                     {item.icon}
                   </span>
-                  {!isCollapsedState && <span className="truncate">{item.label}</span>}
+                  {!isCollapsedState && (
+                    <span className="leading-snug">{item.label}</span>
+                  )}
                 </div>
                 {!isCollapsedState && item.badge && (
                   <span
@@ -502,18 +490,16 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
 
         {/* Global Settings & Utilities */}
         <div className="space-y-1 border-t border-slate-100 pt-2">
-          {sidebarUtilities.map(({ href, label, icon }) => {
-            const isActive = pathname === href;
-            const link = (
+          {(() => {
+            const settingsEl = (
               <Link
-                key={href}
-                href={href}
+                href="/settings"
                 onClick={() => setMobileMenuOpen(false)}
-                title={isCollapsedState ? label : undefined}
-                aria-label={label}
+                title={isCollapsedState ? settingsLabel : undefined}
+                aria-label={settingsLabel}
                 className={cn(
                   'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
-                  isActive
+                  pathname === '/settings'
                     ? 'bg-primary font-semibold text-primary-foreground'
                     : 'text-slate-700 hover:bg-accent hover:text-primary',
                   isCollapsedState && 'justify-center px-2'
@@ -522,45 +508,56 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                 <span
                   className={cn(
                     'material-symbols-outlined shrink-0 text-[20px] transition-colors',
-                    isActive ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
+                    pathname === '/settings' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
                   )}
                 >
-                  {icon}
+                  settings
                 </span>
-                {!isCollapsedState && <span>{label}</span>}
+                {!isCollapsedState && <span>{settingsLabel}</span>}
               </Link>
             );
 
             return isCollapsedState ? (
-              <Tooltip key={href}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right">{label}</TooltipContent>
+              <Tooltip>
+                <TooltipTrigger asChild>{settingsEl}</TooltipTrigger>
+                <TooltipContent side="right">{settingsLabel}</TooltipContent>
               </Tooltip>
             ) : (
-              link
+              settingsEl
             );
-          })}
+          })()}
+
+          {(() => {
+            const logoutEl = (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+                title={isCollapsedState ? 'Đăng xuất' : undefined}
+                aria-label="Đăng xuất"
+                className={cn(
+                  'group flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 outline-hidden sm:text-sm',
+                  isCollapsedState && 'justify-center px-2'
+                )}
+              >
+                <span className="material-symbols-outlined shrink-0 text-[20px]">logout</span>
+                {!isCollapsedState && <span>Đăng xuất</span>}
+              </button>
+            );
+
+            return isCollapsedState ? (
+              <Tooltip>
+                <TooltipTrigger asChild>{logoutEl}</TooltipTrigger>
+                <TooltipContent side="right">Đăng xuất</TooltipContent>
+              </Tooltip>
+            ) : (
+              logoutEl
+            );
+          })()}
         </div>
       </div>
-
-      {isAdminSidebar && (
-        <div className="shrink-0 border-t border-slate-200 p-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={logout}
-            aria-label="Đăng xuất"
-            title={isCollapsedState ? 'Đăng xuất' : undefined}
-            className={cn(
-              'h-10 w-full text-destructive hover:bg-destructive/10 hover:text-destructive',
-              isCollapsedState ? 'justify-center px-0' : 'justify-start'
-            )}
-          >
-            <LogOut aria-hidden="true" />
-            {!isCollapsedState && 'Đăng xuất'}
-          </Button>
-        </div>
-      )}
     </div>
   );
 

@@ -87,7 +87,7 @@ const UNLOCKED_FEATURES = [
   {
     icon: 'monitor_heart',
     title: 'Bảng Sức khỏe Gia đình',
-    description: 'Theo dõi chỉ số sinh hiệu và cảnh báo IoT của từng thành viên.',
+    description: 'Theo dõi chỉ số sinh hiệu hằng ngày và cảnh báo sức khỏe của từng thành viên.',
   },
   {
     icon: 'event_available',

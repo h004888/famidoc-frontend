@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,13 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  doctorsApi,
+  encountersApi,
+  type DoctorProfileDto,
+  type EncounterItem,
+} from '@/lib/api';
+import { useAuth } from '@/features/auth/context/auth-context';
 
 interface ChatMessage {
   id: string;
@@ -55,6 +62,14 @@ const INITIAL_CHAT_MESSAGES: ChatMessage[] = [
 
 export function DoctorTelemedicineView() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const encounterIdParam = searchParams.get('encounterId');
+  const patientIdParam = searchParams.get('patientId');
+
+  const { user } = useAuth();
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
+  const [encounter, setEncounter] = useState<EncounterItem | null>(null);
+
   const [isMicOn, setIsMicOn] = useState(true);
   const [isCameraOn, setIsCameraOn] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -64,6 +79,91 @@ export function DoctorTelemedicineView() {
   const [newChatMessage, setNewChatMessage] = useState('');
   const [showEndConsultModal, setShowEndConsultModal] = useState(false);
 
+  useEffect(() => {
+    let isMounted = true;
+    doctorsApi
+      .getDoctorMe()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && res.id) setDoctorProfile(res);
+      })
+      .catch(() => {});
+
+    if (encounterIdParam) {
+      encountersApi
+        .getEncounterDetail(encounterIdParam)
+        .then((data) => {
+          if (!isMounted) return;
+          if (data && data.id) setEncounter(data);
+        })
+        .catch(() => {});
+    } else if (patientIdParam) {
+      encountersApi
+        .getDoctorTimetable({ encounterType: 'TELEMEDICINE' })
+        .then((res) => {
+          if (!isMounted) return;
+          if (res && Array.isArray(res.data)) {
+            const found = res.data.find(
+              (e) => e.patientId === patientIdParam || e.id === patientIdParam
+            );
+            if (found) setEncounter(found);
+          }
+        })
+        .catch(() => {});
+    } else {
+      encountersApi
+        .getDoctorTimetable({ encounterType: 'TELEMEDICINE' })
+        .then((res) => {
+          if (!isMounted) return;
+          if (res && Array.isArray(res.data) && res.data.length > 0) {
+            setEncounter(res.data[0]);
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [encounterIdParam, patientIdParam]);
+
+  const doctorDisplayName = doctorProfile?.doctorName || user?.name || 'PGS.TS Nguyễn Trọng Nghĩa';
+  const doctorInitials =
+    doctorDisplayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map((s) => s[0]?.toUpperCase())
+      .join('') || 'BS';
+
+  const patientName = encounter?.patient?.fullName || 'Cụ Nguyễn Văn Phúc';
+  const patientAge = encounter?.patient?.dateOfBirth
+    ? `${new Date().getFullYear() - new Date(encounter.patient.dateOfBirth).getFullYear()} tuổi`
+    : '78 tuổi';
+  const patientInitials =
+    patientName
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map((s) => s[0]?.toUpperCase())
+      .join('') || 'BN';
+
+  const roomCode = encounter?.id ? `TELE-${encounter.id.slice(0, 8)}` : 'TELE-88219';
+  const familyCode = encounter?.contract?.familyUnit?.familyName || 'Hộ FAM-88219';
+  const familyAddress = encounter?.contract?.familyUnit?.address || 'Q.5, TP.HCM';
+
+  const patientAllergies = encounter?.patient?.allergies?.length
+    ? encounter.patient.allergies.join(', ')
+    : 'Dị ứng nhóm Penicillin / Beta-lactam và Hải sản có vỏ. Tuyệt đối không kê Amoxicillin hoặc Cephalosporin thế hệ 1.';
+
+  const patientChronic = encounter?.patient?.chronicDiseases?.length
+    ? encounter.patient.chronicDiseases.join(', ')
+    : 'Tăng huyết áp, Đái tháo đường typ 2';
+
+  const emrLink = encounter?.id
+    ? `/doctor/encounters?patientId=${encounter.patientId}&encounterId=${encounter.id}`
+    : '/doctor/encounters?patientId=PT-01&encounterId=TELE-88219';
+
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChatMessage.trim()) return;
@@ -71,7 +171,7 @@ export function DoctorTelemedicineView() {
     const msg: ChatMessage = {
       id: `msg-${Date.now()}`,
       sender: 'doctor',
-      senderName: 'PGS.TS Nguyễn Trọng Nghĩa',
+      senderName: doctorDisplayName,
       text: newChatMessage.trim(),
       time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
     };
@@ -122,11 +222,11 @@ export function DoctorTelemedicineView() {
                     Phòng Khám Trực Tuyến Telehealth
                   </h1>
                   <Badge variant="outline" className="px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-primary/10 text-primary border-primary/20">
-                    Phòng #TELE-88219
+                    Phòng #{roomCode}
                   </Badge>
                 </div>
                 <p className="text-xs sm:text-sm text-slate-500">
-                  Bệnh nhân: <strong className="text-slate-800">Nguyễn Văn Phúc (78 tuổi)</strong> • Hộ: FAM-88219 • Bác sĩ tư vấn: <strong className="text-slate-800">PGS.TS Nguyễn Trọng Nghĩa</strong>
+                  Bệnh nhân: <strong className="text-slate-800">{patientName} ({patientAge})</strong> • {familyCode} • Bác sĩ tư vấn: <strong className="text-slate-800">{doctorDisplayName}</strong>
                 </p>
               </div>
             </div>
@@ -140,7 +240,7 @@ export function DoctorTelemedicineView() {
               </div>
 
               <Button asChild className="rounded-xl text-xs sm:text-sm font-bold gap-1.5">
-                <Link href="/doctor/encounters?patientId=PT-01&encounterId=TELE-88219">
+                <Link href={emrLink}>
                   <span className="material-symbols-outlined text-[17px]">clinical_notes</span>
                   <span>Kê Đơn Thuốc &amp; Ký Số EMR</span>
                 </Link>
@@ -171,7 +271,7 @@ export function DoctorTelemedicineView() {
 
                 <div className="bg-slate-900/80 border border-white/10 px-3 py-1 rounded-full backdrop-blur-md text-slate-300 text-[11px] font-medium hidden sm:flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[14px] text-slate-400">home_health</span>
-                  Hộ FAM-88219 (Q.5, TP.HCM)
+                  {familyCode} ({familyAddress})
                 </div>
               </div>
 
@@ -181,7 +281,7 @@ export function DoctorTelemedicineView() {
                   {/* Patient Visual Avatar */}
                   <div className="relative inline-block">
                     <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-gradient-to-tr from-slate-800 to-slate-700 border-4 border-slate-600/70 flex items-center justify-center text-white font-bold text-3xl sm:text-4xl shadow-2xl mx-auto ring-4 ring-primary/30">
-                      VP
+                      {patientInitials}
                     </div>
                     {/* Active Voice Wave Pulse */}
                     <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-bold text-[10px] uppercase tracking-wider flex items-center gap-1 shadow-md">
@@ -192,10 +292,10 @@ export function DoctorTelemedicineView() {
 
                   <div>
                     <h3 className="text-white font-bold text-lg sm:text-xl tracking-tight">
-                      Cụ Nguyễn Văn Phúc (78 tuổi)
+                      {patientName} ({patientAge})
                     </h3>
                     <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                      Đang kết nối cùng Bác sĩ PGS.TS Nguyễn Trọng Nghĩa qua thiết bị FamiDoc Home Station
+                      Đang kết nối cùng Bác sĩ {doctorDisplayName} qua thiết bị FamiDoc Home Station
                     </p>
                   </div>
 
@@ -220,12 +320,12 @@ export function DoctorTelemedicineView() {
 
                 <div className="text-center">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-white flex items-center justify-center font-bold text-sm mx-auto shadow-xs">
-                    TN
+                    {doctorInitials}
                   </div>
                 </div>
 
                 <div className="text-[10px] text-white truncate font-medium text-center bg-black/40 py-0.5 px-1 rounded">
-                  PGS.TS Nguyễn Trọng Nghĩa
+                  {doctorDisplayName}
                 </div>
               </div>
 
@@ -414,32 +514,25 @@ export function DoctorTelemedicineView() {
                   <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1.5">
                     <div className="font-bold flex items-center gap-1.5 text-rose-950">
                       <span className="material-symbols-outlined text-[17px] text-rose-600">emergency</span>
-                      <span>Tiền sử dị ứng thuốc nghiêm trọng:</span>
+                      <span>Tiền sử dị ứng &amp; Bệnh nền:</span>
                     </div>
                     <p className="text-[11px] leading-relaxed text-rose-800">
-                      Dị ứng nhóm <strong>Penicillin / Beta-lactam</strong> và <strong>Hải sản có vỏ</strong>. Tuyệt đối không kê Amoxicillin hoặc Cephalosporin thế hệ 1.
+                      {patientAllergies}
                     </p>
                   </div>
 
                   {/* Patient Clinical Background Summary */}
                   <div className="p-4 rounded-xl bg-slate-50/90 border border-slate-200/80 text-xs space-y-2">
                     <span className="font-bold text-slate-800 uppercase tracking-wider text-[11px] block">
-                      Đơn thuốc đang dùng hàng ngày:
+                      Bệnh mạn tính ghi nhận:
                     </span>
-                    <ul className="space-y-1.5 text-slate-600">
-                      <li className="flex items-center justify-between">
-                        <span>• Amlor (Amlodipine) 5mg</span>
-                        <span className="font-semibold text-slate-800">1 viên sáng</span>
-                      </li>
-                      <li className="flex items-center justify-between">
-                        <span>• Glucophage (Metformin) 500mg</span>
-                        <span className="font-semibold text-slate-800">1 viên tối</span>
-                      </li>
-                    </ul>
+                    <p className="text-xs text-slate-700">
+                      {patientChronic}
+                    </p>
                   </div>
 
                   <Link
-                    href="/doctor/encounters?patientId=PT-01&encounterId=TELE-88219"
+                    href={emrLink}
                     className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[16px] text-slate-600">open_in_new</span>
@@ -574,7 +667,7 @@ export function DoctorTelemedicineView() {
                   Kết Thúc Ca Khám Telehealth
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-500 mt-0.5">
-                  Bệnh nhân: <strong className="text-slate-800">Nguyễn Văn Phúc (Phòng #TELE-88219)</strong>
+                  Bệnh nhân: <strong className="text-slate-800">{patientName} (Phòng #{roomCode})</strong>
                 </DialogDescription>
               </div>
             </div>
@@ -597,7 +690,7 @@ export function DoctorTelemedicineView() {
               type="button"
               onClick={() => {
                 setShowEndConsultModal(false);
-                router.push('/doctor/encounters?patientId=PT-01&encounterId=TELE-88219');
+                router.push(emrLink);
               }}
               className="flex-1 rounded-xl font-bold text-xs gap-1.5"
             >

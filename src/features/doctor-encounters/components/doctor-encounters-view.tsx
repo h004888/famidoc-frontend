@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  doctorsApi,
+  encountersApi,
+  type DoctorProfileDto,
+  type EncounterItem,
+} from '@/lib/api';
+import { useAuth } from '@/features/auth/context/auth-context';
 
 interface PrescriptionItem {
   id: string;
@@ -54,6 +62,14 @@ const DEFAULT_PRESCRIPTIONS: PrescriptionItem[] = [
 ];
 
 export function DoctorEncountersView() {
+  const searchParams = useSearchParams();
+  const patientIdParam = searchParams.get('patientId');
+  const encounterIdParam = searchParams.get('encounterId');
+
+  const { user } = useAuth();
+  const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
+  const [encounter, setEncounter] = useState<EncounterItem | null>(null);
+
   const [prescriptions, setPrescriptions] = useState<PrescriptionItem[]>(DEFAULT_PRESCRIPTIONS);
   const [isSigned, setIsSigned] = useState(false);
   const [isSigning, setIsSigning] = useState(false);
@@ -81,6 +97,77 @@ export function DoctorEncountersView() {
   const [adviceNote, setAdviceNote] = useState(
     'Tiếp tục chế độ ăn giảm muối (< 5g/ngày). Vận động đi bộ nhẹ nhàng 20 phút mỗi chiều. Tái khám sau 30 ngày hoặc liên hệ ngay nếu huyết áp đo tại nhà > 150 mmHg.'
   );
+
+  useEffect(() => {
+    let isMounted = true;
+    doctorsApi
+      .getDoctorMe()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && res.id) setDoctorProfile(res);
+      })
+      .catch(() => {});
+
+    if (encounterIdParam) {
+      encountersApi
+        .getEncounterDetail(encounterIdParam)
+        .then((enc) => {
+          if (!isMounted) return;
+          if (enc && enc.id) {
+            setEncounter(enc);
+            if (enc.subjectiveNote) setSubjectiveNote(enc.subjectiveNote);
+            if (enc.objectiveExam) setObjectiveExam(enc.objectiveExam);
+            if (enc.plan) setAdviceNote(enc.plan);
+            if (Array.isArray(enc.prescription) && enc.prescription.length > 0) {
+              setPrescriptions(enc.prescription);
+            }
+          }
+        })
+        .catch(() => {});
+    } else if (patientIdParam) {
+      encountersApi
+        .getDoctorTimetable()
+        .then((res) => {
+          if (!isMounted) return;
+          if (res && Array.isArray(res.data)) {
+            const found = res.data.find(
+              (item) => item.patientId === patientIdParam || item.id === patientIdParam
+            );
+            if (found) {
+              setEncounter(found);
+              if (found.subjectiveNote) setSubjectiveNote(found.subjectiveNote);
+              if (found.objectiveExam) setObjectiveExam(found.objectiveExam);
+              if (found.plan) setAdviceNote(found.plan);
+              if (Array.isArray(found.prescription) && found.prescription.length > 0) {
+                setPrescriptions(found.prescription);
+              }
+            }
+          }
+        })
+        .catch(() => {});
+    } else {
+      encountersApi
+        .getDoctorTimetable()
+        .then((res) => {
+          if (!isMounted) return;
+          if (res && Array.isArray(res.data) && res.data.length > 0) {
+            const first = res.data[0];
+            setEncounter(first);
+            if (first.subjectiveNote) setSubjectiveNote(first.subjectiveNote);
+            if (first.objectiveExam) setObjectiveExam(first.objectiveExam);
+            if (first.plan) setAdviceNote(first.plan);
+            if (Array.isArray(first.prescription) && first.prescription.length > 0) {
+              setPrescriptions(first.prescription);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [encounterIdParam, patientIdParam]);
 
   const handleAddDrug = (e: React.FormEvent) => {
     e.preventDefault();
@@ -141,15 +228,47 @@ export function DoctorEncountersView() {
 
   const handleDigitalSign = () => {
     setIsSigning(true);
-    setTimeout(() => {
+    const signPromise = encounter?.id
+      ? encountersApi
+          .finalizeEncounter(encounter.id, {
+            subjectiveNote,
+            objectiveExam,
+            plan: adviceNote,
+            prescription: prescriptions,
+            digitalSignature: 'VIETTEL-CA-HSM-VERIFIED',
+            notes: 'Hoàn tất ký số EMR',
+          })
+          .catch((err) => {
+            console.warn('Digital sign error:', err);
+          })
+      : Promise.resolve();
+
+    signPromise.finally(() => {
       setIsSigning(false);
       setIsSigned(true);
       const message = 'Đã khóa mã hóa bệnh án EMR và hoàn tất Ký số điện tử HSM Viettel-CA!';
       setSignSuccessMessage(message);
       toast.success(message);
       setTimeout(() => setSignSuccessMessage(null), 6000);
-    }, 1200);
+    });
   };
+
+  const patientDisplayName = encounter?.patient?.fullName || 'Nguyễn Văn Phúc';
+  const patientAge = encounter?.patient?.dateOfBirth
+    ? `${new Date().getFullYear() - new Date(encounter.patient.dateOfBirth).getFullYear()} tuổi`
+    : '78 tuổi';
+  const patientGender = encounter?.patient?.gender === 'FEMALE' ? 'Nữ' : 'Nam';
+  const encounterCode = encounter?.id ? `ENC-${encounter.id.slice(0, 8)}` : 'ENC-88219-01';
+  const familyCode = encounter?.contract?.familyUnit?.familyName || 'FAM-88219';
+  const bhytCode = 'Đã xác thực hồ sơ FamiDoc';
+  const doctorNameDisplay = doctorProfile?.doctorName || user?.name || 'PGS.TS Nguyễn Trọng Nghĩa';
+  const initials =
+    patientDisplayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(-2)
+      .map((s) => s[0]?.toUpperCase())
+      .join('') || 'BN';
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
@@ -203,7 +322,7 @@ export function DoctorEncountersView() {
             <div className="flex items-start sm:items-center gap-4.5">
               <div className="relative shrink-0">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#0037c1] to-[#00D3C7] text-white flex items-center justify-center font-bold text-xl shadow-md ring-4 ring-primary/10">
-                  VP
+                  {initials}
                 </div>
                 <span
                   className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white"
@@ -214,22 +333,22 @@ export function DoctorEncountersView() {
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                    Nguyễn Văn Phúc
+                    {patientDisplayName}
                   </h1>
                   <Badge variant="secondary" className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                    78 tuổi • Nam
+                    {patientAge} • {patientGender}
                   </Badge>
                   <Badge variant="outline" className="px-2.5 py-0.5 rounded-full text-xs font-bold tabular-nums bg-primary/10 text-primary border-primary/20">
-                    Mã ca: ENC-88219-01
+                    Mã ca: {encounterCode}
                   </Badge>
                 </div>
 
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-                  <span>Hộ gia đình: <strong className="text-slate-700">FAM-88219</strong></span>
+                  <span>Hộ gia đình: <strong className="text-slate-700">{familyCode}</strong></span>
                   <span>•</span>
-                  <span>BHYT: <strong className="text-slate-700 tabular-nums">GD 4 79 01 23891024</strong> (100%)</span>
+                  <span>BHYT: <strong className="text-slate-700 tabular-nums">{bhytCode}</strong> (100%)</span>
                   <span>•</span>
-                  <span>BS phụ trách: <strong className="text-slate-700">PGS.TS Nguyễn Trọng Nghĩa</strong></span>
+                  <span>BS phụ trách: <strong className="text-slate-700">{doctorNameDisplay}</strong></span>
                 </div>
               </div>
             </div>

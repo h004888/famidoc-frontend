@@ -12,21 +12,32 @@ export interface FileUploadResponse {
   };
 }
 
+export interface UploadedFileResult {
+  url: string;
+  isLocalFallback: boolean;
+}
+
 export const filesApi = {
-  uploadFile: async (file: File, folder = 'documents'): Promise<string> => {
+  uploadFileWithMeta: async (file: File, folder = 'documents'): Promise<UploadedFileResult> => {
     try {
       const formData = new FormData();
       formData.append('file', file);
       formData.append('folder', folder);
 
       const res = await httpClient.upload<FileUploadResponse>('/api/v1/files/upload', formData);
-      if (res && res.data && res.data.url) {
-        return res.data.url;
+      const uploadedUrl = res?.data?.url?.trim();
+      if (uploadedUrl && /^https?:\/\//i.test(uploadedUrl)) {
+        return { url: uploadedUrl, isLocalFallback: false };
       }
-      return URL.createObjectURL(file);
+      return { url: URL.createObjectURL(file), isLocalFallback: true };
     } catch {
-      // Fallback cục bộ khi chưa có storage server
-      return URL.createObjectURL(file);
+      // Fallback cục bộ khi chưa có endpoint upload S3 trên backend
+      return { url: URL.createObjectURL(file), isLocalFallback: true };
     }
+  },
+
+  uploadFile: async (file: File, folder = 'documents'): Promise<string> => {
+    const result = await filesApi.uploadFileWithMeta(file, folder);
+    return result.url;
   },
 };
