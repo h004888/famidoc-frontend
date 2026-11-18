@@ -1,6 +1,7 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import type { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { COOKIE_KEYS, DEFAULT_USERS, type AuthUser } from './auth-storage';
+import { getPortalFromHost, isRoleAllowedOnPortal, type PortalRole } from './portal-routing';
 
 export interface ServerAuthSession {
   role: LoginRole;
@@ -8,13 +9,36 @@ export interface ServerAuthSession {
   user: AuthUser;
 }
 
-const VALID_ROLES = new Set<string>(['FAMILY', 'PATIENT', 'DOCTOR', 'FACILITY', 'ADMIN']);
+const ROLE_ALIASES: Record<string, LoginRole> = {
+  FAMILY: 'FAMILY',
+  FAMILY_REP: 'FAMILY',
+  PATIENT: 'PATIENT',
+  DOCTOR: 'DOCTOR',
+  FACILITY: 'FACILITY',
+  HEALTHCARE_FACILITY: 'FACILITY',
+  ADMIN: 'ADMIN',
+};
+
+async function readRequestHostSafely(): Promise<string> {
+  try {
+    const headerStore = await headers();
+    if (!headerStore || typeof headerStore.get !== 'function') {
+      return '';
+    }
+    return headerStore.get('x-forwarded-host') || headerStore.get('host') || '';
+  } catch {
+    return '';
+  }
+}
 
 /**
- * Đọc phiên đăng nhập từ cookies ở phía Server Component.
- * Không ném lỗi khi cookie thiếu hoặc JSON người dùng bị hỏng.
+ * Đọc phiên đăng nhập từ cookies ở phía Server Component, có kiểm tra cổng (Portal Audience Guard).
+ * Không ném lỗi khi cookie thiếu, JSON người dùng bị hỏng hoặc `headers()` không khả dụng.
+ * Trên host khách hàng (`famidoc.online`, `localhost:3000`, hoặc không có host), chỉ nhận `FAMILY`, `FAMILY_REP`, `PATIENT`.
  */
-export async function readServerAuthSession(): Promise<ServerAuthSession | null> {
+export async function readServerAuthSession(
+  expectedPortal?: PortalRole,
+): Promise<ServerAuthSession | null> {
   const cookieStore = await cookies();
   const rawRole = cookieStore.get(COOKIE_KEYS.ROLE)?.value;
   const rawToken = cookieStore.get(COOKIE_KEYS.TOKEN)?.value;
@@ -24,12 +48,19 @@ export async function readServerAuthSession(): Promise<ServerAuthSession | null>
     return null;
   }
 
-  const normalizedRole = decodeURIComponent(rawRole).toUpperCase();
-  if (!VALID_ROLES.has(normalizedRole)) {
+  const rawNormalizedRole = decodeURIComponent(rawRole).trim().toUpperCase();
+  const role = ROLE_ALIASES[rawNormalizedRole];
+  if (!role) {
     return null;
   }
 
-  const role = normalizedRole as LoginRole;
+  const activePortal: PortalRole =
+    expectedPortal ?? getPortalFromHost(await readRequestHostSafely());
+
+  if (!isRoleAllowedOnPortal(rawNormalizedRole, activePortal)) {
+    return null;
+  }
+
   const token = decodeURIComponent(rawToken);
   let user: AuthUser | null = null;
 

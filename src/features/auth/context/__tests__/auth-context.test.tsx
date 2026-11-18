@@ -125,4 +125,119 @@ describe('Task 2: AuthContext integration with authApi.login and session sync', 
     expect(result.current.isLoading).toBe(false);
     expect(result.current.user?.name).toBe('Lê Thị Hoa');
   });
+
+  describe('Portal Audience Guard khi mount AuthProvider', () => {
+    function setLocation(host: string, pathname = '/') {
+      const protocol = host.includes('localhost') || host.startsWith('127.') ? 'http:' : 'https:';
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        writable: true,
+        value: {
+          href: `${protocol}//${host}${pathname}`,
+          origin: `${protocol}//${host}`,
+          protocol,
+          host,
+          hostname: host.split(':')[0],
+          pathname,
+          search: '',
+          hash: '',
+          replace: vi.fn(),
+          assign: vi.fn(),
+        },
+      });
+    }
+
+    it.each(['ADMIN', 'FACILITY', 'DOCTOR'] as const)(
+      'từ chối hydrate phiên %s trên host khách hàng (localhost:3000 / famidoc.online) và xóa token/cookie sai cổng',
+      (staffRole) => {
+        setLocation('localhost:3000', '/packages');
+        authStorage.saveAuthSession(
+          staffRole,
+          {
+            id: `usr-${staffRole.toLowerCase()}`,
+            name: `Staff ${staffRole}`,
+            phone: '0901112223',
+            role: staffRole,
+            avatarText: 'ST',
+          },
+          `jwt-${staffRole}`,
+          true,
+        );
+        httpClient.setToken(`jwt-${staffRole}`, true);
+
+        const clearSessionSpy = vi.spyOn(authStorage, 'clearAuthSession');
+        const clearTokenSpy = vi.spyOn(httpClient, 'clearToken');
+
+        const wrapper = ({ children }: { children: React.ReactNode }) => (
+          <AuthProvider>{children}</AuthProvider>
+        );
+        const { result } = renderHook(() => useAuth(), { wrapper });
+
+        expect(result.current.isLoading).toBe(false);
+        expect(result.current.isAuthenticated).toBe(false);
+        expect(result.current.user).toBeNull();
+        expect(clearTokenSpy).toHaveBeenCalled();
+        expect(clearSessionSpy).toHaveBeenCalled();
+        expect(authStorage.getStoredAuthSession().role).toBeNull();
+        expect(httpClient.getToken()).toBeNull();
+        clearSessionSpy.mockRestore();
+        clearTokenSpy.mockRestore();
+      },
+    );
+
+    it('hydrate bình thường khi DOCTOR ở đúng subdomain bacsi.localhost:3000', () => {
+      setLocation('bacsi.localhost:3000', '/doctor/contracts');
+      authStorage.saveAuthSession(
+        'DOCTOR',
+        {
+          id: 'doc-1',
+          name: 'BS Nguyễn Văn A',
+          phone: '0901112223',
+          role: 'DOCTOR',
+          avatarText: 'BS',
+        },
+        'jwt-doctor-ok',
+        true,
+      );
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <AuthProvider>{children}</AuthProvider>
+      );
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.isAuthenticated).toBe(true);
+      expect(result.current.role).toBe('DOCTOR');
+      expect(result.current.user?.name).toBe('BS Nguyễn Văn A');
+    });
+
+    it('trên IP thuần (127.0.0.1:3000): không hydrate ADMIN ở trang khách hàng nhưng không xóa cookie chung của cổng /admin', () => {
+      setLocation('127.0.0.1:3000', '/');
+      authStorage.saveAuthSession(
+        'ADMIN',
+        {
+          id: 'adm-1',
+          name: 'Admin IP',
+          phone: '0901112223',
+          role: 'ADMIN',
+          avatarText: 'AD',
+        },
+        'jwt-admin-ip',
+        true,
+      );
+
+      const clearSessionSpy = vi.spyOn(authStorage, 'clearAuthSession');
+
+      const wrapper = ({ children }: { children: React.ReactNode }) => (
+        <AuthProvider>{children}</AuthProvider>
+      );
+      const { result } = renderHook(() => useAuth(), { wrapper });
+
+      expect(result.current.isAuthenticated).toBe(false);
+      expect(result.current.user).toBeNull();
+      expect(clearSessionSpy).not.toHaveBeenCalled();
+      expect(authStorage.getCookie(authStorage.COOKIE_KEYS.ROLE)).toBe('ADMIN');
+      clearSessionSpy.mockRestore();
+    });
+  });
 });

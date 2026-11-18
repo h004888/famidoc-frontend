@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useAuth } from '@/features/auth/context/auth-context';
+import { isFamilyPortalRole } from '@/lib/portal-routing';
 import type { LandingPackageItem } from '../types';
 
 export interface LandingPackagesProps {
@@ -17,7 +18,8 @@ function formatVnd(amount: number): string {
 }
 
 export function LandingPackages({ packages = [] }: LandingPackagesProps = {}) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, role } = useAuth();
+  const isCustomerAuthenticated = isAuthenticated && isFamilyPortalRole(role);
   const displayPackages = packages.slice(0, 4);
 
   return (
@@ -146,12 +148,12 @@ export function LandingPackages({ packages = [] }: LandingPackagesProps = {}) {
                         >
                           <Link
                             href={
-                              isAuthenticated
+                              isCustomerAuthenticated
                                 ? `/doctors?packageId=${pkg.id}`
                                 : `/register?packageId=${pkg.id}`
                             }
                           >
-                            <span>{isAuthenticated ? 'Chọn gói này' : 'Đăng ký ngay'}</span>
+                            <span>{isCustomerAuthenticated ? 'Chọn gói này' : 'Đăng ký ngay'}</span>
                             <span className="material-symbols-outlined text-sm transition-transform group-hover:translate-x-1">
                               arrow_forward
                             </span>

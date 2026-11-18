@@ -19,7 +19,7 @@ vi.mock('next/navigation', () => ({
 }));
 
 function setBrowserLocation(host: string, pathname = '/login') {
-  const protocol = host.includes('localhost') ? 'http:' : 'https:';
+  const protocol = host.includes('localhost') || host.startsWith('127.') ? 'http:' : 'https:';
   Object.defineProperty(window, 'location', {
     configurable: true,
     writable: true,
@@ -77,7 +77,7 @@ describe('Role portal isolation & Logout flow', () => {
       await screen.findByText(/chỉ dành riêng cho Khách hàng Gia đình/i),
     ).toBeInTheDocument();
     const link = screen.getByRole('link', { name: /Chuyển tới Cổng Quản Trị Viên/i });
-    expect(link).toHaveAttribute('href', '/admin/login');
+    expect(link).toHaveAttribute('href', 'http://admin.localhost:3000/login');
     expect(saveSpy).not.toHaveBeenCalled();
     expect(replaceMock).not.toHaveBeenCalled();
 
@@ -242,7 +242,7 @@ describe('Role portal isolation & Logout flow', () => {
     expect(replaceMock).toHaveBeenCalledWith('/login');
     unmount();
 
-    // Kiểm tra lại trường hợp localhost không subdomain -> /admin/login
+    // Kiểm tra lại trường hợp IP thuần không subdomain (127.0.0.1:3000) -> /admin/login
     replaceMock.mockReset();
     authStorage.saveAuthSession(
       'ADMIN',
@@ -257,7 +257,7 @@ describe('Role portal isolation & Logout flow', () => {
       'real-admin-jwt',
       true,
     );
-    setBrowserLocation('localhost:3000', '/settings');
+    setBrowserLocation('127.0.0.1:3000', '/admin');
 
     render(
       <AuthProvider>
