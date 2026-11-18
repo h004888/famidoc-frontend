@@ -6,7 +6,12 @@ export type PatientRelationship = 'SELF' | 'SPOUSE' | 'CHILD' | 'PARENT' | 'OTHE
 export type PatientStatus = 'ACTIVE' | 'INACTIVE';
 export type AllergenType = 'DRUG' | 'FOOD' | 'ENVIRONMENTAL';
 export type AllergySeverity = 'MILD' | 'MODERATE' | 'LIFE_THREATENING_ANAPHYLAXIS';
-export type PatientDocumentType = 'LAB_RESULT' | 'IMAGING_XRAY_CT' | 'DISCHARGE_SUMMARY';
+export type PatientDocumentType =
+  | 'LAB_RESULT'
+  | 'IMAGING_XRAY_CT'
+  | 'DISCHARGE_SUMMARY'
+  | 'PRESCRIPTION'
+  | 'OTHER';
 
 export interface PatientAllergyDto {
   id?: string;
@@ -19,12 +24,25 @@ export interface PatientAllergyDto {
 
 export interface PatientDocumentDto {
   id?: string;
+  patientId?: string;
   documentName: string;
   documentType: PatientDocumentType;
   fileUrl: string;
+  mimeType?: string | null;
+  notes?: string | null;
+  previewUrl?: string | null;
+  downloadPath?: string;
   fileSizeKb?: number;
   recordedDate: string;
   uploadedAt?: string;
+}
+
+export interface UploadMemberDocumentInput {
+  documentName: string;
+  documentType: PatientDocumentType;
+  recordedDate: string;
+  notes?: string;
+  file: File;
 }
 
 export interface PatientDto {
@@ -127,6 +145,39 @@ export const patientsApi = {
   addMemberDocument: async (patientId: string, dto: PatientDocumentDto): Promise<PatientDocumentDto> => {
     const payload = await httpClient.post<unknown>(`/api/v1/patients/${patientId}/documents`, dto);
     return unwrapApiEnvelope<PatientDocumentDto>(payload);
+  },
+
+  uploadMemberDocument: async (
+    patientId: string,
+    input: UploadMemberDocumentInput
+  ): Promise<PatientDocumentDto> => {
+    const formData = new FormData();
+    formData.append('file', input.file);
+    formData.append('documentName', input.documentName.trim());
+    formData.append('documentType', input.documentType);
+    formData.append('recordedDate', input.recordedDate);
+    if (input.notes?.trim()) {
+      formData.append('notes', input.notes.trim());
+    }
+    const payload = await httpClient.upload<unknown>(
+      `/api/v1/patients/${patientId}/documents`,
+      formData
+    );
+    return unwrapApiEnvelope<PatientDocumentDto>(payload);
+  },
+
+  deleteMemberDocument: async (
+    patientId: string,
+    documentId: string
+  ): Promise<PatientDocumentDto> => {
+    const payload = await httpClient.delete<unknown>(
+      `/api/v1/patients/${patientId}/documents/${documentId}`
+    );
+    return unwrapApiEnvelope<PatientDocumentDto>(payload);
+  },
+
+  fetchMemberDocumentBlob: async (patientId: string, documentId: string): Promise<Blob> => {
+    return httpClient.getBlob(`/api/v1/patients/${patientId}/documents/${documentId}/file`);
   },
 
   getMemberVitalSigns: async (patientId: string, days = 30): Promise<VitalSignDto[]> => {

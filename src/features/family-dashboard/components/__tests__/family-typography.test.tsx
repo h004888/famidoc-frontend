@@ -6,7 +6,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
 import { FamilyDashboardView } from '../family-dashboard-view';
-import { contractsApi } from '@/lib/api';
+import { contractsApi, patientsApi } from '@/lib/api';
 
 vi.mock('sonner', () => ({
   toast: {
@@ -34,6 +34,8 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
   it('ensures all Family Portal & ContractSigningWizard source files contain no tracking-wide, font-black, or font-extrabold', () => {
     const familyFiles = [
       '../family-dashboard-view.tsx',
+      '../family-vitals-view.tsx',
+      '../member-vital-signs-section.tsx',
       '../../../family-members/components/family-members-view.tsx',
       '../../../appointments/components/family-appointments-view.tsx',
       '../../../billing/components/family-billing-view.tsx',
@@ -116,5 +118,79 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
       expect(screen.getAllByText(/MC-175418-ANTAM/).length).toBeGreaterThan(0);
     });
     expect(screen.queryByText(/Thanh Toán VietQR Để Kích Hoạt/i)).not.toBeInTheDocument();
+  });
+
+  it('syncs FamilyDashboardView alert banner and member cards with real abnormal vital-signs', async () => {
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([
+      {
+        id: 'pat-alert-1',
+        familyId: 'fam-1',
+        fullName: 'Trần Văn Bình',
+        dateOfBirth: '1958-04-12',
+        gender: 'MALE',
+        relationshipToHead: 'PARENT',
+        status: 'ACTIVE',
+        createdAt: '2026-11-01T00:00:00.000Z',
+        updatedAt: '2026-11-18T00:00:00.000Z',
+      },
+    ]);
+    vi.spyOn(patientsApi, 'getMemberVitalSigns').mockResolvedValueOnce([
+      {
+        id: 'vs-real-1',
+        emrId: null,
+        patientId: 'pat-alert-1',
+        systolicBp: 148,
+        diastolicBp: 92,
+        heartRate: 82,
+        temperature: 36.8,
+        spo2: 97,
+        respiratoryRate: 18,
+        bloodGlucose: 6.2,
+        isAbnormalAlert: true,
+        recordedAt: new Date().toISOString(),
+      },
+    ]);
+
+    const { container } = render(<FamilyDashboardView />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Lưu ý sức khỏe hôm nay: Trần Văn Bình \(Huyết áp 148\/92 mmHg\)/)
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('148/92')).toHaveClass('font-bold', 'tabular-nums');
+    expect(screen.getByText('97%')).toHaveClass('font-bold', 'tabular-nums');
+    expect(screen.getByText('82')).toHaveClass('font-bold', 'tabular-nums');
+    expect(screen.getByText('6.2')).toHaveClass('font-bold', 'tabular-nums');
+    expect(container.textContent).not.toMatch(/Nguyễn Văn Phúc/i);
+  });
+
+  it('displays honest -- empty metrics and stable banner when real member has no vital-signs', async () => {
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([
+      {
+        id: 'pat-empty-1',
+        familyId: 'fam-1',
+        fullName: 'Lê Thị Hoa',
+        dateOfBirth: '1990-08-15',
+        gender: 'FEMALE',
+        relationshipToHead: 'SELF',
+        status: 'ACTIVE',
+        createdAt: '2026-11-01T00:00:00.000Z',
+        updatedAt: '2026-11-18T00:00:00.000Z',
+      },
+    ]);
+    vi.spyOn(patientsApi, 'getMemberVitalSigns').mockResolvedValueOnce([]);
+
+    render(<FamilyDashboardView />);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Sức khỏe gia đình hôm nay: Chưa ghi nhận cảnh báo chỉ số bất thường')
+      ).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(4);
+    expect(screen.queryByText(/Nguyễn Văn Phúc/i)).not.toBeInTheDocument();
   });
 });

@@ -520,6 +520,9 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
         memberName={member.fullName}
         documents={documents}
         onDocumentAdded={(doc) => setDocuments((prev) => [doc, ...prev])}
+        onDocumentDeleted={(documentId) =>
+          setDocuments((prev) => prev.filter((doc) => doc.id !== documentId))
+        }
       />
     </div>
   );

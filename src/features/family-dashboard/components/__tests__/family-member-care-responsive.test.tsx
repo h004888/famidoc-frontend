@@ -9,6 +9,9 @@ const mockUpdateFamilyMember = vi.fn();
 const mockAddMemberAllergy = vi.fn();
 const mockDeleteMemberAllergy = vi.fn();
 const mockAddMemberDocument = vi.fn();
+const mockUploadMemberDocument = vi.fn();
+const mockDeleteMemberDocument = vi.fn();
+const mockFetchMemberDocumentBlob = vi.fn();
 const mockGetMemberVitalSigns = vi.fn();
 const mockAddMemberVitalSign = vi.fn();
 const mockUpdateMemberVitalSign = vi.fn();
@@ -50,6 +53,9 @@ vi.mock('@/lib/api', async (importOriginal) => {
       addMemberAllergy: (...args: unknown[]) => mockAddMemberAllergy(...args),
       deleteMemberAllergy: (...args: unknown[]) => mockDeleteMemberAllergy(...args),
       addMemberDocument: (...args: unknown[]) => mockAddMemberDocument(...args),
+      uploadMemberDocument: (...args: unknown[]) => mockUploadMemberDocument(...args),
+      deleteMemberDocument: (...args: unknown[]) => mockDeleteMemberDocument(...args),
+      fetchMemberDocumentBlob: (...args: unknown[]) => mockFetchMemberDocumentBlob(...args),
       getMemberVitalSigns: (...args: unknown[]) => mockGetMemberVitalSigns(...args),
       addMemberVitalSign: (...args: unknown[]) => mockAddMemberVitalSign(...args),
       updateMemberVitalSign: (...args: unknown[]) => mockUpdateMemberVitalSign(...args),
@@ -437,6 +443,10 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     });
 
     expect(screen.getAllByText('146/92').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('vital-card-bp')).toHaveAttribute('data-abnormal', 'true');
+    expect(screen.getByTestId('vital-card-heartRate')).toHaveAttribute('data-abnormal', 'false');
+    expect(screen.getByText('Huyết áp cao (>= 140/90)')).toBeInTheDocument();
+    expect(screen.getAllByText(/so với lần trước/).length).toBeGreaterThan(0);
     expect(screen.getByText('Nhật ký đo trong ngày (2)')).toBeInTheDocument();
     expect(screen.getByText('Từ bệnh án bác sĩ')).toBeInTheDocument();
 
@@ -506,8 +516,28 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     expect(screen.queryByText(/Nguyễn Văn Phúc/i)).not.toBeInTheDocument();
   });
 
-  it('supports local image/PDF preview without saving blob URLs and persists external URL via addMemberDocument', async () => {
+  it('supports real multipart upload, category filtering, search, image lightbox, and document deletion', async () => {
     const windowOpenSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    mockUploadMemberDocument.mockResolvedValue({
+      id: 'doc-uploaded-99',
+      patientId: 'mem-real-1',
+      documentName: 'Đơn thuốc tim mạch T11',
+      documentType: 'PRESCRIPTION',
+      fileUrl: 'patient-documents/mem-real-1/don-thuoc.png',
+      mimeType: 'image/png',
+      notes: 'BV ĐHYD - BS. Hùng',
+      previewUrl: 'https://media.famidoc.online/signed/don-thuoc.webp',
+      downloadPath: '/api/v1/patients/mem-real-1/documents/doc-uploaded-99/file',
+      fileSizeKb: 420,
+      recordedDate: '2026-11-18',
+    });
+    mockDeleteMemberDocument.mockResolvedValue({
+      id: 'doc-uploaded-99',
+      documentName: 'Đơn thuốc tim mạch T11',
+      documentType: 'PRESCRIPTION',
+      fileUrl: 'patient-documents/mem-real-1/don-thuoc.png',
+      recordedDate: '2026-11-18',
+    });
 
     render(<FamilyMemberCareView memberId="mem-real-1" />);
 
@@ -517,59 +547,74 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
 
     const existingDocCard = screen.getByText('Xét nghiệm mỡ máu Q3').closest('article');
     expect(existingDocCard).not.toBeNull();
-    expect(within(existingDocCard!).queryByRole('button', { name: /Xóa/i })).not.toBeInTheDocument();
 
-    fireEvent.click(within(existingDocCard!).getByRole('button', { name: /Xem tài liệu/i }));
-    expect(windowOpenSpy).toHaveBeenCalledWith(
-      'https://files.famidoc.vn/docs/mo-mau-q3.pdf',
-      '_blank',
-      'noopener,noreferrer'
-    );
+    // Open existing external PDF
+    fireEvent.click(within(existingDocCard!).getByRole('button', { name: /Xem tệp/i }));
+    await waitFor(() => {
+      expect(windowOpenSpy).toHaveBeenCalledWith(
+        'https://files.famidoc.vn/docs/mo-mau-q3.pdf',
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
 
-    // 1) Local file/image mode (Option A: keeps local preview badge and does NOT call addMemberDocument with blob:)
-    fireEvent.click(screen.getByRole('button', { name: /Tải lên file \/ ảnh/i }));
-    const fileInput = screen.getByLabelText(/Chọn tệp PDF hoặc ảnh/i);
+    // Open real upload modal and upload PRESCRIPTION PNG
+    fireEvent.click(screen.getByRole('button', { name: /Tải tài liệu lên/i }));
+    const fileInput = document.getElementById('member-doc-file-input') as HTMLInputElement;
     const sampleImage = new File(['png-bytes'], 'don-thuoc-chup.png', { type: 'image/png' });
     fireEvent.change(fileInput, { target: { files: [sampleImage] } });
 
     expect(screen.getByDisplayValue('don-thuoc-chup')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Tải lên & Lưu' }));
-
-    await waitFor(() => {
-      expect(mockUploadFileWithMeta).toHaveBeenCalledWith(sampleImage, 'patient-documents');
-      expect(
-        screen.getByText('Chỉ xem trước cục bộ (chưa đồng bộ máy chủ)')
-      ).toBeInTheDocument();
-    });
-    expect(mockAddMemberDocument).not.toHaveBeenCalled();
-
-    // 2) External URL mode persists via addMemberDocument
-    fireEvent.click(screen.getByRole('button', { name: /Tải lên file \/ ảnh/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Nhập đường dẫn URL' }));
     fireEvent.change(screen.getByLabelText(/Tên tài liệu/i), {
-      target: { value: 'Phim X-Quang phổi thẳng' },
+      target: { value: 'Đơn thuốc tim mạch T11' },
     });
-    fireEvent.change(screen.getByLabelText(/Loại tài liệu/i), {
-      target: { value: 'IMAGING_XRAY_CT' },
+    fireEvent.change(screen.getByLabelText(/Ghi chú/i), {
+      target: { value: 'BV ĐHYD - BS. Hùng' },
     });
-    fireEvent.change(screen.getByLabelText(/Ngày ghi nhận/i), {
-      target: { value: '2026-11-18' },
-    });
-    fireEvent.change(screen.getByLabelText(/Đường dẫn tài liệu/i), {
-      target: { value: 'https://files.famidoc.vn/docs/xquang-phoi.pdf' },
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Lưu tài liệu' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu vào y bạ' }));
 
     await waitFor(() => {
-      expect(mockAddMemberDocument).toHaveBeenCalledWith('mem-real-1', {
-        documentName: 'Phim X-Quang phổi thẳng',
-        documentType: 'IMAGING_XRAY_CT',
-        recordedDate: '2026-11-18',
-        fileUrl: 'https://files.famidoc.vn/docs/xquang-phoi.pdf',
-        fileSizeKb: 0,
-      });
-      expect(screen.getByText('Phim X-Quang phổi thẳng')).toBeInTheDocument();
+      expect(mockUploadMemberDocument).toHaveBeenCalledWith(
+        'mem-real-1',
+        expect.objectContaining({
+          documentName: 'Đơn thuốc tim mạch T11',
+          documentType: 'PRESCRIPTION',
+          notes: 'BV ĐHYD - BS. Hùng',
+          file: sampleImage,
+        })
+      );
+      expect(screen.getByText('Đơn thuốc tim mạch T11')).toBeInTheDocument();
+    });
+
+    // Category filter tab works (Đơn thuốc hides Xét nghiệm)
+    fireEvent.click(screen.getByRole('tab', { name: /Đơn thuốc \(1\)/i }));
+    expect(screen.getByText('Đơn thuốc tim mạch T11')).toBeInTheDocument();
+    expect(screen.queryByText('Xét nghiệm mỡ máu Q3')).not.toBeInTheDocument();
+
+    // Search filters accurately
+    fireEvent.change(screen.getByLabelText('Tìm kiếm tài liệu y tế'), {
+      target: { value: 'BS. Hùng' },
+    });
+    expect(screen.getByText('Đơn thuốc tim mạch T11')).toBeInTheDocument();
+
+    // Open image lightbox
+    const uploadedCard = screen.getByText('Đơn thuốc tim mạch T11').closest('article');
+    expect(uploadedCard).not.toBeNull();
+    fireEvent.click(within(uploadedCard!).getByRole('button', { name: /Xem ảnh/i }));
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Tải ảnh gốc/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
+
+    // Delete uploaded document
+    fireEvent.click(
+      within(uploadedCard!).getByRole('button', { name: 'Xóa tài liệu Đơn thuốc tim mạch T11' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa tài liệu' }));
+
+    await waitFor(() => {
+      expect(mockDeleteMemberDocument).toHaveBeenCalledWith('mem-real-1', 'doc-uploaded-99');
+      expect(screen.queryByText('Đơn thuốc tim mạch T11')).not.toBeInTheDocument();
     });
 
     windowOpenSpy.mockRestore();

@@ -29,6 +29,12 @@ import {
   type CreateVitalSignDto,
   type VitalSignDto,
 } from '@/lib/api';
+import {
+  computeVitalMetricDeltas,
+  getVitalMetricAlerts,
+  VITAL_REFERENCE_LABELS,
+  type VitalMetricKey,
+} from '../utils/vital-metrics.util';
 
 const VN_TZ = 'Asia/Ho_Chi_Minh';
 
@@ -183,6 +189,60 @@ export function MemberVitalSignsSection({
 
   const latestToday =
     todayReadingsAsc.length > 0 ? todayReadingsAsc[todayReadingsAsc.length - 1] : null;
+
+  const previousBeforeLatestToday = useMemo(() => {
+    if (!latestToday) return null;
+    const latestIdx = sortedDesc.findIndex((v) => v.id === latestToday.id);
+    if (latestIdx < 0) return null;
+    return sortedDesc[latestIdx + 1] ?? null;
+  }, [latestToday, sortedDesc]);
+
+  const latestAlerts = useMemo(() => getVitalMetricAlerts(latestToday), [latestToday]);
+  const latestDeltas = useMemo(
+    () => computeVitalMetricDeltas(latestToday, previousBeforeLatestToday),
+    [latestToday, previousBeforeLatestToday]
+  );
+
+  const todayMetricCards: {
+    key: VitalMetricKey;
+    label: string;
+    value: string;
+    unit: string;
+  }[] = latestToday
+    ? [
+        { key: 'bp', label: 'Huyết áp', value: formatBpDisplay(latestToday), unit: 'mmHg' },
+        {
+          key: 'heartRate',
+          label: 'Nhịp tim',
+          value: latestToday.heartRate != null ? String(latestToday.heartRate) : '--',
+          unit: 'bpm',
+        },
+        {
+          key: 'spo2',
+          label: 'SpO2',
+          value: latestToday.spo2 != null ? String(latestToday.spo2) : '--',
+          unit: '%',
+        },
+        {
+          key: 'temperature',
+          label: 'Nhiệt độ',
+          value: latestToday.temperature != null ? String(latestToday.temperature) : '--',
+          unit: '°C',
+        },
+        {
+          key: 'bloodGlucose',
+          label: 'Đường huyết',
+          value: latestToday.bloodGlucose != null ? String(latestToday.bloodGlucose) : '--',
+          unit: 'mmol/L',
+        },
+        {
+          key: 'respiratoryRate',
+          label: 'Nhịp thở',
+          value: latestToday.respiratoryRate != null ? String(latestToday.respiratoryRate) : '--',
+          unit: 'lần/ph',
+        },
+      ]
+    : [];
 
   const filteredRangeDesc = useMemo(() => {
     const cutoff = referenceNow - rangeDays * 86_400_000;
@@ -349,48 +409,68 @@ export function MemberVitalSignsSection({
 
           {latestToday ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-medium text-slate-500">Huyết áp</p>
-                <p className="text-lg font-bold tabular-nums text-slate-900 mt-0.5">
-                  {formatBpDisplay(latestToday)}{' '}
-                  <span className="text-xs font-normal text-slate-500">mmHg</span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-medium text-slate-500">Nhịp tim</p>
-                <p className="text-lg font-bold tabular-nums text-slate-900 mt-0.5">
-                  {latestToday.heartRate ?? '--'}{' '}
-                  <span className="text-xs font-normal text-slate-500">bpm</span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-medium text-slate-500">SpO2</p>
-                <p className="text-lg font-bold tabular-nums text-slate-900 mt-0.5">
-                  {latestToday.spo2 ?? '--'}
-                  <span className="text-xs font-normal text-slate-500">%</span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-medium text-slate-500">Nhiệt độ</p>
-                <p className="text-lg font-bold tabular-nums text-slate-900 mt-0.5">
-                  {latestToday.temperature ?? '--'}{' '}
-                  <span className="text-xs font-normal text-slate-500">°C</span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-medium text-slate-500">Đường huyết</p>
-                <p className="text-lg font-bold tabular-nums text-slate-900 mt-0.5">
-                  {latestToday.bloodGlucose ?? '--'}{' '}
-                  <span className="text-xs font-normal text-slate-500">mmol/L</span>
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-[11px] font-medium text-slate-500">Nhịp thở</p>
-                <p className="text-lg font-bold tabular-nums text-slate-900 mt-0.5">
-                  {latestToday.respiratoryRate ?? '--'}{' '}
-                  <span className="text-xs font-normal text-slate-500">lần/ph</span>
-                </p>
-              </div>
+              {todayMetricCards.map((card) => {
+                const metricAlert = latestAlerts[card.key];
+                const metricDelta = latestDeltas[card.key];
+                const deltaIcon =
+                  metricDelta.direction === 'up'
+                    ? 'trending_up'
+                    : metricDelta.direction === 'down'
+                      ? 'trending_down'
+                      : 'trending_flat';
+                return (
+                  <div
+                    key={card.key}
+                    data-testid={`vital-card-${card.key}`}
+                    data-abnormal={metricAlert.abnormal ? 'true' : 'false'}
+                    className={`rounded-xl border p-3 transition-colors ${
+                      metricAlert.abnormal
+                        ? 'border-rose-300 bg-rose-50/70'
+                        : 'border-slate-200 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-1.5">
+                      <p className="text-[11px] font-medium text-slate-600">{card.label}</p>
+                      {metricAlert.abnormal && (
+                        <span className="inline-flex items-center rounded-full bg-rose-100 px-1.5 py-0.5 text-[10px] font-semibold text-rose-700">
+                          Vượt ngưỡng
+                        </span>
+                      )}
+                    </div>
+                    <p
+                      className={`text-lg font-bold tabular-nums mt-0.5 ${
+                        metricAlert.abnormal ? 'text-rose-700' : 'text-slate-900'
+                      }`}
+                    >
+                      {card.value}{' '}
+                      <span className="text-xs font-normal text-slate-500">{card.unit}</span>
+                    </p>
+                    <p
+                      className={`mt-1 text-[11px] leading-snug ${
+                        metricAlert.abnormal ? 'font-medium text-rose-700' : 'text-slate-500'
+                      }`}
+                    >
+                      {metricAlert.abnormal && metricAlert.message
+                        ? metricAlert.message
+                        : VITAL_REFERENCE_LABELS[card.key]}
+                    </p>
+                    {metricDelta.label && (
+                      <p
+                        className={`mt-1 inline-flex items-center gap-1 text-[11px] font-medium tabular-nums ${
+                          metricDelta.direction === 'up'
+                            ? 'text-amber-700'
+                            : metricDelta.direction === 'down'
+                              ? 'text-sky-700'
+                              : 'text-slate-500'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[14px]">{deltaIcon}</span>
+                        <span>{metricDelta.label}</span>
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center space-y-2">

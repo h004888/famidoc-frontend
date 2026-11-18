@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,47 +16,66 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   extractErrorMessage,
-  filesApi,
   patientsApi,
   type PatientDocumentDto,
   type PatientDocumentType,
 } from '@/lib/api';
 
-const DOCUMENT_TYPE_LABELS: Record<PatientDocumentType, string> = {
-  LAB_RESULT: 'Kết quả Xét nghiệm',
-  IMAGING_XRAY_CT: 'Chẩn đoán hình ảnh (X-Quang / CT / MRI)',
-  DISCHARGE_SUMMARY: 'Giấy ra viện / Tóm tắt bệnh án',
+const DOCUMENT_TYPE_META: Record<
+  PatientDocumentType,
+  { label: string; badgeClass: string; icon: string }
+> = {
+  PRESCRIPTION: {
+    label: 'Đơn thuốc',
+    badgeClass: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    icon: 'medication',
+  },
+  LAB_RESULT: {
+    label: 'Xét nghiệm',
+    badgeClass: 'bg-blue-50 text-blue-800 border-blue-200',
+    icon: 'biotech',
+  },
+  IMAGING_XRAY_CT: {
+    label: 'Chẩn đoán hình ảnh',
+    badgeClass: 'bg-purple-50 text-purple-800 border-purple-200',
+    icon: 'radiology',
+  },
+  DISCHARGE_SUMMARY: {
+    label: 'Giấy ra viện',
+    badgeClass: 'bg-amber-50 text-amber-800 border-amber-200',
+    icon: 'description',
+  },
+  OTHER: {
+    label: 'Khác',
+    badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+    icon: 'folder_open',
+  },
 };
 
-const ACCEPTED_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'application/pdf',
-]);
+const DOCUMENT_TYPE_ORDER: PatientDocumentType[] = [
+  'PRESCRIPTION',
+  'LAB_RESULT',
+  'IMAGING_XRAY_CT',
+  'DISCHARGE_SUMMARY',
+  'OTHER',
+];
 
+const ACCEPTED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'application/pdf']);
+const ACCEPTED_EXTENSIONS_REGEX = /\.(jpe?g|png|pdf)$/i;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
-export interface LocalPreviewDocument {
-  id: string;
-  documentName: string;
-  documentType: PatientDocumentType;
-  recordedDate: string;
-  fileSizeKb: number;
-  previewUrl: string;
-  isImage: boolean;
-}
-
-function isSafeDocumentUrl(url: string): boolean {
-  const trimmed = url.trim();
-  if (!trimmed) return false;
-  if (trimmed.startsWith('/')) return !trimmed.startsWith('//');
+function isSafeExternalUrl(url: string): boolean {
   try {
-    const parsed = new URL(trimmed);
+    const parsed = new URL(url.trim());
     return parsed.protocol === 'http:' || parsed.protocol === 'https:';
   } catch {
     return false;
   }
+}
+
+function isImageDocument(doc: PatientDocumentDto): boolean {
+  if (doc.mimeType?.startsWith('image/')) return true;
+  return /\.(png|jpe?g|webp)(\?|$)/i.test(doc.fileUrl);
 }
 
 function formatDateDisplay(raw?: string | null): string {
@@ -85,528 +104,664 @@ function stripExtension(fileName: string): string {
   return fileName.replace(/\.[^.]+$/, '').trim().slice(0, 200);
 }
 
+function formatFileSize(kb?: number): string {
+  if (!kb || kb <= 0) return 'Tệp y tế';
+  if (kb >= 1024) return `${(kb / 1024).toFixed(1)} MB`;
+  return `${kb} KB`;
+}
+
 export interface MemberDocumentUploadSectionProps {
   memberId: string;
   memberName: string;
   documents: PatientDocumentDto[];
   onDocumentAdded: (doc: PatientDocumentDto) => void;
+  onDocumentDeleted?: (documentId: string) => void;
 }
 
 /**
- * Medical document gallery and dual-mode (local file/image dropzone or URL) uploader.
+ * Medical documents & prescriptions gallery with real S3 upload, category filters, lightbox, and delete.
  */
 export function MemberDocumentUploadSection({
   memberId,
   memberName,
   documents,
   onDocumentAdded,
+  onDocumentDeleted,
 }: MemberDocumentUploadSectionProps) {
-  const [localPreviewDocs, setLocalPreviewDocs] = useState<LocalPreviewDocument[]>([]);
-  const localPreviewUrlsRef = useRef<string[]>([]);
+  const createdBlobUrlsRef = useRef<string[]>([]);
 
-  const [showDocModal, setShowDocModal] = useState(false);
-  const [uploadMode, setUploadMode] = useState<'file' | 'url'>('file');
-  const [docName, setDocName] = useState('');
-  const [docType, setDocType] = useState<PatientDocumentType>('LAB_RESULT');
-  const [docRecordedDate, setDocRecordedDate] = useState<string>(getTodayIsoDate);
-  const [docFileUrl, setDocFileUrl] = useState('');
+  const [activeCategory, setActiveCategory] = useState<'ALL' | PatientDocumentType>('ALL');
+  const [searchQuery, setSearchQuery] = useState('');
 
+  const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedFilePreviewUrl, setSelectedFilePreviewUrl] = useState<string | null>(null);
+  const [docName, setDocName] = useState('');
+  const [docType, setDocType] = useState<PatientDocumentType>('PRESCRIPTION');
+  const [docDate, setDocDate] = useState(getTodayIsoDate());
+  const [docNotes, setDocNotes] = useState('');
   const [isDragging, setIsDragging] = useState(false);
-  const [isSubmittingDoc, setIsSubmittingDoc] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [lightboxDoc, setLightboxDoc] = useState<{
+    doc: PatientDocumentDto;
+    imageUrl: string;
+  } | null>(null);
+  const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
+
+  const [deletingDoc, setDeletingDoc] = useState<PatientDocumentDto | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    const urlsRef = localPreviewUrlsRef;
+    const urls = createdBlobUrlsRef.current;
     return () => {
-      for (const u of urlsRef.current) {
-        URL.revokeObjectURL(u);
-      }
+      urls.forEach((url) => URL.revokeObjectURL(url));
     };
   }, []);
 
-  const clearSelectedFile = () => {
-    if (selectedFilePreviewUrl) {
-      URL.revokeObjectURL(selectedFilePreviewUrl);
-    }
-    setSelectedFile(null);
-    setSelectedFilePreviewUrl(null);
-  };
-
-  const resetModalState = () => {
-    clearSelectedFile();
-    setDocName('');
-    setDocType('LAB_RESULT');
-    setDocRecordedDate(getTodayIsoDate());
-    setDocFileUrl('');
-    setUploadMode('file');
-  };
-
-  const handleOpenDocument = (doc: PatientDocumentDto) => {
-    if (!isSafeDocumentUrl(doc.fileUrl)) {
-      toast.error('Đường dẫn tài liệu không hợp lệ hoặc không an toàn.');
-      return;
-    }
-    window.open(doc.fileUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleOpenLocalPreview = (preview: LocalPreviewDocument) => {
-    window.open(preview.previewUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  const handleRemoveLocalPreview = (id: string) => {
-    setLocalPreviewDocs((prev) => {
-      const target = prev.find((item) => item.id === id);
-      if (target) {
-        URL.revokeObjectURL(target.previewUrl);
-        localPreviewUrlsRef.current = localPreviewUrlsRef.current.filter(
-          (u) => u !== target.previewUrl
-        );
+  const countsByType = useMemo(() => {
+    const counts: Record<PatientDocumentType, number> = {
+      PRESCRIPTION: 0,
+      LAB_RESULT: 0,
+      IMAGING_XRAY_CT: 0,
+      DISCHARGE_SUMMARY: 0,
+      OTHER: 0,
+    };
+    for (const doc of documents) {
+      if (doc.documentType in counts) {
+        counts[doc.documentType] += 1;
+      } else {
+        counts.OTHER += 1;
       }
-      return prev.filter((item) => item.id !== id);
+    }
+    return counts;
+  }, [documents]);
+
+  const filteredDocuments = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    return documents.filter((doc) => {
+      if (activeCategory !== 'ALL' && doc.documentType !== activeCategory) {
+        return false;
+      }
+      if (!normalizedQuery) return true;
+      const inName = doc.documentName.toLowerCase().includes(normalizedQuery);
+      const inNotes = (doc.notes || '').toLowerCase().includes(normalizedQuery);
+      return inName || inNotes;
     });
+  }, [documents, activeCategory, searchQuery]);
+
+  const resetModal = () => {
+    setSelectedFile(null);
+    setDocName('');
+    setDocType('PRESCRIPTION');
+    setDocDate(getTodayIsoDate());
+    setDocNotes('');
+    setIsDragging(false);
   };
 
-  const handleFileChosen = (file: File | null | undefined) => {
+  const handleChooseFile = (file: File | undefined) => {
     if (!file) return;
-    if (!ACCEPTED_MIME_TYPES.has(file.type)) {
-      toast.error('Chỉ hỗ trợ ảnh (JPG, PNG, WebP) hoặc tệp PDF.');
+    const validType =
+      ACCEPTED_MIME_TYPES.has(file.type) || ACCEPTED_EXTENSIONS_REGEX.test(file.name);
+    if (!validType) {
+      toast.error('Chỉ hỗ trợ ảnh JPG, PNG hoặc tệp PDF.');
       return;
     }
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      toast.error('Dung lượng tệp tối đa 10 MB.');
+      toast.error('Dung lượng tệp tối đa là 10 MB.');
       return;
     }
-
-    clearSelectedFile();
     setSelectedFile(file);
-    if (file.type.startsWith('image/')) {
-      setSelectedFilePreviewUrl(URL.createObjectURL(file));
-    }
     if (!docName.trim()) {
       setDocName(stripExtension(file.name));
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    const trimmedName = docName.trim();
-    if (!trimmedName) {
-      toast.error('Vui lòng nhập tên tài liệu hoặc ảnh bệnh lý.');
+    if (!selectedFile) {
+      toast.error('Vui lòng chọn ảnh hoặc tệp PDF cần tải lên.');
       return;
     }
-    if (trimmedName.length > 200) {
-      toast.error('Tên tài liệu tối đa 200 ký tự.');
-      return;
-    }
-    if (!docRecordedDate) {
-      toast.error('Vui lòng chọn ngày ghi nhận kết quả.');
+    const cleanName = docName.trim();
+    if (!cleanName) {
+      toast.error('Vui lòng nhập tên tài liệu.');
       return;
     }
 
-    if (uploadMode === 'file') {
-      if (!selectedFile) {
-        toast.error('Vui lòng chọn tệp PDF hoặc hình ảnh từ máy.');
-        return;
-      }
-
-      setIsSubmittingDoc(true);
-      try {
-        const sizeKb = Math.max(1, Math.round(selectedFile.size / 1024));
-        const uploadResult = await filesApi.uploadFileWithMeta(
-          selectedFile,
-          'patient-documents'
-        );
-
-        if (!uploadResult.isLocalFallback && uploadResult.url.length <= 255) {
-          const savedDoc = await patientsApi.addMemberDocument(memberId, {
-            documentName: trimmedName,
-            documentType: docType,
-            recordedDate: docRecordedDate,
-            fileUrl: uploadResult.url,
-            fileSizeKb: sizeKb,
-          });
-          onDocumentAdded(savedDoc);
-          setShowDocModal(false);
-          resetModalState();
-          toast.success(`Đã tải lên và lưu tài liệu "${savedDoc.documentName}".`);
-          return;
-        }
-
-        // Option A: When backend upload endpoint isn't live yet, keep session preview only (never save blob: URL to DB)
-        const previewItem: LocalPreviewDocument = {
-          id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          documentName: trimmedName,
-          documentType: docType,
-          recordedDate: docRecordedDate,
-          fileSizeKb: sizeKb,
-          previewUrl: uploadResult.url,
-          isImage: selectedFile.type.startsWith('image/'),
-        };
-        localPreviewUrlsRef.current.push(uploadResult.url);
-        setLocalPreviewDocs((prev) => [previewItem, ...prev]);
-        setShowDocModal(false);
-        resetModalState();
-        toast.success(
-          `Đã thêm "${previewItem.documentName}" (Chỉ xem trước cục bộ, chưa đồng bộ máy chủ).`
-        );
-      } catch (err) {
-        toast.error(extractErrorMessage(err, 'Không thể xử lý tệp tải lên.'));
-      } finally {
-        setIsSubmittingDoc(false);
-      }
-      return;
-    }
-
-    const trimmedUrl = docFileUrl.trim();
-    if (!isSafeDocumentUrl(trimmedUrl)) {
-      toast.error('Vui lòng nhập đường dẫn tài liệu hợp lệ (https://... hoặc http://...).');
-      return;
-    }
-    if (trimmedUrl.length > 255) {
-      toast.error('Đường dẫn tài liệu tối đa 255 ký tự.');
-      return;
-    }
-
-    setIsSubmittingDoc(true);
+    setIsSubmitting(true);
     try {
-      const savedDoc = await patientsApi.addMemberDocument(memberId, {
-        documentName: trimmedName,
+      const saved = await patientsApi.uploadMemberDocument(memberId, {
+        file: selectedFile,
+        documentName: cleanName,
         documentType: docType,
-        recordedDate: docRecordedDate,
-        fileUrl: trimmedUrl,
-        fileSizeKb: 0,
+        recordedDate: docDate || getTodayIsoDate(),
+        notes: docNotes.trim() || undefined,
       });
-      onDocumentAdded(savedDoc);
-      setShowDocModal(false);
-      resetModalState();
-      toast.success(`Đã lưu tài liệu "${savedDoc.documentName}" vào hồ sơ y bạ.`);
+      onDocumentAdded(saved);
+      toast.success('Đã tải lên và lưu tài liệu y tế thành công.');
+      setShowUploadModal(false);
+      resetModal();
     } catch (err) {
-      toast.error(extractErrorMessage(err, 'Không thể lưu tài liệu y tế. Vui lòng thử lại.'));
+      toast.error(extractErrorMessage(err, 'Không thể tải lên tài liệu y tế.'));
     } finally {
-      setIsSubmittingDoc(false);
+      setIsSubmitting(false);
     }
   };
 
-  const totalCount = documents.length + localPreviewDocs.length;
+  const resolveDocumentUrl = async (doc: PatientDocumentDto): Promise<string | null> => {
+    if (isSafeExternalUrl(doc.fileUrl)) {
+      return doc.fileUrl;
+    }
+    if (!doc.id) return null;
+    const blob = await patientsApi.fetchMemberDocumentBlob(memberId, doc.id);
+    const blobUrl = URL.createObjectURL(blob);
+    createdBlobUrlsRef.current.push(blobUrl);
+    return blobUrl;
+  };
+
+  const handleOpenDocument = async (doc: PatientDocumentDto) => {
+    const docKey = doc.id || doc.fileUrl;
+    setLoadingDocId(docKey);
+    try {
+      if (isImageDocument(doc)) {
+        const imgUrl = doc.previewUrl && isSafeExternalUrl(doc.previewUrl)
+          ? doc.previewUrl
+          : await resolveDocumentUrl(doc);
+        if (!imgUrl) {
+          toast.error('Không tìm thấy tệp ảnh tài liệu.');
+          return;
+        }
+        setLightboxDoc({ doc, imageUrl: imgUrl });
+        return;
+      }
+
+      const fileUrl = await resolveDocumentUrl(doc);
+      if (!fileUrl) {
+        toast.error('Không tìm thấy đường dẫn tài liệu.');
+        return;
+      }
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Không thể mở tệp tài liệu.'));
+    } finally {
+      setLoadingDocId(null);
+    }
+  };
+
+  const handleDownloadDocument = async (doc: PatientDocumentDto) => {
+    const docKey = doc.id || doc.fileUrl;
+    setLoadingDocId(docKey);
+    try {
+      const url = await resolveDocumentUrl(doc);
+      if (!url) {
+        toast.error('Không tìm thấy tệp để tải xuống.');
+        return;
+      }
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = doc.documentName || 'tai-lieu-y-te';
+      anchor.rel = 'noopener noreferrer';
+      anchor.target = '_blank';
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Không thể tải xuống tài liệu.'));
+    } finally {
+      setLoadingDocId(null);
+    }
+  };
+
+  const confirmDeleteDocument = async () => {
+    if (!deletingDoc?.id) return;
+    setIsDeleting(true);
+    try {
+      await patientsApi.deleteMemberDocument(memberId, deletingDoc.id);
+      onDocumentDeleted?.(deletingDoc.id);
+      toast.success('Đã xóa tài liệu y tế.');
+      setDeletingDoc(null);
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Không thể xóa tài liệu y tế.'));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-4">
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-5">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
             <span className="material-symbols-outlined text-[22px] text-[#2E37A4]">
               folder_shared
             </span>
-            <span>Hồ sơ, File &amp; Ảnh bệnh lý ({totalCount})</span>
+            <span>Hồ sơ bệnh án, Đơn thuốc &amp; Tài liệu y tế ({documents.length})</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Tải lên ảnh đơn thuốc, phim chụp X-Quang/CT hoặc phiếu xét nghiệm cho {memberName}.
+            Lưu trữ ảnh đơn thuốc, phiếu xét nghiệm, kết quả chẩn đoán hình ảnh và giấy ra viện cho{' '}
+            {memberName}.
           </p>
         </div>
+
         <Button
           type="button"
-          onClick={() => setShowDocModal(true)}
-          className="bg-[#2E37A4] hover:bg-[#222982] text-white"
+          onClick={() => {
+            resetModal();
+            setShowUploadModal(true);
+          }}
+          className="bg-[#2E37A4] hover:bg-[#222982] text-white shrink-0"
         >
           <span className="material-symbols-outlined text-[18px]">upload_file</span>
-          <span>Tải lên file / ảnh</span>
+          <span>Tải tài liệu lên</span>
         </Button>
       </div>
 
-      {totalCount === 0 ? (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center space-y-2">
-          <span className="material-symbols-outlined text-[28px] text-slate-400">
-            description
+      {/* Category Tabs + Search */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Lọc loại tài liệu y tế">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeCategory === 'ALL'}
+            onClick={() => setActiveCategory('ALL')}
+            className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors cursor-pointer ${
+              activeCategory === 'ALL'
+                ? 'bg-[#2E37A4] border-[#2E37A4] text-white'
+                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+            }`}
+          >
+            Tất cả ({documents.length})
+          </button>
+          {DOCUMENT_TYPE_ORDER.map((typeKey) => {
+            const meta = DOCUMENT_TYPE_META[typeKey];
+            const active = activeCategory === typeKey;
+            return (
+              <button
+                key={typeKey}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveCategory(typeKey)}
+                className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors cursor-pointer ${
+                  active
+                    ? 'bg-[#2E37A4] border-[#2E37A4] text-white'
+                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {meta.label} ({countsByType[typeKey]})
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="relative w-full lg:w-72">
+          <span className="material-symbols-outlined text-[18px] text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+            search
           </span>
-          <p className="text-sm font-medium text-slate-700">
-            Chưa có tài liệu hay ảnh bệnh lý nào được lưu trữ
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Tìm theo tên hoặc ghi chú..."
+            aria-label="Tìm kiếm tài liệu y tế"
+            className="pl-9 text-xs sm:text-sm"
+          />
+        </div>
+      </div>
+
+      {/* Document Gallery */}
+      {filteredDocuments.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center space-y-2">
+          <span className="material-symbols-outlined text-[30px] text-slate-400">
+            clinical_notes
+          </span>
+          <p className="text-sm font-semibold text-slate-800">
+            {documents.length === 0
+              ? 'Chưa có tài liệu y tế hay đơn thuốc nào được tải lên'
+              : 'Không tìm thấy tài liệu phù hợp bộ lọc'}
           </p>
-          <p className="text-xs text-slate-500">
-            Nhấn &ldquo;Tải lên file / ảnh&rdquo; để chọn ảnh chụp/PDF từ thiết bị hoặc gắn đường
-            dẫn kết quả xét nghiệm cho bác sĩ gia đình tham khảo.
+          <p className="text-xs text-slate-500 max-w-md mx-auto">
+            {documents.length === 0
+              ? 'Bạn có thể chụp ảnh đơn thuốc giấy, phiếu xét nghiệm hoặc chọn tệp PDF từ máy để lưu trữ lâu dài tại đây.'
+              : 'Thử chọn tab Tất cả hoặc xóa từ khóa tìm kiếm để xem các tài liệu khác.'}
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {localPreviewDocs.map((item) => (
-            <article
-              key={item.id}
-              className="rounded-xl border border-amber-200 bg-amber-50/40 p-4 flex flex-col justify-between gap-3"
-            >
-              <div className="space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <Badge className="bg-amber-100 text-amber-800 border border-amber-200 text-[11px] hover:bg-amber-100">
-                    Chỉ xem trước cục bộ (chưa đồng bộ máy chủ)
-                  </Badge>
-                  <span className="text-[11px] text-slate-500 shrink-0">
-                    {formatDateDisplay(item.recordedDate)}
-                  </span>
-                </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {filteredDocuments.map((doc) => {
+            const meta = DOCUMENT_TYPE_META[doc.documentType] ?? DOCUMENT_TYPE_META.OTHER;
+            const isImg = isImageDocument(doc);
+            const docKey = doc.id || doc.fileUrl;
+            const isBusy = loadingDocId === docKey;
 
-                {item.isImage && (
-                  <div className="overflow-hidden rounded-lg border border-amber-200/70 bg-white h-32">
-                    <img
-                      src={item.previewUrl}
-                      alt={item.documentName}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <Badge variant="outline" className="text-[10px] bg-white mb-1">
-                    {DOCUMENT_TYPE_LABELS[item.documentType] || item.documentType}
-                  </Badge>
-                  <h3 className="text-sm font-bold text-slate-900 line-clamp-2">
-                    {item.documentName}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Dung lượng: {item.fileSizeKb} KB
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleOpenLocalPreview(item)}
-                  className="flex-1"
-                >
-                  <span className="material-symbols-outlined text-[16px]">visibility</span>
-                  <span>Xem trước</span>
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleRemoveLocalPreview(item.id)}
-                  className="text-slate-600"
-                >
-                  Gỡ xem trước
-                </Button>
-              </div>
-            </article>
-          ))}
-
-          {documents.map((doc, idx) => (
-            <article
-              key={doc.id || `${doc.documentName}-${idx}`}
-              className="rounded-xl border border-slate-200 bg-slate-50/50 p-4 flex flex-col justify-between gap-3"
-            >
-              <div className="space-y-2">
-                <div className="flex items-start justify-between gap-2">
-                  <Badge variant="outline" className="text-[11px] bg-white">
-                    {DOCUMENT_TYPE_LABELS[doc.documentType] || doc.documentType}
-                  </Badge>
-                  <span className="text-[11px] text-slate-500 shrink-0">
-                    {formatDateDisplay(doc.recordedDate)}
-                  </span>
-                </div>
-                <h3 className="text-sm font-bold text-slate-900 line-clamp-2">
-                  {doc.documentName}
-                </h3>
-                {typeof doc.fileSizeKb === 'number' && doc.fileSizeKb > 0 && (
-                  <p className="text-xs text-slate-500">Dung lượng: {doc.fileSizeKb} KB</p>
-                )}
-              </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => handleOpenDocument(doc)}
-                className="w-full"
+            return (
+              <article
+                key={docKey}
+                className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 flex flex-col justify-between gap-3 hover:border-slate-300 transition-colors"
               >
-                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-                <span>Xem tài liệu</span>
-              </Button>
-            </article>
-          ))}
+                <div className="flex items-start gap-3">
+                  {isImg && doc.previewUrl && isSafeExternalUrl(doc.previewUrl) ? (
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenDocument(doc)}
+                      className="size-16 rounded-xl overflow-hidden border border-slate-200 bg-white shrink-0 cursor-pointer"
+                      title={`Xem ảnh ${doc.documentName}`}
+                    >
+                      <img
+                        src={doc.previewUrl}
+                        alt={doc.documentName}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ) : (
+                    <div
+                      className={`size-12 rounded-xl border flex items-center justify-center shrink-0 ${meta.badgeClass}`}
+                    >
+                      <span className="material-symbols-outlined text-[22px]">
+                        {isImg ? 'image' : meta.icon}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <Badge variant="outline" className={`text-[11px] font-semibold ${meta.badgeClass}`}>
+                        {meta.label}
+                      </Badge>
+                      <span className="text-[11px] text-slate-500 tabular-nums">
+                        {formatDateDisplay(doc.recordedDate)}
+                      </span>
+                    </div>
+
+                    <h3 className="text-sm font-bold text-slate-900 line-clamp-2">
+                      {doc.documentName}
+                    </h3>
+
+                    {doc.notes && (
+                      <p className="text-xs text-slate-600 line-clamp-2">{doc.notes}</p>
+                    )}
+
+                    <p className="text-[11px] text-slate-500 tabular-nums">
+                      {isImg ? 'Hình ảnh' : 'Tệp PDF'} • {formatFileSize(doc.fileSizeKb)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-200/70">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isBusy}
+                    onClick={() => void handleOpenDocument(doc)}
+                    className="h-8 text-xs"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">
+                      {isImg ? 'zoom_in' : 'visibility'}
+                    </span>
+                    <span>{isBusy ? 'Đang mở...' : isImg ? 'Xem ảnh' : 'Xem tệp'}</span>
+                  </Button>
+
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={isBusy}
+                    onClick={() => void handleDownloadDocument(doc)}
+                    className="h-8 text-xs"
+                  >
+                    <span className="material-symbols-outlined text-[15px]">download</span>
+                    <span>Tải về</span>
+                  </Button>
+
+                  {doc.id && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setDeletingDoc(doc)}
+                      aria-label={`Xóa tài liệu ${doc.documentName}`}
+                      className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                    >
+                      <span className="material-symbols-outlined text-[15px]">delete</span>
+                      <span>Xóa</span>
+                    </Button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
 
-      {/* Dual-Mode File/Image or URL Upload Dialog */}
+      {/* Upload File/Image Modal */}
       <Dialog
-        open={showDocModal}
+        open={showUploadModal}
         onOpenChange={(open) => {
-          setShowDocModal(open);
-          if (!open && !isSubmittingDoc) {
-            resetModalState();
-          }
+          setShowUploadModal(open);
+          if (!open) resetModal();
         }}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Tải lên file, ảnh hoặc liên kết bệnh lý</DialogTitle>
+            <DialogTitle>Tải lên tài liệu y tế &amp; đơn thuốc</DialogTitle>
             <DialogDescription>
-              Lưu hồ sơ xét nghiệm, đơn thuốc, hoặc ảnh chụp phim cho {memberName}.
+              Lưu trữ ảnh chụp (JPG/PNG) hoặc tệp PDF (tối đa 10 MB) trực tiếp vào hồ sơ y bạ của{' '}
+              {memberName}.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-slate-50 p-1">
-            <button
-              type="button"
-              onClick={() => setUploadMode('file')}
-              className={`py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                uploadMode === 'file'
-                  ? 'bg-white text-[#2E37A4] shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+          <form onSubmit={handleUploadSubmit} className="space-y-4">
+            {/* Drag & Drop File Zone */}
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                handleChooseFile(e.dataTransfer.files?.[0]);
+              }}
+              className={`rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
+                isDragging
+                  ? 'border-[#2E37A4] bg-indigo-50/50'
+                  : 'border-slate-300 bg-slate-50/60'
               }`}
             >
-              Chọn file / ảnh từ máy
-            </button>
-            <button
-              type="button"
-              onClick={() => setUploadMode('url')}
-              className={`py-2 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                uploadMode === 'url'
-                  ? 'bg-white text-[#2E37A4] shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Nhập đường dẫn URL
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {uploadMode === 'file' ? (
-              <div className="space-y-2">
-                <Label htmlFor="ehr-doc-file">Chọn tệp PDF hoặc ảnh (JPG, PNG, WebP) *</Label>
-                <div
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setIsDragging(true);
-                  }}
-                  onDragLeave={() => setIsDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setIsDragging(false);
-                    handleFileChosen(e.dataTransfer.files?.[0]);
-                  }}
-                  className={`rounded-xl border-2 border-dashed p-4 text-center transition-colors ${
-                    isDragging
-                      ? 'border-[#2E37A4] bg-indigo-50/50'
-                      : 'border-slate-200 bg-slate-50/60'
-                  }`}
-                >
-                  <Input
-                    id="ehr-doc-file"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp,application/pdf"
-                    onChange={(e) => handleFileChosen(e.target.files?.[0])}
-                    className="cursor-pointer bg-white"
-                  />
-                  <p className="text-[11px] text-slate-500 mt-2">
-                    Kéo thả hoặc chọn ảnh/PDF tối đa 10 MB.
-                  </p>
-                </div>
-
-                {selectedFile && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 flex items-center gap-3">
-                    {selectedFilePreviewUrl ? (
-                      <img
-                        src={selectedFilePreviewUrl}
-                        alt={selectedFile.name}
-                        className="size-14 rounded-lg object-cover border border-slate-200 shrink-0"
-                      />
-                    ) : (
-                      <div className="size-14 rounded-lg bg-rose-50 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-[24px]">
-                          picture_as_pdf
-                        </span>
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-slate-900 truncate">
-                        {selectedFile.name}
-                      </p>
-                      <p className="text-[11px] text-slate-500">
-                        {Math.max(1, Math.round(selectedFile.size / 1024))} KB
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label htmlFor="ehr-doc-url">Đường dẫn tài liệu (URL) *</Label>
-                <Input
-                  id="ehr-doc-url"
-                  type="url"
-                  value={docFileUrl}
-                  onChange={(e) => setDocFileUrl(e.target.value)}
-                  placeholder="https://example.com/ket-qua-xet-nghiem.pdf"
-                  maxLength={255}
-                  required={uploadMode === 'url'}
-                />
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="ehr-doc-name">Tên tài liệu *</Label>
-              <Input
-                id="ehr-doc-name"
-                value={docName}
-                onChange={(e) => setDocName(e.target.value)}
-                placeholder="VD: Kết quả xét nghiệm máu tổng quát"
-                maxLength={200}
-                required
+              <Label
+                htmlFor="member-doc-file-input"
+                className="cursor-pointer flex flex-col items-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[28px] text-[#2E37A4]">
+                  cloud_upload
+                </span>
+                <span className="text-xs sm:text-sm font-semibold text-slate-800">
+                  {selectedFile ? selectedFile.name : 'Chọn hoặc kéo thả ảnh / tệp PDF vào đây'}
+                </span>
+                <span className="text-[11px] text-slate-500">
+                  Hỗ trợ PNG, JPG/JPEG, PDF • Tối đa 10 MB
+                </span>
+              </Label>
+              <input
+                id="member-doc-file-input"
+                type="file"
+                accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+                onChange={(e) => handleChooseFile(e.target.files?.[0])}
+                className="sr-only"
               />
+            </div>
+
+            {/* Category Quick Chips */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-slate-700">Phân loại tài liệu</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {DOCUMENT_TYPE_ORDER.map((typeKey) => {
+                  const meta = DOCUMENT_TYPE_META[typeKey];
+                  const selected = docType === typeKey;
+                  return (
+                    <button
+                      key={typeKey}
+                      type="button"
+                      onClick={() => setDocType(typeKey)}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-xs font-semibold cursor-pointer transition-colors ${
+                        selected
+                          ? 'bg-[#2E37A4] border-[#2E37A4] text-white'
+                          : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-[14px]">{meta.icon}</span>
+                      <span>{meta.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="ehr-doc-type">Loại tài liệu *</Label>
-                <select
-                  id="ehr-doc-type"
-                  value={docType}
-                  onChange={(e) => setDocType(e.target.value as PatientDocumentType)}
-                  className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-[#2E37A4]"
-                >
-                  <option value="LAB_RESULT">Kết quả Xét nghiệm</option>
-                  <option value="IMAGING_XRAY_CT">Chẩn đoán hình ảnh (X-Quang/CT)</option>
-                  <option value="DISCHARGE_SUMMARY">Giấy ra viện / Tóm tắt bệnh án</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="ehr-doc-date">Ngày ghi nhận *</Label>
+                <Label htmlFor="member-doc-name">Tên tài liệu</Label>
                 <Input
-                  id="ehr-doc-date"
-                  type="date"
-                  value={docRecordedDate}
-                  onChange={(e) => setDocRecordedDate(e.target.value)}
+                  id="member-doc-name"
+                  value={docName}
+                  onChange={(e) => setDocName(e.target.value)}
+                  placeholder="VD: Đơn thuốc tim mạch tháng 11"
+                  maxLength={200}
                   required
                 />
               </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="member-doc-date">Ngày ghi nhận / Ngày khám</Label>
+                <Input
+                  id="member-doc-date"
+                  type="date"
+                  value={docDate}
+                  onChange={(e) => setDocDate(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="member-doc-notes">Ghi chú (nơi khám / bác sĩ)</Label>
+              <Input
+                id="member-doc-notes"
+                value={docNotes}
+                onChange={(e) => setDocNotes(e.target.value)}
+                placeholder="VD: BV ĐHYD - BS. Hùng kê toa 30 ngày"
+                maxLength={1000}
+              />
             </div>
 
             <DialogFooter>
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setShowDocModal(false)}
-                disabled={isSubmittingDoc}
+                onClick={() => setShowUploadModal(false)}
+                disabled={isSubmitting}
               >
-                Hủy bỏ
+                Hủy
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmittingDoc}
+                disabled={isSubmitting}
                 className="bg-[#2E37A4] hover:bg-[#222982] text-white"
               >
-                {isSubmittingDoc
-                  ? 'Đang xử lý...'
-                  : uploadMode === 'file'
-                    ? 'Tải lên & Lưu'
-                    : 'Lưu tài liệu'}
+                {isSubmitting ? 'Đang tải lên...' : 'Lưu vào y bạ'}
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Image Lightbox Modal */}
+      <Dialog
+        open={Boolean(lightboxDoc)}
+        onOpenChange={(open) => {
+          if (!open) setLightboxDoc(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{lightboxDoc?.doc.documentName}</DialogTitle>
+            <DialogDescription>
+              {lightboxDoc
+                ? `${
+                    (
+                      DOCUMENT_TYPE_META[lightboxDoc.doc.documentType] ??
+                      DOCUMENT_TYPE_META.OTHER
+                    ).label
+                  } • Ngày ${formatDateDisplay(lightboxDoc.doc.recordedDate)}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {lightboxDoc && (
+            <div className="space-y-3">
+              <div className="max-h-[65vh] overflow-auto rounded-xl border border-slate-200 bg-slate-950/5 flex items-center justify-center p-2">
+                <img
+                  src={lightboxDoc.imageUrl}
+                  alt={lightboxDoc.doc.documentName}
+                  className="max-h-[60vh] w-auto object-contain rounded-lg"
+                />
+              </div>
+              {lightboxDoc.doc.notes && (
+                <p className="text-xs text-slate-600">{lightboxDoc.doc.notes}</p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            {lightboxDoc && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => void handleDownloadDocument(lightboxDoc.doc)}
+              >
+                <span className="material-symbols-outlined text-[16px]">download</span>
+                <span>Tải ảnh gốc</span>
+              </Button>
+            )}
+            <Button type="button" onClick={() => setLightboxDoc(null)}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={Boolean(deletingDoc)}
+        onOpenChange={(open) => {
+          if (!open) setDeletingDoc(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Xác nhận xóa tài liệu</DialogTitle>
+            <DialogDescription>
+              Bạn có chắc muốn xóa tài liệu &ldquo;{deletingDoc?.documentName}&rdquo; khỏi hồ sơ y
+              bạ của {memberName}? Hành động này không thể hoàn tác.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeletingDoc(null)}
+              disabled={isDeleting}
+            >
+              Hủy
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void confirmDeleteDocument()}
+              disabled={isDeleting}
+            >
+              {isDeleting ? 'Đang xóa...' : 'Xóa tài liệu'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </section>
