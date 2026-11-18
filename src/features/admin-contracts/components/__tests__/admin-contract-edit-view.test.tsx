@@ -140,6 +140,8 @@ describe('AdminContractEditView (Sửa / Cập nhật Hợp đồng bên Admin)'
     render(<AdminContractEditView contractId="st-001" contractType="staffing" />);
 
     expect(await screen.findByText(/Cập nhật Hợp đồng B2B · STAFF-2026-001/i)).toBeInTheDocument();
+    expect(screen.getByText(/Cơ sở Y tế \(Bên B - Bước 1\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Nền tảng FamiDoc \(Bên A - Bước 2\)/i)).toBeInTheDocument();
 
     const shareInput = screen.getByLabelText(/Tỷ lệ CSYT hưởng/i);
     await user.clear(shareInput);
@@ -158,7 +160,6 @@ describe('AdminContractEditView (Sửa / Cập nhật Hợp đồng bên Admin)'
           facilitySharePercent: 80,
           platformSharePercent: 20,
           contractTerms: 'Ưu tiên đối soát trước ngày 03.',
-          status: 'DRAFT',
         })
       );
       expect(mockPush).toHaveBeenCalledWith('/admin/contracts');

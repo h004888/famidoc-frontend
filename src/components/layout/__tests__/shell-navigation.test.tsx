@@ -103,7 +103,14 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
     const { container } = renderShell();
 
     expect(screen.getByText('Quản trị viên')).toBeInTheDocument();
-    expect(screen.getAllByText('Trọng tài & Tranh chấp').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Xử lý khiếu nại').length).toBeGreaterThan(0);
+
+    // Breadcrumb "Trang chủ" for Admin links to actual landing page "/" instead of platform overview "/admin"
+    const header = container.querySelector('header')!;
+    const breadcrumbHome = within(header)
+      .getAllByRole('link')
+      .find((el) => el.textContent === 'Trang chủ');
+    expect(breadcrumbHome).toHaveAttribute('href', '/');
 
     const aside = container.querySelector('aside');
     expect(aside).toHaveAttribute('data-state', 'collapsed');

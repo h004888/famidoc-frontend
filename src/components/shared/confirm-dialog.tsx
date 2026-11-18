@@ -30,6 +30,7 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: 'default' | 'destructive';
   isLoading?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
 }
 
@@ -48,6 +49,7 @@ export function ConfirmDialog({
   cancelLabel = 'Hủy',
   variant = 'default',
   isLoading = false,
+  confirmDisabled = false,
   onConfirm,
 }: ConfirmDialogProps) {
   return (
@@ -76,7 +78,7 @@ export function ConfirmDialog({
               e.preventDefault();
               onConfirm();
             }}
-            disabled={isLoading}
+            disabled={isLoading || confirmDisabled}
             className={cn(
               buttonVariants({ variant: variant === 'destructive' ? 'destructive' : 'default' }),
               'rounded-xl text-xs font-bold'

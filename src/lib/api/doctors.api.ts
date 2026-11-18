@@ -1,4 +1,5 @@
 import { httpClient } from './http-client';
+import { fetchPaginatedList } from './paginated-list';
 import { unwrapApiEnvelope } from './envelope';
 import type { DoctorClinicalTier } from './public.api';
 
@@ -202,11 +203,11 @@ export const doctorsApi = {
   platformApproveCredentials: async (
     doctorId: string,
     payload: PlatformApprovePayload
-  ): Promise<any> => {
+  ): Promise<DoctorProfileDto> => {
     const approved = payload.approved !== undefined ? Boolean(payload.approved) : Boolean(payload.isApproved);
     const res: any = await httpClient.patch(`/api/v1/doctors/${doctorId}/credentials/platform-approve`, {
       approved,
-      backgroundCheckConsent: payload.backgroundCheckConsent ?? true,
+      ...(payload.backgroundCheckConsent === undefined ? {} : { backgroundCheckConsent: payload.backgroundCheckConsent }),
       ...(payload.rejectionReason?.trim() ? { rejectionReason: payload.rejectionReason.trim() } : {}),
     });
     if (res && typeof res === 'object' && res.data && typeof res.data === 'object') return res.data;
@@ -264,17 +265,7 @@ export const doctorsApi = {
   },
 
   getAdminDoctors: async (params?: any): Promise<any[]> => {
-    try {
-      const res: any = await httpClient.get<any>('/api/v1/doctors', params);
-      if (Array.isArray(res)) return res;
-      if (Array.isArray(res?.data?.items)) return res.data.items;
-      if (Array.isArray(res?.items)) return res.items;
-      if (Array.isArray(res?.data)) return res.data;
-      return [];
-    } catch (err) {
-      console.warn('Lỗi khi tải danh sách Bác sĩ từ Admin API:', err);
-      return [];
-    }
+    return (await fetchPaginatedList<DoctorProfileDto>('/api/v1/doctors', params)).data;
   },
 
   getDoctorById: async (id: string): Promise<DoctorProfileDto | null> => {

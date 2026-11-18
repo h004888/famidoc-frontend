@@ -160,4 +160,55 @@ describe('DoctorDashboardView Queue Tabs & HSM Signing Dialog', () => {
     const { container } = render(<DoctorDashboardView />);
     expect(container.querySelector('main')).toBeNull();
   });
+
+  it('renders real doctor identity when getDoctorMe returns an ACTIVE profile and shows onboarding notice when PENDING', async () => {
+    const { doctorsApi } = await import('@/lib/api');
+    const spy = vi.spyOn(doctorsApi, 'getDoctorMe').mockResolvedValueOnce({
+      id: 'doc-real-1',
+      doctorName: 'BS.CKII Lê Minh Quân',
+      academicTitle: 'BS.CKII',
+      specialty: 'Y học gia đình',
+      experienceYears: 12,
+      activePanelCount: 8,
+      maxPanelCapacity: 30,
+      onboardingStatus: 'ACTIVE',
+      facilityId: 'fac-1',
+      facility: { id: 'fac-1', facilityName: 'Bệnh viện Hoàn Mỹ Sài Gòn' },
+      credentials: [
+        {
+          id: 'c1',
+          credentialType: 'PRACTICE_LICENSE_CCHN',
+          certificateNumber: '009988/HCM-CCHN',
+          issueDate: '2020-01-01',
+          issuingAuthority: 'Sở Y tế TP.HCM',
+          fileUrl: '/api/v1/doctors/doc-real-1/credentials/c1/file',
+        },
+      ],
+    });
+
+    const { unmount } = render(<DoctorDashboardView />);
+    expect(screen.queryByText(/PGS\.TS Nguyễn Trọng Nghĩa/i)).not.toBeInTheDocument();
+    expect(await screen.findByText('BS.CKII Lê Minh Quân')).toBeInTheDocument();
+    expect(screen.getAllByText(/009988\/HCM-CCHN/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Bệnh viện Hoàn Mỹ Sài Gòn/)).toBeInTheDocument();
+    unmount();
+
+    spy.mockResolvedValueOnce({
+      id: 'doc-pending-1',
+      doctorName: 'BS. Trần Thu Hà',
+      specialty: 'Y học gia đình',
+      experienceYears: 3,
+      onboardingStatus: 'PENDING_SUBMISSION',
+      facilityId: 'fac-1',
+      facility: { id: 'fac-1', facilityName: 'Phòng khám An Bình' },
+    });
+
+    render(<DoctorDashboardView />);
+    expect(
+      await screen.findByText(/Hồ sơ Bác sĩ đang trong quy trình thẩm định 2 cấp/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Hàng Đợi Khám Hôm Nay/i)).not.toBeInTheDocument();
+
+    spy.mockRestore();
+  });
 });

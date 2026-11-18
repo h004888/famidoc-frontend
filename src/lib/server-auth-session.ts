@@ -76,6 +76,9 @@ export async function readServerAuthSession(
           role,
           avatarText: parsed.avatarText || parsed.name.slice(0, 2).toUpperCase(),
           ...(parsed.facilityOrTitle ? { facilityOrTitle: parsed.facilityOrTitle } : {}),
+          ...(typeof parsed.mustChangePassword === 'boolean'
+            ? { mustChangePassword: parsed.mustChangePassword }
+            : {}),
         };
       }
     } catch {

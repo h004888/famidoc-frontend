@@ -1,5 +1,6 @@
 import { httpClient } from './http-client';
 import { unwrapApiEnvelope } from './envelope';
+import { fetchPaginatedList } from './paginated-list';
 import type { FourPartyContract, ContractStatus } from '@/features/four-party-contract';
 
 export type { FourPartyContract, ContractStatus };
@@ -187,10 +188,32 @@ export interface DocumensoSyncResultDto {
   signedPdfUrl: string | null;
 }
 
+export interface PaymentActivationStateDto {
+  activated: boolean;
+  blockingReasons: string[];
+}
+
+export interface PaymentLatestTransactionDto {
+  id: string;
+  outcome: 'MATCHED' | 'REVIEW_REQUIRED' | 'IGNORED';
+  reason: string | null;
+  referenceCode: string | null;
+  amountVnd?: number;
+  receivedAt: string;
+}
+
+export interface PaymentRecheckActivationResultDto {
+  contractId?: string;
+  status?: 'PENDING' | 'ACTIVE' | 'CANCELLED';
+  activated: boolean;
+  blockingReasons: string[];
+}
+
 export interface VietQRPaymentRequestDto {
   id: string;
   contractId: string;
   familyId: string;
+  addendumId?: string;
   environment: 'TEST' | 'LIVE';
   attempt: number;
   paymentCode: string;
@@ -205,6 +228,8 @@ export interface VietQRPaymentRequestDto {
   expiresAt: string;
   paidAt: string | null;
   acceptedTransactionId: string | null;
+  activation?: PaymentActivationStateDto | null;
+  latestTransaction?: PaymentLatestTransactionDto | null;
 }
 
 export interface FamilyGateDoctorSummaryDto {
@@ -416,18 +441,18 @@ export function normalizeStaffingContract(item: any): StaffingContractItem {
     : 15;
 
   return {
-    id: String(item?.id || contractNumber),
+    id: item.id,
     contractNumber,
     facilityId: item?.facilityId || item?.facility?.id,
     facilityName:
-      item?.facilityName ||
-      item?.facility?.facilityName ||
-      item?.facility?.name ||
-      'Cơ sở Y tế Đối tác',
+      item.facilityName ||
+      item.facility?.facilityName ||
+      item.facility?.name ||
+      '—',
     platformSharePercent,
     facilitySharePercent,
-    validFrom: item?.validFrom || item?.startDate || '',
-    validTo: item?.validTo || item?.endDate || '',
+    validFrom: item.validFrom || item.startDate || '',
+    validTo: item.validTo || item.endDate || '',
     status: normalizedStatus,
     rawStatus,
     adminSigned,
@@ -595,6 +620,7 @@ export function mapMedicalContractToFourParty(
 
 export const contractsApi = {
   getMedicalContracts: async (params?: {
+    all?: boolean;
     role?: string;
     status?: string;
     facilityId?: string;
@@ -606,6 +632,13 @@ export const contractsApi = {
     if (params?.facilityId) queryParams.facilityId = params.facilityId;
     if (params?.page) queryParams.page = params.page;
     if (params?.limit) queryParams.limit = params.limit;
+
+    if (params?.all) {
+      const all = await fetchPaginatedList<MedicalContractDetailDto | FourPartyContract>(
+        '/api/v1/contracts/medical', queryParams,
+      );
+      return all.data.map(mapMedicalContractToFourParty);
+    }
 
     const payload = await httpClient.get<unknown>(
       '/api/v1/contracts/medical',
@@ -725,9 +758,10 @@ export const contractsApi = {
     return httpClient.patch<{ id: string; doctorId: string }>(`/api/v1/contracts/${contractId}/assign-doctor`, payload);
   },
 
-  createVietQRPayment: async (contractId: string): Promise<VietQRPaymentRequestDto> => {
+  createVietQRPayment: async (contractId: string, addendumId?: string): Promise<VietQRPaymentRequestDto> => {
     const response = await httpClient.post<unknown>('/api/v1/payments/requests', {
       contractId,
+      ...(addendumId ? { addendumId } : {}),
     });
     return unwrapEnvelope<VietQRPaymentRequestDto>(response);
   },
@@ -737,8 +771,13 @@ export const contractsApi = {
     return unwrapEnvelope<VietQRPaymentRequestDto>(response);
   },
 
-  recheckPaymentActivation: (paymentId: string): Promise<{ activated: boolean }> => {
-    return httpClient.post<{ activated: boolean }>(`/api/v1/payments/requests/${paymentId}/recheck-activation`);
+  recheckPaymentActivation: async (
+    paymentId: string
+  ): Promise<PaymentRecheckActivationResultDto> => {
+    const response = await httpClient.post<unknown>(
+      `/api/v1/payments/requests/${paymentId}/recheck-activation`
+    );
+    return unwrapEnvelope<PaymentRecheckActivationResultDto>(response);
   },
 
   /**
@@ -770,34 +809,8 @@ export const contractsApi = {
         params && typeof params.limit === 'number'
           ? { ...params, limit: Math.min(Math.max(1, params.limit), 50) }
           : params;
-      const res = await httpClient.get<any>('/api/v1/contracts/staffing', normalizedParams);
-      const unwrapped = unwrapEnvelope<any>(res);
-      let rawList: any[] = [];
-      let totalCount = 0;
-
-      if (unwrapped && typeof unwrapped === 'object') {
-        if (Array.isArray(unwrapped.data)) {
-          rawList = unwrapped.data;
-          totalCount = unwrapped.pagination?.total ?? unwrapped.total ?? unwrapped.data.length;
-        } else if (unwrapped.data && Array.isArray(unwrapped.data.items)) {
-          rawList = unwrapped.data.items;
-          totalCount = unwrapped.data.total ?? unwrapped.data.items.length;
-        } else if (Array.isArray(unwrapped.items)) {
-          rawList = unwrapped.items;
-          totalCount = unwrapped.total ?? unwrapped.items.length;
-        } else if (Array.isArray(unwrapped)) {
-          rawList = unwrapped;
-          totalCount = unwrapped.length;
-        }
-      }
-
-      if (rawList.length > 0) {
-        return {
-          data: rawList.map(normalizeStaffingContract),
-          total: totalCount,
-        };
-      }
-      return { data: [], total: 0 };
+        const result = await fetchPaginatedList('/api/v1/contracts/staffing', normalizedParams);
+        return { data: result.data.map(normalizeStaffingContract), total: result.total };
     } catch (err) {
       if (options?.throwOnError) {
         throw err;

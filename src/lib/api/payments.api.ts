@@ -1,4 +1,5 @@
 import { httpClient } from './http-client';
+import { unwrapApiEnvelope } from './envelope';
 
 export type PaymentRequestStatus = 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED';
 
@@ -28,37 +29,91 @@ export interface CreatePaymentRequestPayload {
   addendumId?: string;
 }
 
+export interface AdminPaymentRequestPayload extends CreatePaymentRequestPayload {
+  amountVnd: number;
+  transferDescription: string;
+  reason: string;
+}
+
+export interface SePayWebhookEvent {
+  id: string;
+  environment: 'TEST' | 'LIVE';
+  status: 'SUCCESS' | 'ERROR';
+  httpStatus: number;
+  resultCode: string;
+  providerTransactionId: string | null;
+  transactionId: string | null;
+  receivedAt: string;
+}
+
+export interface SePayWebhookPage {
+  items: SePayWebhookEvent[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
 export interface PaymentTransactionItem {
   id: string;
-  environment: string;
-  gatewayTransactionId: string;
-  amountReceived: number;
-  paymentTime: string;
+  environment: 'TEST' | 'LIVE';
+  providerTransactionId: string;
+  gateway: string;
+  amountVnd: number;
+  transactionAt: string;
+  receivedAt: string;
   accountNumber: string;
-  paymentCode?: string;
-  referenceCode?: string;
-  outcome: string;
-  reason?: string;
+  paymentCode: string | null;
+  paymentRequestId: string | null;
+  referenceCode: string;
+  outcome: 'MATCHED' | 'REVIEW_REQUIRED' | 'IGNORED';
+  reason: string | null;
+  ingestionSource?: 'WEBHOOK' | 'SEPAY_API';
+  sepayWebhookTransactionId?: string | null;
+  sepayApiTransactionId?: string | null;
+}
+
+export interface PaymentTransactionsPage {
+  items: PaymentTransactionItem[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface PaymentActivationResult {
+  activated: boolean;
+  blockingReasons: string[];
 }
 
 export const paymentsApi = {
-  createVietQRPayment: (payload: CreatePaymentRequestPayload): Promise<PaymentRequest> => {
-    return httpClient.post<PaymentRequest>('/api/v1/payments/vietqr', payload);
+  createAdminPaymentRequest: async (payload: AdminPaymentRequestPayload): Promise<PaymentRequest> =>
+    unwrapApiEnvelope(await httpClient.post('/api/v1/payments/admin/requests', payload)),
+
+  listWebhookEvents: async (params: {
+    environment: 'TEST' | 'LIVE';
+    page: number;
+    status?: SePayWebhookEvent['status'];
+  }): Promise<SePayWebhookPage> =>
+    unwrapApiEnvelope(await httpClient.get('/api/v1/payments/webhook-events', params, { cache: 'no-store' })),
+
+  createVietQRPayment: async (payload: CreatePaymentRequestPayload): Promise<PaymentRequest> => {
+    return unwrapApiEnvelope(await httpClient.post('/api/v1/payments/vietqr', payload));
   },
 
-  getPaymentStatus: (paymentId: string): Promise<PaymentRequest> => {
-    return httpClient.get<PaymentRequest>(`/api/v1/payments/${paymentId}/status`);
+  getPaymentStatus: async (paymentId: string): Promise<PaymentRequest> => {
+    return unwrapApiEnvelope(await httpClient.get(`/api/v1/payments/${paymentId}/status`));
   },
 
-  cancelPaymentRequest: (paymentId: string): Promise<PaymentRequest> => {
-    return httpClient.post<PaymentRequest>(`/api/v1/payments/requests/${paymentId}/cancel`);
+  cancelPaymentRequest: async (paymentId: string): Promise<PaymentRequest> => {
+    return unwrapApiEnvelope(await httpClient.post(`/api/v1/payments/requests/${paymentId}/cancel`));
   },
 
-  recheckPaymentActivation: (paymentId: string): Promise<{ activated: boolean }> => {
-    return httpClient.post<{ activated: boolean }>(`/api/v1/payments/requests/${paymentId}/recheck-activation`);
+  recheckPaymentActivation: async (paymentId: string): Promise<PaymentActivationResult> => {
+    return unwrapApiEnvelope(await httpClient.post(`/api/v1/payments/requests/${paymentId}/recheck-activation`));
   },
 
-  listTransactions: (params?: { limit?: number; offset?: number }): Promise<PaymentTransactionItem[]> => {
-    return httpClient.get<PaymentTransactionItem[]>('/api/v1/payments/transactions', params);
+  listTransactions: async (
+    params?: { limit?: number; page?: number; outcome?: PaymentTransactionItem['outcome'] },
+  ): Promise<PaymentTransactionsPage> => {
+    return unwrapApiEnvelope(await httpClient.get('/api/v1/payments/transactions', params, { cache: 'no-store' }));
   },
 };

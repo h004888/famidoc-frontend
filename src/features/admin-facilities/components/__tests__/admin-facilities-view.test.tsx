@@ -192,7 +192,7 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
     render(<AdminFacilitiesView />);
 
     await waitFor(() => {
-      expect(screen.getByText('Admin Backoffice')).toBeInTheDocument();
+      expect(screen.getByText('Quản trị hệ thống')).toBeInTheDocument();
       expect(screen.getAllByText(/Quản trị & Thẩm định Cơ sở Y tế/i).length).toBeGreaterThanOrEqual(1);
       expect(screen.getByText(/Quy trình hợp tác nền tảng B2B/i)).toBeInTheDocument();
     });
@@ -291,7 +291,7 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
     });
   });
 
-  it('switches to Doctor CCHN tab and approves a FACILITY_VERIFIED doctor', async () => {
+  it('switches to Doctor CCHN tab, shows PENDING_FACILITY_REVIEW, and confirms before Tier-2 approval', async () => {
     vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
       data: [mockFacility],
       total: 1,
@@ -305,6 +305,13 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
         onboardingStatus: 'FACILITY_VERIFIED',
         credentials: [
           {
+            credentialType: 'DEGREE',
+            certificateNumber: 'DEG-111',
+            issueDate: '2018-01-10',
+            issuingAuthority: 'ĐH Y',
+            fileUrl: 'https://cdn.famidoc.vn/deg.pdf',
+          },
+          {
             credentialType: 'PRACTICE_LICENSE_CCHN',
             certificateNumber: 'CCHN-889900/BYT',
             issueDate: '2023-01-10',
@@ -313,8 +320,26 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
           },
         ],
       },
+      {
+        id: 'DOC-002',
+        doctorName: 'BS. Trần Minh Tâm',
+        facility: { id: 'FAC-1', facilityName: 'BV Đa khoa FamiDoc' },
+        specialty: 'Y học Gia đình',
+        onboardingStatus: 'PENDING_FACILITY_REVIEW',
+        credentials: [
+          {
+            credentialType: 'PRACTICE_LICENSE_CCHN',
+            certificateNumber: 'CCHN-223344/BYT',
+            issueDate: '2024-01-10',
+            issuingAuthority: 'Bộ Y Tế',
+            fileUrl: 'https://cdn.famidoc.vn/cchn2.pdf',
+          },
+        ],
+      },
     ] as any);
-    vi.mocked(doctorsApi.platformApproveCredentials).mockResolvedValue({ statusCode: 200 });
+    vi.mocked(doctorsApi.platformApproveCredentials).mockResolvedValue({
+      id: 'DOC-001', doctorName: 'BS. Phạm Thị Hoa', onboardingStatus: 'ACTIVE',
+    } as Awaited<ReturnType<typeof doctorsApi.platformApproveCredentials>>);
 
     render(<AdminFacilitiesView />);
 
@@ -325,15 +350,21 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
     fireEvent.click(doctorTab);
 
     expect(await screen.findAllByText('BS. Phạm Thị Hoa')).toBeTruthy();
+    expect(screen.getAllByText('BS. Trần Minh Tâm').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('CCHN-889900/BYT').length).toBeGreaterThan(0);
     expect(screen.queryByText(/`FACILITY_VERIFIED`/)).not.toBeInTheDocument();
 
     const approveDocBtn = screen.getByRole('button', { name: /Duyệt Cấp 2 \(Kích hoạt ACTIVE\)/i });
     fireEvent.click(approveDocBtn);
 
+    expect(doctorsApi.platformApproveCredentials).not.toHaveBeenCalled();
+
+    const confirmBtn = await screen.findByRole('button', { name: /Xác nhận kích hoạt ACTIVE/i });
+    fireEvent.click(confirmBtn);
+
     await waitFor(() => {
       expect(doctorsApi.platformApproveCredentials).toHaveBeenCalledWith('DOC-001', {
         approved: true,
-        backgroundCheckConsent: true,
       });
     });
   });

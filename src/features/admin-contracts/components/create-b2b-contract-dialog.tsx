@@ -82,7 +82,7 @@ export function CreateB2BContractDialog({
     if (open && facilitiesList.length === 0) {
       setIsLoadingFacilities(true);
       facilitiesApi
-        .getAdminFacilities({ limit: 100 })
+        .getAdminFacilities()
         .then((res) => {
           if (res && Array.isArray(res.data)) {
             setFacilitiesList(res.data);

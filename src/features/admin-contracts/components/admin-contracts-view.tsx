@@ -48,7 +48,6 @@ export function AdminContractsView() {
   const [showStaffingSheet, setShowStaffingSheet] = useState(false);
   const [confirmSignStaffing, setConfirmSignStaffing] = useState<StaffingContractItem | null>(null);
   const [terminateTargetStaffing, setTerminateTargetStaffing] = useState<StaffingContractItem | null>(null);
-  const [signingStaffingId, setSigningStaffingId] = useState<string | null>(null);
 
   const [showCreateB2BModal, setShowCreateB2BModal] = useState(false);
 
@@ -64,8 +63,8 @@ export function AdminContractsView() {
     async function loadContracts() {
       try {
         const [items, staffingRes] = await Promise.allSettled([
-          contractsApi.getMedicalContracts({ limit: 50 }),
-          contractsApi.getStaffingContracts(),
+          contractsApi.getMedicalContracts({ all: true }),
+          contractsApi.getStaffingContracts(undefined, { throwOnError: true }),
         ]);
 
         if (!active) return;
@@ -83,6 +82,9 @@ export function AdminContractsView() {
 
         if (staffingRes.status === 'fulfilled' && staffingRes.value?.data) {
           setStaffingList(staffingRes.value.data);
+        } else if (staffingRes.status === 'rejected') {
+          const error = extractErrorMessage(staffingRes.reason, 'Không thể tải hợp đồng B2B.');
+          setLoadError((previous) => previous ? `${previous} ${error}` : error);
         }
       } catch (err) {
         if (!active) return;
@@ -108,24 +110,6 @@ export function AdminContractsView() {
     () => computeContractTriageCounts(contracts, staffingList),
     [contracts, staffingList]
   );
-
-  const handleConfirmSignStaffing = async (contractId: string) => {
-    setSigningStaffingId(contractId);
-    try {
-      await contractsApi.signStaffingContract(contractId, {
-        confirmed: true,
-        signatureHash: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-      });
-      toast.success('Admin đã hoàn tất ký số điện tử SmartCA cho Hợp đồng B2B!');
-      setConfirmSignStaffing(null);
-      setShowStaffingSheet(false);
-      triggerReload();
-    } catch (err: unknown) {
-      toast.error(extractErrorMessage(err, 'Lỗi khi ký số hợp đồng B2B.'));
-    } finally {
-      setSigningStaffingId(null);
-    }
-  };
 
   return (
     <div className="mx-auto max-w-7xl space-y-5 px-4 py-6 sm:px-6 lg:px-8">
@@ -245,7 +229,7 @@ export function AdminContractsView() {
             isLoading={isStaffingLoading}
             filterStatus={staffingFilter}
             onFilterStatusChange={setStaffingFilter}
-            signingStaffingId={signingStaffingId}
+            signingStaffingId={null}
             onRequestSign={(item) => setConfirmSignStaffing(item)}
             onRequestTerminate={(item) => setTerminateTargetStaffing(item)}
             onOpenDetail={(item) => {
@@ -279,7 +263,7 @@ export function AdminContractsView() {
         item={selectedStaffing}
         open={showStaffingSheet}
         onOpenChange={setShowStaffingSheet}
-        signingStaffingId={signingStaffingId}
+        signingStaffingId={null}
         onRequestSign={(item) => setConfirmSignStaffing(item)}
         onRequestTerminate={(item) => {
           setShowStaffingSheet(false);
@@ -288,11 +272,13 @@ export function AdminContractsView() {
       />
 
       <StaffingSignConfirmDialog
+        key={confirmSignStaffing?.id ?? 'closed'}
         item={confirmSignStaffing}
-        isSigning={Boolean(confirmSignStaffing && signingStaffingId === confirmSignStaffing.id)}
         onClose={() => setConfirmSignStaffing(null)}
-        onConfirm={handleConfirmSignStaffing}
-        onSynced={triggerReload}
+        onSynced={() => {
+          setShowStaffingSheet(false);
+          triggerReload();
+        }}
       />
 
       <StaffingTerminationDialog

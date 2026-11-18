@@ -1,7 +1,7 @@
 import { AdminDashboardView } from '@/features/admin-dashboard';
 
 export const metadata = {
-  title: 'Trung tâm Quản trị Nền tảng (Admin Backoffice) | FamiDoc',
+  title: 'Trung tâm Quản trị Nền tảng | FamiDoc',
   description: 'Bảng điều khiển vận hành hệ thống y tế gia đình FamiDoc Pro',
 };
 

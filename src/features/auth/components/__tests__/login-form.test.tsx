@@ -236,4 +236,45 @@ describe('UT-CMP-02..03, UT-CMP-08..10: LoginForm Component Interactions & A11y'
     saveSessionSpy.mockRestore();
     fetchSpy.mockRestore();
   });
+
+  it('preserves mustChangePassword flag from login response in AuthUser session', async () => {
+    mockSearchParams = new URLSearchParams();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        success: true,
+        code: 200,
+        data: {
+          accessToken: 'jwt-fam-initial',
+          role: 'FAMILY_REP',
+          user: {
+            id: 'fam-user-1',
+            email: 'fam@famidoc.vn',
+            fullName: 'Nguyễn Văn A',
+            role: 'FAMILY_REP',
+            status: 'ACTIVE',
+            mustChangePassword: true,
+          },
+        },
+      }),
+    } as Response);
+    const saveSessionSpy = vi.spyOn(authStorage, 'saveAuthSession');
+
+    render(<LoginForm />);
+
+    await userEvent.type(screen.getByLabelText(/Email/i), 'fam@famidoc.vn');
+    await userEvent.type(screen.getByLabelText(/^Mật khẩu$/i), 'InitialPass!1');
+    await userEvent.click(screen.getByRole('button', { name: /Đăng nhập hệ thống/i }));
+
+    expect(saveSessionSpy).toHaveBeenCalledWith(
+      'FAMILY',
+      expect.objectContaining({ mustChangePassword: true }),
+      'jwt-fam-initial',
+      false,
+    );
+
+    saveSessionSpy.mockRestore();
+    fetchSpy.mockRestore();
+  });
 });

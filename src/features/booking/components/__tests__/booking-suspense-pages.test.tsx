@@ -21,8 +21,8 @@ vi.mock('@/features/booking', () => ({
       data-members={props.requestedMembers ?? ''}
     />
   ),
-  BookingPaymentStep: ({ contractId }: { contractId?: string }) => (
-    <div data-testid="booking-payment-step" data-contract-id={contractId ?? ''} />
+  BookingPaymentStep: ({ contractId, addendumId }: { contractId?: string; addendumId?: string }) => (
+    <div data-testid="booking-payment-step" data-contract-id={contractId ?? ''} data-addendum-id={addendumId ?? ''} />
   ),
 }));
 
@@ -72,9 +72,9 @@ describe('Trang /booking/payment (Bước 3 luồng đặt gói)', () => {
     expect(ui.type).toBe(Suspense);
   });
 
-  it('truyền contractId đã phân giải (trim) xuống BookingPaymentStep', async () => {
+  it('truyền contractId và addendumId đã trim xuống BookingPaymentStep', async () => {
     const ui = BookingPaymentPage({
-      searchParams: Promise.resolve({ contractId: ' ctr-999 ' }),
+      searchParams: Promise.resolve({ contractId: ' ctr-999 ', addendumId: ' add-1 ' }),
     });
     render(await resolveSuspended(ui));
 
@@ -82,6 +82,7 @@ describe('Trang /booking/payment (Bước 3 luồng đặt gói)', () => {
       'data-contract-id',
       'ctr-999'
     );
+    expect(screen.getByTestId('booking-payment-step')).toHaveAttribute('data-addendum-id', 'add-1');
   });
 
   it('không truyền contractId khi tham số là mảng', async () => {

@@ -2,8 +2,11 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import { DashboardSidebar, ROLE_MENUS } from '../dashboard-sidebar';
+import type { LoginRole } from '@/features/auth/schemas/auth.schema';
 
 let mockPathname = '/admin/contracts/CTR-4P-2026-88219/review';
+let mockRole: LoginRole = 'ADMIN';
+const { logout } = vi.hoisted(() => ({ logout: vi.fn() }));
 
 vi.mock('next/navigation', () => ({
   usePathname: () => mockPathname,
@@ -11,14 +14,14 @@ vi.mock('next/navigation', () => ({
 
 vi.mock('@/features/auth/context/auth-context', () => ({
   useAuth: () => ({
-    role: 'ADMIN',
+    role: mockRole,
     user: {
       name: 'Super Admin',
       phone: '0901234567',
       facilityOrTitle: 'Ban Điều Hành FamiDoc',
       avatarText: 'AD',
     },
-    logout: vi.fn(),
+    logout,
   }),
   getDefaultPathForRole: (role: string) => `/${role.toLowerCase()}`,
 }));
@@ -28,6 +31,7 @@ describe('DashboardSidebar Navigation', () => {
     localStorage.clear();
     vi.clearAllMocks();
     mockPathname = '/admin/contracts/CTR-4P-2026-88219/review';
+    mockRole = 'ADMIN';
   });
 
   it('renders sidebar with default expanded state (w-64) and without pin button', () => {
@@ -59,11 +63,30 @@ describe('DashboardSidebar Navigation', () => {
     // Page icon elements should be visible inside aside
     expect(within(aside).getByText('monitoring')).toBeInTheDocument();
     expect(within(aside).getByText('local_hospital')).toBeInTheDocument();
+    expect(within(aside).getByRole('button', { name: 'Đăng xuất' })).toBeInTheDocument();
 
     // Hover should NOT expand the sidebar (stays w-20)
     fireEvent.mouseEnter(aside);
     expect(aside).toHaveAttribute('data-state', 'collapsed');
     expect(aside).toHaveClass('w-20');
+  });
+
+  it('lets an admin sign out from the sidebar on a nested admin page', () => {
+    render(<DashboardSidebar />);
+
+    const button = within(screen.getByRole('complementary')).getByRole('button', { name: 'Đăng xuất' });
+    expect(button).toHaveTextContent('Đăng xuất');
+    fireEvent.click(button);
+    expect(logout).toHaveBeenCalledOnce();
+  });
+
+  it('lets an admin sign out from the mobile drawer', () => {
+    render(<DashboardSidebar />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mở menu' }));
+    const drawer = screen.getByRole('dialog');
+    fireEvent.click(within(drawer).getByRole('button', { name: 'Đăng xuất' }));
+    expect(logout).toHaveBeenCalledOnce();
   });
 
   it('respects pre-existing localStorage preference if pinned was saved as false', () => {
@@ -100,5 +123,51 @@ describe('DashboardSidebar Navigation', () => {
     render(<DashboardSidebar initialRole="FACILITY" />);
     expect(screen.getAllByText('Hợp đồng Hợp tác B2B').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Hợp đồng Y tế 4 bên').length).toBeGreaterThan(0);
+    expect(screen.queryByRole('button', { name: 'Đăng xuất' })).not.toBeInTheDocument();
+  });
+
+  it('excludes training and package catalog from ADMIN sidebar and shows "Cài đặt" without BHYT', () => {
+    const adminItems = ROLE_MENUS.ADMIN.items;
+    const trainingItem = adminItems.find((item) => item.href === '/admin/training');
+    expect(trainingItem).toBeUndefined();
+
+    render(<DashboardSidebar />);
+
+    const aside = within(screen.getByRole('complementary'));
+    expect(aside.getByRole('link', { name: 'Cấu hình AI Matching' })).toHaveAttribute('href', '/admin/matching-config');
+
+    // Bottom utilities should not contain 'Danh mục Gói Dịch vụ'
+    expect(screen.queryByText('Danh mục Gói Dịch vụ')).not.toBeInTheDocument();
+
+    // Settings item should be 'Cài đặt' and not 'Cài đặt & Hồ sơ BHYT'
+    expect(screen.getAllByText('Cài đặt').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Hồ sơ BHYT/i)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['/family', 'FAMILY'],
+    ['/doctor', 'DOCTOR'],
+    ['/facility', 'FACILITY'],
+    ['/settings', 'PATIENT'],
+  ] as const)('keeps the original utilities at %s for %s', (pathname, role) => {
+    mockPathname = pathname;
+    mockRole = role;
+    render(<DashboardSidebar />);
+
+    const aside = within(screen.getByRole('complementary'));
+    expect(aside.getByRole('link', { name: 'Danh mục Gói Dịch vụ' })).toHaveAttribute('href', '/packages');
+    const settingsLabel = role === 'FAMILY' || role === 'PATIENT' ? 'Cài đặt & Hồ sơ BHYT' : 'Cài đặt tài khoản';
+    expect(aside.getByRole('link', { name: settingsLabel })).toHaveAttribute('href', '/settings');
+    expect(aside.queryByRole('button', { name: 'Đăng xuất' })).not.toBeInTheDocument();
+  });
+
+  it('uses the admin sidebar on shared settings when signed in as an admin', () => {
+    mockPathname = '/settings';
+    render(<DashboardSidebar />);
+
+    const aside = within(screen.getByRole('complementary'));
+    expect(aside.getByRole('link', { name: 'Cài đặt' })).toHaveAttribute('href', '/settings');
+    expect(aside.queryByRole('link', { name: 'Danh mục Gói Dịch vụ' })).not.toBeInTheDocument();
+    expect(aside.getByRole('button', { name: 'Đăng xuất' })).toBeInTheDocument();
   });
 });

@@ -20,7 +20,7 @@ export const loginSchema = z.object({
   password: z
     .string()
     .min(8, 'Mật khẩu phải có ít nhất 8 ký tự')
-    .max(32, 'Mật khẩu tối đa 32 ký tự'),
+    .max(64, 'Mật khẩu tối đa 64 ký tự'),
   role: loginRoleSchema.default('FAMILY').optional(),
   rememberMe: z.boolean().optional().default(false),
 });

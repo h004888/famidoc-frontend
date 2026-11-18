@@ -55,7 +55,11 @@ export function FacilityDashboardView() {
               if (!isMounted) return;
               if (res && Array.isArray(res.data)) {
                 const draft = res.data.find(
-                  (c) => c.rawStatus === 'PENDING_FACILITY_SIGNATURE' || c.status === 'DRAFT'
+                  (c) =>
+                    c.rawStatus === 'PENDING_FACILITY_SIGNATURE' ||
+                    (c.status === 'DRAFT' &&
+                      c.rawStatus !== 'REVISION_REQUESTED' &&
+                      !c.facilitySigned)
                 );
                 setPendingContract(draft || null);
               }
@@ -235,10 +239,10 @@ export function FacilityDashboardView() {
                 </span>
               </div>
               <h3 className="text-sm sm:text-base font-bold text-white">
-                {pendingContract.contractNumber} (85% Doanh thu CSYT)
+                {pendingContract.contractNumber} ({pendingContract.facilitySharePercent}% Doanh thu CSYT)
               </h3>
               <p className="text-xs text-slate-300">
-                Admin FamiDoc đã ký duyệt dự thảo. Cơ sở y tế chỉ cần 1 cú click ký số để mở khóa quyền khởi tạo Bác sĩ.
+                Quản trị viên FamiDoc đã phát hành dự thảo hợp đồng B2B. Cơ sở y tế vui lòng xem xét và ký số Bước 1 để hoàn tất kích hoạt với FamiDoc.
               </p>
             </div>
 

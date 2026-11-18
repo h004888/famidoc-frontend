@@ -244,5 +244,11 @@ describe('FacilityContractsView (/facility/contracts — B2B Only)', () => {
     expect(terminatedBanner).toHaveTextContent(
       /Đề xuất điều chỉnh tỷ lệ phân chia 90\/10\./i
     );
+    expect(
+      screen.queryByRole('button', { name: /Ký số \(Documenso\)/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Yêu cầu sửa điều khoản/i })
+    ).not.toBeInTheDocument();
   });
 });
