@@ -1,61 +1,41 @@
+import type { AdminPage } from './admin.api';
 import { httpClient } from './http-client';
+import { unwrapApiEnvelope } from './envelope';
 
-export interface AdminCarePackageItem {
-  id: string;
-  packageCode: string;
-  packageName: string;
+export type PackageStatus = 'DRAFT' | 'ACTIVE' | 'DEPRECATED';
+export interface PackageTerms {
+  name: string;
+  description: string;
   durationMonths: number;
-  basePrice: number;
-  periodicVisitsQuota: number;
-  telehealthQuota: number;
+  priceVnd: number;
+  includedMembers: number;
   maxMembers: number;
-  status: 'DRAFT' | 'ACTIVE' | 'RETIRED';
+  additionalMemberMonthlyPriceVnd: number;
+  quotaPeriod: 'PER_TERM' | 'PER_MONTH';
+  videoQuotaPolicy?: 'FIXED' | 'CONTRACT';
+  homeVisitUnitPriceVnd?: number;
+  quotas: { videoConsultations: number; homeVisits: number; facilityVisits: number };
+}
+
+export interface AdminCarePackageItem extends PackageTerms {
+  id: string;
+  code: string;
   version: number;
-  description?: string;
+  status: PackageStatus;
 }
 
 export type CarePackageAdminDto = AdminCarePackageItem;
 
-export interface CreateAdminPackagePayload {
-  packageCode?: string;
-  packageName?: string;
-  name?: string;
-  durationMonths?: number;
-  basePrice?: number;
-  basePriceVnd?: number;
-  periodicVisitsQuota?: number;
-  homeVisitsQuota?: number;
-  telehealthQuota?: number;
-  maxMembers?: number;
-  description?: string;
-}
-
+const base = '/api/v1/admin/care-packages';
 export const adminPackagesApi = {
-  listPackages: (): Promise<AdminCarePackageItem[]> => {
-    return httpClient.get<AdminCarePackageItem[]>('/api/v1/admin/care-packages');
-  },
-
-  getPackageById: (id: string): Promise<AdminCarePackageItem> => {
-    return httpClient.get<AdminCarePackageItem>(`/api/v1/admin/care-packages/${id}`);
-  },
-
-  createPackage: (payload: CreateAdminPackagePayload): Promise<AdminCarePackageItem> => {
-    return httpClient.post<AdminCarePackageItem>('/api/v1/admin/care-packages', payload);
-  },
-
-  updatePackage: (id: string, payload: Partial<CreateAdminPackagePayload>): Promise<AdminCarePackageItem> => {
-    return httpClient.patch<AdminCarePackageItem>(`/api/v1/admin/care-packages/${id}`, payload);
-  },
-
-  createVersion: (id: string, payload?: any): Promise<AdminCarePackageItem> => {
-    return httpClient.post<AdminCarePackageItem>(`/api/v1/admin/care-packages/${id}/versions`, payload);
-  },
-
-  publishPackage: (id: string): Promise<{ success: boolean; status: string }> => {
-    return httpClient.post<{ success: boolean; status: string }>(`/api/v1/admin/care-packages/${id}/publish`);
-  },
-
-  retirePackage: (id: string): Promise<{ success: boolean; status: string }> => {
-    return httpClient.post<{ success: boolean; status: string }>(`/api/v1/admin/care-packages/${id}/retire`);
-  },
+  listPackages: async (params?: { page?: number; limit?: number; status?: PackageStatus }): Promise<AdminPage<AdminCarePackageItem>> =>
+    unwrapApiEnvelope(await httpClient.get(base, params, { cache: 'no-store' })),
+  getPackageById: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.get(`${base}/${id}`)),
+  createPackage: async (payload: PackageTerms & { code: string }): Promise<AdminCarePackageItem> =>
+    unwrapApiEnvelope(await httpClient.post(base, payload)),
+  updatePackage: async (id: string, payload: Partial<PackageTerms>): Promise<AdminCarePackageItem> =>
+    unwrapApiEnvelope(await httpClient.patch(`${base}/${id}`, payload)),
+  createVersion: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/versions`)),
+  publishPackage: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/publish`)),
+  retirePackage: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/retire`)),
 };

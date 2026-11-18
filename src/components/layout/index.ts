@@ -1,4 +1,5 @@
 export * from './dashboard-sidebar';
+export * from './dashboard-topbar-notifications';
 export * from './dashboard-topbar-user';
 export * from './facility-verification-gate';
 export * from './family-subscription-gate';

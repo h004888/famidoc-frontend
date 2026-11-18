@@ -3,9 +3,9 @@ import { Suspense } from 'react';
 import { FamilyBillingView } from '@/features/billing';
 
 export const metadata: Metadata = {
-  title: 'Thanh Toán VietQR & Biên Lai Thu Tiền Điện Tử | FamiDoc Pro',
+  title: 'Thanh toán VietQR | FamiDoc Pro',
   description:
-    'Thanh toán phí dịch vụ chăm sóc sức khỏe gia đình qua mã VietQR chuẩn Napas 24/7 và tải hóa đơn điện tử.',
+    'Thanh toán hợp đồng hoặc phụ lục dịch vụ chăm sóc sức khỏe gia đình qua VietQR.',
 };
 
 export default function FamilyBillingPage() {

@@ -12,6 +12,7 @@ import { useBookingNavigationOptional } from './booking-navigation-context';
 
 export interface BookingPaymentStepProps {
   contractId?: string;
+  addendumId?: string;
   pollingIntervalMs?: number;
 }
 
@@ -151,20 +152,49 @@ function describeBlockingReasons(codes: string[]): string[] {
   return messages;
 }
 
+function isClosedPayment(payment: VietQRPaymentRequestDto) {
+  return payment.status === 'EXPIRED' || payment.status === 'CANCELLED';
+}
+
 async function resolvePaymentOrContractState(
-  contractId: string
+  contractId: string,
+  addendumId?: string,
 ): Promise<PaymentLoadOutcome> {
+  const storageKey = `famidoc:payment-request:${contractId}:${addendumId ?? ''}`;
   try {
-    const request = await contractsApi.createVietQRPayment(contractId);
-    if (request.status === 'PAID') {
+    const request = addendumId
+      ? await contractsApi.createVietQRPayment(contractId, addendumId)
+      : await contractsApi.createVietQRPayment(contractId);
+    try {
+      sessionStorage.setItem(storageKey, request.id);
+    } catch {
+      // Bộ nhớ trình duyệt có thể bị vô hiệu hóa.
+    }
+    if (request.status === 'PAID' && !addendumId && await isContractActive(contractId)) {
       return { kind: 'paid', payment: request };
     }
     return { kind: 'pending', payment: request };
   } catch (error) {
     const blockingReasons = readBlockingReasonsFromError(error);
     try {
+      const previousRequestId = sessionStorage.getItem(storageKey);
+      if (previousRequestId) {
+        const request = await contractsApi.getPaymentStatus(previousRequestId);
+        if (
+          request.status === 'PAID' &&
+          request.contractId === contractId &&
+          (request.addendumId ?? undefined) === addendumId
+        ) {
+          const active = !addendumId && await isContractActive(contractId);
+          return { kind: active ? 'paid' : 'pending', payment: request };
+        }
+      }
+    } catch {
+      // Giữ lỗi khởi tạo nếu chưa lấy được trạng thái yêu cầu đã tạo.
+    }
+    try {
       const detail = await contractsApi.getMedicalContractDetail(contractId);
-      if (detail?.contractStatus === 'ACTIVE') {
+      if (!addendumId && detail?.contractStatus === 'ACTIVE') {
         return { kind: 'paid', payment: null };
       }
       if (detail?.contractStatus === 'PENDING_APPROVAL') {
@@ -191,12 +221,22 @@ async function resolvePaymentOrContractState(
   }
 }
 
+async function isContractActive(contractId: string): Promise<boolean> {
+  try {
+    const detail = await contractsApi.getMedicalContractDetail(contractId);
+    return detail.contractStatus === 'ACTIVE';
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Bước 3 của luồng `/booking`: thanh toán VietQR theo `contractId` và màn hình chúc mừng
  * khi hợp đồng chuyển `ACTIVE`, mở khóa Dashboard gia đình.
  */
 export function BookingPaymentStep({
   contractId,
+  addendumId,
   pollingIntervalMs = 8000,
 }: BookingPaymentStepProps) {
   const [payment, setPayment] = useState<VietQRPaymentRequestDto | null>(null);
@@ -241,15 +281,17 @@ export function BookingPaymentStep({
         setErrorMessage(null);
         setNeedsSigning(false);
         setBlockingReasons([]);
-        setIsExpired(outcome.payment.status === 'EXPIRED');
+        setIsExpired(isClosedPayment(outcome.payment));
         return;
       }
       if (outcome.kind === 'needs_signing') {
+        setPayment(null);
         setNeedsSigning(true);
         setErrorMessage(outcome.message);
         setBlockingReasons(describeBlockingReasons(outcome.blockingReasons));
         return;
       }
+      setPayment(null);
       setNeedsSigning(false);
       setErrorMessage(outcome.message);
       setBlockingReasons(describeBlockingReasons(outcome.blockingReasons));
@@ -260,7 +302,7 @@ export function BookingPaymentStep({
   const loadPayment = useCallback(async () => {
     if (!contractId) return;
     try {
-      const outcome = await resolvePaymentOrContractState(contractId);
+        const outcome = await resolvePaymentOrContractState(contractId, addendumId);
       if (!isMountedRef.current) return;
       applyLoadOutcome(outcome);
     } finally {
@@ -268,7 +310,7 @@ export function BookingPaymentStep({
         setIsLoading(false);
       }
     }
-  }, [applyLoadOutcome, contractId]);
+  }, [addendumId, applyLoadOutcome, contractId]);
 
   const handleRetry = () => {
     setIsLoading(true);
@@ -297,7 +339,7 @@ export function BookingPaymentStep({
     }
     async function loadInitialPayment() {
       try {
-        const outcome = await resolvePaymentOrContractState(contractId as string);
+        const outcome = await resolvePaymentOrContractState(contractId as string, addendumId);
         if (!isMountedRef.current) return;
         applyLoadOutcome(outcome);
       } finally {
@@ -310,41 +352,54 @@ export function BookingPaymentStep({
     return () => {
       isMountedRef.current = false;
     };
-  }, [applyLoadOutcome, contractId]);
+  }, [addendumId, applyLoadOutcome, contractId]);
 
   // Tự động kiểm tra trạng thái thanh toán để phát hiện hợp đồng đã ACTIVE.
+  const paymentId = payment?.id;
   useEffect(() => {
-    if (!contractId || !payment || isActivated || pollingIntervalMs <= 0) return;
+    if (!contractId || !paymentId || isActivated || pollingIntervalMs <= 0) return;
+    let activePolling = true;
+    let checking = false;
     const timer = setInterval(async () => {
+      if (checking) return;
+      checking = true;
       try {
-        const [latestPayment, latestGate] = await Promise.all([
-          contractsApi.getPaymentStatus(payment.id),
-          contractsApi.getFamilyGateStatus(),
-        ]);
-        if (!isMountedRef.current) return;
+        const latestPayment = await contractsApi.getPaymentStatus(paymentId);
+        const active = latestPayment.status === 'PAID' && !addendumId && await isContractActive(contractId);
+        if (!activePolling) return;
         setPayment(latestPayment);
-        if (latestPayment.status === 'PAID' || latestGate.hasActiveContract) {
+        setIsExpired(isClosedPayment(latestPayment));
+        if (active) {
           activate();
           toast.success('Hợp đồng đã kích hoạt ACTIVE. Dashboard gia đình đã được mở khóa!');
         }
       } catch {
         // Bỏ qua lỗi tạm thời của nhịp kiểm tra nền.
+      } finally {
+        checking = false;
       }
     }, pollingIntervalMs);
-    return () => clearInterval(timer);
-  }, [activate, contractId, isActivated, payment, pollingIntervalMs]);
+    return () => {
+      activePolling = false;
+      clearInterval(timer);
+    };
+  }, [activate, addendumId, contractId, isActivated, paymentId, pollingIntervalMs]);
 
   const handleVerifyPayment = async () => {
-    if (!payment) return;
+    if (!payment || !contractId) return;
     setIsVerifying(true);
     setErrorMessage(null);
     try {
       const latestPayment = await contractsApi.getPaymentStatus(payment.id);
       setPayment(latestPayment);
-      const latestGate = await contractsApi.getFamilyGateStatus();
-      if (latestPayment.status === 'PAID' || latestGate.hasActiveContract) {
+      setIsExpired(isClosedPayment(latestPayment));
+      if (!addendumId && latestPayment.status === 'PAID' && await isContractActive(contractId)) {
         activate();
         toast.success('Đã xác nhận thanh toán. Hợp đồng đã kích hoạt ACTIVE!');
+      } else if (latestPayment.status === 'PAID') {
+        toast.info('Hệ thống đã ghi nhận thanh toán.');
+      } else if (isClosedPayment(latestPayment)) {
+        toast.info('Mã thanh toán đã đóng. Vui lòng tạo mã mới.');
       } else {
         toast.info(
           `Chưa ghi nhận giao dịch cho mã ${latestPayment.paymentCode}. Vui lòng chuyển khoản đúng nội dung "${latestPayment.transferContent || latestPayment.paymentCode}" rồi kiểm tra lại.`
@@ -375,15 +430,12 @@ export function BookingPaymentStep({
     setBlockingReasons([]);
     try {
       // Máy chủ tự đóng mã quá hạn và cấp mã mới với attempt + 1.
-      const fresh = await contractsApi.createVietQRPayment(contractId);
+      const outcome = await resolvePaymentOrContractState(contractId, addendumId);
       if (!isMountedRef.current) return;
-      if (fresh.status === 'PAID') {
-        activate();
-        return;
+      applyLoadOutcome(outcome);
+      if (outcome.kind === 'pending' && outcome.payment.status === 'PENDING') {
+        toast.success('Đã cập nhật mã thanh toán.');
       }
-      setPayment(fresh);
-      setIsExpired(fresh.status === 'EXPIRED');
-      toast.success('Đã tạo mã thanh toán mới.');
     } catch (error) {
       const reasons = readBlockingReasonsFromError(error);
       setBlockingReasons(describeBlockingReasons(reasons));
@@ -538,6 +590,23 @@ export function BookingPaymentStep({
 
   const amountLabel = formatVnd(payment.amountVnd);
   const transferMemo = payment.transferContent || payment.paymentCode;
+  if (payment.status === 'PAID') {
+    return (
+      <section className="space-y-3 rounded-xl border border-emerald-200 bg-white p-6" role="status">
+        <h1 className="text-lg font-bold">Đã ghi nhận thanh toán</h1>
+        <p className="text-sm text-slate-600">
+          {transferMemo} · {amountLabel} · {payment.environment}
+        </p>
+        {!addendumId && <p className="text-sm">Đang chờ backend xác nhận hợp đồng đã kích hoạt.</p>}
+        {!addendumId && (
+          <button type="button" onClick={handleVerifyPayment} disabled={isVerifying} className="text-sm font-semibold text-primary">
+            Kiểm tra kích hoạt
+          </button>
+        )}
+        {errorMessage && <p className="text-sm text-destructive">{errorMessage}</p>}
+      </section>
+    );
+  }
 
   return (
     <section
@@ -548,12 +617,15 @@ export function BookingPaymentStep({
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1.5">
           <h1 className="text-xl font-bold text-slate-900">
-            Thanh toán VietQR để kích hoạt gói
+            {addendumId ? 'Thanh toán phụ lục qua VietQR' : 'Thanh toán VietQR để kích hoạt gói'}
           </h1>
           <p className="text-sm leading-relaxed text-slate-600">
             Quét mã VietQR bằng ứng dụng ngân hàng bất kỳ hoặc chuyển khoản đúng số tiền và nội
-            dung đối soát bên dưới. Hệ thống tự động kích hoạt hợp đồng khi nhận được giao dịch.
+            dung đối soát bên dưới.
           </p>
+          {payment.environment === 'TEST' && (
+            <p className="text-sm font-semibold text-amber-800">Môi trường TEST. Dùng mô phỏng giao dịch SePay.</p>
+          )}
         </div>
         {!isExpired && <PaymentCountdown expiresAt={payment.expiresAt} onExpire={markExpired} />}
       </header>
@@ -584,7 +656,9 @@ export function BookingPaymentStep({
             timer_off
           </span>
           <div className="space-y-1">
-            <p className="font-semibold text-destructive">Mã thanh toán đã hết hạn</p>
+            <p className="font-semibold text-destructive">
+              {payment.status === 'CANCELLED' ? 'Mã thanh toán đã bị hủy' : 'Mã thanh toán đã hết hạn'}
+            </p>
             <p className="text-muted-foreground">
               Mã VietQR chỉ có hiệu lực trong 15 phút. Vui lòng tạo mã mới để tiếp tục thanh toán.
             </p>

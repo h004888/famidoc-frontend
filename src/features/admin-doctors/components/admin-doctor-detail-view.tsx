@@ -53,21 +53,12 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
     if (!doctor) return;
     setIsActionLoading(true);
     try {
-      await doctorsApi.platformApproveCredentials(doctor.id, {
+      const updated = await doctorsApi.platformApproveCredentials(doctor.id, {
         approved: true,
-        backgroundCheckConsent: true,
       });
-      setDoctor((prev) =>
-        prev
-          ? {
-              ...prev,
-              onboardingStatus: 'ACTIVE',
-              credentials: prev.credentials?.map((c) => ({ ...c, platformApproved: true })),
-            }
-          : null
-      );
+      setDoctor(updated);
       toast.success(
-        `Thẩm định CSDL Quốc gia thành công! Bác sĩ ${doctor.doctorName} đã được kích hoạt ACTIVE trên toàn nền tảng.`
+        `Đã ghi nhận phê duyệt CCHN. Bác sĩ ${doctor.doctorName} đã được kích hoạt ACTIVE trên toàn nền tảng.`
       );
     } catch (err: any) {
       toast.error(extractErrorMessage(err, 'Không thể phê duyệt Platform.'));
@@ -81,19 +72,11 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
     if (!doctor || !rejectReason.trim()) return;
     setIsActionLoading(true);
     try {
-      await doctorsApi.platformApproveCredentials(doctor.id, {
+      const updated = await doctorsApi.platformApproveCredentials(doctor.id, {
         approved: false,
         rejectionReason: rejectReason.trim(),
       });
-      setDoctor((prev) =>
-        prev
-          ? {
-              ...prev,
-              onboardingStatus: 'PENDING_SUBMISSION',
-              rejectionReason: rejectReason.trim(),
-            }
-          : null
-      );
+      setDoctor(updated);
       toast.success('Đã gửi thông báo từ chối hồ sơ chuyên môn tới CSYT và Bác sĩ.');
       setRejectReason('');
       setShowRejectModal(false);
@@ -127,6 +110,8 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
     );
   }
 
+  const primaryCred = doctor.credentials?.find((credential) => credential.credentialType === 'PRACTICE_LICENSE_CCHN');
+
   return (
     <DashboardPageShell containerClassName="pb-16">
 
@@ -134,7 +119,7 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs text-slate-500 font-medium">
-            <Link href="/admin" className="hover:text-primary transition-colors">Admin Backoffice</Link>
+            <Link href="/admin" className="hover:text-primary transition-colors">Quản trị hệ thống</Link>
             <span>/</span>
             <Link href="/admin/doctors" className="hover:text-primary transition-colors">Bác sĩ</Link>
             <span>/</span>
@@ -317,12 +302,12 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
             <div className="space-y-4 text-xs">
               <div className="flex items-start gap-3">
                 <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 font-bold">
-                  ✓
+                  {primaryCred?.facilityVerified ? '✓' : '1'}
                 </div>
                 <div>
                   <p className="font-semibold text-slate-900">Tầng 1: Thẩm định nội bộ Cơ sở Y tế (FACILITY_VERIFIED)</p>
                   <p className="text-slate-500 mt-0.5">
-                    Đại diện CSYT đã đối chiếu văn bằng gốc, xác nhận bác sĩ trực thuộc và đề xuất kích hoạt lên FamiDoc.
+                    {primaryCred?.facilityVerified ? 'CSYT đã xác nhận hồ sơ CCHN.' : 'Chưa ghi nhận xác nhận CCHN từ CSYT.'}
                   </p>
                 </div>
               </div>
@@ -343,8 +328,8 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
                   </p>
                   <p className="text-slate-500 mt-0.5">
                     {doctor.onboardingStatus === 'ACTIVE'
-                      ? 'Admin đã hoàn tất tra cứu CSDL Quốc gia và phê duyệt chính thức.'
-                      : 'Đang chờ Admin phê duyệt để cấp quyền mở lịch tư vấn và tiếp nhận bệnh nhân.'}
+                      ? 'Admin đã phê duyệt hồ sơ.'
+                      : doctor.onboardingStatus === 'FACILITY_VERIFIED' ? 'Hồ sơ đang chờ Admin phê duyệt.' : 'Hồ sơ chưa đến bước phê duyệt.'}
                   </p>
                 </div>
               </div>

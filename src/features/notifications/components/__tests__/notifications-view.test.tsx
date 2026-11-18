@@ -1,7 +1,8 @@
 import React from 'react';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { NotificationsView } from '../notifications-view';
+import * as authContext from '@/features/auth/context/auth-context';
 
 describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
   it('renders heading and notification items correctly', () => {
@@ -42,5 +43,45 @@ describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
     const { container } = render(<NotificationsView />);
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(container.innerHTML).toContain('tabular-nums');
+  });
+
+  it('renders ADMIN portal notifications: only receives (1) payment errors of families & (2) dispute complaints between family and doctor', () => {
+    vi.spyOn(authContext, 'useAuth').mockReturnValue({
+      role: 'ADMIN',
+      user: {
+        id: 'ADM-001',
+        name: 'Super Admin',
+        phone: '0901888999',
+        role: 'ADMIN',
+        avatarText: 'AD',
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      applySession: vi.fn(),
+      login: vi.fn(),
+      logout: vi.fn(),
+      getDefaultPathForRole: () => '/admin',
+    });
+
+    render(<NotificationsView />);
+
+    // Header for Admin
+    expect(
+      screen.getByRole('heading', { level: 1, name: /Thông Báo Quản Trị Viên/i })
+    ).toBeInTheDocument();
+
+    // 2 specific stream categories
+    expect(screen.getByRole('button', { name: /1\. Đơn thanh toán lỗi/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /2\. Khiếu nại tranh chấp/i })).toBeInTheDocument();
+
+    // Type 1: Đơn thanh toán lỗi
+    expect(screen.getByText(/Lỗi đối soát thanh toán VietQR - Hộ gia đình FAM-88219/i)).toBeInTheDocument();
+    const reconLink = screen.getByRole('link', { name: /Xử lý đối soát doanh thu/i });
+    expect(reconLink).toHaveAttribute('href', '/admin/reconciliation');
+
+    // Type 2: Khiếu nại tranh chấp
+    expect(screen.getByText(/Đơn khiếu nại tranh chấp buổi khám - Hộ FAM-042 & BS.CKII Trần Mai Phương/i)).toBeInTheDocument();
+    const disputeLink = screen.getByRole('link', { name: /Thụ lý giải quyết khiếu nại/i });
+    expect(disputeLink).toHaveAttribute('href', '/admin/disputes');
   });
 });

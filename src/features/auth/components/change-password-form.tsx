@@ -114,7 +114,7 @@ export function ChangePasswordForm() {
                   type={showOld ? 'text' : 'password'}
                   value={oldPassword}
                   onChange={(e) => setOldPassword(e.target.value)}
-                  placeholder="Nhập mật khẩu khởi tạo nhận được qua email"
+                  placeholder="Nhập mật khẩu hiện tại"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 pr-10"
                 />
                 <button

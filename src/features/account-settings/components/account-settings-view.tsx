@@ -78,8 +78,14 @@ const ROLE_SETTINGS_META: Record<
   },
 };
 
+const passwordErrors = new Map([
+  ['Current password is not correct', 'Mật khẩu hiện tại không đúng.'],
+  ['New password cannot be the same as current password', 'Mật khẩu mới phải khác mật khẩu hiện tại.'],
+  ['New password must be between 8 and 64 characters', 'Mật khẩu mới phải từ 8 đến 64 ký tự.'],
+]);
+
 export function AccountSettingsView() {
-  const { user, role, isAuthenticated, applySession } = useAuth();
+  const { user, role, isAuthenticated, applySession, logout } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'insurance'>('profile');
 
@@ -168,6 +174,7 @@ export function AccountSettingsView() {
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUpdatingPassword) return;
     const result = changePasswordSchema.safeParse(passwordData);
     if (!result.success) {
       setPasswordError(result.error.issues[0]?.message || 'Dữ liệu mật khẩu chưa hợp lệ.');
@@ -178,20 +185,19 @@ export function AccountSettingsView() {
     setIsUpdatingPassword(true);
     try {
       await authApi.changePassword({
-        oldPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword,
+        oldPassword: result.data.currentPassword,
+        newPassword: result.data.newPassword,
       });
-      toast.success('Mật khẩu bảo mật đã được thay đổi thành công!');
-      setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
     } catch (err: unknown) {
-      const msg =
-        err instanceof Error && err.message.trim()
-          ? err.message.trim()
-          : 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.';
-      setPasswordError(msg);
+      const message = err instanceof Error ? err.message.trim() : '';
+      setPasswordError(passwordErrors.get(message) || message || 'Không thể đổi mật khẩu. Vui lòng kiểm tra lại mật khẩu hiện tại.');
+      return;
     } finally {
       setIsUpdatingPassword(false);
     }
+    toast.success('Mật khẩu bảo mật đã được thay đổi thành công!');
+    setPasswordData({ currentPassword: '', newPassword: '', confirmNewPassword: '' });
+    if (effectiveRole === 'ADMIN') logout();
   };
 
   return (
@@ -535,6 +541,11 @@ export function AccountSettingsView() {
                     <h3 className="text-base font-bold text-slate-900">
                       Đổi Mật khẩu &amp; Bảo mật Tài khoản
                     </h3>
+                    {effectiveRole === 'ADMIN' && (
+                      <p className="mt-2 text-sm text-slate-600">
+                        Mật khẩu mới có hiệu lực ngay sau khi lưu. Bạn sẽ đăng nhập lại bằng mật khẩu mới.
+                      </p>
+                    )}
                     <Separator className="mt-2" />
                   </div>
 
@@ -561,6 +572,8 @@ export function AccountSettingsView() {
                       <Input
                         id="settings-curpwd"
                         type={showCurrentPwd ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        disabled={isUpdatingPassword}
                         value={passwordData.currentPassword}
                         onChange={(e) =>
                           setPasswordData({ ...passwordData, currentPassword: e.target.value })
@@ -592,6 +605,8 @@ export function AccountSettingsView() {
                         <Input
                           id="settings-newpwd"
                           type={showNewPwd ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          disabled={isUpdatingPassword}
                           value={passwordData.newPassword}
                           onChange={(e) =>
                             setPasswordData({ ...passwordData, newPassword: e.target.value })
@@ -622,6 +637,8 @@ export function AccountSettingsView() {
                         <Input
                           id="settings-cfmpwd"
                           type={showCfmPwd ? 'text' : 'password'}
+                          autoComplete="new-password"
+                          disabled={isUpdatingPassword}
                           value={passwordData.confirmNewPassword}
                           onChange={(e) =>
                             setPasswordData({

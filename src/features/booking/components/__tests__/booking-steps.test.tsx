@@ -636,6 +636,7 @@ describe('BookingTrackingStep', () => {
 describe('BookingPaymentStep', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    sessionStorage.clear();
     vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue(pendingPayment as never);
   });
 
@@ -659,6 +660,10 @@ describe('BookingPaymentStep', () => {
   });
 
   it('hiển thị màn hình chúc mừng kèm CTA Dashboard khi hợp đồng ACTIVE', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValueOnce({
+      id: 'ctr-1',
+      contractStatus: 'ACTIVE',
+    } as never);
     vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue({
       ...pendingPayment,
       status: 'PAID',
@@ -686,6 +691,37 @@ describe('BookingPaymentStep', () => {
       expect(screen.getByTestId('booking-payment-missing-contract')).toBeInTheDocument();
     });
     expect(contractsApi.createVietQRPayment).not.toHaveBeenCalled();
+  });
+
+  it('hiển thị đã nhận tiền khi hóa đơn PAID và hợp đồng còn PENDING_PAYMENT', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockResolvedValueOnce({
+      ...pendingPayment,
+      status: 'PAID',
+    } as never);
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValueOnce({
+      id: 'ctr-1',
+      contractStatus: 'PENDING_PAYMENT',
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByText('Đã ghi nhận thanh toán')).toBeInTheDocument();
+    expect(screen.queryByTestId('booking-payment-success')).not.toBeInTheDocument();
+  });
+
+  it('đọc lại hóa đơn đã thanh toán sau khi tải lại trang thay vì yêu cầu chuyển tiền lần nữa', async () => {
+    sessionStorage.setItem('famidoc:payment-request:ctr-1:', pendingPayment.id);
+    vi.mocked(contractsApi.createVietQRPayment).mockRejectedValueOnce(new Error('Contract payment has already been recorded'));
+    vi.mocked(contractsApi.getPaymentStatus).mockResolvedValueOnce({ ...pendingPayment, status: 'PAID' });
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValueOnce({
+      id: 'ctr-1',
+      contractStatus: 'PENDING_PAYMENT',
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByText('Đã ghi nhận thanh toán')).toBeInTheDocument();
+    expect(contractsApi.getPaymentStatus).toHaveBeenCalledWith(pendingPayment.id);
   });
 
   it('chuyển sang màn hình chúc mừng khi createVietQRPayment lỗi nhưng hợp đồng đã ACTIVE', async () => {

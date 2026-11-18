@@ -1,640 +1,328 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
-import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { formatCurrencyVND } from '@/lib/utils';
-import { contractsApi, paymentsApi } from '@/lib/api';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { financeApi, type SePayReconciliationRunDto, type SePayReconciliationStatusDto } from '@/lib/api/finance.api';
+import { paymentsApi, type PaymentTransactionItem, type PaymentTransactionsPage } from '@/lib/api/payments.api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { paymentResultLabels } from './admin-webhook-events-view';
 
-export type ReconciliationStatus = 'MATCHED' | 'PENDING' | 'FAILED';
+const vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+const dateTime = new Intl.DateTimeFormat('vi-VN', {
+  dateStyle: 'short',
+  timeStyle: 'medium',
+  timeZone: 'Asia/Ho_Chi_Minh',
+});
+const outcomes = {
+  MATCHED: 'Đã khớp',
+  REVIEW_REQUIRED: 'Cần kiểm tra',
+  IGNORED: 'Bỏ qua',
+};
+const pageSize = 20;
+const sourceLabels = { WEBHOOK: 'Thông báo SePay', SEPAY_API: 'Đồng bộ từ SePay' };
+const runLabels: Record<string, string> = {
+  RUNNING: 'Đang đồng bộ', SUCCEEDED: 'Hoàn tất', SUCCESS: 'Hoàn tất',
+  PARTIAL: 'Hoàn tất một phần', FAILED: 'Thất bại',
+};
 
-export interface SePayTransaction {
-  id: string;
-  transactionId: string;
-  contractId: string;
-  contractNumber: string;
-  amount: number;
-  syntax: string;
-  bankBrand: string;
-  accountNumber: string;
-  status: ReconciliationStatus;
-  receivedAt: string;
-  errorMessage?: string;
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
 }
 
-export interface AdminAuditEntry {
-  id: string;
-  action: string;
-  performedBy: string;
-  contractNumber: string;
-  transactionId: string;
-  reason: string;
-  timestamp: string;
-}
+function TransactionSource({ transaction }: { transaction: PaymentTransactionItem }) {
+  const source = transaction.ingestionSource ??
+    (transaction.sepayWebhookTransactionId ? 'WEBHOOK' : undefined);
 
-export interface AdminReconciliationViewProps {
-  initialTransactions?: SePayTransaction[];
-}
-
-const DEFAULT_TRANSACTIONS: SePayTransaction[] = [
-  {
-    id: 'tx-sepay-901',
-    transactionId: 'SP-20261109-7712',
-    contractId: 'ct-4p-001',
-    contractNumber: 'HD-4P-2026-0001',
-    amount: 9600000,
-    syntax: 'FAMIDOC HD-4P-2026-0001',
-    bankBrand: 'MBBank',
-    accountNumber: '0912345678',
-    status: 'PENDING',
-    receivedAt: '2026-11-09T10:15:00.000Z',
-    errorMessage: 'Webhook timeout do nghẽn mạng phía ngân hàng',
-  },
-  {
-    id: 'tx-sepay-902',
-    transactionId: 'SP-20261109-7713',
-    contractId: 'ct-4p-002',
-    contractNumber: 'HD-4P-2026-0002',
-    amount: 6000000,
-    syntax: 'FAMIDOC HD-4P-2026-0002',
-    bankBrand: 'Vietcombank',
-    accountNumber: '0987654321',
-    status: 'MATCHED',
-    receivedAt: '2026-11-09T09:30:00.000Z',
-  },
-  {
-    id: 'tx-sepay-903',
-    transactionId: 'SP-20261109-7714',
-    contractId: 'ct-4p-003',
-    contractNumber: 'HD-4P-2026-0003',
-    amount: 5000000,
-    syntax: 'FAMIDOC 003 CHUYEN TIEN',
-    bankBrand: 'Techcombank',
-    accountNumber: '0903112233',
-    status: 'FAILED',
-    receivedAt: '2026-11-09T08:00:00.000Z',
-    errorMessage: 'Thiếu 2.500.000 ₫ so với giá trị gói',
-  },
-  {
-    id: 'tx-sepay-904',
-    transactionId: 'SP-20261109-7715',
-    contractId: 'ct-4p-004',
-    contractNumber: 'HD-4P-2026-0004',
-    amount: 15600000,
-    syntax: 'FAMIDOC HD-4P-2026-0004',
-    bankBrand: 'ACB',
-    accountNumber: '0977889900',
-    status: 'MATCHED',
-    receivedAt: '2026-11-08T16:45:00.000Z',
-  },
-];
-
-const INITIAL_AUDIT_LOGS: AdminAuditEntry[] = [
-  {
-    id: 'audit-001',
-    action: 'Kích hoạt bù hợp đồng',
-    performedBy: 'Admin FamiDoc (Ban Vận Hành)',
-    contractNumber: 'HD-4P-2026-0004',
-    transactionId: 'SP-20261109-7715',
-    reason: 'Đối chiếu sao kê tài khoản ngân hàng khớp lệnh số tiền 15.600.000 ₫',
-    timestamp: '2026-11-08T17:00:00.000Z',
-  },
-];
-
-function formatDateTime(dateStr?: string): string {
-  if (!dateStr) return '—';
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr;
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = d.getFullYear();
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
-  } catch {
-    return dateStr;
-  }
-}
-
-export function AdminReconciliationView({
-  initialTransactions = DEFAULT_TRANSACTIONS,
-}: AdminReconciliationViewProps) {
-  const [transactions, setTransactions] = useState<SePayTransaction[]>(initialTransactions);
-  const [auditLogs, setAuditLogs] = useState<AdminAuditEntry[]>(INITIAL_AUDIT_LOGS);
-  const [statusFilter, setStatusFilter] = useState<'ALL' | ReconciliationStatus>('ALL');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTx, setSelectedTx] = useState<SePayTransaction | null>(null);
-  const [fallbackReason, setFallbackReason] = useState(
-    'Đã kiểm tra sao kê MBBank thành công, kích hoạt bù do nghẽn webhook',
+  return (
+    <>
+      <p title={source === 'SEPAY_API' && transaction.sepayWebhookTransactionId ? 'Đã liên kết với thông báo SePay' : undefined}>
+        {source ? sourceLabels[source] : 'Chưa rõ nguồn'}
+      </p>
+      <p className="text-xs text-slate-600">{transaction.environment === 'TEST' ? 'Dữ liệu thử' : 'Giao dịch thật'}</p>
+    </>
   );
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
+}
+
+export function AdminReconciliationView() {
+  const [ledger, setLedger] = useState<PaymentTransactionsPage | null>(null);
+  const [page, setPage] = useState(1);
+  const [outcome, setOutcome] = useState<PaymentTransactionItem['outcome'] | ''>('');
+  const [search, setSearch] = useState('');
+  const [refresh, setRefresh] = useState(0);
+  const [ledgerError, setLedgerError] = useState('');
+  const [environment, setEnvironment] = useState<'LIVE' | 'TEST'>('LIVE');
+  const [reconciliation, setReconciliation] = useState<{
+    status: SePayReconciliationStatusDto;
+    runs: SePayReconciliationRunDto[];
+  } | null>(null);
+  const [reconciliationError, setReconciliationError] = useState('');
+  const [running, setRunning] = useState(false);
+  const [checking, setChecking] = useState<string | null>(null);
+
+  function reload() {
+    setLedger(null);
+    setLedgerError('');
+    setReconciliation(null);
+    setReconciliationError('');
+    setRefresh((value) => value + 1);
+  }
 
   useEffect(() => {
-    let isMounted = true;
-    paymentsApi
-      .listTransactions()
-      .then((res) => {
-        if (!isMounted) return;
-        if (Array.isArray(res) && res.length > 0) {
-          const mapped: SePayTransaction[] = res.map((t: any) => ({
-            id: t.id,
-            transactionId: t.transactionId || t.sepayTransactionId || t.id,
-            contractId: t.contractId || 'ct-4p-001',
-            contractNumber: t.contractNumber || 'HD-4P-2026-0001',
-            amount: t.amount || t.totalAmountVnd || 0,
-            syntax: t.syntax || t.content || 'FAMIDOC THANHTOAN',
-            bankBrand: t.bankBrand || t.bankName || 'VietinBank',
-            accountNumber: t.accountNumber || '119000288819',
-            status: t.status === 'SUCCESS' || t.status === 'MATCHED' ? 'MATCHED' : t.status === 'PENDING' ? 'PENDING' : 'FAILED',
-            receivedAt: t.createdAt || t.receivedAt || new Date().toISOString(),
-            errorMessage: t.errorMessage,
-          }));
-          setTransactions(mapped);
-        }
-      })
-      .catch((err) => {
-        console.warn('Payments transactions fetch fallback:', err);
+    let active = true;
+    void paymentsApi.listTransactions({ page, limit: pageSize, outcome: outcome || undefined })
+      .then((data) => { if (active) setLedger(data); })
+      .catch((error: unknown) => {
+        if (active) setLedgerError(errorMessage(error, 'Không tải được giao dịch SePay.'));
       });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    return () => { active = false; };
+  }, [page, outcome, refresh]);
 
-  const stats = useMemo(() => {
-    const total = transactions.length;
-    const matched = transactions.filter((t) => t.status === 'MATCHED').length;
-    const pending = transactions.filter((t) => t.status === 'PENDING').length;
-    const failed = transactions.filter((t) => t.status === 'FAILED').length;
-    const totalAmount = transactions
-      .filter((t) => t.status === 'MATCHED')
-      .reduce((sum, t) => sum + t.amount, 0);
-    return { total, matched, pending, failed, totalAmount };
-  }, [transactions]);
-
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((t) => {
-      const matchStatus = statusFilter === 'ALL' || t.status === statusFilter;
-      const q = searchQuery.trim().toLowerCase();
-      const matchSearch =
-        !q ||
-        t.transactionId.toLowerCase().includes(q) ||
-        t.contractNumber.toLowerCase().includes(q) ||
-        t.syntax.toLowerCase().includes(q) ||
-        t.bankBrand.toLowerCase().includes(q) ||
-        t.accountNumber.toLowerCase().includes(q);
-      return matchStatus && matchSearch;
+  useEffect(() => {
+    let active = true;
+    void Promise.all([
+      financeApi.getSePayReconciliationStatus(environment),
+      financeApi.listSePayReconciliations({ environment, limit: 10 }),
+    ]).then(([status, runs]) => {
+      if (active) setReconciliation({ status, runs });
+    }).catch((error: unknown) => {
+      if (active) setReconciliationError(errorMessage(error, 'Không tải được lịch sử đối soát.'));
     });
-  }, [transactions, statusFilter, searchQuery]);
+    return () => { active = false; };
+  }, [environment, refresh]);
 
-  const handleOpenFallbackModal = (tx: SePayTransaction) => {
-    setSelectedTx(tx);
-    setFallbackReason(
-      `Đã kiểm tra sao kê ${tx.bankBrand} thành công, kích hoạt bù do nghẽn webhook`,
-    );
+  const runReconciliation = async () => {
+    setRunning(true);
+    try {
+      const run = await financeApi.runSePayReconciliation({ environment });
+      if (run.status === 'FAILED') {
+        toast.error('Không đồng bộ được giao dịch từ SePay.');
+      } else {
+        toast.info(`${runLabels[run.status] ?? run.status}. Đã bổ sung ${run.backfilledCount} giao dịch.`);
+      }
+    } catch (error) {
+      toast.error(errorMessage(error, 'Không chạy được đối soát SePay.'));
+    } finally {
+      reload();
+      setRunning(false);
+    }
   };
 
-  const handleConfirmFallback = async () => {
-    if (!selectedTx) return;
-    setIsSubmitting(true);
-
+  const recheck = async (paymentRequestId: string) => {
+    setChecking(paymentRequestId);
     try {
-      await contractsApi.recheckPaymentActivation(selectedTx.transactionId);
-    } catch {
-      // Fallback for offline testing
+      const result = await paymentsApi.recheckPaymentActivation(paymentRequestId);
+      if (result.activated) {
+        toast.success('Đã xác nhận kích hoạt hợp đồng.');
+      } else {
+        toast.info(result.blockingReasons?.join(', ') || 'Thanh toán chưa đủ điều kiện kích hoạt.');
+      }
+    } catch (error) {
+      toast.error(errorMessage(error, 'Không kiểm tra lại được kích hoạt.'));
+    } finally {
+      setChecking(null);
     }
+  };
 
-    const nowIso = new Date().toISOString();
+  const query = search.trim().toLowerCase();
+  const transactions = (ledger?.items ?? []).filter((transaction) => [
+    transaction.providerTransactionId,
+    transaction.sepayWebhookTransactionId,
+    transaction.paymentCode,
+    transaction.referenceCode,
+    transaction.paymentRequestId,
+  ].some((value) => value?.toLowerCase().includes(query)));
+  const pageCount = ledger ? Math.max(1, Math.ceil(ledger.total / ledger.limit)) : 1;
 
-    // 1. Update transaction status
-    setTransactions((prev) =>
-      prev.map((t) =>
-        t.id === selectedTx.id
-          ? {
-              ...t,
-              status: 'MATCHED' as const,
-              errorMessage: undefined,
-            }
-          : t,
-      ),
+  const renderActivationButton = ({ outcome, paymentRequestId }: PaymentTransactionItem) => {
+    if (outcome !== 'MATCHED' || !paymentRequestId) return null;
+    return (
+      <Button size="sm" variant="outline" disabled={checking !== null} onClick={() => void recheck(paymentRequestId)}>
+        {checking === paymentRequestId ? 'Đang kiểm tra…' : 'Kiểm tra kích hoạt hợp đồng'}
+      </Button>
     );
-
-    // 2. Add audit trail entry
-    const newAuditEntry: AdminAuditEntry = {
-      id: `audit-${Date.now()}`,
-      action: 'Kích hoạt bù hợp đồng (Manual Fallback)',
-      performedBy: 'Admin FamiDoc (Ban Quản Trị)',
-      contractNumber: selectedTx.contractNumber,
-      transactionId: selectedTx.transactionId,
-      reason: fallbackReason.trim() || 'Kích hoạt bù giao dịch hợp lệ',
-      timestamp: nowIso,
-    };
-
-    setAuditLogs((prev) => [newAuditEntry, ...prev]);
-
-    const msg = `Kích hoạt bù hợp đồng ${selectedTx.contractNumber} thành công! Trạng thái hợp đồng đã được chuyển sang ACTIVE.`;
-    setNotification(msg);
-    toast.success(msg);
-
-    setIsSubmitting(false);
-    setSelectedTx(null);
   };
 
   return (
-    <div className="min-h-full bg-[#f5f6f8] text-slate-900 font-sans antialiased">
-      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-xs text-slate-500">
-              <Link
-                href="/admin/contracts"
-                className="hover:text-primary transition-colors flex items-center gap-1"
-              >
-                <span>&larr; Quản trị Hợp đồng</span>
-              </Link>
-              <span>/</span>
-              <span className="text-primary font-semibold">Đối soát SePay</span>
-            </div>
-            <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">
-              Đối Soát Giao Dịch SePay &amp; Kích Hoạt Bù
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-500">
-              Tra cứu log webhook thanh toán VietQR và xử lý kích hoạt bù hợp đồng
-            </p>
-          </div>
-
-          <Badge className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 text-white text-xs font-semibold shadow-xs">
-            <span className="material-symbols-outlined text-[16px] text-emerald-400">payments</span>
-            <span className="tabular-nums">
-              Doanh thu đã khớp: {formatCurrencyVND(stats.totalAmount)}
-            </span>
-          </Badge>
+    <section className="space-y-6">
+      <header className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold text-slate-900">Giao dịch ngân hàng</h2>
+          <p className="mt-1 text-sm text-slate-600">Xem giao dịch đã nhận và kết quả đối chiếu với khoản thu.</p>
         </div>
+        <Button variant="outline" onClick={reload}>Làm mới</Button>
+      </header>
 
-        {/* Success Alert */}
-        {notification && (
-          <Alert className="rounded-xl bg-emerald-50 border-emerald-200 text-emerald-800 shadow-xs">
-            <AlertDescription className="flex items-center justify-between gap-2 text-xs sm:text-sm font-semibold text-emerald-800">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-[20px] text-emerald-600">check_circle</span>
-                <span>{notification}</span>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="xs"
-                onClick={() => setNotification(null)}
-                className="text-emerald-700 hover:text-emerald-900 text-xs cursor-pointer"
-              >
-                Đóng
-              </Button>
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Ledger Metric Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="rounded-xl border-slate-200 py-4 shadow-xs">
-            <CardContent className="px-4">
-              <span className="text-xs text-slate-500 font-medium">Tổng giao dịch webhook</span>
-              <div className="text-xl font-bold text-slate-900 tabular-nums mt-1">{stats.total}</div>
-            </CardContent>
-          </Card>
-          <Card className="rounded-xl border-slate-200 py-4 shadow-xs">
-            <CardContent className="px-4">
-              <span className="text-xs text-slate-500 font-medium">Đã khớp lệnh tự động</span>
-              <div className="text-xl font-bold text-emerald-700 tabular-nums mt-1">{stats.matched}</div>
-            </CardContent>
-          </Card>
-          <Card className="rounded-xl border-slate-200 py-4 shadow-xs">
-            <CardContent className="px-4">
-              <span className="text-xs text-slate-500 font-medium">Chờ đối soát bù</span>
-              <div className="text-xl font-bold text-amber-600 tabular-nums mt-1">{stats.pending}</div>
-            </CardContent>
-          </Card>
-          <Card className="rounded-xl border-slate-200 py-4 shadow-xs">
-            <CardContent className="px-4">
-              <span className="text-xs text-slate-500 font-medium">Sai lệch cú pháp / lỗi</span>
-              <div className="text-xl font-bold text-rose-600 tabular-nums mt-1">{stats.failed}</div>
-            </CardContent>
-          </Card>
+      <Card className="gap-0 overflow-hidden py-0">
+        <div className="flex flex-wrap items-end gap-3 border-b p-4">
+          <label className="min-w-0 flex-1 basis-52 space-y-1 text-sm">
+            <span className="block">Tìm trên trang hiện tại</span>
+            <Input placeholder="Mã giao dịch hoặc mã thanh toán" value={search} onChange={(event) => setSearch(event.target.value)} />
+          </label>
+          <label className="space-y-1 text-sm">
+            <span className="block">Kết quả xử lý</span>
+            <select className="h-9 rounded-md border bg-white px-2" value={outcome} onChange={(event) => {
+              setLedger(null);
+              setLedgerError('');
+              setPage(1);
+              setOutcome(event.target.value as typeof outcome);
+            }}>
+              <option value="">Tất cả</option>
+              <option value="MATCHED">Đã khớp</option>
+              <option value="REVIEW_REQUIRED">Cần kiểm tra</option>
+              <option value="IGNORED">Bỏ qua</option>
+            </select>
+          </label>
         </div>
-
-        {/* Filter and Search Bar */}
-        <Card className="rounded-xl border-slate-200 py-4 shadow-xs">
-          <CardContent className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 px-4">
-            <div className="relative flex-1">
-              <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[18px]">
-                search
-              </span>
-              <Input
-                type="text"
-                placeholder="Tìm kiếm mã giao dịch, số hợp đồng, cú pháp, ngân hàng..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 bg-slate-50 rounded-lg text-xs sm:text-sm"
-              />
-            </div>
-
-            <div className="flex items-center gap-3">
-              <Label htmlFor="status-filter" className="text-xs font-semibold text-slate-600 whitespace-nowrap">
-                Lọc theo trạng thái:
-              </Label>
-              <select
-                id="status-filter"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as 'ALL' | ReconciliationStatus)}
-                className="h-9 px-3 bg-slate-50 border border-input rounded-lg text-xs font-semibold text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
-              >
-                <option value="ALL">Tất cả giao dịch</option>
-                <option value="MATCHED">Đã khớp lệnh</option>
-                <option value="PENDING">Chờ đối soát</option>
-                <option value="FAILED">Sai lệch / Lỗi</option>
-              </select>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Ledger Table */}
-        <Card className="rounded-xl border-slate-200 shadow-xs overflow-hidden py-0 gap-0">
-          <div data-testid="desktop-view" className="hidden md:block">
-          <Table className="text-xs">
-            <TableHeader>
-              <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-[11px] font-semibold tracking-wider hover:bg-slate-50">
-                <TableHead className="py-3.5 px-4 text-slate-600">Mã giao dịch SePay</TableHead>
-                <TableHead className="py-3.5 px-4 text-slate-600">Hợp đồng &amp; Cú pháp</TableHead>
-                <TableHead className="py-3.5 px-4 text-slate-600">Ngân hàng</TableHead>
-                <TableHead className="py-3.5 px-4 text-right text-slate-600">Số tiền</TableHead>
-                <TableHead className="py-3.5 px-4 text-slate-600">Thời gian nhận</TableHead>
-                <TableHead className="py-3.5 px-4 text-center text-slate-600">Trạng thái</TableHead>
-                <TableHead className="py-3.5 px-4 text-right text-slate-600">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody className="divide-y divide-slate-100">
-              {filteredTransactions.length > 0 ? (
-                filteredTransactions.map((tx) => (
-                  <TableRow key={tx.id} className="hover:bg-slate-50/70">
-                    <TableCell className="py-3.5 px-4 font-semibold text-slate-900 tabular-nums">
-                      {tx.transactionId}
-                    </TableCell>
-                    <TableCell className="py-3.5 px-4">
-                      <div className="font-semibold text-slate-800">{tx.contractNumber}</div>
-                      <div className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                        {tx.syntax}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3.5 px-4">
-                      <span className="font-medium text-slate-800">{tx.bankBrand}</span>
-                      <div className="text-[11px] text-slate-400 tabular-nums">
-                        STK: {tx.accountNumber}
-                      </div>
-                    </TableCell>
-                    <TableCell className="py-3.5 px-4 text-right font-bold text-slate-900 tabular-nums">
-                      {formatCurrencyVND(tx.amount)}
-                    </TableCell>
-                    <TableCell className="py-3.5 px-4 text-slate-600 tabular-nums">
-                      {formatDateTime(tx.receivedAt)}
-                    </TableCell>
-                    <TableCell className="py-3.5 px-4 text-center">
-                      {tx.status === 'MATCHED' && (
-                        <Badge variant="outline" className="gap-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600" />
-                          <span>Đã khớp lệnh</span>
-                        </Badge>
-                      )}
-                      {tx.status === 'PENDING' && (
-                        <Badge variant="outline" className="gap-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border-amber-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-amber-600" />
-                          <span>Chờ đối soát</span>
-                        </Badge>
-                      )}
-                      {tx.status === 'FAILED' && (
-                        <Badge variant="outline" className="gap-1 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border-rose-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-600" />
-                          <span>Sai lệch</span>
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="py-3.5 px-4 text-right">
-                      {tx.status === 'PENDING' && (
-                        <Button
-                          type="button"
-                          size="xs"
-                          onClick={() => handleOpenFallbackModal(tx)}
-                          className="rounded-lg font-semibold text-xs cursor-pointer"
-                        >
-                          Kích hoạt bù
-                        </Button>
-                      )}
-                      {tx.status === 'MATCHED' && (
-                        <span className="text-slate-400 font-medium text-xs">Đã hoàn tất</span>
-                      )}
-                      {tx.status === 'FAILED' && (
-                        <span
-                          title={tx.errorMessage}
-                          className="text-rose-600 font-medium text-xs cursor-help"
-                        >
-                          Xem lỗi
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="py-8 text-center text-slate-400">
-                    Không tìm thấy giao dịch đối soát phù hợp với bộ lọc.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-          </div>
-          <div data-testid="mobile-view" className="divide-y divide-slate-100 md:hidden">
-            {filteredTransactions.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">
-                Không có giao dịch SePay nào phù hợp với bộ lọc hiện tại.
-              </div>
+        {ledgerError && <p role="alert" className="p-4 text-sm text-destructive">{ledgerError}</p>}
+        {!ledger && !ledgerError && <p role="status" className="p-4 text-sm">Đang tải giao dịch…</p>}
+        {ledger && (
+          <>
+            {transactions.length === 0 ? (
+              <p className="p-8 text-center text-sm">Không có giao dịch phù hợp.</p>
             ) : (
-              filteredTransactions.map((tx) => (
-                <div key={tx.id} className="space-y-2.5 p-4 text-xs">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-bold text-slate-900 tabular-nums">{tx.transactionId}</div>
-                      <div className="text-[11px] text-slate-500 tabular-nums">{tx.contractNumber}</div>
-                    </div>
-                    <span className="font-bold text-slate-900 tabular-nums">{tx.amount.toLocaleString('vi-VN')} đ</span>
-                  </div>
-                  <div className="rounded-xl bg-slate-50 p-2.5 space-y-1 text-slate-600">
-                    <div>{tx.bankBrand} • {tx.syntax}</div>
-                    <div className="text-[11px] text-slate-500 tabular-nums">{tx.receivedAt}</div>
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <Badge variant="outline" className="rounded-full text-[11px] font-semibold">
-                      {tx.status}
-                    </Badge>
-                    {tx.status !== 'MATCHED' && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setSelectedTx(tx)}
-                        className="rounded-lg text-xs font-semibold cursor-pointer"
-                      >
-                        Đối soát
-                      </Button>
-                    )}
-                  </div>
+              <>
+                <div data-testid="desktop-view" className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Giao dịch</TableHead>
+                        <TableHead>Mã thanh toán</TableHead>
+                        <TableHead>Số tiền</TableHead>
+                        <TableHead>Nguồn nhận</TableHead>
+                        <TableHead>Kết quả</TableHead>
+                        <TableHead><span className="sr-only">Thao tác</span></TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {transactions.map((transaction) => (
+                          <TableRow key={transaction.id}>
+                            <TableCell className="font-semibold whitespace-normal">
+                              {transaction.sepayWebhookTransactionId || transaction.providerTransactionId}
+                              {transaction.referenceCode && <p className="text-xs font-normal text-muted-foreground">{transaction.referenceCode}</p>}
+                              <p className="text-xs font-normal text-muted-foreground">{dateTime.format(new Date(transaction.receivedAt))}</p>
+                            </TableCell>
+                            <TableCell>
+                              {transaction.paymentCode || '—'}
+                              {transaction.gateway && <p className="text-xs text-muted-foreground">{transaction.gateway}</p>}
+                            </TableCell>
+                            <TableCell>{vnd.format(transaction.amountVnd)}</TableCell>
+                            <TableCell><TransactionSource transaction={transaction} /></TableCell>
+                            <TableCell className="whitespace-normal">
+                              <Badge variant="outline">{outcomes[transaction.outcome]}</Badge>
+                              {transaction.reason && <p className="mt-1 text-xs text-slate-600">{paymentResultLabels[transaction.reason] ?? transaction.reason}</p>}
+                            </TableCell>
+                            <TableCell>{renderActivationButton(transaction)}</TableCell>
+                          </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
-              ))
+                <div data-testid="mobile-view" className="divide-y divide-slate-100 md:hidden">
+                  {transactions.map((transaction) => (
+                    <div key={transaction.id} className="space-y-2 p-4 text-sm">
+                      <div className="flex flex-wrap items-start justify-between gap-2 font-semibold">
+                        <span>{transaction.sepayWebhookTransactionId || transaction.providerTransactionId}</span>
+                        <span>{vnd.format(transaction.amountVnd)}</span>
+                      </div>
+                      <p className="break-all text-xs text-muted-foreground">
+                        {[transaction.paymentCode, transaction.referenceCode, transaction.gateway].filter(Boolean).join(' · ')}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Nhận lúc {dateTime.format(new Date(transaction.receivedAt))}
+                      </p>
+                      <div><TransactionSource transaction={transaction} /></div>
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <Badge variant="outline">{outcomes[transaction.outcome]}</Badge>
+                        {renderActivationButton(transaction)}
+                      </div>
+                      {transaction.reason && <p className="text-xs text-slate-600">{paymentResultLabels[transaction.reason] ?? transaction.reason}</p>}
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
-          </div>
-        </Card>
-
-        {/* Audit Trail Section */}
-        <Card className="rounded-xl border-slate-200 p-5 shadow-xs space-y-4">
-          <CardContent className="p-0 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-slate-700 text-[20px]">history</span>
-                <h3 className="font-semibold text-slate-900 text-sm">
-                  Nhật ký Thao tác Audit Trail (Xử lý Bù Nền Tảng)
-                </h3>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t p-4 text-sm">
+              <span>{ledger.total} giao dịch · Trang {ledger.page}/{pageCount}</span>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => {
+                  setLedger(null);
+                  setPage(page - 1);
+                }}>Trang trước</Button>
+                <Button size="sm" variant="outline" disabled={page >= pageCount} onClick={() => {
+                  setLedger(null);
+                  setPage(page + 1);
+                }}>Trang sau</Button>
               </div>
-              <span className="text-xs text-slate-500">
-                Ghi nhận phục vụ thanh tra &amp; đối soát tài chính
-              </span>
             </div>
+          </>
+        )}
+      </Card>
 
-            <div className="space-y-3">
-              {auditLogs.map((log) => (
-                <div
-                  key={log.id}
-                  className="p-3.5 rounded-lg border border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-slate-900">{log.action}:</span>
-                      <Badge variant="secondary" className="rounded bg-accent text-primary font-semibold tabular-nums">
-                        {log.contractNumber}
-                      </Badge>
-                      <span className="text-slate-400 tabular-nums">({log.transactionId})</span>
-                    </div>
-                    <p className="text-slate-600">{log.reason}</p>
-                  </div>
-                  <div className="text-right sm:shrink-0 text-slate-500">
-                    <div className="font-medium text-slate-700">{log.performedBy}</div>
-                    <div className="tabular-nums text-[11px]">{formatDateTime(log.timestamp)}</div>
-                  </div>
-                </div>
-              ))}
+      <Card className="gap-0 py-0">
+        <details>
+          <summary className="cursor-pointer px-4 py-4 text-sm font-semibold text-slate-900 sm:px-5">Đồng bộ giao dịch từ SePay</summary>
+          <CardContent className="space-y-4 border-t border-slate-200 p-4 sm:p-5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-sm text-slate-600">Lấy lại các giao dịch SePay chưa gửi về hệ thống.</p>
+              </div>
+              <div className="flex flex-wrap items-end gap-2">
+                <label className="space-y-1 text-sm">
+                  <span className="block">Loại dữ liệu đồng bộ</span>
+                  <select className="h-9 rounded-md border bg-white px-2" disabled={running} value={environment} onChange={(event) => {
+                    setReconciliation(null);
+                    setReconciliationError('');
+                    setEnvironment(event.target.value as typeof environment);
+                  }}>
+                    <option value="LIVE">Giao dịch thật</option>
+                    <option value="TEST">Dữ liệu thử</option>
+                  </select>
+                </label>
+                <Button disabled={running || !reconciliation?.status.enabled} onClick={() => void runReconciliation()}>
+                  {running ? 'Đang đồng bộ…' : 'Đồng bộ ngay'}
+                </Button>
+              </div>
             </div>
+            {reconciliationError && <p role="alert" className="text-sm text-destructive">{reconciliationError}</p>}
+            {!reconciliation && !reconciliationError && <p role="status" className="text-sm">Đang tải trạng thái đối soát…</p>}
+            {reconciliation && (
+              <>
+                <p className="text-sm">
+                  {reconciliation.status.enabled ? 'Có thể đồng bộ' : 'Chưa bật đồng bộ'} ·
+                  {' '}{reconciliation.status.unreconciledTransactions} giao dịch chưa đối chiếu
+                </p>
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>Bắt đầu</TableHead>
+                    <TableHead>Trạng thái</TableHead>
+                    <TableHead>Đã tải</TableHead>
+                    <TableHead>Bổ sung</TableHead>
+                    <TableHead>Khớp</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {reconciliation.runs.map((run) => (
+                      <TableRow key={run.id}>
+                        <TableCell>{dateTime.format(new Date(run.startedAt))}</TableCell>
+                        <TableCell>{runLabels[run.status] ?? run.status}</TableCell>
+                        <TableCell>{run.fetchedCount}</TableCell>
+                        <TableCell>{run.backfilledCount}</TableCell>
+                        <TableCell>{run.matchedCount}</TableCell>
+                      </TableRow>
+                    ))}
+                    {reconciliation.runs.length === 0 && (
+                      <TableRow><TableCell colSpan={5} className="text-center">Chưa có lượt đối soát.</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </>
+            )}
           </CardContent>
-        </Card>
-      </div>
-
-      {/* Dialog: Xác nhận Kích hoạt Bù Hợp đồng */}
-      <Dialog open={Boolean(selectedTx)} onOpenChange={(open) => !open && setSelectedTx(null)}>
-        <DialogContent className="rounded-2xl border-slate-200 sm:max-w-lg">
-          {selectedTx && (
-            <>
-              <DialogHeader className="border-b border-slate-100 pb-3">
-                <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
-                  <span className="material-symbols-outlined text-amber-600 text-[22px]">published_with_changes</span>
-                  <span>Xác nhận Kích hoạt Bù Hợp đồng</span>
-                </DialogTitle>
-                <DialogDescription className="text-xs text-slate-500">
-                  Kiểm tra giao dịch SePay trước khi chuyển hợp đồng sang trạng thái hiệu lực
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-3 text-xs">
-                <div className="p-3 bg-slate-50 rounded-lg space-y-1 border border-slate-100">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Mã hợp đồng:</span>
-                    <span className="font-bold text-slate-900 tabular-nums">{selectedTx.contractNumber}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Mã giao dịch SePay:</span>
-                    <span className="font-medium text-slate-800 tabular-nums">{selectedTx.transactionId}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Số tiền đối soát:</span>
-                    <span className="font-bold text-primary tabular-nums">{formatCurrencyVND(selectedTx.amount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Ngân hàng &amp; STK:</span>
-                    <span className="text-slate-800">{selectedTx.bankBrand} - {selectedTx.accountNumber}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="fallback-reason" className="text-slate-700 font-semibold text-xs">
-                    Lý do kích hoạt bù:
-                  </Label>
-                  <Textarea
-                    id="fallback-reason"
-                    rows={3}
-                    value={fallbackReason}
-                    onChange={(e) => setFallbackReason(e.target.value)}
-                    className="rounded-lg text-xs text-slate-800"
-                  />
-                </div>
-
-                <Alert className="rounded-lg bg-amber-50 border-amber-200 text-amber-800 py-2.5">
-                  <AlertDescription className="text-[11px] text-amber-800">
-                    Lưu ý: Thao tác này sẽ cập nhật trạng thái hợp đồng sang <strong>ACTIVE</strong> và ghi nhận vào nhật ký thanh tra tài chính nền tảng.
-                  </AlertDescription>
-                </Alert>
-              </div>
-
-              <DialogFooter className="border-t border-slate-100 pt-3">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setSelectedTx(null)}
-                  className="rounded-lg text-xs font-semibold cursor-pointer"
-                >
-                  Hủy bỏ
-                </Button>
-                <Button
-                  type="button"
-                  disabled={isSubmitting}
-                  onClick={handleConfirmFallback}
-                  className="rounded-lg text-xs font-semibold cursor-pointer"
-                >
-                  {isSubmitting ? 'Đang kích hoạt...' : 'Xác nhận Kích hoạt Bù'}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
+        </details>
+      </Card>
+    </section>
   );
 }

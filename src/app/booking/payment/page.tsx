@@ -12,13 +12,8 @@ type BookingSearchParams = Promise<{
   [key: string]: string | string[] | undefined;
 }>;
 
-function readContractId(
-  params: { [key: string]: string | string[] | undefined }
-): string | undefined {
-  const raw = params.contractId;
-  return typeof raw === 'string' && raw.trim().length > 0
-    ? raw.trim()
-    : undefined;
+function readId(raw: string | string[] | undefined): string | undefined {
+  return typeof raw === 'string' ? raw.trim() || undefined : undefined;
 }
 
 /**
@@ -31,7 +26,15 @@ async function BookingPaymentLoader({
   searchParams: BookingSearchParams;
 }) {
   const params = await searchParams;
-  return <BookingPaymentStep contractId={readContractId(params)} />;
+  const contractId = readId(params.contractId);
+  const addendumId = readId(params.addendumId);
+  return (
+    <BookingPaymentStep
+      key={`${contractId ?? ''}:${addendumId ?? ''}`}
+      contractId={contractId}
+      addendumId={addendumId}
+    />
+  );
 }
 
 function BookingPaymentFallback() {
