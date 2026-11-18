@@ -85,6 +85,7 @@ vi.mock('@/lib/api/contracts.api', () => ({
     getFamilyGateStatus: vi.fn(),
     getMedicalContractDetail: vi.fn(),
     downloadSignedPdf: vi.fn(),
+    recheckPaymentActivation: vi.fn(),
   },
 }));
 
@@ -637,6 +638,12 @@ describe('BookingPaymentStep', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue(pendingPayment as never);
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 0,
+    } as never);
   });
 
   it('hiển thị trạng thái chờ thanh toán VietQR theo contractId', async () => {
@@ -662,6 +669,7 @@ describe('BookingPaymentStep', () => {
     vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue({
       ...pendingPayment,
       status: 'PAID',
+      activation: { activated: true, blockingReasons: [] },
     } as never);
     const dispatchSpy = vi.spyOn(window, 'dispatchEvent');
 
@@ -798,5 +806,189 @@ describe('BookingPaymentStep', () => {
     expect(
       screen.getByRole('link', { name: /Quay lại theo dõi ký 4 bên/i })
     ).toHaveAttribute('href', '/booking/tracking?contractId=ctr-1');
+  });
+
+  it('hiển thị QR kích thước responsive, mở modal phóng to và cung cấp nút tải ảnh QR', async () => {
+    const qrUrl = 'https://vietqr.app/img?acc=882190068688&bank=MBBANK&template=qr_only';
+    vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue({
+      ...pendingPayment,
+      qrUrl,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-payment-pending')).toBeInTheDocument();
+    const inlineImg = screen.getByAltText('Mã VietQR thanh toán kích hoạt gói');
+    expect(inlineImg).toHaveAttribute('src', qrUrl);
+    expect(inlineImg.className).toContain('h-56');
+    expect(inlineImg.className).toContain('w-56');
+    expect(inlineImg.className).toContain('sm:h-72');
+    expect(inlineImg.className).toContain('sm:w-72');
+    expect(inlineImg.className).toContain('max-w-full');
+    expect(inlineImg.className).toContain('object-contain');
+
+    const downloadLink = screen.getByTestId('payment-qr-download');
+    expect(downloadLink).toHaveAttribute('href', qrUrl);
+    expect(downloadLink.getAttribute('download')).toContain(pendingPayment.paymentCode);
+
+    fireEvent.click(screen.getByTestId('payment-qr-zoom'));
+
+    const modal = await screen.findByTestId('payment-qr-modal');
+    expect(modal).toBeInTheDocument();
+    const modalImg = screen.getByAltText(`Mã VietQR phóng to ${pendingPayment.paymentCode}`);
+    expect(modalImg).toHaveAttribute('src', qrUrl);
+    expect(modalImg.className).toContain('min-h-[320px]');
+    expect(modalImg.className).toContain('min-w-[320px]');
+    expect(modal).toHaveTextContent(pendingPayment.expectedAccountNumber);
+    expect(modal).toHaveTextContent('9.600.000 đ');
+    expect(modal).toHaveTextContent('FMD PAY 0001');
+  });
+
+  it('không hiện màn hình chúc mừng khi chỉ PAID mà hợp đồng chưa ACTIVE (loại bỏ false-success)', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue({
+      ...pendingPayment,
+      qrUrl: 'https://vietqr.app/img?template=qr_only',
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    } as never);
+    vi.mocked(contractsApi.getPaymentStatus).mockResolvedValue({
+      ...pendingPayment,
+      status: 'PAID',
+      activation: {
+        activated: false,
+        blockingReasons: ['DOCTOR_VERIFICATION_REQUIRED'],
+      },
+    } as never);
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 0,
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    await screen.findByTestId('booking-payment-pending');
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận tôi đã chuyển khoản/i }));
+
+    const banner = await screen.findByTestId('payment-paid-pending-activation');
+    expect(banner).toHaveTextContent('Đã ghi nhận thanh toán, đang xử lý kích hoạt');
+    expect(screen.getByTestId('payment-activation-blocking-reasons')).toHaveTextContent(
+      /hồ sơ bác sĩ phải được xác minh/i
+    );
+    expect(screen.queryByTestId('booking-payment-success')).toBeNull();
+  });
+
+  it('hiển thị banner soát xét thủ công kèm mã tham chiếu khi latestTransaction là REVIEW_REQUIRED', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue({
+      ...pendingPayment,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    } as never);
+    vi.mocked(contractsApi.getPaymentStatus).mockResolvedValue({
+      ...pendingPayment,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+      latestTransaction: {
+        id: 'tx-1',
+        outcome: 'REVIEW_REQUIRED',
+        reason: 'AMOUNT_MISMATCH',
+        referenceCode: 'FT26322000999',
+        receivedAt: '2026-11-18T06:00:00.000Z',
+      },
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    await screen.findByTestId('booking-payment-pending');
+    fireEvent.click(screen.getByRole('button', { name: /Xác nhận tôi đã chuyển khoản/i }));
+
+    const banner = await screen.findByTestId('payment-review-required');
+    expect(banner).toHaveTextContent('Đã nhận giao dịch, đang được soát xét thủ công');
+    expect(banner).toHaveTextContent('FT26322000999');
+    expect(banner).toHaveTextContent(/Số tiền chuyển khoản không khớp/i);
+    expect(screen.queryByTestId('booking-payment-success')).toBeNull();
+  });
+
+  it('gọi recheckPaymentActivation khi bấm Kiểm tra lại và chuyển màn hình chúc mừng khi activated=true', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue({
+      ...pendingPayment,
+      status: 'PAID',
+      activation: {
+        activated: false,
+        blockingReasons: ['DOCTOR_VERIFICATION_REQUIRED'],
+      },
+    } as never);
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 0,
+    } as never);
+    vi.mocked(contractsApi.recheckPaymentActivation)
+      .mockResolvedValueOnce({
+        activated: false,
+        blockingReasons: ['PANEL_CAPACITY_UNAVAILABLE'],
+      })
+      .mockResolvedValueOnce({
+        activated: true,
+        blockingReasons: [],
+      });
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    await screen.findByTestId('payment-paid-pending-activation');
+    const recheckBtn = screen.getByTestId('payment-recheck-activation');
+    expect(recheckBtn).toHaveTextContent('Kiểm tra lại tình trạng kích hoạt');
+
+    fireEvent.click(recheckBtn);
+    await waitFor(() => {
+      expect(contractsApi.recheckPaymentActivation).toHaveBeenCalledWith('pay-1');
+    });
+    expect(screen.getByTestId('payment-activation-blocking-reasons')).toHaveTextContent(
+      /giới hạn số hộ gia đình/i
+    );
+    expect(screen.queryByTestId('booking-payment-success')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('payment-recheck-activation'));
+    expect(await screen.findByTestId('booking-payment-success')).toBeInTheDocument();
+    expect(contractsApi.recheckPaymentActivation).toHaveBeenCalledTimes(2);
+  });
+
+  it('polling nền chỉ kích hoạt màn hình chúc mừng khi hasActiveContract hoặc activation.activated=true', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue({
+      ...pendingPayment,
+      expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+    } as never);
+    vi.mocked(contractsApi.getPaymentStatus).mockResolvedValueOnce({
+      ...pendingPayment,
+      status: 'PAID',
+      activation: {
+        activated: false,
+        blockingReasons: ['DOCTOR_VERIFICATION_REQUIRED'],
+      },
+    } as never);
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValueOnce({
+      hasActiveContract: false,
+    } as never);
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={30} />);
+
+    await screen.findByTestId('payment-paid-pending-activation', {}, { timeout: 2000 });
+    expect(screen.queryByTestId('booking-payment-success')).toBeNull();
+
+    vi.mocked(contractsApi.getPaymentStatus).mockResolvedValueOnce({
+      ...pendingPayment,
+      status: 'PAID',
+      activation: {
+        activated: true,
+        blockingReasons: [],
+      },
+    } as never);
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValueOnce({
+      hasActiveContract: true,
+    } as never);
+
+    expect(
+      await screen.findByTestId('booking-payment-success', {}, { timeout: 2000 })
+    ).toBeInTheDocument();
   });
 });
