@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { LandingHeader, LandingFooter } from '@/features/landing';
-import { publicApi } from '@/lib/api';
+import { publicApi, type DoctorClinicalTier } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Pagination } from '@/components/ui/pagination';
 import { DoctorDetailView } from './doctor-detail-view';
@@ -26,6 +26,10 @@ export interface Doctor {
   services: ('home' | 'telehealth' | 'clinic')[];
   fee: string;
   bio: string;
+  clinicalTier?: DoctorClinicalTier;
+  remainingSlots?: number;
+  maxPanelCapacity?: number;
+  isQuotaFull?: boolean;
   treatedCases?: string[];
   education: string[];
   schedule: string;
@@ -362,15 +366,29 @@ export interface DoctorDirectoryViewProps {
    * Dùng để hiển thị banner ngữ cảnh và truyền tiếp sang hồ sơ bác sĩ.
    */
   packageId?: string | null;
+  initialMembers?: number | null;
 }
 
-export function buildDoctorHref(doctorId: string, packageId?: string | null): string {
+export function buildDoctorHref(
+  doctorId: string,
+  packageId?: string | null,
+  members?: number | null
+): string {
   const base = `/doctors/${doctorId}`;
+  const params = new URLSearchParams();
   const code = (packageId ?? '').trim();
-  return code ? `${base}?packageId=${encodeURIComponent(code)}` : base;
+  if (code) params.set('packageId', code);
+  if (typeof members === 'number' && Number.isFinite(members) && members > 0) {
+    params.set('members', String(Math.trunc(members)));
+  }
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
 
-export function DoctorDirectoryView({ packageId = null }: DoctorDirectoryViewProps = {}) {
+export function DoctorDirectoryView({
+  packageId = null,
+  initialMembers = null,
+}: DoctorDirectoryViewProps = {}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedCity, setSelectedCity] = useState<string>('all');
@@ -410,6 +428,19 @@ export function DoctorDirectoryView({ packageId = null }: DoctorDirectoryViewPro
             services: ['home', 'telehealth', 'clinic'],
             fee: '350.000đ',
             bio: d.bio || 'Bác sĩ chuyên khoa y học gia đình và chăm sóc sức khỏe ban đầu.',
+            clinicalTier: d.clinicalTier,
+            remainingSlots:
+              typeof d.remainingSlots === 'number'
+                ? d.remainingSlots
+                : typeof d.maxPanelCapacity === 'number' &&
+                    typeof d.activePanelCount === 'number'
+                  ? Math.max(0, d.maxPanelCapacity - d.activePanelCount)
+                  : undefined,
+            maxPanelCapacity: d.maxPanelCapacity ?? 30,
+            isQuotaFull:
+              typeof d.isQuotaFull === 'boolean'
+                ? d.isQuotaFull
+                : d.isAvailable === false,
             education: ['Đại học Y Dược TP.HCM'],
             schedule: 'Thứ 2 - Thứ 6 (08:00 - 17:00)',
           }));
@@ -685,23 +716,50 @@ export function DoctorDirectoryView({ packageId = null }: DoctorDirectoryViewPro
                           {/* Hover Slide-up Button Overlay */}
                           <div className="absolute inset-0 bg-[#0046c0]/40 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-end justify-center pb-5">
                             <Link
-                              href={buildDoctorHref(doc.id, packageId)}
+                              href={buildDoctorHref(doc.id, packageId, initialMembers)}
                               className="bg-white hover:bg-slate-900 text-[#0046c0] hover:text-white font-semibold text-xs sm:text-sm py-2.5 px-6 rounded-lg shadow-lg transition-all duration-300 transform translate-y-3 group-hover:translate-y-0 cursor-pointer flex items-center gap-1.5"
                             >
                               <span className="material-symbols-outlined text-base">calendar_month</span>
-                              <span>Đặt lịch hẹn</span>
+                              <span>{doc.isQuotaFull ? 'Xem gợi ý bác sĩ khác' : 'Xem hồ sơ & Đặt gói'}</span>
                             </Link>
                           </div>
                         </div>
 
                         {/* Doctor Bottom: Information */}
                         <div className="p-6 text-center space-y-3 flex-1 flex flex-col justify-between">
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
+                            <div className="flex flex-wrap items-center justify-center gap-1.5">
+                              {doc.clinicalTier === 'JUNIOR' && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                                  Bác sĩ trẻ
+                                </span>
+                              )}
+                              {doc.clinicalTier === 'SENIOR' && (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                  Chuyên gia cao cấp
+                                </span>
+                              )}
+                              {doc.isQuotaFull ? (
+                                <span
+                                  data-testid={`doctor-quota-badge-${doc.id}`}
+                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 tabular-nums"
+                                >
+                                  Đã kín lịch (0 slot)
+                                </span>
+                              ) : typeof doc.remainingSlots === 'number' ? (
+                                <span
+                                  data-testid={`doctor-quota-badge-${doc.id}`}
+                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums"
+                                >
+                                  Còn {doc.remainingSlots}/{doc.maxPanelCapacity ?? 30} slot
+                                </span>
+                              ) : null}
+                            </div>
                             <div className="text-xs font-semibold text-[#0046c0] uppercase tracking-wider">
                               {doc.title}
                             </div>
                             <Link
-                              href={buildDoctorHref(doc.id, packageId)}
+                              href={buildDoctorHref(doc.id, packageId, initialMembers)}
                               className="font-bold text-xl text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer block"
                             >
                               {doc.name}
@@ -721,17 +779,19 @@ export function DoctorDirectoryView({ packageId = null }: DoctorDirectoryViewPro
                             </span>
                             <div className="flex items-center gap-2">
                               <Link
-                                href={buildDoctorHref(doc.id, packageId)}
+                                href={buildDoctorHref(doc.id, packageId, initialMembers)}
                                 className="font-semibold text-slate-500 hover:text-slate-800"
                               >
                                 Chi tiết
                               </Link>
                               <span className="text-slate-300">•</span>
                               <Link
-                                href={buildDoctorHref(doc.id, packageId)}
-                                className="font-bold text-[#0046c0] hover:underline cursor-pointer"
+                                href={buildDoctorHref(doc.id, packageId, initialMembers)}
+                                className={`font-bold hover:underline cursor-pointer ${
+                                  doc.isQuotaFull ? 'text-amber-700' : 'text-[#0046c0]'
+                                }`}
                               >
-                                Đăng ký Bác sĩ →
+                                {doc.isQuotaFull ? 'Kín slot · Gợi ý BS →' : 'Đăng ký Bác sĩ →'}
                               </Link>
                             </div>
                           </div>

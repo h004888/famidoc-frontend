@@ -1,8 +1,9 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { PackagesCatalogView } from '../packages-catalog-view';
 import { PackageDetailView } from '../package-detail-view';
+import { publicApi, type PublicPackageDetailDto, type PublicPackageItemDto } from '@/lib/api';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
@@ -10,79 +11,88 @@ vi.mock('next/navigation', () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
-let mockIsAuthenticated = true;
-
-vi.mock('@/features/auth/context/auth-context', () => ({
-  useAuth: () => ({
-    isAuthenticated: mockIsAuthenticated,
-    user: mockIsAuthenticated
-      ? {
-          id: 'usr-1',
-          name: 'Nguyễn Văn A',
-          phone: '0901234567',
-          email: 'a@famidoc.vn',
-          role: 'FAMILY',
-          avatarText: 'NA',
-        }
-      : null,
-    role: 'FAMILY',
-    isLoading: false,
-    login: vi.fn(),
-    logout: vi.fn(),
-    getDefaultPathForRole: () => '/family',
-  }),
-  getDefaultPathForRole: () => '/family',
-}));
-
 vi.mock('@/features/landing', () => ({
   LandingHeader: () => <div data-testid="landing-header" />,
   LandingFooter: () => <div data-testid="landing-footer" />,
 }));
 
-describe('CTA chọn gói trên các trang công khai dẫn vào luồng /doctors -> /booking', () => {
+const MOCK_PACKAGES: PublicPackageItemDto[] = [
+  {
+    id: 'pkg-uuid-1',
+    packageCode: 'BASIC',
+    packageName: 'Gói Trải Nghiệm',
+    durationMonths: 1,
+    basePrice: 1000000,
+    periodicVisitsQuota: 1,
+    telehealthQuota: 2,
+    includedMembers: 2,
+    maxMembers: 4,
+    additionalMemberMonthlyPrice: 75000,
+    quotaPeriod: 'PER_TERM',
+    description: 'Gói cơ bản',
+  },
+  {
+    id: 'pkg-uuid-2',
+    packageCode: 'FAMILY',
+    packageName: 'Gói Đồng Hành',
+    durationMonths: 3,
+    basePrice: 2850000,
+    periodicVisitsQuota: 3,
+    telehealthQuota: 20,
+    includedMembers: 4,
+    maxMembers: 6,
+    additionalMemberMonthlyPrice: 75000,
+    quotaPeriod: 'PER_TERM',
+    description: 'Gói gia đình',
+  },
+];
+
+const MOCK_DETAIL: PublicPackageDetailDto = {
+  ...MOCK_PACKAGES[1]!,
+  benefits: {
+    periodicVisitsQuota: 3,
+    telehealthQuota: 20,
+    clinicalServices: ['Khám tại nhà định kỳ'],
+  },
+};
+
+describe('Dual-Track CTA links trên /packages và /packages/[id]', () => {
   beforeEach(() => {
-    mockIsAuthenticated = true;
+    vi.restoreAllMocks();
   });
 
-  it('PackagesCatalogView: người dùng đã đăng nhập chọn gói sẽ sang /doctors?packageId=<code>', () => {
+  it('PackagesCatalogView: mỗi gói cung cấp 2 CTA Track A (/doctors) và Track B (/doctors/matching)', async () => {
+    vi.spyOn(publicApi, 'getPackages').mockResolvedValue({ items: MOCK_PACKAGES });
     render(<PackagesCatalogView />);
 
-    const doctorLinks = screen
+    await waitFor(() => {
+      expect(screen.getByTestId('package-card-BASIC')).toBeInTheDocument();
+    });
+
+    const hrefs = screen
       .getAllByRole('link')
       .map((el) => el.getAttribute('href'))
-      .filter((href): href is string => Boolean(href?.startsWith('/doctors?packageId=')));
+      .filter((href): href is string => Boolean(href));
 
-    expect(doctorLinks).toContain('/doctors?packageId=BASIC');
-    expect(doctorLinks).toContain('/doctors?packageId=FAMILY');
-    expect(doctorLinks).toContain('/doctors?packageId=ELDERLY');
-    expect(doctorLinks).toContain('/doctors?packageId=ROYAL');
+    expect(hrefs).toContain('/doctors?packageId=pkg-uuid-1&members=2');
+    expect(hrefs).toContain('/doctors/matching?packageId=pkg-uuid-1&members=2');
+    expect(hrefs).toContain('/doctors?packageId=pkg-uuid-2&members=4');
+    expect(hrefs).toContain('/doctors/matching?packageId=pkg-uuid-2&members=4');
+  });
 
-    const allLinks = screen.getAllByRole('link');
+  it('PackageDetailView: hiển thị 2 nhánh Track A và Track B với đúng packageId và members', async () => {
+    vi.spyOn(publicApi, 'getPackageDetail').mockResolvedValue(MOCK_DETAIL);
+    render(<PackageDetailView packageId="pkg-uuid-2" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 1, name: 'Gói Đồng Hành' })).toBeInTheDocument();
+    });
+
     expect(
-      allLinks.some((el) => (el.getAttribute('href') ?? '').includes('/family/subscription'))
-    ).toBe(false);
-  });
-
-  it('PackagesCatalogView: khách chưa đăng nhập vẫn được đưa tới /register?packageId=...', () => {
-    mockIsAuthenticated = false;
-    render(<PackagesCatalogView />);
-
-    const registerLinks = screen
-      .getAllByRole('link')
-      .map((el) => el.getAttribute('href'))
-      .filter((href): href is string => Boolean(href?.startsWith('/register?packageId=')));
-
-    expect(registerLinks).toContain('/register?packageId=FAMILY');
-    expect(registerLinks.length).toBeGreaterThan(0);
-  });
-
-  it('PackageDetailView: CTA chính dẫn sang /doctors?packageId=... thay vì mở modal ký hợp đồng', () => {
-    render(<PackageDetailView packageId="pkg-toan-dien" />);
-
-    const primary = screen.getByRole('link', { name: /Chọn bác sĩ & đăng ký gói/i });
-    expect(primary).toHaveAttribute('href', '/doctors?packageId=pkg-toan-dien');
-
-    expect(screen.queryByText(/Ký Hợp Đồng Gói Khám/i)).toBeNull();
-    expect(screen.queryByRole('dialog')).toBeNull();
+      screen.getByRole('link', { name: /Tự chọn bác sĩ còn slot \(Track A\)/i })
+    ).toHaveAttribute('href', '/doctors?packageId=pkg-uuid-2&members=4');
+    expect(
+      screen.getByRole('link', { name: /Hệ thống gợi ý bác sĩ phù hợp \(Track B\)/i })
+    ).toHaveAttribute('href', '/doctors/matching?packageId=pkg-uuid-2&members=4');
   });
 });

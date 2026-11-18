@@ -186,4 +186,20 @@ export const authApi = {
   }): Promise<{ message: string }> => {
     return httpClient.patch<{ message: string }>('/api/v1/auth/change-password', dto);
   },
+
+  // Đăng xuất và thu hồi JWT trên Redis blacklist (best-effort)
+  logout: async (token?: string | null): Promise<{ message?: string; success?: boolean }> => {
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    return httpClient.post<{ message?: string; success?: boolean }>(
+      '/api/v1/auth/logout',
+      undefined,
+      {
+        keepalive: true,
+        headers,
+      },
+    );
+  },
 };

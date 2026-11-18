@@ -28,12 +28,22 @@ export async function DoctorDetailPageContent({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ packageId?: string | string[] | undefined }>;
+  searchParams?: Promise<{
+    packageId?: string | string[] | undefined;
+    members?: string | string[] | undefined;
+  }>;
 }) {
   const { id } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const rawPackageId = resolvedSearchParams?.packageId;
   const packageId = Array.isArray(rawPackageId) ? rawPackageId[0] : rawPackageId;
+  const rawMembers = resolvedSearchParams?.members;
+  const membersStr = Array.isArray(rawMembers) ? rawMembers[0] : rawMembers;
+  const parsedMembers = membersStr ? Number(membersStr) : undefined;
+  const initialMembers =
+    parsedMembers && Number.isFinite(parsedMembers)
+      ? Math.trunc(parsedMembers)
+      : null;
   let doctor: PublicDoctorDetailDto | null = null;
   let facilityItem: Facility | null = null;
 
@@ -113,5 +123,11 @@ export async function DoctorDetailPageContent({
     redirect(`/facilities/${id}`);
   }
 
-  return <DoctorDetailView initialDoctor={doctor} initialPackageCode={packageId} />;
+  return (
+    <DoctorDetailView
+      initialDoctor={doctor}
+      initialPackageCode={packageId}
+      initialMembers={initialMembers}
+    />
+  );
 }

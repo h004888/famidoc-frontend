@@ -9,4 +9,5 @@ export * from './doctors.api';
 export * from './finance.api';
 export * from './admin-packages.api';
 export * from './facilities.api';
+export * from './matching.api';
 export * from './error-handler';

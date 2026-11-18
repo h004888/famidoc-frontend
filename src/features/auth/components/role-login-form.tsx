@@ -10,6 +10,13 @@ import { getDefaultPathForRole, useAuth } from '../context/auth-context';
 import { loginSchema, LoginRole } from '../schemas/auth.schema';
 import { AuthUser } from '@/lib/auth-storage';
 import { resolveReturnUrl } from '../return-url';
+import {
+  getCurrentBrowserHost,
+  getCurrentBrowserProto,
+  getLoginUrlForRole,
+  getPortalDisplayLabel,
+  isRoleAllowedOnPortal,
+} from '@/lib/portal-routing';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -34,6 +41,10 @@ export function RoleLoginForm({ targetRole }: RoleLoginFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [wrongPortalTarget, setWrongPortalTarget] = useState<{
+    label: string;
+    href: string;
+  } | null>(null);
 
   const getEmailPlaceholder = () => {
     switch (targetRole) {
@@ -60,6 +71,7 @@ export function RoleLoginForm({ targetRole }: RoleLoginFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
+    setWrongPortalTarget(null);
 
     const validation = loginSchema.safeParse({ email: email.trim(), password, rememberMe });
     if (!validation.success) {
@@ -84,6 +96,21 @@ export function RoleLoginForm({ targetRole }: RoleLoginFormProps) {
       const rawRole = (data.user?.role || data.role || targetRole).toUpperCase();
       const userRole = (mapBackendRoleToFrontendRole(rawRole) as LoginRole) || 'FAMILY';
 
+      if (!isRoleAllowedOnPortal(userRole, targetRole)) {
+        const correctPortalHref = getLoginUrlForRole(
+          userRole,
+          getCurrentBrowserHost(),
+          getCurrentBrowserProto(),
+        );
+        const correctPortalLabel = getPortalDisplayLabel(userRole);
+        const currentPortalLabel = getPortalDisplayLabel(targetRole);
+        setWrongPortalTarget({ label: correctPortalLabel, href: correctPortalHref });
+        setErrors({
+          global: `Tài khoản này thuộc ${correctPortalLabel}, không thể đăng nhập tại ${currentPortalLabel}.`,
+        });
+        return;
+      }
+
       const authUser: AuthUser = {
         id: data.user?.id || 'usr-1',
         name: data.user?.fullName || email,
@@ -94,23 +121,19 @@ export function RoleLoginForm({ targetRole }: RoleLoginFormProps) {
       };
 
       applySession(userRole, authUser, data.accessToken, rememberMe);
+      toast.success(`Đăng nhập thành công! Chào mừng ${authUser.name}.`);
 
-      // Xử lý thông minh khi đăng nhập nhầm cổng
-      const isRoleMismatch =
-        (targetRole === 'ADMIN' && userRole !== 'ADMIN') ||
-        (targetRole === 'DOCTOR' && userRole !== 'DOCTOR') ||
-        (targetRole === 'FACILITY' && userRole !== 'FACILITY');
-
-      if (isRoleMismatch) {
-        toast.info(
-          `Chào ${authUser.name}! Tài khoản của bạn thuộc vai trò ${userRole}, hệ thống đang điều hướng sang phân hệ làm việc tương ứng.`
-        );
-      } else {
-        toast.success(`Đăng nhập thành công! Chào mừng ${authUser.name}.`);
-      }
-
+      const defaultDestination = getDefaultPathForRole(userRole);
       const returnUrl = resolveReturnUrl(searchParams.get('redirect'));
-      const destination = returnUrl ?? getDefaultPathForRole(userRole);
+      const isReturnUrlAllowed =
+        returnUrl &&
+        (returnUrl === defaultDestination ||
+          returnUrl.startsWith(`${defaultDestination}/`) ||
+          returnUrl === '/settings' ||
+          returnUrl.startsWith('/settings/') ||
+          returnUrl === '/notifications' ||
+          returnUrl.startsWith('/notifications/'));
+      const destination = isReturnUrlAllowed ? returnUrl : defaultDestination;
       router.replace(destination);
     } catch (err: unknown) {
       console.warn('Lỗi đăng nhập:', err);
@@ -132,8 +155,17 @@ export function RoleLoginForm({ targetRole }: RoleLoginFormProps) {
       {errors.global && (
         <Alert variant="destructive" className="border-destructive/30 bg-destructive/5 py-2.5">
           <AlertCircle className="size-4" />
-          <AlertDescription className="text-xs font-medium text-destructive">
-            {errors.global}
+          <AlertDescription className="flex flex-col gap-2 text-xs font-medium text-destructive">
+            <span>{errors.global}</span>
+            {wrongPortalTarget && (
+              <a
+                href={wrongPortalTarget.href}
+                className="inline-flex w-fit items-center gap-1 rounded-lg border border-destructive/30 bg-white px-2.5 py-1 text-xs font-semibold text-destructive hover:bg-destructive/5 transition-colors"
+              >
+                <span>Chuyển tới {wrongPortalTarget.label}</span>
+                <ArrowRight className="size-3.5" />
+              </a>
+            )}
           </AlertDescription>
         </Alert>
       )}

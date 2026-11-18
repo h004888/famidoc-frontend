@@ -12,6 +12,11 @@ import {
 } from '@/lib/auth-storage';
 import { httpClient } from '@/lib/api/http-client';
 import { authApi, mapBackendRoleToFrontendRole } from '@/lib/api/auth.api';
+import {
+  getCurrentBrowserHost,
+  getCurrentBrowserProto,
+  resolveLogoutRedirectUrl,
+} from '@/lib/portal-routing';
 import { useInitialAuthSession } from './initial-auth-session-context';
 
 interface AuthContextType {
@@ -155,14 +160,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    const storedSession = getStoredAuthSession();
+    const activeRole = user?.role || storedSession.role || role;
+    const activeToken = httpClient.getToken() || storedSession.token;
+    const redirectUrl = resolveLogoutRedirectUrl(
+      activeRole,
+      getCurrentBrowserHost(),
+      getCurrentBrowserProto(),
+    );
+
+    if (activeToken && !activeToken.startsWith('jwt-token-')) {
+      void authApi.logout(activeToken).catch(() => {});
+    }
+
     clearAuthSession();
     httpClient.clearToken();
     setIsAuthenticated(false);
     setUser(null);
+    setRole('FAMILY');
+
     if (typeof window !== 'undefined') {
-      window.location.replace('/login');
+      window.location.replace(redirectUrl);
     } else {
-      router.push('/login');
+      router.push(redirectUrl);
     }
   };
 

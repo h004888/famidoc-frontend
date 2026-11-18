@@ -1,13 +1,64 @@
 import { httpClient } from './http-client';
 
+export type DoctorClinicalTier = 'JUNIOR' | 'STANDARD' | 'SENIOR';
+
 export interface PublicDoctorsQuery {
   search?: string;
   facilityId?: string;
   specialty?: string;
   city?: string;
   minExperienceYears?: number;
+  clinicalTier?: DoctorClinicalTier;
+  onlyAvailable?: boolean;
   page?: number;
   limit?: number;
+}
+
+export interface PublicPackagesQuery {
+  search?: string;
+  durationMonths?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  maxMembers?: number;
+  page?: number;
+  limit?: number;
+}
+
+export interface PublicPackageItemDto {
+  id: string;
+  packageCode: string;
+  packageName: string;
+  durationMonths: number;
+  basePrice: number;
+  periodicVisitsQuota: number;
+  telehealthQuota: number;
+  videoQuotaPolicy?: string;
+  homeVisitUnitPriceVnd?: number;
+  maxMembers: number;
+  includedMembers: number;
+  additionalMemberMonthlyPrice: number;
+  quotaPeriod: string;
+  description?: string | null;
+  publishedAt?: string | Date | null;
+}
+
+export interface PublicPackageDetailDto extends PublicPackageItemDto {
+  benefits?: {
+    periodicVisitsQuota: number;
+    telehealthQuota: number;
+    clinicalServices: string[];
+    emergencySupport?: string;
+  };
+  sampleTerms?: {
+    rescheduleNoticeHours?: string;
+    cancellationPolicy?: string;
+    dataPrivacyPolicy?: string;
+  };
+}
+
+export interface PublicPackagesResponse {
+  items: PublicPackageItemDto[];
+  pagination?: PaginationMeta;
 }
 
 export interface PaginationMeta {
@@ -34,12 +85,17 @@ export interface PublicDoctorDto {
   academicTitle?: string | null;
   title?: string;
   experienceYears?: number;
+  clinicalTier?: DoctorClinicalTier;
   bio?: string | null;
   ratingAvg?: number;
   rating?: number;
   totalReviews?: number;
   reviewCount?: number;
   isAvailable?: boolean;
+  activePanelCount?: number;
+  maxPanelCapacity?: number;
+  remainingSlots?: number;
+  isQuotaFull?: boolean;
   avatarUrl?: string | null;
   avatar?: string;
   facilityName?: string;
@@ -138,6 +194,11 @@ export interface PublicDoctorDetailDto {
   bio?: string | null;
   isVerified: boolean;
   isAvailable: boolean;
+  clinicalTier?: DoctorClinicalTier;
+  remainingSlots?: number;
+  isQuotaFull?: boolean;
+  juniorAlternatives?: PublicDoctorDto[];
+  lowerPricePackages?: PublicDoctorCarePackageDto[];
   panel: PublicDoctorPanelDto;
   stats: PublicDoctorStatsDto;
   facility: PublicDoctorFacilitySummaryDto | null;
@@ -256,6 +317,44 @@ interface RawPublicDoctorsApiResponse {
 }
 
 export const publicApi = {
+  getPackages: async (params?: PublicPackagesQuery): Promise<PublicPackagesResponse> => {
+    const res = await httpClient.get<
+      | RawPublicEnvelopeResponse<PublicPackageItemDto[]>
+      | { items?: PublicPackageItemDto[]; meta?: { pagination?: PaginationMeta } }
+      | PublicPackageItemDto[]
+    >(
+      '/api/v1/public/packages',
+      params as Record<string, string | number | boolean | undefined>
+    );
+
+    if (Array.isArray(res)) {
+      return { items: res };
+    }
+
+    if (res && typeof res === 'object') {
+      if ('data' in res && Array.isArray(res.data)) {
+        return { items: res.data, pagination: res.meta?.pagination };
+      }
+      if ('items' in res && Array.isArray(res.items)) {
+        return { items: res.items, pagination: res.meta?.pagination };
+      }
+    }
+
+    return { items: [] };
+  },
+
+  getPackageDetail: async (id: string): Promise<PublicPackageDetailDto> => {
+    const res = await httpClient.get<
+      RawPublicEnvelopeResponse<PublicPackageDetailDto> | PublicPackageDetailDto
+    >(`/api/v1/public/packages/${encodeURIComponent(id)}`);
+
+    if (res && typeof res === 'object' && 'data' in res && res.data) {
+      return res.data;
+    }
+
+    return res as PublicPackageDetailDto;
+  },
+
   getDoctors: async (params?: PublicDoctorsQuery): Promise<PublicDoctorsResponse> => {
     const res = await httpClient.get<RawPublicDoctorsApiResponse | PublicDoctorDto[]>(
       '/api/v1/public/doctors',

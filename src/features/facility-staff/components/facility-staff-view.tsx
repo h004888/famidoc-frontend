@@ -3,7 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { doctorsApi, type CreateFacilityDoctorPayload } from '@/lib/api/doctors.api';
+import {
+  doctorsApi,
+  type CreateFacilityDoctorPayload,
+  type DoctorQuotaProposalDto,
+} from '@/lib/api/doctors.api';
 import { extractErrorMessage } from '@/lib/api';
 
 export interface DoctorStaff {
@@ -51,6 +55,13 @@ export function FacilityStaffView() {
     specialty: string;
   } | null>(null);
 
+  // Đề xuất điều chỉnh Quota bác sĩ (Task 5.3)
+  const [quotaProposals, setQuotaProposals] = useState<DoctorQuotaProposalDto[]>([]);
+  const [quotaTargetDoctor, setQuotaTargetDoctor] = useState<DoctorStaff | null>(null);
+  const [requestedMaxPanel, setRequestedMaxPanel] = useState<string>('30');
+  const [quotaReason, setQuotaReason] = useState<string>('');
+  const [isSubmittingQuota, setIsSubmittingQuota] = useState(false);
+
   // Tải danh sách bác sĩ trực tiếp từ Backend API
   const fetchDoctors = async () => {
     setIsLoading(true);
@@ -68,7 +79,7 @@ export function FacilityStaffView() {
             department: d.specialty || 'Khoa Y học Gia đình',
             cchnNumber,
             issueDate,
-            panelCap: d.activePanelCount ?? 0,
+            panelCap: d.activeAndHeldCount ?? d.activePanelCount ?? 0,
             maxCap: d.maxPanelCapacity ?? 30,
             rating: d.ratingAvg ?? 5.0,
             totalEncounters: d.totalReviews ?? 0,
@@ -90,6 +101,16 @@ export function FacilityStaffView() {
     }
   };
 
+  const fetchQuotaProposals = async () => {
+    if (typeof doctorsApi.getFacilityQuotaProposals !== 'function') return;
+    try {
+      const list = await doctorsApi.getFacilityQuotaProposals({ limit: 20 });
+      setQuotaProposals(Array.isArray(list) ? list : []);
+    } catch {
+      setQuotaProposals([]);
+    }
+  };
+
   useEffect(() => {
     // Dọn sạch mọi dữ liệu ảo cũ trong LocalStorage của trình duyệt
     if (typeof window !== 'undefined') {
@@ -99,8 +120,44 @@ export function FacilityStaffView() {
         // Ignore
       }
     }
-    fetchDoctors();
+    void fetchDoctors();
+    void fetchQuotaProposals();
   }, []);
+
+  const handleOpenQuotaModal = (doc: DoctorStaff) => {
+    setQuotaTargetDoctor(doc);
+    setRequestedMaxPanel(String(doc.maxCap + 5));
+    setQuotaReason('');
+  };
+
+  const handleSubmitQuotaProposal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quotaTargetDoctor || typeof doctorsApi.createQuotaProposal !== 'function') return;
+    const parsedMax = Number(requestedMaxPanel);
+    if (!Number.isInteger(parsedMax) || parsedMax < 1) {
+      toast.error('Hạn mức đề xuất phải là số nguyên >= 1.');
+      return;
+    }
+    setIsSubmittingQuota(true);
+    try {
+      await doctorsApi.createQuotaProposal(quotaTargetDoctor.id, {
+        requestedMaxPanel: parsedMax,
+        reason: quotaReason.trim(),
+      });
+      toast.success(
+        `Đã gửi đề xuất điều chỉnh Quota cho ${quotaTargetDoctor.name} lên ${parsedMax} hộ.`
+      );
+      setQuotaTargetDoctor(null);
+      setQuotaReason('');
+      await fetchQuotaProposals();
+    } catch (err) {
+      toast.error(
+        extractErrorMessage(err, 'Không thể gửi đề xuất điều chỉnh quota.')
+      );
+    } finally {
+      setIsSubmittingQuota(false);
+    }
+  };
 
   const filteredStaff = staffList.filter((doc) => {
     const matchesDept = filterDepartment === 'all' || doc.department === filterDepartment;
@@ -387,6 +444,15 @@ export function FacilityStaffView() {
                             >
                               Hồ sơ CCHN
                             </Link>
+                            {doc.onboardingStatus === 'ACTIVE' && (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenQuotaModal(doc)}
+                                className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0037c1] rounded-lg text-xs font-semibold border border-blue-200 cursor-pointer"
+                              >
+                                Đề xuất Quota
+                              </button>
+                            )}
                             {(doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' || (doc.onboardingStatus === 'PENDING_SUBMISSION' && doc.cchnNumber && doc.cchnNumber !== 'Chờ BS nộp CCHN' && doc.cchnNumber !== 'Chưa có')) && (
                               <button
                                 type="button"
@@ -434,6 +500,125 @@ export function FacilityStaffView() {
             )}
           </div>
         </div>
+
+        {/* Bảng theo dõi đề xuất điều chỉnh Quota đã gửi */}
+        {quotaProposals.length > 0 && (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs p-5 space-y-3">
+            <h2 className="text-sm font-bold text-slate-900">
+              Lịch sử Đề xuất Điều chỉnh Quota ({quotaProposals.length})
+            </h2>
+            <div className="space-y-2">
+              {quotaProposals.map((prop) => (
+                <div
+                  key={prop.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-xs"
+                >
+                  <div>
+                    <span className="font-bold text-slate-900">
+                      {prop.doctor?.doctorName ?? 'Bác sĩ'}
+                    </span>{' '}
+                    <span className="text-slate-600 tabular-nums">
+                      ({prop.currentMaxPanel} → {prop.requestedMaxPanel} hộ)
+                    </span>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{prop.reason}</p>
+                    {prop.reviewNote && (
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        <strong>Admin:</strong> {prop.reviewNote}
+                      </p>
+                    )}
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-full text-[11px] font-semibold shrink-0 self-start sm:self-center ${
+                      prop.status === 'APPROVED'
+                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                        : prop.status === 'REJECTED'
+                          ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                          : 'bg-amber-50 text-amber-800 border border-amber-200'
+                    }`}
+                  >
+                    {prop.status === 'APPROVED'
+                      ? 'Đã duyệt'
+                      : prop.status === 'REJECTED'
+                        ? 'Từ chối'
+                        : 'Chờ Admin duyệt'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Đề xuất điều chỉnh Quota */}
+        {quotaTargetDoctor && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 space-y-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="font-bold text-slate-900 text-base">
+                    Đề xuất điều chỉnh Quota hộ gia đình
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {quotaTargetDoctor.name} • Đang giữ {quotaTargetDoctor.panelCap}/{quotaTargetDoctor.maxCap} hộ
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQuotaTargetDoctor(null)}
+                  className="text-slate-400 hover:text-slate-600 font-bold p-1 cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmitQuotaProposal} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Hạn mức tối đa đề xuất mới (hộ gia đình)
+                  </label>
+                  <input
+                    type="number"
+                    min={Math.max(1, quotaTargetDoctor.panelCap)}
+                    max={200}
+                    required
+                    value={requestedMaxPanel}
+                    onChange={(e) => setRequestedMaxPanel(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm tabular-nums focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Lý do đề xuất điều chỉnh
+                  </label>
+                  <textarea
+                    required
+                    minLength={5}
+                    rows={3}
+                    placeholder="VD: Bổ sung điều dưỡng hỗ trợ theo dõi tại nhà..."
+                    value={quotaReason}
+                    onChange={(e) => setQuotaReason(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setQuotaTargetDoctor(null)}
+                    className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingQuota}
+                    className="px-4 py-2 bg-[#0037c1] hover:bg-[#002c9a] text-white rounded-xl text-xs font-semibold cursor-pointer disabled:opacity-60"
+                  >
+                    {isSubmittingQuota ? 'Đang gửi...' : 'Gửi đề xuất lên Admin'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Modal: Thêm Bác sĩ Mới (Flow 2.1 - API 14) */}
         {isModalOpen && (

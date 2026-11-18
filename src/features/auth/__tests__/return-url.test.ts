@@ -7,6 +7,15 @@ describe('resolveReturnUrl', () => {
       '/family/x?contractId=abc'
     );
     expect(
+      resolveReturnUrl('/booking?packageId=pkg-1&doctorId=doc-1&members=4')
+    ).toBe('/booking?packageId=pkg-1&doctorId=doc-1&members=4');
+    expect(resolveReturnUrl('/booking?matchSessionId=sess-1')).toBe(
+      '/booking?matchSessionId=sess-1'
+    );
+    expect(resolveReturnUrl('/booking?queueId=queue-1')).toBe(
+      '/booking?queueId=queue-1'
+    );
+    expect(
       resolveReturnUrl('/doctor/contracts/abc/review')
     ).toBe('/doctor/contracts/abc/review');
   });

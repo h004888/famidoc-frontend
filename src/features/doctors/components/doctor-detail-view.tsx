@@ -26,9 +26,11 @@ function formatDate(value: string | Date): string {
 function DoctorDetailViewInner({
   initialDoctor,
   initialPackageCode,
+  initialMembers,
 }: {
   initialDoctor?: PublicDoctorDetailDto | null;
   initialPackageCode?: string | null;
+  initialMembers?: number | null;
 }) {
   if (!initialDoctor) return null;
   const doctor = initialDoctor;
@@ -103,25 +105,35 @@ function DoctorDetailViewInner({
                         </Badge>
                       )}
                       <span
-                        className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                          doctor.isAvailable
-                            ? 'text-emerald-700'
-                            : 'text-slate-500'
+                        data-testid="doctor-detail-slot-badge"
+                        className={`inline-flex items-center gap-1 text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded border ${
+                          doctor.isQuotaFull || !doctor.isAvailable
+                            ? 'bg-amber-50 text-amber-800 border-amber-200'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
                         }`}
                       >
                         <span
                           className={`w-1.5 h-1.5 rounded-full ${
-                            doctor.isAvailable
-                              ? 'bg-emerald-500 animate-pulse'
-                              : 'bg-slate-400'
+                            doctor.isQuotaFull || !doctor.isAvailable
+                              ? 'bg-amber-500'
+                              : 'bg-emerald-500 animate-pulse'
                           }`}
                         />
                         <span>
-                          {doctor.isAvailable
-                            ? 'Đang nhận hộ gia đình mới'
-                            : 'Đã đủ hộ gia đình phụ trách'}
+                          {doctor.isQuotaFull || !doctor.isAvailable
+                            ? 'Đã kín lịch (0 slot trống)'
+                            : `Còn ${doctor.remainingSlots ?? Math.max(0, doctor.panel.maxCapacity - doctor.panel.activeCount)}/${doctor.panel.maxCapacity} slot hộ gia đình`}
                         </span>
                       </span>
+                      {doctor.clinicalTier && (
+                        <Badge variant="outline" className="px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-50 text-[#0046c0] border-blue-200">
+                          {doctor.clinicalTier === 'SENIOR'
+                            ? 'Chuyên gia cao cấp'
+                            : doctor.clinicalTier === 'JUNIOR'
+                              ? 'Bác sĩ trẻ'
+                              : 'Bác sĩ gia đình'}
+                        </Badge>
+                      )}
                     </div>
 
                     <div>
@@ -427,9 +439,14 @@ function DoctorDetailViewInner({
                 doctorId={doctor.id}
                 doctorName={fullTitle}
                 isAvailable={doctor.isAvailable}
+                isQuotaFull={doctor.isQuotaFull}
+                remainingSlots={doctor.remainingSlots}
                 facilityId={doctor.facility?.id ?? null}
                 carePackages={doctor.carePackages}
+                juniorAlternatives={doctor.juniorAlternatives}
+                lowerPricePackages={doctor.lowerPricePackages}
                 initialPackageCode={initialPackageCode}
+                initialMembers={initialMembers}
               />
             </div>
           </div>
@@ -452,6 +469,7 @@ export interface DoctorDetailViewProps {
   initialFacility?: Facility | null;
   /** Mã gói đã chọn từ `/doctors?packageId=...` để pre-select `DoctorPackageSelector`. */
   initialPackageCode?: string | null;
+  initialMembers?: number | null;
 }
 
 function FacilityDetailViewInner({
@@ -855,6 +873,7 @@ export function DoctorDetailView(props: DoctorDetailViewProps) {
     <DoctorDetailViewInner
       initialDoctor={props.initialDoctor}
       initialPackageCode={props.initialPackageCode}
+      initialMembers={props.initialMembers}
     />
   );
 }

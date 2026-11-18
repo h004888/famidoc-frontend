@@ -1,4 +1,32 @@
 import { httpClient } from './http-client';
+import { unwrapApiEnvelope } from './envelope';
+import type { DoctorClinicalTier } from './public.api';
+
+export interface DoctorQuotaProposalDto {
+  id: string;
+  doctorId: string;
+  facilityId: string;
+  currentMaxPanel: number;
+  requestedMaxPanel: number;
+  activeAndHeldCount?: number;
+  reason: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  reviewNote?: string | null;
+  reviewedAt?: string | null;
+  createdAt: string;
+  doctor?: {
+    id: string;
+    doctorName: string;
+    specialty?: string;
+    clinicalTier?: DoctorClinicalTier;
+    maxPanelCapacity?: number;
+    activePanelCount?: number;
+  };
+  facility?: {
+    id: string;
+    facilityName: string;
+  };
+}
 
 export interface DoctorCredentialDto {
   id?: string;
@@ -18,8 +46,12 @@ export interface DoctorProfileDto {
   specialty: string;
   academicTitle?: string;
   experienceYears: number;
+  clinicalTier?: DoctorClinicalTier;
   activePanelCount?: number;
   maxPanelCapacity?: number;
+  activeAndHeldCount?: number;
+  remainingSlots?: number;
+  isQuotaFull?: boolean;
   ratingAvg?: number;
   totalReviews?: number;
   onboardingStatus: 'PENDING_SUBMISSION' | 'FACILITY_VERIFIED' | 'ACTIVE' | 'SUSPENDED' | string;
@@ -232,5 +264,63 @@ export const doctorsApi = {
   // CSYT hủy liên kết bác sĩ khi chuyển viện / thôi việc
   unlinkDoctor: async (doctorId: string): Promise<any> => {
     return httpClient.delete(`/api/v1/facilities/doctors/${doctorId}`);
+  },
+
+  createQuotaProposal: async (
+    doctorId: string,
+    payload: { requestedMaxPanel: number; reason: string }
+  ): Promise<DoctorQuotaProposalDto> => {
+    const res = await httpClient.post<unknown>(
+      `/api/v1/facilities/doctors/${encodeURIComponent(doctorId)}/quota-proposals`,
+      payload
+    );
+    return unwrapApiEnvelope<DoctorQuotaProposalDto>(res);
+  },
+
+  getDoctorQuotaProposals: async (
+    doctorId: string
+  ): Promise<DoctorQuotaProposalDto[]> => {
+    const res = await httpClient.get<unknown>(
+      `/api/v1/facilities/doctors/${encodeURIComponent(doctorId)}/quota-proposals`
+    );
+    const unwrapped = unwrapApiEnvelope<{ items?: DoctorQuotaProposalDto[] } | DoctorQuotaProposalDto[]>(res);
+    return Array.isArray(unwrapped) ? unwrapped : unwrapped?.items ?? [];
+  },
+
+  getFacilityQuotaProposals: async (params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<DoctorQuotaProposalDto[]> => {
+    const res = await httpClient.get<unknown>('/api/v1/facilities/quota-proposals', params);
+    const unwrapped = unwrapApiEnvelope<{ items?: DoctorQuotaProposalDto[] } | DoctorQuotaProposalDto[]>(res);
+    return Array.isArray(unwrapped) ? unwrapped : unwrapped?.items ?? [];
+  },
+
+  getAdminQuotaProposals: async (params?: {
+    status?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<{ items: DoctorQuotaProposalDto[]; total: number }> => {
+    const res = await httpClient.get<unknown>('/api/v1/admin/quota-proposals', params);
+    const unwrapped = unwrapApiEnvelope<{
+      items?: DoctorQuotaProposalDto[];
+      total?: number;
+    }>(res);
+    return {
+      items: unwrapped?.items ?? [],
+      total: unwrapped?.total ?? 0,
+    };
+  },
+
+  reviewQuotaProposal: async (
+    proposalId: string,
+    payload: { action: 'APPROVE' | 'REJECT'; reviewNote?: string }
+  ): Promise<DoctorQuotaProposalDto> => {
+    const res = await httpClient.patch<unknown>(
+      `/api/v1/admin/quota-proposals/${encodeURIComponent(proposalId)}`,
+      payload
+    );
+    return unwrapApiEnvelope<DoctorQuotaProposalDto>(res);
   },
 };

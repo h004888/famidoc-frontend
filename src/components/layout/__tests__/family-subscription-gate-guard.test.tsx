@@ -2,11 +2,13 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
+  DashboardShellGate,
   FamilySubscriptionGateGuard,
   FamilySubscriptionGateProvider,
 } from '../family-subscription-gate';
 import { DashboardSidebar } from '../dashboard-sidebar';
 import { contractsApi } from '@/lib/api/contracts.api';
+import { ApiError } from '@/lib/http/errors';
 
 const mockReplace = vi.fn();
 let mockPathname = '/family/members';
@@ -467,4 +469,35 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
       within(notice).getByRole('link', { name: /Không gian chuẩn bị/i })
     ).toHaveAttribute('href', '/onboarding');
   });
+
+  it.each([401, 403])(
+    'ẩn toàn bộ shell/nội dung và chuyển hướng sang /403 khi kiểm tra quyền trả về HTTP %i',
+    async (statusCode) => {
+      mockPathname = '/family';
+      vi.mocked(contractsApi.getFamilyGateStatus).mockRejectedValue(
+        new ApiError(statusCode === 401 ? 'Unauthorized' : 'Forbidden', statusCode),
+      );
+
+      render(
+        <FamilySubscriptionGateProvider>
+          <DashboardShellGate>
+            <div data-testid="dashboard-shell">
+              <div data-testid="sidebar-stub">Sidebar</div>
+              <FamilySubscriptionGateGuard>
+                <div data-testid="protected-content">Bảng Sức khỏe Gia đình</div>
+              </FamilySubscriptionGateGuard>
+            </div>
+          </DashboardShellGate>
+        </FamilySubscriptionGateProvider>,
+      );
+
+      await waitFor(() => {
+        expect(mockReplace).toHaveBeenCalledWith('/403');
+      });
+      expect(screen.queryByTestId('dashboard-shell')).toBeNull();
+      expect(screen.queryByTestId('sidebar-stub')).toBeNull();
+      expect(screen.queryByTestId('protected-content')).toBeNull();
+      expect(screen.queryByText(/Không thể xác minh trạng thái gói gia đình/i)).toBeNull();
+    },
+  );
 });

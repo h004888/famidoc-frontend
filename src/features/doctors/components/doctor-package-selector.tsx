@@ -4,16 +4,21 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import type { PublicDoctorCarePackageDto } from '@/lib/api';
+import type { PublicDoctorCarePackageDto, PublicDoctorDto } from '@/lib/api';
 
 export interface DoctorPackageSelectorProps {
   doctorId: string;
   doctorName: string;
   isAvailable: boolean;
+  isQuotaFull?: boolean;
+  remainingSlots?: number;
   facilityId: string | null;
   carePackages: PublicDoctorCarePackageDto[];
+  juniorAlternatives?: PublicDoctorDto[];
+  lowerPricePackages?: PublicDoctorCarePackageDto[];
   /** Mã gói người dùng đã chọn trước đó (ví dụ từ `/doctors?packageId=BASIC`). */
   initialPackageCode?: string | null;
+  initialMembers?: number | null;
 }
 
 /**
@@ -80,9 +85,14 @@ export function DoctorPackageSelector({
   doctorId,
   doctorName,
   isAvailable,
+  isQuotaFull = false,
+  remainingSlots,
   facilityId,
   carePackages,
+  juniorAlternatives = [],
+  lowerPricePackages = [],
   initialPackageCode,
+  initialMembers,
 }: DoctorPackageSelectorProps) {
   const [selectedPackageId, setSelectedPackageId] = useState<string>(
     resolveInitialPackageId(carePackages, initialPackageCode)
@@ -92,7 +102,9 @@ export function DoctorPackageSelector({
   const [memberCount, setMemberCount] = useState<number>(
     initialPackage
       ? clampSelectorMemberCount(
-          initialPackage.includedMembers,
+          typeof initialMembers === 'number' && Number.isFinite(initialMembers)
+            ? initialMembers
+            : initialPackage.includedMembers,
           initialPackage.includedMembers,
           initialPackage.maxMembers
         )
@@ -141,7 +153,8 @@ export function DoctorPackageSelector({
     );
   };
 
-  const canBook = isAvailable && Boolean(facilityId);
+  const quotaLocked = isQuotaFull || !isAvailable;
+  const canBook = !quotaLocked && Boolean(facilityId);
   const bookingHref = facilityId
     ? `/booking?packageId=${encodeURIComponent(
         selectedPackage.id
@@ -149,6 +162,9 @@ export function DoctorPackageSelector({
         facilityId
       )}&members=${clampedMembers}`
     : '';
+  const trackBHref = `/doctors/matching?packageId=${encodeURIComponent(
+    selectedPackage.id
+  )}&members=${clampedMembers}`;
 
   return (
     <div className="bg-white rounded-lg border border-slate-200 p-5 shadow-xs space-y-4">
@@ -299,19 +315,99 @@ export function DoctorPackageSelector({
           </Link>
         </Button>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <Button
             type="button"
             disabled
+            data-testid="doctor-booking-locked-btn"
             className="w-full py-2.5 h-auto rounded-lg bg-slate-200 text-slate-500 text-xs sm:text-sm font-semibold"
           >
             Đăng ký dịch vụ với bác sĩ
           </Button>
-          <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5">
-            {!isAvailable
-              ? 'Bác sĩ hiện đã đủ hộ gia đình phụ trách.'
+          <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-2 leading-relaxed">
+            {quotaLocked
+              ? 'Bác sĩ hiện đã kín lịch nhận hộ gia đình mới. Vui lòng chọn bác sĩ trẻ còn slot bên dưới hoặc chuyển sang hệ thống gợi ý tự động.'
               : 'Bác sĩ chưa gắn cơ sở y tế phụ trách để đăng ký gói.'}
           </p>
+
+          {quotaLocked && (
+            <div
+              data-testid="junior-alternatives-section"
+              className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-2.5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-bold text-slate-900">
+                  Gợi ý bác sĩ trẻ còn slot
+                </p>
+                {typeof remainingSlots === 'number' && (
+                  <span className="text-[10px] font-semibold text-amber-700 tabular-nums">
+                    Còn {remainingSlots} slot
+                  </span>
+                )}
+              </div>
+
+              {juniorAlternatives.length > 0 ? (
+                <div className="space-y-2">
+                  {juniorAlternatives.map((alt) => (
+                    <Link
+                      key={alt.id}
+                      href={`/doctors/${encodeURIComponent(alt.id)}?packageId=${encodeURIComponent(
+                        lowerPricePackages[0]?.id ?? selectedPackage.id
+                      )}&members=${clampedMembers}`}
+                      className="block rounded-md border border-slate-200 bg-white p-2.5 hover:border-[#0046c0] transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-slate-900 truncate">
+                          {alt.academicTitle ? `${alt.academicTitle} ` : ''}
+                          {alt.doctorName}
+                        </span>
+                        <span className="shrink-0 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-semibold tabular-nums">
+                          Còn {alt.remainingSlots ?? Math.max(0, (alt.maxPanelCapacity ?? 30) - (alt.activePanelCount ?? 0))} slot
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                        {alt.specialty} · {alt.facility?.facilityName ?? 'CSYT đối tác'}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-600">
+                  Hiện chưa có bác sĩ trẻ trống lịch trực tiếp ở khu vực này.
+                </p>
+              )}
+
+              {lowerPricePackages.length > 0 && (
+                <div className="pt-2 border-t border-blue-200/70 space-y-1.5">
+                  <p className="text-[11px] font-semibold text-slate-700">
+                    Gói chăm sóc mức phí tiết kiệm:
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {lowerPricePackages.map((lp) => (
+                      <Link
+                        key={lp.id}
+                        href={`/packages/${encodeURIComponent(lp.id)}`}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded bg-white border border-slate-200 hover:border-[#0046c0] text-[10px] font-semibold text-slate-800 tabular-nums"
+                      >
+                        <span>{lp.packageName}</span>
+                        <span className="text-[#0046c0]">
+                          {lp.formattedPrice ?? `${lp.basePrice.toLocaleString('vi-VN')}đ`}
+                        </span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <Link
+                href={trackBHref}
+                className="w-full py-2 px-3 rounded-md bg-white border border-[#0046c0] text-[#0046c0] hover:bg-[#0046c0] hover:text-white text-[11px] font-semibold flex items-center justify-center gap-1 transition-colors"
+              >
+                <span className="material-symbols-outlined text-sm">auto_awesome</span>
+                <span>Tự động ghép bác sĩ phù hợp (Track B)</span>
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </div>
