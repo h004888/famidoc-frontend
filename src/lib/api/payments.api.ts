@@ -58,6 +58,7 @@ export interface PaymentTransactionItem {
   environment: 'TEST' | 'LIVE';
   providerTransactionId: string;
   gateway: string;
+  transferType?: 'in' | 'out';
   amountVnd: number;
   transactionAt: string;
   receivedAt: string;
@@ -65,6 +66,10 @@ export interface PaymentTransactionItem {
   paymentCode: string | null;
   paymentRequestId: string | null;
   referenceCode: string;
+  transferContent?: string | null;
+  contractNumber?: string | null;
+  payerName?: string | null;
+  payerPhoneLast4?: string | null;
   outcome: 'MATCHED' | 'REVIEW_REQUIRED' | 'IGNORED';
   reason: string | null;
   ingestionSource?: 'WEBHOOK' | 'SEPAY_API';
@@ -72,11 +77,18 @@ export interface PaymentTransactionItem {
   sepayApiTransactionId?: string | null;
 }
 
+export interface PaymentTransactionsSummary {
+  totalInVnd: number;
+  totalOutVnd: number;
+  reviewRequiredCount: number;
+}
+
 export interface PaymentTransactionsPage {
   items: PaymentTransactionItem[];
   total: number;
   page: number;
   limit: number;
+  summary?: PaymentTransactionsSummary;
 }
 
 export interface PaymentActivationResult {
@@ -112,7 +124,13 @@ export const paymentsApi = {
   },
 
   listTransactions: async (
-    params?: { limit?: number; page?: number; outcome?: PaymentTransactionItem['outcome'] },
+    params?: {
+      limit?: number;
+      page?: number;
+      outcome?: PaymentTransactionItem['outcome'];
+      transferType?: 'in' | 'out';
+      search?: string;
+    },
   ): Promise<PaymentTransactionsPage> => {
     return unwrapApiEnvelope(await httpClient.get('/api/v1/payments/transactions', params, { cache: 'no-store' }));
   },
