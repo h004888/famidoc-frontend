@@ -266,64 +266,56 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
       {todayAlerts.length > 0 ? (
         <Alert
           role="alert"
-          className="rounded-2xl border-rose-200 bg-rose-50/80 p-4 sm:p-5 space-y-3"
+          className={`flex flex-col gap-3.5 rounded-2xl border-rose-200 bg-rose-50/85 p-4 sm:px-5 sm:py-4 ${todayAlerts.length === 1 ? 'lg:flex-row lg:items-center lg:justify-between' : 'items-stretch'
+            }`}
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-rose-700">
               <span className="material-symbols-outlined text-[20px]">warning</span>
             </div>
-            <div className="min-w-0 flex-1">
-              <AlertTitle className="text-sm sm:text-base font-bold text-rose-900">
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <AlertTitle className="col-start-auto line-clamp-none text-sm sm:text-base font-bold leading-snug text-rose-900">
                 Cảnh báo hôm nay: {todayAlerts.length} thành viên có chỉ số vượt ngưỡng an toàn
               </AlertTitle>
-              <AlertDescription className="mt-1 text-xs sm:text-sm text-rose-800">
-                Vui lòng kiểm tra lại chỉ số sau khi nghỉ ngơi và liên hệ bác sĩ phụ trách nếu triệu chứng kéo dài.
+              <AlertDescription className="col-start-auto block text-xs sm:text-sm leading-relaxed text-rose-800">
+                Đo lại sau khi nghỉ ngơi; liên hệ bác sĩ phụ trách nếu chỉ số vẫn vượt ngưỡng.
               </AlertDescription>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 pl-0 sm:pl-13">
+          <div className="flex flex-wrap items-center gap-2.5 sm:pl-[54px]">
             {todayAlerts.map(({ member, abnormalDetails }) => (
               <div
                 key={member.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-xl border border-rose-200 bg-white px-3.5 py-2.5"
+                className="inline-flex w-full sm:w-auto max-w-full flex-wrap sm:flex-nowrap items-center justify-between gap-3 rounded-xl border border-rose-200/90 bg-white px-3.5 py-2 shadow-2xs"
               >
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm font-bold text-slate-900 truncate">
+                <div className="min-w-0 flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-xs sm:text-sm font-bold text-slate-900 truncate">
                     {member.fullName}
-                  </p>
-                  <p className="text-xs text-rose-700 font-medium">
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-semibold text-rose-700 whitespace-nowrap">
                     {abnormalDetails.length > 0
                       ? abnormalDetails.join(' • ')
-                      : 'Có chỉ số ngoài ngưỡng an toàn'}
-                  </p>
+                      : 'Ngoài ngưỡng an toàn'}
+                  </span>
                 </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setSelectedMemberId(member.id)}
-                  className="shrink-0 text-xs border-rose-200 text-rose-800 hover:bg-rose-50"
-                >
-                  Xem biểu đồ
-                </Button>
               </div>
             ))}
           </div>
         </Alert>
       ) : (
-        <Alert className="rounded-2xl border-emerald-200 bg-emerald-50/70 p-4 sm:p-5">
-          <div className="flex items-center gap-3">
+        <Alert className="flex flex-col items-stretch rounded-2xl border-emerald-200 bg-emerald-50/75 p-4 sm:p-5">
+          <div className="flex items-start sm:items-center gap-3.5">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
               <span className="material-symbols-outlined text-[20px]">verified</span>
             </div>
-            <div>
-              <AlertTitle className="text-sm font-bold text-emerald-900">
+            <div className="min-w-0 flex-1 space-y-0.5">
+              <AlertTitle className="col-start-auto line-clamp-none text-sm font-bold leading-snug text-emerald-900">
                 {anyMeasuredToday
                   ? 'Các chỉ số đo hôm nay của gia đình đều trong ngưỡng ổn định'
                   : 'Chưa ghi nhận cảnh báo chỉ số bất thường hôm nay'}
               </AlertTitle>
-              <AlertDescription className="text-xs text-emerald-800 mt-0.5">
+              <AlertDescription className="col-start-auto block text-xs leading-relaxed text-emerald-800">
                 {anyMeasuredToday
                   ? 'Chọn thành viên bên dưới để xem chi tiết nhật ký trong ngày và xu hướng nhiều ngày.'
                   : 'Chọn thành viên bên dưới và bấm "Nhập chỉ số hôm nay" để bắt đầu theo dõi.'}
@@ -351,20 +343,18 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
                 type="button"
                 onClick={() => setSelectedMemberId(member.id)}
                 aria-pressed={isSelected}
-                className={`text-left rounded-2xl border p-4 transition-all cursor-pointer space-y-3 ${
-                  isSelected
-                    ? 'border-[#2E37A4] bg-indigo-50/40 ring-1 ring-[#2E37A4]/30 shadow-xs'
-                    : 'border-slate-200 bg-white hover:border-slate-300'
-                }`}
+                className={`text-left rounded-2xl border p-4 transition-all cursor-pointer space-y-3 ${isSelected
+                  ? 'border-[#2E37A4] bg-indigo-50/40 ring-1 ring-[#2E37A4]/30 shadow-xs'
+                  : 'border-slate-200 bg-white hover:border-slate-300'
+                  }`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div
-                      className={`size-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${
-                        isSelected
-                          ? 'bg-[#2E37A4] text-white'
-                          : 'bg-slate-100 text-slate-700'
-                      }`}
+                      className={`size-9 rounded-xl flex items-center justify-center text-xs font-bold shrink-0 ${isSelected
+                        ? 'bg-[#2E37A4] text-white'
+                        : 'bg-slate-100 text-slate-700'
+                        }`}
                     >
                       {getInitials(member.fullName)}
                     </div>
@@ -395,9 +385,8 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
                   <div>
                     <span className="block text-[10px] text-slate-500">Huyết áp</span>
                     <span
-                      className={`text-xs font-bold tabular-nums ${
-                        isAlertToday ? 'text-rose-700' : 'text-slate-900'
-                      }`}
+                      className={`text-xs font-bold tabular-nums ${isAlertToday ? 'text-rose-700' : 'text-slate-900'
+                        }`}
                     >
                       {formatBpCell(latest)}
                     </span>

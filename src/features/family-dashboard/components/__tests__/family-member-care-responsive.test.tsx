@@ -17,7 +17,6 @@ const mockAddMemberVitalSign = vi.fn();
 const mockUpdateMemberVitalSign = vi.fn();
 const mockDeleteMemberVitalSign = vi.fn();
 const mockGetFamilyTimetable = vi.fn();
-const mockUploadFileWithMeta = vi.fn();
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn(), back: vi.fn() }),
@@ -64,10 +63,6 @@ vi.mock('@/lib/api', async (importOriginal) => {
     encountersApi: {
       ...actual.encountersApi,
       getFamilyTimetable: (...args: unknown[]) => mockGetFamilyTimetable(...args),
-    },
-    filesApi: {
-      ...actual.filesApi,
-      uploadFileWithMeta: (...args: unknown[]) => mockUploadFileWithMeta(...args),
     },
   };
 });
@@ -335,10 +330,6 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
       fileUrl: 'https://files.famidoc.vn/docs/xquang-phoi.pdf',
       fileSizeKb: 0,
       recordedDate: '2026-11-18',
-    });
-    mockUploadFileWithMeta.mockResolvedValue({
-      url: 'blob:http://localhost:3000/mock-preview-1',
-      isLocalFallback: true,
     });
   });
 
@@ -625,5 +616,80 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     });
 
     windowOpenSpy.mockRestore();
+  });
+
+  it('previews internal S3 PDF inside dialog via authenticated blob and preserves .pdf extension on download', async () => {
+    mockGetMemberById.mockResolvedValueOnce({
+      ...SAMPLE_MEMBER,
+      documents: [
+        {
+          id: 'doc-internal-pdf-1',
+          patientId: 'mem-real-1',
+          documentName: 'SMB Installation Overview_Rev. 1.14',
+          documentType: 'LAB_RESULT',
+          fileUrl: 'patient-documents/mem-real-1/179500-1.pdf',
+          mimeType: 'application/pdf',
+          fileSizeKb: 512,
+          recordedDate: '2026-11-19',
+        },
+      ],
+    });
+    mockFetchMemberDocumentBlob.mockResolvedValueOnce(
+      new Blob(['%PDF-1.4\n'], { type: 'application/octet-stream' })
+    );
+
+    const anchorClickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+
+    render(<FamilyMemberCareView memberId="mem-real-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('SMB Installation Overview_Rev. 1.14')).toBeInTheDocument();
+    });
+
+    const pdfCard = screen.getByText('SMB Installation Overview_Rev. 1.14').closest('article');
+    expect(pdfCard).not.toBeNull();
+
+    // Opening internal S3 PDF fetches authenticated blob and renders iframe modal + open-in-new-tab link
+    fireEvent.click(within(pdfCard!).getByRole('button', { name: /Xem tệp/i }));
+
+    await waitFor(() => {
+      expect(mockFetchMemberDocumentBlob).toHaveBeenCalledWith('mem-real-1', 'doc-internal-pdf-1');
+      const iframe = screen.getByTitle('SMB Installation Overview_Rev. 1.14');
+      expect(iframe).toHaveAttribute('src', 'blob:http://localhost:3000/mock-preview-1');
+    });
+
+    expect(screen.getByRole('link', { name: /Mở tab mới/i })).toHaveAttribute(
+      'href',
+      'blob:http://localhost:3000/mock-preview-1'
+    );
+
+    // Downloading attaches .pdf extension even when documentName ends with ". 1.14"
+    const downloadSpy = vi.fn();
+    const origCreateElement = document.createElement.bind(document);
+    const createElSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName: string) => {
+      const el = origCreateElement(tagName);
+      if (tagName.toLowerCase() === 'a') {
+        const origClick = el.click.bind(el);
+        el.click = () => {
+          downloadSpy((el as HTMLAnchorElement).download, (el as HTMLAnchorElement).href);
+          origClick();
+        };
+      }
+      return el;
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Tải PDF về/i }));
+
+    await waitFor(() => {
+      expect(downloadSpy).toHaveBeenCalledWith(
+        'SMB Installation Overview_Rev. 1.14.pdf',
+        'blob:http://localhost:3000/mock-preview-1'
+      );
+    });
+
+    createElSpy.mockRestore();
+    anchorClickSpy.mockRestore();
   });
 });

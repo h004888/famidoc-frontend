@@ -78,6 +78,33 @@ function isImageDocument(doc: PatientDocumentDto): boolean {
   return /\.(png|jpe?g|webp)(\?|$)/i.test(doc.fileUrl);
 }
 
+function getDocumentExtension(doc: PatientDocumentDto): string {
+  const mime = (doc.mimeType || '').toLowerCase();
+  if (mime === 'application/pdf') return 'pdf';
+  if (mime === 'image/png') return 'png';
+  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'jpg';
+  if (mime === 'image/webp') return 'webp';
+
+  const urlMatch = doc.fileUrl.match(/\.(pdf|png|jpe?g|webp)(?:$|\?)/i);
+  if (urlMatch) {
+    const ext = urlMatch[1].toLowerCase();
+    return ext === 'jpeg' ? 'jpg' : ext;
+  }
+  return isImageDocument(doc) ? 'jpg' : 'pdf';
+}
+
+function buildDownloadFilename(doc: PatientDocumentDto): string {
+  const rawName = (doc.documentName || 'tai-lieu-y-te')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/[. ]+$/, '');
+  const baseName = rawName || 'tai-lieu-y-te';
+  if (/\.(pdf|png|jpe?g|webp)$/i.test(baseName)) {
+    return baseName;
+  }
+  return `${baseName}.${getDocumentExtension(doc)}`;
+}
+
 function formatDateDisplay(raw?: string | null): string {
   if (!raw) return 'Chưa cập nhật';
   const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -142,9 +169,10 @@ export function MemberDocumentUploadSection({
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [lightboxDoc, setLightboxDoc] = useState<{
+  const [previewDoc, setPreviewDoc] = useState<{
     doc: PatientDocumentDto;
-    imageUrl: string;
+    url: string;
+    kind: 'image' | 'pdf';
   } | null>(null);
   const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
 
@@ -253,17 +281,32 @@ export function MemberDocumentUploadSection({
       return doc.fileUrl;
     }
     if (!doc.id) return null;
-    const blob = await patientsApi.fetchMemberDocumentBlob(memberId, doc.id);
-    const blobUrl = URL.createObjectURL(blob);
+    if (previewDoc && previewDoc.doc.id === doc.id) {
+      return previewDoc.url;
+    }
+    const rawBlob = await patientsApi.fetchMemberDocumentBlob(memberId, doc.id);
+    const expectedMime =
+      doc.mimeType || (isImageDocument(doc) ? 'image/jpeg' : 'application/pdf');
+    const typedBlob =
+      !rawBlob.type || rawBlob.type === 'application/octet-stream'
+        ? new Blob([rawBlob], { type: expectedMime })
+        : rawBlob;
+    const blobUrl = URL.createObjectURL(typedBlob);
     createdBlobUrlsRef.current.push(blobUrl);
     return blobUrl;
   };
 
   const handleOpenDocument = async (doc: PatientDocumentDto) => {
+    const isImg = isImageDocument(doc);
+    if (!isImg && isSafeExternalUrl(doc.fileUrl)) {
+      window.open(doc.fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     const docKey = doc.id || doc.fileUrl;
     setLoadingDocId(docKey);
     try {
-      if (isImageDocument(doc)) {
+      if (isImg) {
         const imgUrl = doc.previewUrl && isSafeExternalUrl(doc.previewUrl)
           ? doc.previewUrl
           : await resolveDocumentUrl(doc);
@@ -271,7 +314,7 @@ export function MemberDocumentUploadSection({
           toast.error('Không tìm thấy tệp ảnh tài liệu.');
           return;
         }
-        setLightboxDoc({ doc, imageUrl: imgUrl });
+        setPreviewDoc({ doc, url: imgUrl, kind: 'image' });
         return;
       }
 
@@ -280,7 +323,7 @@ export function MemberDocumentUploadSection({
         toast.error('Không tìm thấy đường dẫn tài liệu.');
         return;
       }
-      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      setPreviewDoc({ doc, url: fileUrl, kind: 'pdf' });
     } catch (err) {
       toast.error(extractErrorMessage(err, 'Không thể mở tệp tài liệu.'));
     } finally {
@@ -299,12 +342,11 @@ export function MemberDocumentUploadSection({
       }
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = doc.documentName || 'tai-lieu-y-te';
+      anchor.download = buildDownloadFilename(doc);
       anchor.rel = 'noopener noreferrer';
-      anchor.target = '_blank';
       document.body.appendChild(anchor);
       anchor.click();
-      anchor.remove();
+      setTimeout(() => anchor.remove(), 1_000);
     } catch (err) {
       toast.error(extractErrorMessage(err, 'Không thể tải xuống tài liệu.'));
     } finally {
@@ -454,13 +496,17 @@ export function MemberDocumentUploadSection({
                       />
                     </button>
                   ) : (
-                    <div
-                      className={`size-12 rounded-xl border flex items-center justify-center shrink-0 ${meta.badgeClass}`}
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenDocument(doc)}
+                      disabled={isBusy}
+                      className={`size-12 rounded-xl border flex items-center justify-center shrink-0 cursor-pointer transition-opacity hover:opacity-85 ${meta.badgeClass}`}
+                      title={`Xem ${doc.documentName}`}
                     >
                       <span className="material-symbols-outlined text-[22px]">
                         {isImg ? 'image' : meta.icon}
                       </span>
-                    </div>
+                    </button>
                   )}
 
                   <div className="min-w-0 flex-1 space-y-1">
@@ -676,53 +722,71 @@ export function MemberDocumentUploadSection({
         </DialogContent>
       </Dialog>
 
-      {/* Image Lightbox Modal */}
+      {/* Image Lightbox & PDF Preview Modal */}
       <Dialog
-        open={Boolean(lightboxDoc)}
+        open={Boolean(previewDoc)}
         onOpenChange={(open) => {
-          if (!open) setLightboxDoc(null);
+          if (!open) setPreviewDoc(null);
         }}
       >
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{lightboxDoc?.doc.documentName}</DialogTitle>
+            <DialogTitle>{previewDoc?.doc.documentName}</DialogTitle>
             <DialogDescription>
-              {lightboxDoc
+              {previewDoc
                 ? `${
                     (
-                      DOCUMENT_TYPE_META[lightboxDoc.doc.documentType] ??
+                      DOCUMENT_TYPE_META[previewDoc.doc.documentType] ??
                       DOCUMENT_TYPE_META.OTHER
                     ).label
-                  } • Ngày ${formatDateDisplay(lightboxDoc.doc.recordedDate)}`
+                  } • Ngày ${formatDateDisplay(previewDoc.doc.recordedDate)}`
                 : ''}
             </DialogDescription>
           </DialogHeader>
-          {lightboxDoc && (
+          {previewDoc && (
             <div className="space-y-3">
-              <div className="max-h-[65vh] overflow-auto rounded-xl border border-slate-200 bg-slate-950/5 flex items-center justify-center p-2">
-                <img
-                  src={lightboxDoc.imageUrl}
-                  alt={lightboxDoc.doc.documentName}
-                  className="max-h-[60vh] w-auto object-contain rounded-lg"
-                />
-              </div>
-              {lightboxDoc.doc.notes && (
-                <p className="text-xs text-slate-600">{lightboxDoc.doc.notes}</p>
+              {previewDoc.kind === 'image' ? (
+                <div className="max-h-[65vh] overflow-auto rounded-xl border border-slate-200 bg-slate-950/5 flex items-center justify-center p-2">
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.doc.documentName}
+                    className="max-h-[60vh] w-auto object-contain rounded-lg"
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-100 overflow-hidden">
+                  <iframe
+                    src={previewDoc.url}
+                    title={previewDoc.doc.documentName}
+                    className="w-full h-[65vh] bg-white"
+                  />
+                </div>
+              )}
+              {previewDoc.doc.notes && (
+                <p className="text-xs text-slate-600">{previewDoc.doc.notes}</p>
               )}
             </div>
           )}
           <DialogFooter>
-            {lightboxDoc && (
+            {previewDoc && previewDoc.kind === 'pdf' && (
+              <Button type="button" variant="outline" asChild>
+                <a href={previewDoc.url} target="_blank" rel="noopener noreferrer">
+                  <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  <span>Mở tab mới</span>
+                </a>
+              </Button>
+            )}
+            {previewDoc && (
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void handleDownloadDocument(lightboxDoc.doc)}
+                onClick={() => void handleDownloadDocument(previewDoc.doc)}
               >
                 <span className="material-symbols-outlined text-[16px]">download</span>
-                <span>Tải ảnh gốc</span>
+                <span>{previewDoc.kind === 'image' ? 'Tải ảnh gốc' : 'Tải PDF về'}</span>
               </Button>
             )}
-            <Button type="button" onClick={() => setLightboxDoc(null)}>
+            <Button type="button" onClick={() => setPreviewDoc(null)}>
               Đóng
             </Button>
           </DialogFooter>

@@ -521,22 +521,27 @@ export function FamilyMembersView() {
             <span className="text-slate-800 font-semibold">Quản Lý Thành Viên Hộ</span>
           </nav>
 
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-            <div className="space-y-2 min-w-0">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-primary bg-primary/10 border-primary/20">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-6">
+            <div className="min-w-0 space-y-2.5">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge
+                  variant="outline"
+                  className="h-7 px-3 py-0 rounded-full text-xs font-semibold leading-none tabular-nums text-primary bg-primary/10 border-primary/20"
+                >
                   HĐ {contractBadgeCode}
                 </Badge>
                 <span
                   data-testid="member-quota-badge"
-                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold tabular-nums border ${isQuotaReached
-                    ? 'bg-amber-50 text-amber-800 border-amber-200/70'
-                    : 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
-                    }`}
+                  className={`inline-flex h-7 items-center gap-1.5 px-3 rounded-full text-xs font-semibold leading-none tabular-nums border whitespace-nowrap ${
+                    isQuotaReached
+                      ? 'bg-amber-50 text-amber-800 border-amber-200/70'
+                      : 'bg-emerald-50 text-emerald-800 border-emerald-200/60'
+                  }`}
                 >
                   <span
-                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${isQuotaReached ? 'bg-amber-500' : 'bg-emerald-500'
-                      }`}
+                    className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                      isQuotaReached ? 'bg-amber-500' : 'bg-emerald-500'
+                    }`}
                   />
                   <span>
                     {memberLimit !== null
@@ -544,8 +549,13 @@ export function FamilyMembersView() {
                       : `${membersList.length} thành viên y tế`}
                   </span>
                 </span>
-                <Badge variant="secondary" className="gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
-                  <span className="material-symbols-outlined text-[14px] text-slate-500">verified</span>
+                <Badge
+                  variant="secondary"
+                  className="hidden sm:inline-flex h-7 items-center gap-1.5 px-3 py-0 rounded-full text-xs font-medium leading-none bg-white text-slate-600 border border-slate-200/80 shadow-2xs"
+                >
+                  <span className="material-symbols-outlined text-[15px] leading-none text-slate-500">
+                    verified
+                  </span>
                   <span>Đồng bộ Hồ sơ FamiDoc</span>
                 </Badge>
               </div>
@@ -553,17 +563,23 @@ export function FamilyMembersView() {
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
                 Danh Sách Thành Viên
               </h1>
+
+              <p className="max-w-2xl text-sm leading-relaxed text-slate-600">
+                Quản lý hồ sơ y tế, nhóm máu, tiền sử dị ứng và phân bổ suất thành viên theo hợp đồng bác sĩ gia đình.
+              </p>
             </div>
 
             {/* Cụm nút hành động tinh gọn */}
-            <div className="flex flex-wrap items-center gap-3 shrink-0">
+            <div className="flex flex-wrap items-center gap-3 shrink-0 md:pb-0.5">
               <Button
                 asChild
                 variant="outline"
-                className="min-h-11 bg-primary/10 hover:bg-primary/15 text-primary border-primary/20 rounded-xl text-sm font-semibold gap-2"
+                className="h-10 px-4 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 border-slate-200/90 shadow-xs rounded-xl text-sm font-semibold gap-2"
               >
                 <Link href="/family/subscription">
-                  <span className="material-symbols-outlined text-[19px]">history_edu</span>
+                  <span className="material-symbols-outlined text-[18px] leading-none text-primary">
+                    history_edu
+                  </span>
                   <span>Hợp Đồng &amp; Gói Dịch Vụ</span>
                 </Link>
               </Button>

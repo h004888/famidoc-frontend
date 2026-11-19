@@ -290,19 +290,25 @@ class HttpClient {
 
   async getBlob(path: string, options: RequestInit = {}): Promise<Blob> {
     const url = this.buildUrl(path);
-    const headers: Record<string, string> = {
+    const baseHeaders: Record<string, string> = {
       ...((options.headers as Record<string, string>) || {}),
     };
-    const token = this.getToken();
-    if (token && !headers['Authorization']) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
 
-    const res = await fetch(url, {
-      ...options,
-      method: 'GET',
-      headers,
-    });
+    const res = await this.fetchWithAuthRetry(
+      path,
+      (authHeader) => {
+        const headers = { ...baseHeaders };
+        if (authHeader) {
+          headers['Authorization'] = authHeader;
+        }
+        return fetch(url, {
+          ...options,
+          method: 'GET',
+          headers,
+        });
+      },
+      baseHeaders['Authorization'],
+    );
 
     if (!res.ok) {
       let errorData: unknown = undefined;
@@ -370,15 +376,16 @@ class HttpClient {
     method: 'POST' | 'PUT' = 'POST'
   ): Promise<T> {
     const url = this.buildUrl(path);
-    const headers: Record<string, string> = {};
-    const token = this.getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: formData,
+    const res = await this.fetchWithAuthRetry(path, (authHeader) => {
+      const headers: Record<string, string> = {};
+      if (authHeader) {
+        headers['Authorization'] = authHeader;
+      }
+      return fetch(url, {
+        method,
+        headers,
+        body: formData,
+      });
     });
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
