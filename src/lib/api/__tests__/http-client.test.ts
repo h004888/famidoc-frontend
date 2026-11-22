@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { httpClient } from '../http-client';
-import { ApiError } from '@/lib/http/errors';
+import { ApiConnectionError, ApiError } from '@/lib/http/errors';
 
 describe('httpClient error extraction (JSON, upload, getBlob)', () => {
   beforeEach(() => {
@@ -62,5 +62,66 @@ describe('httpClient error extraction (JSON, upload, getBlob)', () => {
         'Hợp đồng B2B này chưa có tệp PDF trên hệ thống ký số Documenso'
       );
     }
+  });
+
+  it('localizes network failures directly in request() ApiError.message', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    const result = httpClient.get('/api/v1/test');
+    await expect(result).rejects.toBeInstanceOf(ApiConnectionError);
+    await expect(result).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 500,
+      message: 'Không thể kết nối đến máy chủ lúc này. Vui lòng thử lại sau.',
+    });
+  });
+
+  it('mentions offline mode when the browser reports it', async () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    try {
+      await expect(httpClient.get('/api/v1/test')).rejects.toMatchObject({
+        name: 'ApiError',
+        message: 'Thiết bị đang ngoại tuyến. Hãy kết nối mạng rồi thử lại.',
+      });
+    } finally {
+      online.mockRestore();
+    }
+  });
+
+  it('reports an invalid server response when a successful request returns HTML', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('<html></html>'));
+
+    await expect(httpClient.get('/api/v1/test')).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'Máy chủ trả về dữ liệu không hợp lệ. Vui lòng thử lại sau.',
+    });
+  });
+
+  it.each(['getBlob', 'upload'] as const)('localizes a fetch rejection in %s()', async (method) => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    const operation = method === 'getBlob'
+      ? httpClient.getBlob('/api/v1/download')
+      : httpClient.upload('/api/v1/upload', new FormData());
+    await expect(operation).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 500,
+      message: 'Không thể kết nối đến máy chủ lúc này. Vui lòng thử lại sau.',
+    });
+  });
+
+  it.each(['getBlob', 'upload'] as const)('localizes a connection failure while reading the %s() response', async (method) => {
+    const readBody = vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({ ok: true, blob: readBody, json: readBody } as unknown as Response);
+    const operation = method === 'getBlob'
+      ? httpClient.getBlob('/api/v1/download')
+      : httpClient.upload('/api/v1/upload', new FormData());
+    await expect(operation).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 500,
+      message: 'Không thể kết nối đến máy chủ lúc này. Vui lòng thử lại sau.',
+    });
+    expect(readBody).toHaveBeenCalledTimes(1);
   });
 });

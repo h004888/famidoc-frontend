@@ -158,6 +158,23 @@ export interface MedicalContractDetailDto {
     status: string;
     completedAt?: string | null;
   }>;
+  addenda?: Array<{
+    id: string;
+    addendumNumber: string;
+    addendumType: string;
+    additionalAmount: string | number;
+    status: string;
+    createdAt?: string;
+    signatures?: Array<{
+      signerRole: BackendSignerRole;
+      signedAt?: string;
+    }>;
+  }>;
+  invoices?: Array<{
+    id?: string;
+    addendumId?: string | null;
+    paymentStatus?: string;
+  }>;
   servicePackage?: { id?: string; packageName?: string; durationMonths?: number };
   billingSnapshot?: {
     package?: { name?: string };
@@ -581,6 +598,28 @@ export function mapMedicalContractToFourParty(
 
   const parsedPrice =
     dto.billingSnapshot?.pricing?.totalPriceVnd ?? Number(dto.totalAmount ?? 0);
+  const invoices = dto.invoices ?? [];
+  // Tách tiền hợp đồng gốc với tiền phụ lục để không báo nhầm là đã thanh toán.
+  const hasPaidContractInvoice = invoices.some(
+    (inv) => !inv.addendumId && inv.paymentStatus === 'PAID',
+  );
+  const mappedAddenda = dto.addenda?.map((item) => ({
+    id: item.id,
+    addendumNumber: item.addendumNumber,
+    addendumType: item.addendumType,
+    additionalAmount: Number.isFinite(Number(item.additionalAmount))
+      ? Number(item.additionalAmount)
+      : 0,
+    status: item.status,
+    createdAt: item.createdAt,
+    // Một bên ký nhiều bản thì trên giao diện vẫn chỉ tính là một bên.
+    signedRoles: Array.from(
+      new Set((item.signatures ?? []).map((sig) => sig.signerRole)),
+    ),
+    hasPaidInvoice: invoices.some(
+      (inv) => inv.addendumId === item.id && inv.paymentStatus === 'PAID',
+    ),
+  }));
 
   return {
     id: dto.id,
@@ -615,6 +654,8 @@ export function mapMedicalContractToFourParty(
     updatedAt: dto.updatedAt,
     documensoEnvelopeId: dto.documensoEnvelopeId,
     signatures: mappedSignatures,
+    ...(mappedAddenda ? { addenda: mappedAddenda } : {}),
+    hasPaidContractInvoice,
   };
 }
 

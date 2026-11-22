@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { AdminSettlementsView } from '../admin-settlements-view';
 import { financeApi } from '@/lib/api/finance.api';
 
@@ -92,6 +92,11 @@ describe('AdminSettlementsView (BF5 Quyết Toán & Giải Ngân CSYT)', () => {
     expect(screen.queryByText(/119000288819/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Xem chi tiết' }));
     expect(screen.getByText(/119000288819/)).toBeInTheDocument();
+    const payment = within(screen.getByRole('region', { name: 'Số tiền và kỳ chi trả CSYT' }));
+    expect(payment.getByText('Tháng 10/2026')).toBeInTheDocument();
+    expect(payment.getByText('Số tiền phải chuyển CSYT (85%)')).toBeInTheDocument();
+    expect(payment.getByText(/Khoản 85% trả cho CSYT chưa khấu trừ hoặc nộp thay thuế/)).toBeInTheDocument();
+    expect(payment.getByText(/Dịch vụ khám bệnh, chữa bệnh thuộc đối tượng không chịu VAT/)).toBeInTheDocument();
   });
 
   it('prepares a statement for the selected month', async () => {
@@ -206,5 +211,51 @@ describe('AdminSettlementsView (BF5 Quyết Toán & Giải Ngân CSYT)', () => {
     expect(qrLink.getAttribute('href')).toBe(
       'https://img.vietqr.io/image/970436-0071000889922-compact2.svg?amount=416256900&addInfo=DOSOAT+ST202610YDUOC01&accountName=BENH+VIEN+AN+SINH'
     );
+  });
+
+  it('validates transfer fields in Vietnamese before calling API', async () => {
+    vi.mocked(financeApi.executeMonthlySettlement).mockClear();
+    render(<AdminSettlementsView />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Xem chi tiết' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Chuẩn bị chuyển khoản' }));
+
+    // Mã giao dịch quá ngắn (< 3 ký tự)
+    fireEvent.change(screen.getByLabelText(/Mã giao dịch trên chứng từ/i), { target: { value: 'FT' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu xác nhận đã chuyển' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Mã giao dịch trên chứng từ phải từ 3 đến 100 ký tự.',
+    );
+
+    // Thời điểm sớm hơn ngày lập bảng (2026-11-05)
+    fireEvent.change(screen.getByLabelText(/Mã giao dịch trên chứng từ/i), { target: { value: 'FT1234' } });
+    fireEvent.change(screen.getByLabelText(/Số tiền đã chuyển/i), { target: { value: '416256900' } });
+    fireEvent.change(screen.getByLabelText(/Thời điểm chuyển khoản/i), { target: { value: '2026-11-01T08:00:00' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu xác nhận đã chuyển' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Thời điểm chuyển khoản không được sớm hơn thời điểm lập bảng quyết toán.',
+    );
+
+    // Tệp sai định dạng
+    const badFile = new File(['hello'], 'script.txt', { type: 'text/plain' });
+    fireEvent.change(screen.getByLabelText('Tệp chứng từ chuyển khoản'), { target: { files: [badFile] } });
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Chỉ chấp nhận tệp chứng từ định dạng PDF, PNG hoặc JPEG.',
+    );
+
+    expect(financeApi.executeMonthlySettlement).not.toHaveBeenCalled();
+  });
+
+  it('rejects whitespace-only failure reason with Vietnamese error', async () => {
+    vi.mocked(financeApi.executeMonthlySettlement).mockClear();
+    render(<AdminSettlementsView />);
+    fireEvent.click(await screen.findByRole('button', { name: 'Xem chi tiết' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Báo lỗi chi trả' }));
+
+    fireEvent.change(screen.getByLabelText(/Lý do chi trả thất bại/i), { target: { value: '            ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu lý do thất bại' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Lý do chi trả thất bại phải từ 10 đến 1000 ký tự.',
+    );
+    expect(financeApi.executeMonthlySettlement).not.toHaveBeenCalled();
   });
 });

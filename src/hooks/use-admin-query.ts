@@ -9,6 +9,7 @@ export function useAdminQuery<T>(load: () => Promise<T>) {
     revision: number;
     data?: T;
     error?: string;
+    cause?: unknown;
   }>();
 
   useEffect(() => {
@@ -21,6 +22,7 @@ export function useAdminQuery<T>(load: () => Promise<T>) {
         if (active) setResult({
           load, revision,
           error: error instanceof Error ? error.message : 'Không thể tải dữ liệu.',
+          cause: error,
         });
       }
     }
@@ -32,6 +34,7 @@ export function useAdminQuery<T>(load: () => Promise<T>) {
   return {
     data: current?.data,
     error: current?.error,
+    cause: current?.cause,
     loading: !current,
     refresh: () => setRevision((value) => value + 1),
   };

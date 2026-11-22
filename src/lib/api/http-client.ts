@@ -1,6 +1,6 @@
-import { ApiError } from '../http/errors';
+import { ApiConnectionError, ApiError } from '../http/errors';
 import { COOKIE_KEYS, getCookie } from '@/lib/auth-storage';
-import { extractErrorMessage } from './error-handler';
+import { extractErrorMessage, isNetworkFailureMessage } from './error-handler';
 
 const LEGACY_TOKEN_KEY = 'famidoc_auth_token';
 
@@ -19,6 +19,20 @@ const SKIP_AUTH_REFRESH_PATHS = [
   '/api/v1/auth/verify-email-otp',
   '/api/v1/auth/reset-password',
 ];
+
+function normalizeRequestError(error: unknown): ApiError {
+  if (error instanceof ApiError) return error;
+  if (error instanceof SyntaxError) {
+    return new ApiError('Máy chủ trả về dữ liệu không hợp lệ. Vui lòng thử lại sau.');
+  }
+  const rawMessage = error instanceof Error ? error.message : error;
+  if (typeof rawMessage === 'string' && isNetworkFailureMessage(rawMessage)) {
+    return new ApiConnectionError(extractErrorMessage(error));
+  }
+  return new ApiError(
+    extractErrorMessage(error, 'Không xử lý được yêu cầu. Vui lòng thử lại sau.')
+  );
+}
 
 class HttpClient {
   private baseUrl: string;
@@ -279,8 +293,7 @@ class HttpClient {
 
       return (await res.json()) as T;
     } catch (err) {
-      if (err instanceof ApiError) throw err;
-      throw new ApiError(err instanceof Error ? err.message : 'Lỗi kết nối máy chủ', 500);
+      throw normalizeRequestError(err);
     }
   }
 
@@ -298,42 +311,47 @@ class HttpClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const res = await fetch(url, {
-      ...options,
-      method: 'GET',
-      headers,
-    });
+    try {
+      const res = await fetch(url, {
+        ...options,
+        method: 'GET',
+        headers,
+      });
 
-    if (!res.ok) {
-      let errorData: unknown = undefined;
-      let detailMessage = `API error (${res.status})`;
-      const contentType =
-        typeof res.headers?.get === 'function'
-          ? res.headers.get('content-type') || ''
-          : '';
+      if (!res.ok) {
+        let errorData: unknown = undefined;
+        const fallbackMessage = `API error (${res.status})`;
+        let detailMessage = extractErrorMessage({}, fallbackMessage);
+        const contentType =
+          typeof res.headers?.get === 'function'
+            ? res.headers.get('content-type') || ''
+            : '';
 
-      if (contentType.includes('application/json') && typeof res.json === 'function') {
-        errorData = await res.json().catch(() => undefined);
-        detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
-      } else if (typeof res.text === 'function') {
-        const text = await res.text().catch(() => '');
-        if (text.trim()) {
-          try {
-            errorData = JSON.parse(text);
-            detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
-          } catch {
-            detailMessage = text.trim();
+        if (contentType.includes('application/json') && typeof res.json === 'function') {
+          errorData = await res.json().catch(() => undefined);
+          detailMessage = extractErrorMessage({ data: errorData }, fallbackMessage);
+        } else if (typeof res.text === 'function') {
+          const text = await res.text().catch(() => '');
+          if (text.trim()) {
+            try {
+              errorData = JSON.parse(text);
+              detailMessage = extractErrorMessage({ data: errorData }, fallbackMessage);
+            } catch {
+              detailMessage = extractErrorMessage(text.trim(), fallbackMessage);
+            }
           }
+        } else if (typeof res.json === 'function') {
+          errorData = await res.json().catch(() => undefined);
+          detailMessage = extractErrorMessage({ data: errorData }, fallbackMessage);
         }
-      } else if (typeof res.json === 'function') {
-        errorData = await res.json().catch(() => undefined);
-        detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+
+        throw new ApiError(detailMessage, res.status, errorData);
       }
 
-      throw new ApiError(detailMessage, res.status, errorData);
+      return await res.blob();
+    } catch (error) {
+      throw normalizeRequestError(error);
     }
-
-    return res.blob();
   }
 
   post<T>(path: string, body?: unknown, options?: RequestInit): Promise<T> {
@@ -375,20 +393,24 @@ class HttpClient {
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
-    const res = await fetch(url, {
-      method,
-      headers,
-      body: formData,
-    });
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      const detailMessage = extractErrorMessage(
-        { data: errorData },
-        `Upload failed (${res.status})`
-      );
-      throw new ApiError(detailMessage, res.status, errorData);
+    try {
+      const res = await fetch(url, {
+        method,
+        headers,
+        body: formData,
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const detailMessage = extractErrorMessage(
+          { data: errorData },
+          `API error (${res.status})`
+        );
+        throw new ApiError(detailMessage, res.status, errorData);
+      }
+      return (await res.json()) as T;
+    } catch (error) {
+      throw normalizeRequestError(error);
     }
-    return (await res.json()) as T;
   }
 }
 

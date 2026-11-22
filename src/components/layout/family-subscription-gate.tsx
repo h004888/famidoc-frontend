@@ -41,7 +41,9 @@ function normalizePath(pathname: string | null | undefined): string {
 export function isRestrictedFamilyPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
   const normalized = normalizePath(pathname);
-  if (normalized === '/family/medical-book') return false;
+  if (['/family/medical-book', '/family/billing', '/family/feedback'].includes(normalized)) {
+    return false;
+  }
   if (normalized === '/family/prescriptions' || normalized.startsWith('/family/prescriptions/')) return false;
   return normalized === '/family' || normalized.startsWith('/family/');
 }

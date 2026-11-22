@@ -5,6 +5,7 @@ import { BookingTrackingStep } from '../booking-tracking-step';
 import { BookingPaymentStep } from '../booking-payment-step';
 import { contractsApi } from '@/lib/api/contracts.api';
 import { encountersApi } from '@/lib/api/encounters.api';
+import { supportCasesApi } from '@/lib/api/support-cases.api';
 import { ApiError } from '@/lib/http/errors';
 
 const pushMock = vi.fn();
@@ -89,6 +90,20 @@ vi.mock('@/lib/api/contracts.api', () => ({
     recheckPaymentActivation: vi.fn(),
   },
 }));
+
+vi.mock('@/lib/api/support-cases.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/api/support-cases.api')>();
+  return {
+    ...actual,
+    supportCasesApi: {
+      ...actual.supportCasesApi,
+      list: vi.fn().mockResolvedValue({ items: [], total: 0, page: 1, limit: 5 }),
+      detail: vi.fn(),
+      createPaymentIssueCase: vi.fn(),
+      uploadAttachment: vi.fn(),
+    },
+  };
+});
 
 const pendingPayment = {
   id: 'pay-1',
@@ -469,16 +484,9 @@ describe('BookingTrackingStep', () => {
     render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={40} />);
 
     await screen.findByTestId('booking-tracking-panel');
-    vi.mocked(contractsApi.getMedicalContractDetail).mockRejectedValue(
-      new Error('Mất mạng tạm thời')
-    );
-
-    await waitFor(
-      () => {
-        expect(contractsApi.getMedicalContractDetail).toHaveBeenCalledTimes(2);
-      },
-      { timeout: 2000 }
-    );
+    const failingPoll = vi.fn().mockRejectedValue(new Error('Mất mạng tạm thời'));
+    vi.mocked(contractsApi.getMedicalContractDetail).mockImplementation(failingPoll);
+    await waitFor(() => expect(failingPoll).toHaveBeenCalled());
 
     expect(screen.queryByTestId('booking-tracking-error')).toBeNull();
     expect(screen.getByTestId('booking-tracking-panel')).toBeInTheDocument();
@@ -644,6 +652,9 @@ describe('BookingPaymentStep', () => {
       contractStatus: 'PENDING_PAYMENT',
     } as never);
     vi.mocked(contractsApi.getPaymentStatus).mockReset().mockResolvedValue(pendingPayment);
+    vi.mocked(supportCasesApi.list).mockReset().mockResolvedValue({
+      items: [], total: 0, page: 1, limit: 50,
+    });
     vi.mocked(contractsApi.createVietQRPayment).mockResolvedValue(pendingPayment as never);
     vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
       hasActiveContract: false,
@@ -1124,5 +1135,57 @@ describe('BookingPaymentStep', () => {
     expect(
       await screen.findByTestId('booking-payment-success', {}, { timeout: 2000 })
     ).toBeInTheDocument();
+  });
+
+  it('tải lại hóa đơn hết hạn đang đối soát mà không tạo mã mới', async () => {
+    vi.mocked(contractsApi.getPaymentStatus).mockResolvedValue({
+      ...pendingPayment,
+      status: 'EXPIRED',
+    } as never);
+    vi.mocked(supportCasesApi.list).mockResolvedValueOnce({
+      items: [
+        {
+          id: 'case-pay-open-1',
+          caseCode: 'CK-OPEN1234',
+          caseType: 'PAYMENT_ISSUE',
+          status: 'IN_REVIEW',
+          familyUserId: 'fam-1',
+          contractId: 'ctr-1',
+          complaintId: null,
+          invoiceId: 'pay-1',
+          transactionId: null,
+          contextSnapshot: {},
+          resolutionSummary: null,
+          resolvedAt: null,
+          createdAt: '2026-11-22T08:00:00Z',
+          updatedAt: '2026-11-22T08:10:00Z',
+          messageCount: 1,
+          lastMessage: null,
+          familyUser: { id: 'fam-1', fullName: 'Nguyễn Văn A', phone: '0901234567' },
+          contract: {
+            id: 'ctr-1',
+            contractNumber: 'HD-2026-001',
+            contractStatus: 'PENDING_PAYMENT',
+            facilityName: 'PK FamiCare',
+            packageName: 'Gói Chăm Sóc',
+          },
+          complaint: null,
+          invoice: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 5,
+    });
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('payment-report-issue')).toBeInTheDocument();
+    const openBanner = await screen.findByTestId('payment-open-support-case');
+    expect(openBanner).toHaveTextContent('CK-OPEN1234');
+    expect(openBanner).toHaveTextContent(/không chuyển khoản lại/);
+    expect(contractsApi.getPaymentStatus).toHaveBeenCalledWith('pay-1');
+    expect(contractsApi.createVietQRPayment).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('payment-reissue')).not.toBeInTheDocument();
   });
 });

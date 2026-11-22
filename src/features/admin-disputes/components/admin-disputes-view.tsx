@@ -1,30 +1,27 @@
 'use client';
 
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
   AlertCircle,
   Archive,
-  ArrowRight,
   Building2,
   CheckCircle2,
   ClipboardList,
   Clock,
   FileCheck2,
-  FileText,
   Gavel,
   Info,
+  MessageSquareMore,
   PlayCircle,
   RefreshCw,
   Scale,
-  ShieldAlert,
-  ShieldCheck,
   Stethoscope,
   UsersRound,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/components/shared';
 import { AdminPageNavigation } from '@/components/shared/admin-page-navigation';
+import { SupportCaseThread } from '@/components/shared/support-case-thread';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -47,35 +44,27 @@ import {
   type ComplaintSenderRole,
   type ComplaintStatus,
 } from '@/lib/api/admin.api';
+import {
+  COMPLAINT_CATEGORY_LABELS,
+  COMPLAINT_OUTCOME_DESCRIPTIONS,
+  getComplaintCategoryLabel,
+} from '@/lib/complaint-labels';
+import {
+  getSupportCaseStatusLabel,
+  SUPPORT_CASE_STATUS_STYLES,
+  SUPPORT_CASE_TYPE_LABELS,
+  supportCasesApi,
+  type SupportCaseDetail,
+  type SupportCasePage,
+  type SupportCaseStatus,
+  type SupportCaseSummary,
+} from '@/lib/api/support-cases.api';
+import { extractErrorMessage } from '@/lib/api/error-handler';
 import { useAdminQuery } from '@/hooks/use-admin-query';
 import { cn } from '@/lib/utils';
 
-export const outcomeDescriptions: Record<ComplaintOutcome, { label: string; desc: string }> = {
-  NO_VIOLATION: {
-    label: 'Không có vi phạm',
-    desc: 'Sự việc do yếu tố khách quan hoặc hiểu lầm thông tin, không phát hiện vi phạm y tế.',
-  },
-  WARNING: {
-    label: 'Nhắc nhở / Khiển trách',
-    desc: 'Nhắc nhở bác sĩ hoặc cá nhân liên quan tuân thủ nghiêm túc quy tắc ứng xử và tác phong.',
-  },
-  SERVICE_CORRECTION: {
-    label: 'Điều chỉnh dịch vụ',
-    desc: 'Đổi bác sĩ gia đình phụ trách mới, bù buổi khám hoặc điều chỉnh quyền lợi gói dịch vụ.',
-  },
-  REFERRED_TO_FACILITY: {
-    label: 'Chuyển CSYT xử lý chuyên môn',
-    desc: 'Chuyển hồ sơ sang Hội đồng chuyên môn của Cơ sở Y tế để xem xét trách nhiệm chuyên khoa.',
-  },
-};
-
-const categoryLabels: Record<string, string> = {
-  MISSED_VISIT: 'Bỏ ca / Trễ hẹn khám',
-  CLINICAL_QUALITY: 'Chất lượng chuyên môn y tế',
-  ATTITUDE: 'Thái độ & Quy tắc ứng xử',
-  BILLING: 'Thanh toán & Gói dịch vụ',
-  COMMUNICATION: 'Liên lạc & Phối hợp',
-};
+export const outcomeDescriptions = COMPLAINT_OUTCOME_DESCRIPTIONS;
+const categoryLabels = COMPLAINT_CATEGORY_LABELS;
 
 const senderTabs = [
   { role: 'FAMILY_REP', label: 'Gia đình', icon: UsersRound },
@@ -169,11 +158,11 @@ export function AdminDisputesView({ facility = false }: { facility?: boolean } =
             </div>
           </div>
 
-          {/* Tabs Gia đình vs Bác sĩ */}
+          {/* Tabs Gia đình / Bác sĩ / Xem xét lại & Câu hỏi (chỉ Admin) */}
           <Tabs defaultValue="FAMILY_REP" className="min-w-0 gap-5">
             <TabsList
               aria-label="Người gửi khiếu nại"
-              className="grid w-full max-w-xl grid-cols-2 items-stretch gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 group-data-[orientation=horizontal]/tabs:h-auto shadow-xs"
+              className="grid w-full max-w-3xl grid-cols-1 items-stretch gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 group-data-[orientation=horizontal]/tabs:h-auto shadow-xs sm:grid-cols-3"
             >
               {senderTabs.map(({ role, label, icon: Icon }) => (
                 <TabsTrigger
@@ -185,12 +174,22 @@ export function AdminDisputesView({ facility = false }: { facility?: boolean } =
                   <span>{label}</span>
                 </TabsTrigger>
               ))}
+              <TabsTrigger
+                value="SUPPORT_CASES"
+                className="h-auto min-h-11 justify-center gap-2 rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-xs sm:text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100 data-[state=active]:border-primary/20 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-xs cursor-pointer"
+              >
+                <MessageSquareMore aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span>Xem xét lại &amp; Câu hỏi</span>
+              </TabsTrigger>
             </TabsList>
             {senderTabs.map(({ role, label }) => (
               <TabsContent key={role} value={role}>
                 <ComplaintList sender={role} senderLabel={label} />
               </TabsContent>
             ))}
+            <TabsContent value="SUPPORT_CASES">
+              <ComplaintSupportCaseList />
+            </TabsContent>
           </Tabs>
         </>
       )}
@@ -543,9 +542,9 @@ function ComplaintDialog({
         if (!open && !busy) close();
       }}
     >
-      <DialogContent className="max-h-[90vh] gap-0 overflow-hidden rounded-3xl border-slate-200 p-0 sm:max-w-2xl [&>[data-slot=dialog-close]]:top-4 [&>[data-slot=dialog-close]]:right-4 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:bg-white/15 [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:text-white [&>[data-slot=dialog-close]]:opacity-90 [&>[data-slot=dialog-close]]:hover:bg-white/25">
+      <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden rounded-2xl border-slate-200 p-0 sm:max-w-2xl sm:rounded-3xl [&>[data-slot=dialog-close]]:top-4 [&>[data-slot=dialog-close]]:right-4 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:bg-white/15 [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:text-white [&>[data-slot=dialog-close]]:opacity-90 [&>[data-slot=dialog-close]]:hover:bg-white/25">
         {/* Header Gradient */}
-        <DialogHeader className="bg-gradient-to-r from-[#09253b] to-[#0037c1] p-5 text-left text-white sm:p-6">
+        <DialogHeader className="shrink-0 bg-gradient-to-r from-[#09253b] to-[#0037c1] p-4 text-left text-white sm:p-6">
           <div className="flex flex-wrap items-center gap-2 pr-8 text-xs font-medium text-blue-100">
             <span>Hồ sơ xử lý khiếu nại</span>
             <span aria-hidden="true">•</span>
@@ -554,11 +553,11 @@ function ComplaintDialog({
             </span>
           </div>
           <DialogTitle className="mt-1 text-lg font-bold leading-snug text-white sm:text-xl">
-            {categoryLabels[item.complaintCategory] || 'Khiếu nại sự cố'}
+            {getComplaintCategoryLabel(item.complaintCategory)}
           </DialogTitle>
           <DialogDescription className="text-xs text-blue-100/90">
-            Hợp đồng: {item.contract?.contractNumber ?? item.contractId} • CSYT:{' '}
-            {item.contract?.facility?.facilityName || 'Cơ sở Y tế'}
+            Hợp đồng: {data?.contract?.contractNumber ?? item.contract?.contractNumber ?? item.contractId} • CSYT:{' '}
+            {data?.contract?.facility?.facilityName || item.contract?.facility?.facilityName || 'Cơ sở Y tế'}
           </DialogDescription>
         </DialogHeader>
 
@@ -576,8 +575,8 @@ function ComplaintDialog({
         )}
 
         {data && (
-          <form onSubmit={submit} className="flex flex-col flex-1 overflow-hidden">
-            <div className="max-h-[60vh] space-y-4 overflow-y-auto p-4 text-xs sm:p-6 sm:text-sm">
+          <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4 text-xs sm:p-6 sm:text-sm">
               {/* Stepper Timeline Visualizer */}
               <div className="rounded-2xl border border-slate-200/90 bg-slate-50/70 p-3.5 sm:p-4">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2.5">
@@ -801,7 +800,7 @@ function ComplaintDialog({
             </div>
 
             {/* Footer hành động */}
-            <DialogFooter className="flex-row items-center justify-between border-t border-slate-200 bg-slate-50 px-4 py-3.5 sm:px-6">
+            <DialogFooter className="shrink-0 flex-row flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3.5 sm:px-6">
               <Button
                 type="button"
                 variant="outline"
@@ -853,5 +852,412 @@ function ComplaintDialog({
         )}
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ComplaintSupportCaseList() {
+  const [page, setPage] = useState(1);
+  const [typeFilter, setTypeFilter] = useState<
+    'COMPLAINT' | 'COMPLAINT_APPEAL' | 'COMPLAINT_QUESTION'
+  >('COMPLAINT');
+  const [statusFilter, setStatusFilter] = useState<SupportCaseStatus | ''>('');
+  const [data, setData] = useState<SupportCasePage | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const [selectedSummary, setSelectedSummary] =
+    useState<SupportCaseSummary | null>(null);
+  const [caseDetail, setCaseDetail] = useState<SupportCaseDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+
+  const loadList = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await supportCasesApi.list({
+        type: typeFilter,
+        status: statusFilter || undefined,
+        page,
+        limit: 20,
+      });
+      setData(res);
+    } catch (cause) {
+      setError(
+        extractErrorMessage(
+          cause,
+          'Không tải được danh sách yêu cầu xem xét lại và câu hỏi.',
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [page, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
+
+  const loadDetail = useCallback(async (caseId: string) => {
+    setDetailLoading(true);
+    setDetailError('');
+    try {
+      const detail = await supportCasesApi.detail(caseId);
+      setCaseDetail(detail);
+    } catch (cause) {
+      setDetailError(
+        extractErrorMessage(
+          cause,
+          'Không tải được chi tiết hồ sơ xem xét lại.',
+        ),
+      );
+    } finally {
+      setDetailLoading(false);
+    }
+  }, []);
+
+  const handleOpen = (item: SupportCaseSummary) => {
+    setSelectedSummary(item);
+    setCaseDetail(null);
+    void loadDetail(item.id);
+  };
+
+  return (
+    <>
+      <Card className="overflow-hidden rounded-2xl border-slate-200/90 py-0 gap-0 shadow-xs">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-slate-50/60 p-4 sm:px-5">
+          <div className="space-y-0.5 min-w-0">
+            <h2 className="text-sm sm:text-base font-bold text-slate-900">
+              Yêu cầu xem xét lại &amp; Câu hỏi từ gia đình
+            </h2>
+            <p className="text-xs text-slate-500">
+              Hiển thị đầy đủ khiếu nại gốc, biên bản CSYT và phán quyết cũ bên cạnh
+              phản hồi mới của gia đình.
+              {data ? ` Tổng số: ${data.total} hồ sơ.` : ''}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              aria-label="Lọc loại hồ sơ hỗ trợ khiếu nại"
+              value={typeFilter}
+              onChange={(event) => {
+                setTypeFilter(
+                  event.target.value as
+                    | 'COMPLAINT'
+                    | 'COMPLAINT_APPEAL'
+                    | 'COMPLAINT_QUESTION',
+                );
+                setPage(1);
+              }}
+              className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs sm:text-sm font-medium text-slate-700 cursor-pointer"
+            >
+              <option value="COMPLAINT">Tất cả loại</option>
+              <option value="COMPLAINT_APPEAL">Yêu cầu xem xét lại</option>
+              <option value="COMPLAINT_QUESTION">Câu hỏi về khiếu nại</option>
+            </select>
+
+            <select
+              aria-label="Lọc trạng thái hồ sơ xem xét lại"
+              value={statusFilter}
+              onChange={(event) => {
+                setStatusFilter(event.target.value as SupportCaseStatus | '');
+                setPage(1);
+              }}
+              className="h-9 rounded-xl border border-slate-200 bg-white px-3 text-xs sm:text-sm font-medium text-slate-700 cursor-pointer"
+            >
+              <option value="">Tất cả trạng thái</option>
+              <option value="OPEN">Chờ Admin tiếp nhận</option>
+              <option value="IN_REVIEW">Đang xem xét lại</option>
+              <option value="NEED_MORE_INFO">Cần bổ sung thông tin</option>
+              <option value="RESOLVED">Đã có kết quả</option>
+              <option value="CLOSED">Đã đóng</option>
+            </select>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={loading}
+              onClick={() => void loadList()}
+              className="rounded-xl bg-white text-xs font-semibold cursor-pointer"
+            >
+              <RefreshCw
+                className={cn(
+                  'h-3.5 w-3.5 text-slate-500',
+                  loading && 'animate-spin',
+                )}
+                aria-hidden="true"
+              />
+              <span>Làm mới</span>
+            </Button>
+          </div>
+        </div>
+
+        {loading && (
+          <div className="flex items-center justify-center gap-2 py-10 text-slate-500 text-sm">
+            <RefreshCw className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
+            <span>Đang tải hồ sơ xem xét lại &amp; câu hỏi…</span>
+          </div>
+        )}
+
+        {error && (
+          <div
+            role="alert"
+            className="m-4 rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs sm:text-sm text-rose-600"
+          >
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && data?.items.length === 0 && (
+          <div className="flex flex-col items-center gap-3 px-4 py-12 text-center text-sm text-slate-600">
+            <ClipboardList aria-hidden="true" className="h-10 w-10 text-slate-300" />
+            <p className="font-medium text-slate-600">
+              Chưa có yêu cầu xem xét lại hoặc câu hỏi nào phù hợp bộ lọc.
+            </p>
+          </div>
+        )}
+
+        {!!data?.items.length && (
+          <ul className="divide-y divide-slate-100">
+            {data.items.map((item) => (
+              <li
+                key={item.id}
+                className="flex flex-wrap items-start justify-between gap-3 p-4 transition-colors hover:bg-slate-50/80 sm:items-center sm:px-5"
+              >
+                <div className="min-w-0 flex-1 basis-64 space-y-1.5 text-xs sm:text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-bold text-slate-900 tabular-nums">
+                      {item.caseCode}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-[11px] font-semibold',
+                        item.caseType === 'COMPLAINT_APPEAL'
+                          ? 'border-amber-300 bg-amber-50 text-amber-900'
+                          : 'border-indigo-200 bg-indigo-50 text-indigo-800',
+                      )}
+                    >
+                      {SUPPORT_CASE_TYPE_LABELS[item.caseType]}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'text-[11px] font-semibold',
+                        SUPPORT_CASE_STATUS_STYLES[item.status],
+                      )}
+                    >
+                      {getSupportCaseStatusLabel(item.status, item.caseType)}
+                    </Badge>
+                    {item.complaint && (
+                      <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-600 tabular-nums">
+                        KN: {item.complaint.complaintCode} ·{' '}
+                        {getComplaintCategoryLabel(
+                          item.complaint.complaintCategory,
+                        )}
+                      </span>
+                    )}
+                  </div>
+
+                  {item.lastMessage && (
+                    <p className="line-clamp-2 text-xs text-slate-800 leading-relaxed">
+                      {item.lastMessage.body}
+                    </p>
+                  )}
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
+                    <span className="font-semibold text-slate-700">
+                      Gia đình: {item.familyUser.fullName}
+                    </span>
+                    <span>CSYT: {item.contract.facilityName}</span>
+                    <span className="tabular-nums text-slate-400">
+                      HĐ: {item.contract.contractNumber}
+                    </span>
+                    <time
+                      dateTime={item.updatedAt}
+                      className="tabular-nums text-slate-400"
+                    >
+                      {dateFormat.format(new Date(item.updatedAt))}
+                    </time>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={item.status === 'OPEN' ? 'default' : 'outline'}
+                  onClick={() => handleOpen(item)}
+                  className={cn(
+                    'rounded-xl text-xs font-semibold cursor-pointer',
+                    item.status === 'OPEN' &&
+                      'bg-primary text-white hover:bg-primary/90',
+                  )}
+                >
+                  Xem &amp; Phản hồi
+                </Button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {data && (data.total > data.limit || page > 1) && (
+          <div className="border-t border-slate-200 px-4 py-3">
+            <AdminPageNavigation
+              page={page}
+              total={data.total}
+              limit={data.limit}
+              onPage={setPage}
+            />
+          </div>
+        )}
+      </Card>
+
+      <Dialog
+        open={Boolean(selectedSummary)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedSummary(null);
+            setCaseDetail(null);
+            setDetailError('');
+          }
+        }}
+      >
+        <DialogContent className="flex max-h-[90dvh] flex-col gap-0 overflow-hidden rounded-2xl border-slate-200 p-0 sm:max-w-4xl sm:rounded-3xl [&>[data-slot=dialog-close]]:top-4 [&>[data-slot=dialog-close]]:right-4 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:bg-white/15 [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:text-white [&>[data-slot=dialog-close]]:opacity-90 [&>[data-slot=dialog-close]]:hover:bg-white/25">
+          <DialogHeader className="shrink-0 bg-gradient-to-r from-[#09253b] to-[#0037c1] p-4 text-left text-white sm:p-5">
+            <div className="flex flex-wrap items-center gap-2 pr-8 text-xs text-blue-100">
+              <span>
+                {selectedSummary
+                  ? SUPPORT_CASE_TYPE_LABELS[selectedSummary.caseType]
+                  : 'Hồ sơ xem xét lại'}
+              </span>
+              {selectedSummary && (
+                <>
+                  <span aria-hidden="true">•</span>
+                  <span className="rounded bg-white/15 px-1.5 py-0.5 tabular-nums text-[11px] text-white">
+                    {selectedSummary.caseCode}
+                  </span>
+                </>
+              )}
+            </div>
+            <DialogTitle className="mt-0.5 text-base font-bold text-white sm:text-lg">
+              {caseDetail?.complaint
+                ? `${caseDetail.complaint.complaintCode} — ${getComplaintCategoryLabel(caseDetail.complaint.complaintCategory)}`
+                : selectedSummary?.complaint?.complaintCode ||
+                  'Chi tiết hồ sơ trao đổi'}
+            </DialogTitle>
+            {selectedSummary && (
+              <DialogDescription className="text-xs text-blue-100/90">
+                Gia đình: {selectedSummary.familyUser.fullName} • CSYT:{' '}
+                {selectedSummary.contract.facilityName} • Hợp đồng:{' '}
+                {selectedSummary.contract.contractNumber}
+              </DialogDescription>
+            )}
+          </DialogHeader>
+
+          <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 text-xs sm:p-6 sm:text-sm">
+            {detailLoading && !caseDetail && (
+              <div className="flex items-center justify-center gap-2 py-8 text-slate-500">
+                <RefreshCw
+                  className="h-4 w-4 animate-spin text-primary"
+                  aria-hidden="true"
+                />
+                <span>Đang tải toàn bộ hồ sơ khiếu nại và phản hồi…</span>
+              </div>
+            )}
+
+            {detailError && (
+              <div
+                role="alert"
+                className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-rose-800"
+              >
+                {detailError}
+              </div>
+            )}
+
+            {caseDetail && (
+              <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+                {/* Cột trái: Toàn bộ khiếu nại gốc + Xác minh CSYT + Phán quyết cũ (giữ nguyên) */}
+                <div className="space-y-3.5 lg:col-span-5">
+                  {caseDetail.complaint && (
+                    <>
+                      <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-3.5 space-y-1.5">
+                        <div className="text-xs font-bold text-slate-900">
+                          1. Khiếu nại gốc ({caseDetail.complaint.complaintCode})
+                        </div>
+                        <p className="whitespace-pre-wrap break-words text-xs text-slate-800 leading-relaxed">
+                          {caseDetail.complaint.description}
+                        </p>
+                      </section>
+
+                      {caseDetail.complaint.facilityResponse && (
+                        <section className="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-3.5 space-y-1.5">
+                          <div className="text-xs font-bold text-indigo-950">
+                            2. Biên bản xác minh của CSYT
+                          </div>
+                          <p className="whitespace-pre-wrap break-words text-xs text-slate-800 leading-relaxed">
+                            {caseDetail.complaint.facilityResponse}
+                          </p>
+                        </section>
+                      )}
+
+                      <section className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-3.5 space-y-1.5">
+                        <div className="flex flex-wrap items-center justify-between gap-1.5">
+                          <span className="text-xs font-bold text-emerald-950">
+                            3. Phán quyết gốc (giữ nguyên)
+                          </span>
+                          {caseDetail.complaint.resolutionOutcome && (
+                            <Badge className="bg-emerald-600 text-white text-[10px]">
+                              {outcomeDescriptions[
+                                caseDetail.complaint
+                                  .resolutionOutcome as ComplaintOutcome
+                              ]?.label ||
+                                caseDetail.complaint.resolutionOutcome}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="whitespace-pre-wrap break-words text-xs text-slate-800 leading-relaxed">
+                          {caseDetail.complaint.resolutionNotes ||
+                            'Không có ghi chú phán quyết.'}
+                        </p>
+                      </section>
+                    </>
+                  )}
+                </div>
+
+                {/* Cột phải: Luồng Xem xét lại / Câu hỏi & Chốt kết quả */}
+                <div className="lg:col-span-7">
+                  <SupportCaseThread
+                    caseDetail={caseDetail}
+                    viewerRole="ADMIN"
+                    onUpdated={(updated) => {
+                      setCaseDetail(updated);
+                      void loadList();
+                    }}
+                    onRefresh={() => loadDetail(caseDetail.id)}
+                    refreshing={detailLoading}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="shrink-0 flex-row flex-wrap items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4 py-3 sm:px-6">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedSummary(null);
+                setCaseDetail(null);
+              }}
+            >
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

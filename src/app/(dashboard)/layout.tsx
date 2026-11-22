@@ -15,6 +15,8 @@ import {
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar';
 import { ServerAuthSessionBoundary } from '@/features/auth/components/server-auth-session-boundary';
 
+export const instant = false;
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={null}>

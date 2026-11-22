@@ -43,6 +43,19 @@ export const contractMemberSchema = z.object({
 
 export type ContractMember = z.infer<typeof contractMemberSchema>;
 
+export const contractAddendumSchema = z.object({
+  id: z.string(),
+  addendumNumber: z.string(),
+  addendumType: z.string(),
+  additionalAmount: z.number().nonnegative(),
+  status: z.string(),
+  createdAt: z.string().optional(),
+  signedRoles: z.array(z.string()).optional(),
+  hasPaidInvoice: z.boolean().optional(),
+});
+
+export type ContractAddendumSummary = z.infer<typeof contractAddendumSchema>;
+
 export const contractSchema = z.object({
   id: z.string().min(1, 'Mã định danh hợp đồng không được để trống'),
   contractNumber: z.string().min(1, 'Mã số hợp đồng không được để trống'),
@@ -80,6 +93,8 @@ export const contractSchema = z.object({
     })
     .optional()
     .default({}),
+  addenda: z.array(contractAddendumSchema).optional(),
+  hasPaidContractInvoice: z.boolean().optional(),
 });
 
 export type FourPartyContract = z.infer<typeof contractSchema>;
