@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { FamilyTelemedicineView } from '@/features/family-telemedicine';
 
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function FamilyTelemedicinePage() {
-  return <FamilyTelemedicineView />;
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Đang tải phòng khám...</div>}>
+      <FamilyTelemedicineView />
+    </Suspense>
+  );
 }

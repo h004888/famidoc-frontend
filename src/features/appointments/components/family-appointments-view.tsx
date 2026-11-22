@@ -626,7 +626,7 @@ export function FamilyAppointmentsView() {
                             )}
                             {apt.type === 'telehealth' && apt.rawStatus !== 'REQUESTED' && (
                               <Button asChild className="min-h-10 w-full rounded-xl text-xs font-semibold gap-1.5">
-                                <Link href="/family/telemedicine">
+                                <Link href={`/family/telemedicine?encounterId=${apt.id}`}>
                                   <span className="material-symbols-outlined text-[17px]">videocam</span>
                                   <span>Vào phòng khám Video</span>
                                 </Link>

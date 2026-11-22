@@ -97,6 +97,16 @@ export interface EncounterItem {
     patientId: string;
     isFinalized: boolean;
   }>;
+  telehealthSession?: {
+    id: string;
+    encounterId: string;
+    roomSid: string;
+    startedAt?: string | null;
+    endedAt?: string | null;
+    durationSeconds: number;
+    networkQualityScore?: string | null;
+    isFallbackChat: boolean;
+  } | null;
   contract?: EncounterContract;
   doctor?: {
     id: string;
