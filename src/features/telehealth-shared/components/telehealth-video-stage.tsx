@@ -100,7 +100,7 @@ export function TelehealthVideoStage({
                 : 'Chế độ chat dự phòng'}
             </span>
           )}
-          <span className="font-mono text-slate-300">
+          <span className="tabular-nums text-slate-300">
             {formatDurationClock(roomState.elapsedSeconds)}
           </span>
         </div>
