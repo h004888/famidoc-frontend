@@ -1,13 +1,15 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { contractsApi } from '@/lib/api/contracts.api';
+import { encountersApi, type EncounterItem } from '@/lib/api/encounters.api';
+import { patientsApi, type PatientDto } from '@/lib/api/patients.api';
 import { ConfirmDialog } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -30,77 +32,129 @@ interface Appointment {
   date: string;
   time: string;
   status: 'confirmed' | 'in_transit' | 'completed' | 'cancelled';
+  rawStatus: 'REQUESTED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   chiefComplaint: string;
   address?: string;
   meetLink?: string;
 }
 
-const INITIAL_APPOINTMENTS: Appointment[] = [
-  {
-    id: 'APT-88219-01',
-    type: 'home',
-    patientName: 'Nguyễn Văn Phúc (78 tuổi)',
-    doctorName: 'PGS.TS Nguyễn Trọng Nghĩa',
-    doctorTitle: 'Bác sĩ Gia đình Trưởng khoa',
-    doctorAvatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-    hospital: 'BV Đại học Y Dược TP.HCM',
-    date: 'Thứ Hai, 27/10/2026',
-    time: '09:00 - 10:30',
-    status: 'confirmed',
-    chiefComplaint: 'Khám định kỳ bệnh tăng huyết áp, kiểm tra khớp gối và xét nghiệm đường huyết tại nhà',
-    address: 'Số 45 Đường số 8, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh',
-  },
-  {
-    id: 'APT-88219-02',
-    type: 'telehealth',
-    patientName: 'Nguyễn Minh Quân (12 tuổi)',
-    doctorName: 'BSCKII Trần Mai Phương',
-    doctorTitle: 'Chuyên gia Nhi & Dinh dưỡng',
-    doctorAvatar: 'https://images.unsplash.com/photo-1594824813586-b4d291986422?q=80&w=200&auto=format&fit=crop',
-    hospital: 'BV Nhi Đồng 1',
-    date: 'Thứ Tư, 29/10/2026',
-    time: '19:30 - 20:00',
-    status: 'confirmed',
-    chiefComplaint: 'Tái khám tư vấn phác đồ dinh dưỡng và dị ứng mũi họng sau đợt cảm lạnh',
-    meetLink: 'https://meet.famidoc.vn/room/apt-88219-02',
-  },
-  {
-    id: 'APT-88219-00',
-    type: 'home',
-    patientName: 'Trần Thị Mai (42 tuổi)',
-    doctorName: 'ThS.BS Võ Thị Phương Thảo',
-    doctorTitle: 'Chuyên khoa Sản Phụ Khoa',
-    doctorAvatar: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?q=80&w=200&auto=format&fit=crop',
-    hospital: 'BV Từ Dũ',
-    date: '10/10/2026',
-    time: '14:00 - 15:30',
-    status: 'completed',
-    chiefComplaint: 'Thăm khám phụ khoa định kỳ và tư vấn tiền mãn kinh tại nhà',
-    address: 'Số 45 Đường số 8, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh',
-  },
-];
+function mapEncounterToAppointment(item: EncounterItem): Appointment {
+  const participantNames =
+    item.participants?.map((p) => p.patient?.fullName).filter(Boolean).join(', ') ||
+    item.patient?.fullName ||
+    (item.visitScope === 'FAMILY' ? 'Toàn bộ gia đình' : 'Thành viên gia đình');
+  const dateStr = item.scheduledDate ? item.scheduledDate.slice(0, 10) : '';
+  const timeStr = item.scheduledTime?.includes('T')
+    ? item.scheduledTime.slice(11, 16)
+    : item.scheduledTime?.slice(0, 5) || '';
+  const rawStatus = (item.encounterStatus as Appointment['rawStatus']) || 'REQUESTED';
+  const statusMap: Record<string, Appointment['status']> = {
+    CONFIRMED: 'confirmed',
+    IN_PROGRESS: 'in_transit',
+    COMPLETED: 'completed',
+    CANCELLED: 'cancelled',
+    REQUESTED: 'confirmed',
+  };
+  return {
+    id: item.id,
+    type: item.encounterType === 'TELEHEALTH' ? 'telehealth' : 'home',
+    patientName: participantNames,
+    doctorName: item.doctor?.doctorName || 'Bác sĩ phụ trách',
+    doctorTitle: 'Bác sĩ Gia đình',
+    doctorAvatar:
+      'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
+    hospital: item.doctor?.facility?.facilityName || 'Cơ sở y tế đối tác',
+    date: dateStr,
+    time: timeStr,
+    status: statusMap[rawStatus] ?? 'confirmed',
+    rawStatus,
+    chiefComplaint:
+      item.category === 'PERIODIC_ROUTINE'
+        ? 'Khám định kỳ gia đình theo gói chăm sóc'
+        : 'Khám theo nhu cầu gia đình',
+  };
+}
 
 export function FamilyAppointmentsView() {
-  const [appointments, setAppointments] = useState<Appointment[]>(INITIAL_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeContractId, setActiveContractId] = useState<string | null>(null);
+  const [doctorDisplay, setDoctorDisplay] = useState({
+    name: 'Bác sĩ Gia đình phụ trách',
+    hospital: 'Cơ sở y tế đối tác',
+  });
+  const [quotas, setQuotas] = useState({ home: 0, telehealth: 0 });
+  const [familyMembers, setFamilyMembers] = useState<PatientDto[]>([]);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [submittingBooking, setSubmittingBooking] = useState(false);
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
+  const [rescheduleReason, setRescheduleReason] = useState('');
+
+  const loadTimetable = useCallback(async () => {
+    try {
+      const res = await encountersApi.getFamilyTimetable({ pageSize: 50 });
+      if (Array.isArray(res.data)) {
+        setAppointments(res.data.map(mapEncounterToAppointment));
+      }
+    } catch {
+      // Keep current list on transient failure
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTimetable();
+    contractsApi
+      .getFamilyGateStatus()
+      .then(async (gate) => {
+        if (gate?.activeContract) {
+          setActiveContractId(gate.activeContract.id);
+          setDoctorDisplay({
+            name: gate.activeContract.doctor?.fullName || 'Bác sĩ Gia đình phụ trách',
+            hospital: gate.activeContract.doctor?.hospitalName || 'Cơ sở y tế đối tác',
+          });
+          try {
+            const detail = (await contractsApi.getMedicalContractDetail(
+              gate.activeContract.id
+            )) as unknown as Record<string, any>;
+            setQuotas({
+              home: detail?.remainingHomeVisits ?? 0,
+              telehealth: detail?.remainingTelehealth ?? 0,
+            });
+          } catch {
+            // Keep default 0 quotas if detail fetch fails
+          }
+        }
+      })
+      .catch(() => {});
+    patientsApi
+      .getFamilyMembers()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? []);
+        if (Array.isArray(list)) {
+          setFamilyMembers(list.filter((p: PatientDto) => !p.status || p.status === 'ACTIVE'));
+        }
+      })
+      .catch(() => {});
+  }, [loadTimetable]);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
   const [bookingError, setBookingError] = useState('');
-  const [rescheduleDate, setRescheduleDate] = useState('2026-11-02');
-  const [rescheduleTime, setRescheduleTime] = useState('14:00 - 15:30');
-  const [isUnder4Hours, setIsUnder4Hours] = useState(false);
+  const [rescheduleDate, setRescheduleDate] = useState('2026-11-25');
+  const [rescheduleTime, setRescheduleTime] = useState('14:00');
   const [rescheduleError, setRescheduleError] = useState('');
 
   // New Booking Form State
   const [newBooking, setNewBooking] = useState({
     type: 'home' as 'home' | 'telehealth',
-    patientName: 'Nguyễn Văn Phúc (78 tuổi)',
-    doctorId: 'doc-01',
-    date: '2026-10-30',
-    time: '09:00 - 10:30',
+    targetMemberId: '__ALL__',
+    date: '2026-11-25',
+    time: '08:30',
     chiefComplaint: '',
-    address: 'Số 45 Đường số 8, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh',
+    address: '',
   });
 
   const filteredAppointments = appointments.filter((apt) => {
@@ -109,73 +163,100 @@ export function FamilyAppointmentsView() {
     return true;
   });
 
-  const handleCreateBooking = (e: React.FormEvent) => {
+  const handleConfirmEncounter = async (encounterId: string) => {
+    setConfirmingId(encounterId);
+    try {
+      const res = await encountersApi.confirmEncounter(encounterId, true);
+      if (res?.status === 'CONFLICT_ALERT') {
+        toast.warning(
+          res.conflictDetails ||
+            'Khung giờ này trùng ca trực của bác sĩ tại cơ sở y tế. Vui lòng đổi sang giờ khác.'
+        );
+      } else {
+        toast.success('Đã xác nhận lịch khám! Lịch đã được đồng bộ với bác sĩ và cơ sở y tế.');
+      }
+      await loadTimetable();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Không thể xác nhận lịch khám.');
+    } finally {
+      setConfirmingId(null);
+    }
+  };
+
+  const handleCreateBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newBooking.chiefComplaint.trim()) {
-      setBookingError('Vui lòng mô tả triệu chứng hoặc nhu cầu khám của người bệnh.');
+      setBookingError('Vui lòng mô tả triệu chứng hoặc nhu cầu khám của gia đình.');
+      return;
+    }
+    if (!activeContractId) {
+      setBookingError('Chưa tìm thấy hợp đồng đang hiệu lực để đặt lịch.');
       return;
     }
     setBookingError('');
-
-    const created: Appointment = {
-      id: `APT-88219-0${appointments.length + 1}`,
-      type: newBooking.type,
-      patientName: newBooking.patientName,
-      doctorName: newBooking.type === 'home' ? 'PGS.TS Nguyễn Trọng Nghĩa' : 'BSCKII Lê Hoàng Nam',
-      doctorTitle: 'Bác sĩ Quản nhiệm Gia đình',
-      doctorAvatar: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-      hospital: 'BV Đại học Y Dược TP.HCM',
-      date: newBooking.date,
-      time: newBooking.time,
-      status: 'confirmed',
-      chiefComplaint: newBooking.chiefComplaint,
-      address: newBooking.type === 'home' ? newBooking.address : undefined,
-      meetLink: newBooking.type === 'telehealth' ? `https://meet.famidoc.vn/room/${Date.now()}` : undefined,
-    };
-
-    setAppointments([created, ...appointments]);
-    setShowBookingModal(false);
-    toast.success('Đặt lịch hẹn thành công! Bác sĩ quản nhiệm và trung tâm điều phối đã tiếp nhận.');
+    setSubmittingBooking(true);
+    try {
+      const isWholeFamily = newBooking.targetMemberId === '__ALL__';
+      await encountersApi.createAdHocEncounter({
+        contractId: activeContractId,
+        visitScope: isWholeFamily ? 'FAMILY' : 'INDIVIDUAL',
+        ...(isWholeFamily ? {} : { patientIds: [newBooking.targetMemberId] }),
+        encounterType: newBooking.type === 'telehealth' ? 'TELEHEALTH' : 'HOME_VISIT',
+        desiredDate: newBooking.date,
+        desiredTime: newBooking.time,
+        reason: newBooking.chiefComplaint.trim(),
+      });
+      await loadTimetable();
+      setShowBookingModal(false);
+      setNewBooking((prev) => ({ ...prev, chiefComplaint: '' }));
+      toast.success('Đặt lịch hẹn thành công! Bác sĩ quản nhiệm đã nhận được yêu cầu.');
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : 'Không thể tạo lịch hẹn khám.');
+    } finally {
+      setSubmittingBooking(false);
+    }
   };
 
   const handleConfirmCancelAppointment = () => {
     if (!cancelTarget) return;
     setAppointments((prev) =>
-      prev.map((a) => (a.id === cancelTarget.id ? { ...a, status: 'cancelled' } : a))
+      prev.map((a) => (a.id === cancelTarget.id ? { ...a, status: 'cancelled', rawStatus: 'CANCELLED' } : a))
     );
-    toast.success(`Đã hủy ca khám ${cancelTarget.id}. Lượt khám đã được hoàn lại vào hạn mức gói của gia đình.`);
+    toast.success(`Đã ghi nhận yêu cầu hủy ca khám ${cancelTarget.id}.`);
     setCancelTarget(null);
   };
 
   const handleOpenReschedule = (apt: Appointment) => {
     setRescheduleTarget(apt);
     setRescheduleError('');
-    setIsUnder4Hours(false);
+    setRescheduleReason('');
   };
 
-  const handleConfirmReschedule = (e: React.FormEvent) => {
+  const handleConfirmReschedule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rescheduleTarget) return;
-
-    // Kiểm tra quy tắc 4 tiếng (CFG-07 / BF-03)
-    if (isUnder4Hours) {
-      setRescheduleError(
-        'Yêu cầu đổi lịch bị từ chối do không đảm bảo thời gian báo trước tối thiểu 4 giờ (CFG-07). Vui lòng liên hệ Hotline hỗ trợ 1900 6868 để được điều phối khẩn cấp.'
+    setRescheduleError('');
+    setSubmittingReschedule(true);
+    try {
+      await encountersApi.requestReschedule(rescheduleTarget.id, {
+        proposedDate: rescheduleDate,
+        proposedTime: rescheduleTime,
+        rescheduleReason: rescheduleReason.trim() || 'Gia đình đề xuất đổi sang khung giờ thuận tiện hơn',
+      });
+      await loadTimetable();
+      toast.success(
+        `Đã gửi yêu cầu đổi lịch sang ${rescheduleTime} ngày ${rescheduleDate} tới Bác sĩ phụ trách.`
       );
-      return;
+      setRescheduleTarget(null);
+    } catch (err) {
+      setRescheduleError(
+        err instanceof Error
+          ? err.message
+          : 'Không thể gửi yêu cầu dời lịch. Vui lòng kiểm tra quy định báo trước tối thiểu 4 giờ.'
+      );
+    } finally {
+      setSubmittingReschedule(false);
     }
-
-    setAppointments((prev) =>
-      prev.map((a) =>
-        a.id === rescheduleTarget.id
-          ? { ...a, date: rescheduleDate, time: rescheduleTime }
-          : a
-      )
-    );
-    toast.success(
-      `Đổi lịch hẹn thành công! Lịch mới: ${rescheduleTime} ngày ${rescheduleDate}. Đã gửi thông báo xác nhận tới Bác sĩ & CSYT.`
-    );
-    setRescheduleTarget(null);
   };
 
   const upcomingCount = appointments.filter(
@@ -257,11 +338,11 @@ export function FamilyAppointmentsView() {
 
             <div className="space-y-2">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">3</span>
-                <span className="text-xs text-slate-400 font-medium tabular-nums">/ 5 lượt còn lại trong kỳ</span>
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">{quotas.home}</span>
+                <span className="text-xs text-slate-400 font-medium tabular-nums">lượt còn lại trong kỳ</span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-primary h-full rounded-full transition-all" style={{ width: '60%' }} />
+                <div className="bg-primary h-full rounded-full transition-all" style={{ width: quotas.home > 0 ? '100%' : '0%' }} />
               </div>
             </div>
           </Card>
@@ -279,11 +360,11 @@ export function FamilyAppointmentsView() {
 
             <div className="space-y-2">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">18</span>
-                <span className="text-xs text-slate-400 font-medium tabular-nums">/ 20 lượt còn lại trong kỳ</span>
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">{quotas.telehealth}</span>
+                <span className="text-xs text-slate-400 font-medium tabular-nums">lượt còn lại trong kỳ</span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-sky-500 h-full rounded-full transition-all" style={{ width: '90%' }} />
+                <div className="bg-sky-500 h-full rounded-full transition-all" style={{ width: quotas.telehealth > 0 ? '100%' : '0%' }} />
               </div>
             </div>
           </div>
@@ -303,15 +384,15 @@ export function FamilyAppointmentsView() {
             <div className="flex items-center gap-3.5">
               <img
                 src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop"
-                alt="PGS.TS Nguyễn Trọng Nghĩa"
+                alt={doctorDisplay.name}
                 className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
               />
               <div className="min-w-0">
                 <div className="text-sm font-bold text-slate-900 truncate">
-                  PGS.TS Nguyễn Trọng Nghĩa
+                  {doctorDisplay.name}
                 </div>
                 <p className="text-xs text-primary font-medium truncate mt-0.5">
-                  BV Đại học Y Dược TP.HCM
+                  {doctorDisplay.hospital}
                 </p>
               </div>
             </div>
@@ -362,7 +443,12 @@ export function FamilyAppointmentsView() {
           </div>
 
           {/* Danh sách Thẻ Lịch Hẹn */}
-          {filteredAppointments.length === 0 ? (
+          {isLoading ? (
+            <div className="bg-white rounded-2xl border border-slate-200/70 p-10 text-center space-y-3 shadow-xs">
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+              <p className="text-xs font-medium text-slate-500">Đang tải lịch hẹn khám gia đình...</p>
+            </div>
+          ) : filteredAppointments.length === 0 ? (
             <div className="bg-white rounded-2xl border border-slate-200/70 p-10 sm:p-14 text-center space-y-3 shadow-xs">
               <span className="material-symbols-outlined text-4xl text-slate-300">event_busy</span>
               <h3 className="font-bold text-sm text-slate-900">Chưa có lịch hẹn nào trong mục này</h3>
@@ -414,7 +500,13 @@ export function FamilyAppointmentsView() {
                       </div>
 
                       <div>
-                        {apt.status === 'confirmed' && (
+                        {apt.rawStatus === 'REQUESTED' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            <span>Chờ gia đình xác nhận</span>
+                          </span>
+                        )}
+                        {apt.status === 'confirmed' && apt.rawStatus !== 'REQUESTED' && (
                           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1.5 whitespace-nowrap">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             <span>Đã xác nhận · Sắp diễn ra</span>
@@ -521,9 +613,20 @@ export function FamilyAppointmentsView() {
                         {/* Nút hành động theo trạng thái */}
                         {apt.status === 'confirmed' && (
                           <div className="space-y-2.5">
-                            {apt.type === 'telehealth' && (
+                            {apt.rawStatus === 'REQUESTED' && (
+                              <Button
+                                type="button"
+                                disabled={confirmingId === apt.id}
+                                onClick={() => void handleConfirmEncounter(apt.id)}
+                                className="min-h-10 w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold gap-1.5 text-white"
+                              >
+                                <span className="material-symbols-outlined text-[17px]">check_circle</span>
+                                <span>{confirmingId === apt.id ? 'Đang xác nhận...' : 'Xác nhận lịch khám'}</span>
+                              </Button>
+                            )}
+                            {apt.type === 'telehealth' && apt.rawStatus !== 'REQUESTED' && (
                               <Button asChild className="min-h-10 w-full rounded-xl text-xs font-semibold gap-1.5">
-                                <Link href="/family/telemedicine">
+                                <Link href={`/family/telemedicine?encounterId=${apt.id}`}>
                                   <span className="material-symbols-outlined text-[17px]">videocam</span>
                                   <span>Vào phòng khám Video</span>
                                 </Link>
@@ -693,16 +796,21 @@ export function FamilyAppointmentsView() {
             {/* Chọn thành viên */}
             <div>
               <Label className="block font-semibold text-slate-700 mb-1.5">
-                2. Người thân cần khám <span className="text-rose-500">*</span>
+                2. Đối tượng thăm khám <span className="text-rose-500">*</span>
               </Label>
               <select
-                value={newBooking.patientName}
-                onChange={(e) => setNewBooking({ ...newBooking, patientName: e.target.value })}
+                value={newBooking.targetMemberId}
+                onChange={(e) => setNewBooking({ ...newBooking, targetMemberId: e.target.value })}
                 className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white font-semibold text-slate-900 text-xs sm:text-sm focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none"
               >
-                <option value="Nguyễn Văn Phúc (78 tuổi)">Nguyễn Văn Phúc (Ông nội - 78 tuổi)</option>
-                <option value="Trần Thị Mai (42 tuổi)">Trần Thị Mai (Mẹ - 42 tuổi)</option>
-                <option value="Nguyễn Minh Quân (12 tuổi)">Nguyễn Minh Quân (Con trai - 12 tuổi)</option>
+                <option value="__ALL__">
+                  Cả gia đình ({familyMembers.length > 0 ? `${familyMembers.length} thành viên` : 'theo hợp đồng'})
+                </option>
+                {familyMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.fullName}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -728,11 +836,12 @@ export function FamilyAppointmentsView() {
                   onChange={(e) => setNewBooking({ ...newBooking, time: e.target.value })}
                   className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white font-semibold text-slate-900 text-xs sm:text-sm focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none"
                 >
-                  <option value="08:30 - 10:00">08:30 - 10:00 (Buổi sáng)</option>
-                  <option value="10:00 - 11:30">10:00 - 11:30 (Buổi sáng)</option>
-                  <option value="14:00 - 15:30">14:00 - 15:30 (Buổi chiều)</option>
-                  <option value="16:00 - 17:30">16:00 - 17:30 (Buổi chiều)</option>
-                  <option value="19:30 - 20:30">19:30 - 20:30 (Buổi tối)</option>
+                  <option value="08:30">08:30 (Buổi sáng)</option>
+                  <option value="09:30">09:30 (Buổi sáng)</option>
+                  <option value="10:30">10:30 (Buổi sáng)</option>
+                  <option value="14:00">14:00 (Buổi chiều)</option>
+                  <option value="15:00">15:00 (Buổi chiều)</option>
+                  <option value="16:00">16:00 (Buổi chiều)</option>
                 </select>
               </div>
             </div>
@@ -858,30 +967,27 @@ export function FamilyAppointmentsView() {
                         onChange={(e) => setRescheduleTime(e.target.value)}
                         className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold text-slate-900 focus:border-primary outline-none"
                       >
-                        <option value="09:00 - 10:30">09:00 - 10:30 (Sáng)</option>
-                        <option value="10:30 - 12:00">10:30 - 12:00 (Sáng)</option>
-                        <option value="14:00 - 15:30">14:00 - 15:30 (Chiều)</option>
-                        <option value="16:00 - 17:30">16:00 - 17:30 (Chiều)</option>
-                        <option value="19:30 - 20:30">19:30 - 20:30 (Tối)</option>
+                        <option value="08:30">08:30 (Sáng)</option>
+                        <option value="09:30">09:30 (Sáng)</option>
+                        <option value="10:30">10:30 (Sáng)</option>
+                        <option value="14:00">14:00 (Chiều)</option>
+                        <option value="15:00">15:00 (Chiều)</option>
+                        <option value="16:00">16:00 (Chiều)</option>
                       </select>
                     </div>
                   </div>
 
-                  {/* Tuỳ chọn kiểm thử quy định báo trước 4 giờ */}
-                  <div className="p-3 rounded-xl border border-slate-200/80 bg-slate-50/70 space-y-1">
-                    <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-semibold">
-                      <Checkbox
-                        checked={isUnder4Hours}
-                        onCheckedChange={(checked) => {
-                          setIsUnder4Hours(checked === true);
-                          setRescheduleError('');
-                        }}
-                      />
-                      <span>Giả lập đổi lịch sát giờ (&lt; 4 tiếng trước giờ hẹn)</span>
-                    </label>
-                    <p className="text-[11px] text-slate-400 pl-6">
-                      Lưu ý: Cần báo trước tối thiểu 4 giờ để Bác sĩ kịp sắp xếp di chuyển.
-                    </p>
+                  <div>
+                    <Label className="block font-semibold text-slate-700 mb-1.5">
+                      Lý do đổi lịch (Báo trước tối thiểu 4 giờ)
+                    </Label>
+                    <Textarea
+                      rows={2}
+                      value={rescheduleReason}
+                      onChange={(e) => setRescheduleReason(e.target.value)}
+                      placeholder="Ví dụ: Gia đình có việc bận đột xuất, mong muốn dời sang buổi chiều."
+                      className="p-3 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 text-xs"
+                    />
                   </div>
 
                   <div className="flex gap-2.5 pt-2 border-t border-slate-100">
@@ -895,10 +1001,11 @@ export function FamilyAppointmentsView() {
                     </Button>
                     <Button
                       type="submit"
+                      disabled={submittingReschedule}
                       className="flex-1 rounded-xl font-semibold gap-1.5"
                     >
                       <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                      <span>Lưu giờ hẹn mới</span>
+                      <span>{submittingReschedule ? 'Đang gửi...' : 'Lưu giờ hẹn mới'}</span>
                     </Button>
                   </div>
                 </form>

@@ -435,4 +435,98 @@ export const telehealthApi = {
       throw new Error('Không tìm thấy thông tin ca khám');
     }
   },
+
+  issueSessionToken: async (encounterId: string): Promise<TelehealthTokenResponse> => {
+    const res = await httpClient.post<any>(`/api/v1/telehealth/sessions/${encounterId}/token`, {});
+    return unwrapApiEnvelope<TelehealthTokenResponse>(res);
+  },
+
+  reportTelemetry: async (
+    encounterId: string,
+    payload: { networkQualityScore?: NetworkQualityScore; isFallbackChat?: boolean },
+  ): Promise<TelehealthSessionDto> => {
+    const res = await httpClient.post<any>(
+      `/api/v1/telehealth/sessions/${encounterId}/telemetry`,
+      payload,
+    );
+    return unwrapApiEnvelope<TelehealthSessionDto>(res);
+  },
+
+  endSession: async (encounterId: string): Promise<TelehealthSessionDto> => {
+    const res = await httpClient.post<any>(`/api/v1/telehealth/sessions/${encounterId}/end`, {});
+    return unwrapApiEnvelope<TelehealthSessionDto>(res);
+  },
+
+  listMessages: async (encounterId: string, after?: string): Promise<TelehealthMessageDto[]> => {
+    const query = after ? `?after=${encodeURIComponent(after)}` : '';
+    const res = await httpClient.get<any>(`/api/v1/telehealth/sessions/${encounterId}/messages${query}`);
+    return unwrapApiEnvelope<TelehealthMessageDto[]>(res);
+  },
+
+  sendMessage: async (encounterId: string, content: string): Promise<TelehealthMessageDto> => {
+    const res = await httpClient.post<any>(`/api/v1/telehealth/sessions/${encounterId}/messages`, {
+      content,
+    });
+    return unwrapApiEnvelope<TelehealthMessageDto>(res);
+  },
+
+  uploadAttachment: async (
+    encounterId: string,
+    file: File,
+    caption?: string,
+  ): Promise<TelehealthMessageDto> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    if (caption?.trim()) {
+      formData.append('caption', caption.trim());
+    }
+    const res = await httpClient.post<any>(
+      `/api/v1/telehealth/sessions/${encounterId}/messages/attachment`,
+      formData,
+    );
+    return unwrapApiEnvelope<TelehealthMessageDto>(res);
+  },
+
+  fetchAttachmentBlob: async (encounterId: string, messageId: string): Promise<Blob> => {
+    const res = await httpClient.get<Blob>(
+      `/api/v1/telehealth/sessions/${encounterId}/messages/${messageId}/attachment`,
+      { responseType: 'blob' } as any,
+    );
+    return res as unknown as Blob;
+  },
 };
+
+export type NetworkQualityScore = 'EXCELLENT' | 'GOOD' | 'POOR' | 'LOST';
+
+export interface TelehealthSessionDto {
+  id: string;
+  encounterId: string;
+  roomSid: string;
+  startedAt: string | null;
+  endedAt: string | null;
+  durationSeconds: number;
+  networkQualityScore: NetworkQualityScore | null;
+  isFallbackChat: boolean;
+}
+
+export interface TelehealthTokenResponse {
+  token: string;
+  url: string;
+  roomName: string;
+  participantIdentity: string;
+  session: TelehealthSessionDto;
+}
+
+export interface TelehealthMessageDto {
+  id: string;
+  sessionId: string;
+  senderUserId: string;
+  senderRole: 'FAMILY_REP' | 'DOCTOR' | string;
+  senderName: string;
+  content: string | null;
+  attachmentKey: string | null;
+  attachmentName: string | null;
+  attachmentMimeType: string | null;
+  attachmentSizeBytes: number | null;
+  createdAt: string;
+}

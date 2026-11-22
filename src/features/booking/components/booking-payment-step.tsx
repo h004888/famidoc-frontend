@@ -13,6 +13,10 @@ import {
   contractsApi,
   type VietQRPaymentRequestDto,
 } from '@/lib/api/contracts.api';
+import {
+  encountersApi,
+  type EncounterItem,
+} from '@/lib/api/encounters.api';
 import { FAMILY_GATE_REFRESH_EVENT } from '@/components/layout/family-subscription-gate';
 import { ApiError } from '@/lib/http/errors';
 import { useBookingNavigationOptional } from './booking-navigation-context';
@@ -295,6 +299,7 @@ export function BookingPaymentStep({
   const [isReissuing, setIsReissuing] = useState(false);
   const [isRechecking, setIsRechecking] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [firstEncounter, setFirstEncounter] = useState<EncounterItem | null>(null);
   const isMountedRef = useRef(true);
   const bookingNavigation = useBookingNavigationOptional();
   const syncNavigation = bookingNavigation?.update;
@@ -311,6 +316,21 @@ export function BookingPaymentStep({
     // Hợp đồng đã ACTIVE: shell khóa điều hướng lùi về Bước 1.
     syncNavigation?.({ contractStatus: 'ACTIVE' });
   }, [broadcastGateRefresh, syncNavigation]);
+
+  useEffect(() => {
+    if (!isActivated || !contractId || addendumId) return;
+    let active = true;
+    encountersApi
+      .getFamilyTimetable({ contractId, category: 'PERIODIC_ROUTINE', pageSize: 1 })
+      .then((res) => {
+        if (!active) return;
+        setFirstEncounter(res.data?.[0] ?? null);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [addendumId, contractId, isActivated]);
 
   const applyLoadOutcome = useCallback(
     (outcome: PaymentLoadOutcome) => {
@@ -598,17 +618,49 @@ export function BookingPaymentStep({
             toàn bộ tính năng chăm sóc sức khỏe gia đình.
           </p>
         </div>
+        {firstEncounter && (
+          <div
+            data-testid="booking-payment-first-encounter"
+            className="mx-auto max-w-lg rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-left space-y-2"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
+                Lịch khám gia đình đầu tiên (Đã xếp lịch)
+              </span>
+              <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-200">
+                Đã xác nhận
+              </span>
+            </div>
+            <p className="text-sm font-semibold text-slate-900">
+              {firstEncounter.scheduledDate?.slice(0, 10)} lúc{' '}
+              {firstEncounter.scheduledTime?.includes('T')
+                ? firstEncounter.scheduledTime.slice(11, 16)
+                : firstEncounter.scheduledTime?.slice(0, 5)}
+              {firstEncounter.doctor?.doctorName ? ` · ${firstEncounter.doctor.doctorName}` : ''}
+            </p>
+            <p className="text-xs text-slate-600">
+              Hệ thống đã tự động xếp khung giờ rảnh gần nhất của bác sĩ cho gia đình bạn.
+            </p>
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5">
           <Link
-            href="/family/members"
+            href="/family/appointments"
             className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-xs sm:text-sm font-bold text-white transition-colors hover:bg-emerald-800"
+          >
+            <span className="material-symbols-outlined text-[18px]">calendar_month</span>
+            <span>Xem lịch khám</span>
+          </Link>
+          <Link
+            href="/family/members"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-xs sm:text-sm font-bold text-emerald-900 transition-colors hover:bg-emerald-50"
           >
             <span className="material-symbols-outlined text-[18px]">group_add</span>
             <span>Thêm hồ sơ thành viên</span>
           </Link>
           <Link
             href="/family"
-            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-emerald-300 bg-white px-4 py-2.5 text-xs sm:text-sm font-bold text-emerald-900 transition-colors hover:bg-emerald-50"
+            className="inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
           >
             <span className="material-symbols-outlined text-[18px]">dashboard</span>
             <span>Vào Bảng điều khiển Gia đình</span>

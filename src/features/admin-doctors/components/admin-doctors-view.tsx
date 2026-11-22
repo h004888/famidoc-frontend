@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { doctorsApi, type DoctorCredentialDto } from '@/lib/api/doctors.api';
 import { extractErrorMessage } from '@/lib/api';
 import { Pagination } from '@/components/ui/pagination';
@@ -20,12 +21,18 @@ interface DoctorRow {
   onboardingStatus: string;
   experienceYears?: number;
   credentialsCount: number;
+  maxPanelCapacity: number;
+  activePanelCount: number;
 }
 
 export function AdminDoctorsView() {
   const [doctors, setDoctors] = useState<DoctorRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string>();
+  const [quotaTarget, setQuotaTarget] = useState<DoctorRow | null>(null);
+  const [quotaInput, setQuotaInput] = useState('5');
+  const [quotaReason, setQuotaReason] = useState('');
+  const [savingQuota, setSavingQuota] = useState(false);
   const [statusFilter, setStatusFilter] = useState<
     'ALL' | 'FACILITY_VERIFIED' | 'PENDING_FACILITY_REVIEW' | 'ACTIVE' | 'PENDING_SUBMISSION'
   >('ALL');
@@ -53,6 +60,8 @@ export function AdminDoctorsView() {
             onboardingStatus: d.onboardingStatus || (d.status === 'ACTIVE' ? 'ACTIVE' : 'PENDING_SUBMISSION'),
             experienceYears: d.experienceYears ?? 0,
             credentialsCount: creds.length,
+            maxPanelCapacity: typeof d.maxPanelCapacity === 'number' ? d.maxPanelCapacity : 5,
+            activePanelCount: typeof d.activePanelCount === 'number' ? d.activePanelCount : 0,
           };
         });
         setDoctors(mapped);
@@ -70,6 +79,40 @@ export function AdminDoctorsView() {
   useEffect(() => {
     fetchDoctors();
   }, []);
+
+  const handleOpenQuotaModal = (doc: DoctorRow) => {
+    setQuotaTarget(doc);
+    setQuotaInput(String(doc.maxPanelCapacity));
+    setQuotaReason('');
+  };
+
+  const handleSaveQuota = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quotaTarget) return;
+    const parsed = Number(quotaInput);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 100) {
+      toast.error('Hạn mức hộ gia đình phải là số nguyên từ 1 đến 100.');
+      return;
+    }
+    if (quotaReason.trim().length < 5) {
+      toast.error('Vui lòng nhập lý do điều chỉnh (tối thiểu 5 ký tự).');
+      return;
+    }
+    setSavingQuota(true);
+    try {
+      await doctorsApi.updateDoctorPanelCapacity(quotaTarget.id, {
+        maxPanelCapacity: parsed,
+        reason: quotaReason.trim(),
+      });
+      toast.success(`Đã cập nhật hạn mức của ${quotaTarget.doctorName} thành ${parsed} hộ.`);
+      setQuotaTarget(null);
+      await fetchDoctors();
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Không thể cập nhật hạn mức bác sĩ.'));
+    } finally {
+      setSavingQuota(false);
+    }
+  };
 
   if (loadError) return (
     <DashboardPageShell>
@@ -309,17 +352,27 @@ export function AdminDoctorsView() {
                     </td>
 
                     <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                      <Link
-                        href={`/admin/doctors/${doc.id}`}
-                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-2xs ${
-                          doc.onboardingStatus === 'FACILITY_VERIFIED'
-                            ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                            : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-xs">visibility</span>
-                        {doc.onboardingStatus === 'FACILITY_VERIFIED' ? 'Hậu kiểm & Duyệt' : 'Xem hồ sơ'}
-                      </Link>
+                      <div className="inline-flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenQuotaModal(doc)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
+                        >
+                          <span className="material-symbols-outlined text-xs">tune</span>
+                          Hạn mức ({doc.activePanelCount}/{doc.maxPanelCapacity})
+                        </button>
+                        <Link
+                          href={`/admin/doctors/${doc.id}`}
+                          className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors shadow-2xs ${
+                            doc.onboardingStatus === 'FACILITY_VERIFIED'
+                              ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-xs">visibility</span>
+                          {doc.onboardingStatus === 'FACILITY_VERIFIED' ? 'Hậu kiểm & Duyệt' : 'Xem hồ sơ'}
+                        </Link>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -347,7 +400,15 @@ export function AdminDoctorsView() {
                     <span className="font-semibold text-slate-800 tabular-nums">{doc.cchnNumber}</span> ({doc.issuingAuthority})
                   </div>
                 </div>
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuotaModal(doc)}
+                    className="inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-xs">tune</span>
+                    Hạn mức ({doc.activePanelCount}/{doc.maxPanelCapacity})
+                  </button>
                   <Link
                     href={`/admin/doctors/${doc.id}`}
                     className={`inline-flex items-center gap-1 px-3 py-2 rounded-lg text-xs font-semibold transition-colors shadow-2xs ${
@@ -379,6 +440,71 @@ export function AdminDoctorsView() {
 
       <AdminQuotaProposalsPanel />
       <AdminMatchingQueuePanel />
+
+      {quotaTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+        >
+          <form
+            onSubmit={(e) => void handleSaveQuota(e)}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4 border border-slate-200"
+          >
+            <div>
+              <h3 className="text-base font-bold text-slate-900">
+                Điều chỉnh hạn mức hộ gia đình
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Bác sĩ: <strong>{quotaTarget.doctorName}</strong> (đang phụ trách {quotaTarget.activePanelCount} hộ)
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">
+                Hạn mức tối đa mới (hộ gia đình)
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={100}
+                value={quotaInput}
+                onChange={(e) => setQuotaInput(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                required
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-slate-700">
+                Lý do điều chỉnh
+              </label>
+              <textarea
+                rows={3}
+                value={quotaReason}
+                onChange={(e) => setQuotaReason(e.target.value)}
+                placeholder="Nhập lý do Admin điều chỉnh hạn mức..."
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setQuotaTarget(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={savingQuota}
+                className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+              >
+                {savingQuota ? 'Đang lưu...' : 'Lưu hạn mức'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </DashboardPageShell>
   );
 }

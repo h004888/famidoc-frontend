@@ -775,7 +775,13 @@ export function AdminTelehealthView() {
                     </span>
                   </div>
                   <DialogTitle className="mt-1 text-lg font-bold leading-snug text-white sm:text-xl">
-                    Lịch Khám Online: {selectedEncounter.patient?.fullName || 'Bệnh nhân'}
+                    Lịch Khám Online:{' '}
+                    {(selectedEncounter as any).participants?.length > 0
+                      ? (selectedEncounter as any).participants
+                          .map((p: any) => p.patient?.fullName)
+                          .filter(Boolean)
+                          .join(', ')
+                      : selectedEncounter.patient?.fullName || 'Gia đình'}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-blue-100/90">
                     {formatDateTimeVN(selectedEncounter.scheduledDate, selectedEncounter.scheduledTime)} •{' '}
@@ -878,7 +884,12 @@ export function AdminTelehealthView() {
                       <div>
                         <span className="block text-xs text-slate-500">Bệnh nhân:</span>
                         <span className="font-bold text-primary">
-                          {selectedEncounter.patient?.fullName || '—'}
+                          {(selectedEncounter as any).participants?.length > 0
+                            ? (selectedEncounter as any).participants
+                                .map((p: any) => p.patient?.fullName)
+                                .filter(Boolean)
+                                .join(', ')
+                            : selectedEncounter.patient?.fullName || '—'}
                         </span>
                       </div>
                       <div>
