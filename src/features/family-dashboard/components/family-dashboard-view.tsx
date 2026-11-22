@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { useContractWorkflow } from '@/lib/contract-workflow-storage';
 import {
   contractsApi,
+  encountersApi,
   patientsApi,
+  type EncounterItem,
   type FourPartyContract,
   type MedicalContractListItem,
   type PatientDto,
@@ -100,7 +102,8 @@ function getLatestMemberVital(list: VitalSignDto[] | undefined): VitalSignDto | 
 function convertPatientsToMembersData(
   patients: PatientDto[],
   contract: MedicalContractListItem | null,
-  vitalsByPatientId: Record<string, VitalSignDto[]> = {}
+  vitalsByPatientId: Record<string, VitalSignDto[]> = {},
+  nextEncounter: EncounterItem | null = null
 ): Record<string, MemberHealthData> {
   if (!patients || patients.length === 0) return INITIAL_FAMILY_MEMBERS_DATA;
 
@@ -126,17 +129,39 @@ function convertPatientsToMembersData(
         ? `${latestVital.systolicBp ?? '--'}/${latestVital.diastolicBp ?? '--'}`
         : '--';
 
-    const upcomingVisit = contract?.doctorName
-      ? {
-          doctor: `${contract.doctorTitle ? contract.doctorTitle + ' ' : 'BSCKI. '}${contract.doctorName}`,
-          specialty: contract.doctorSpecialty || 'Y học Gia đình & Nội khoa',
-          hospital: contract.facilityName || 'Bệnh viện ĐHYD',
-          time: '09:30',
-          date: '27/10',
-          mode: 'home' as const,
-          note: 'Khám sức khỏe gia đình định kỳ tại nhà',
-        }
-      : undefined;
+    const participantIds = (nextEncounter?.participants ?? []).map((pt) => pt.patientId);
+    const isCoveredByNextEncounter =
+      Boolean(nextEncounter) &&
+      (nextEncounter?.visitScope === 'FAMILY' ||
+        participantIds.length === 0 ||
+        participantIds.includes(memberId));
+
+    const upcomingVisit =
+      nextEncounter && isCoveredByNextEncounter
+        ? {
+            doctor:
+              nextEncounter.doctor?.doctorName ||
+              `${contract?.doctorTitle ? contract.doctorTitle + ' ' : 'BSCKI. '}${contract?.doctorName || 'Bác sĩ phụ trách'}`,
+            specialty: contract?.doctorSpecialty || 'Y học Gia đình & Nội khoa',
+            hospital:
+              nextEncounter.doctor?.facility?.facilityName ||
+              contract?.facilityName ||
+              'Cơ sở y tế đối tác',
+            time: nextEncounter.scheduledTime?.includes('T')
+              ? nextEncounter.scheduledTime.slice(11, 16)
+              : nextEncounter.scheduledTime?.slice(0, 5) || '--:--',
+            date: nextEncounter.scheduledDate
+              ? nextEncounter.scheduledDate.slice(5, 10).split('-').reverse().join('/')
+              : '',
+            mode: (nextEncounter.encounterType === 'TELEHEALTH' ? 'telehealth' : 'home') as
+              | 'home'
+              | 'telehealth',
+            note:
+              nextEncounter.encounterStatus === 'REQUESTED'
+                ? 'Lịch dự kiến sau thanh toán — chờ xác nhận'
+                : 'Lịch khám gia đình đã xác nhận',
+          }
+        : undefined;
 
     result[memberId] = {
       id: memberId,
@@ -226,12 +251,40 @@ export function FamilyDashboardView() {
   const [contracts, setContracts] = useState<MedicalContractListItem[]>([]);
   const [activeContract, setActiveContract] = useState<MedicalContractListItem | null>(null);
   const [realPatients, setRealPatients] = useState<PatientDto[]>([]);
+  const nextEncounterRef = useRef<EncounterItem | null>(null);
   const vitalsByMemberRef = useRef<Record<string, VitalSignDto[]>>({});
   const [membersData, setMembersData] = useState<Record<string, MemberHealthData>>(INITIAL_FAMILY_MEMBERS_DATA);
 
   useEffect(() => {
     let isMounted = true;
     setSession(getStoredAuthSession());
+    encountersApi
+      .getFamilyTimetable({ pageSize: 10 })
+      .then((res) => {
+        if (!isMounted || !Array.isArray(res.data)) return;
+        const upcoming =
+          res.data.find((e) =>
+            ['REQUESTED', 'CONFIRMED', 'IN_PROGRESS'].includes(String(e.encounterStatus))
+          ) ?? null;
+        nextEncounterRef.current = upcoming;
+        setRealPatients((currentPatients) => {
+          if (currentPatients.length > 0) {
+            setActiveContract((currentContract) => {
+              setMembersData(
+                convertPatientsToMembersData(
+                  currentPatients,
+                  currentContract,
+                  vitalsByMemberRef.current,
+                  upcoming
+                )
+              );
+              return currentContract;
+            });
+          }
+          return currentPatients;
+        });
+      })
+      .catch(() => {});
     Promise.allSettled([
       contractsApi.getMedicalContracts(),
       contractsApi.getFamilyGateStatus(),
@@ -291,7 +344,12 @@ export function FamilyDashboardView() {
         setRealPatients((currentPatients) => {
           if (currentPatients.length > 0) {
             setMembersData(
-              convertPatientsToMembersData(currentPatients, found, vitalsByMemberRef.current)
+              convertPatientsToMembersData(
+                currentPatients,
+                found,
+                vitalsByMemberRef.current,
+                nextEncounterRef.current
+              )
             );
           }
           return currentPatients;
@@ -330,7 +388,12 @@ export function FamilyDashboardView() {
           setRealPatients(effectiveList);
           setActiveContract((currentContract) => {
             setMembersData(
-              convertPatientsToMembersData(effectiveList, currentContract, nextVitalsMap)
+              convertPatientsToMembersData(
+                effectiveList,
+                currentContract,
+                nextVitalsMap,
+                nextEncounterRef.current
+              )
             );
             return currentContract;
           });

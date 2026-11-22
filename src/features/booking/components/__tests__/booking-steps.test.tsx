@@ -4,6 +4,7 @@ import { BookingSummaryStep } from '../booking-summary-step';
 import { BookingTrackingStep } from '../booking-tracking-step';
 import { BookingPaymentStep } from '../booking-payment-step';
 import { contractsApi } from '@/lib/api/contracts.api';
+import { encountersApi } from '@/lib/api/encounters.api';
 import { ApiError } from '@/lib/http/errors';
 
 const pushMock = vi.fn();
@@ -887,6 +888,63 @@ describe('BookingPaymentStep', () => {
     expect(
       screen.getByRole('link', { name: /Quay lại theo dõi ký 4 bên/i })
     ).toHaveAttribute('href', '/booking/tracking?contractId=ctr-1');
+  });
+
+  it('hiển thị thẻ lịch khám gia đình đầu tiên khi có buổi khám mặc định sau kích hoạt', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockRejectedValue(
+      new Error('Contract is not pending')
+    );
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      id: 'ctr-1',
+      contractStatus: 'ACTIVE',
+    } as never);
+    const timetableSpy = vi.spyOn(encountersApi, 'getFamilyTimetable').mockResolvedValueOnce({
+      data: [
+        {
+          id: 'enc-auto-1',
+          contractId: 'ctr-1',
+          doctorId: 'doc-1',
+          scheduledDate: '2026-11-22T00:00:00.000Z',
+          scheduledTime: '1970-01-01T08:30:00.000Z',
+          encounterType: 'HOME_VISIT',
+          category: 'PERIODIC_ROUTINE',
+          encounterStatus: 'REQUESTED',
+          doctor: { id: 'doc-1', doctorName: 'BS. Trần Thanh Mai' },
+        },
+      ],
+      pagination: { page: 1, pageSize: 1, totalItems: 1, totalPages: 1 },
+    });
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-payment-first-encounter')).toBeInTheDocument();
+    expect(screen.getByTestId('booking-payment-first-encounter')).toHaveTextContent('2026-11-22');
+    expect(screen.getByTestId('booking-payment-first-encounter')).toHaveTextContent('08:30');
+    expect(screen.getByRole('link', { name: /Xem lịch khám/i })).toHaveAttribute(
+      'href',
+      '/family/appointments'
+    );
+    timetableSpy.mockRestore();
+  });
+
+  it('không hiển thị thẻ lịch khám dự kiến nếu chưa có buổi khám mặc định', async () => {
+    vi.mocked(contractsApi.createVietQRPayment).mockRejectedValue(
+      new Error('Contract is not pending')
+    );
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      id: 'ctr-1',
+      contractStatus: 'ACTIVE',
+    } as never);
+    const timetableSpy = vi.spyOn(encountersApi, 'getFamilyTimetable').mockResolvedValueOnce({
+      data: [],
+      pagination: { page: 1, pageSize: 1, totalItems: 0, totalPages: 0 },
+    });
+
+    render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByTestId('booking-payment-success')).toBeInTheDocument();
+    expect(screen.queryByTestId('booking-payment-first-encounter')).not.toBeInTheDocument();
+    timetableSpy.mockRestore();
   });
 
   it('hiển thị QR kích thước responsive, mở modal phóng to và cung cấp nút tải ảnh QR', async () => {

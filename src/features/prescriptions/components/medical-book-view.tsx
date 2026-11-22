@@ -704,9 +704,13 @@ function VisitPage({
   onConfirmed?: () => void;
   setPending?: (value: boolean) => void;
 }) {
+  const [selectedPatientId, setSelectedPatientId] = useState<string | undefined>(undefined);
   const request = useCallback(
-    (signal: AbortSignal) => medicalBooksApi.visit(id, signal),
-    [id],
+    (signal: AbortSignal) =>
+      selectedPatientId
+        ? medicalBooksApi.visit(id, signal, selectedPatientId)
+        : medicalBooksApi.visit(id, signal),
+    [id, selectedPatientId],
   );
   const query = useBookQuery(request);
   const visit = query.data;
@@ -718,14 +722,42 @@ function VisitPage({
         label="Đang mở trang khám…"
       />
     );
-  if (patientId && visit.patient.id !== patientId)
+  if (patientId && !selectedPatientId && visit.patient.id !== patientId)
     return (
       <p role="alert" className="text-sm text-red-800">
         Trang khám không thuộc thành viên đang mở.
       </p>
     );
+  const visitParticipants = visit.participants ?? [];
   return (
     <article className="min-w-0 space-y-4">
+      {doctor && visitParticipants.length > 1 && (
+        <div
+          aria-label="Chọn thành viên trong buổi khám gia đình"
+          className="flex flex-wrap items-center gap-2 rounded-xl border border-teal-100 bg-white p-3"
+        >
+          <span className="text-xs font-semibold text-slate-600">
+            Thành viên trong buổi khám:
+          </span>
+          {visitParticipants.map((member) => {
+            const active = member.id === visit.patient.id;
+            return (
+              <button
+                key={member.id}
+                type="button"
+                onClick={() => setSelectedPatientId(member.id)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                  active
+                    ? 'bg-teal-800 text-white'
+                    : 'border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100'
+                }`}
+              >
+                {member.fullName}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <header className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-teal-100 bg-[#f0f7f4] p-4 sm:p-5">
         <div className="min-w-0">
           <h3 className="text-lg font-semibold">

@@ -1,23 +1,13 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Table,
   TableBody,
@@ -27,430 +17,329 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import {
-  contractsApi,
   doctorsApi,
   encountersApi,
   type DoctorProfileDto,
   type EncounterItem,
-  type EncounterType,
-  type FourPartyContract,
+  type EncounterRescheduleRequestItem,
 } from '@/lib/api';
-import {
-  extractEncounterDateIso,
-  extractEncounterTimeHm,
-  formatEncounterDateVi,
-  getEncounterCategoryLabel,
-  getEncounterStatusLabel,
-  getEncounterTypeLabel,
-  getTodayIsoDate,
-} from '@/lib/utils/encounter-format';
 
-const TIME_WINDOWS = [
-  { label: '08:00 - 09:30', minHour: 6, maxHour: 9.5, defaultTime: '08:00' },
-  { label: '09:30 - 12:00', minHour: 9.5, maxHour: 12, defaultTime: '10:00' },
-  { label: '13:30 - 15:30', minHour: 12, maxHour: 15.5, defaultTime: '14:00' },
-  { label: '15:30 - 18:00', minHour: 15.5, maxHour: 18, defaultTime: '16:00' },
-  { label: '18:00 - 21:00', minHour: 18, maxHour: 23, defaultTime: '19:30' },
+interface TimeSlot {
+  time: string;
+  monday?: { title: string; patient: string; type: 'home' | 'telehealth' };
+  tuesday?: { title: string; patient: string; type: 'home' | 'telehealth' };
+  wednesday?: { title: string; patient: string; type: 'home' | 'telehealth' };
+  thursday?: { title: string; patient: string; type: 'home' | 'telehealth' };
+  friday?: { title: string; patient: string; type: 'home' | 'telehealth' };
+  saturday?: { title: string; patient: string; type: 'home' | 'telehealth' };
+}
+
+const TIMETABLE_DATA: TimeSlot[] = [
+  {
+    time: '08:00 - 09:30',
+    monday: { title: 'Tư vấn Video', patient: 'Nguyễn Văn Phúc (78t)', type: 'telehealth' },
+    wednesday: { title: 'Tư vấn Video', patient: 'Lê Thu Trang (34t)', type: 'telehealth' },
+    friday: { title: 'Tư vấn Video', patient: 'Phạm Đức Bình (61t)', type: 'telehealth' },
+  },
+  {
+    time: '09:30 - 11:00',
+    tuesday: { title: 'Tư vấn Video', patient: 'Trần Thị Mai (42t)', type: 'telehealth' },
+    thursday: { title: 'Tư vấn Video', patient: 'Võ Minh Khang (5t)', type: 'telehealth' },
+    saturday: { title: 'Tư vấn Video', patient: 'Nguyễn Thị Bích (69t)', type: 'telehealth' },
+  },
+  {
+    time: '14:00 - 15:30',
+    monday: { title: 'Khám Tại Nhà (Q.1)', patient: 'Nguyễn Văn Phúc (78t)', type: 'home' },
+    wednesday: { title: 'Khám Tại Nhà (Q.3)', patient: 'Hoàng Anh Dũng (52t)', type: 'home' },
+    friday: { title: 'Khám Tại Nhà (Bình Thạnh)', patient: 'Đặng Ngọc Nga (75t)', type: 'home' },
+  },
+  {
+    time: '15:30 - 17:00',
+    tuesday: { title: 'Khám Tại Nhà (Q.5)', patient: 'Lý Kim Hoa (82t)', type: 'home' },
+    thursday: { title: 'Khám Tại Nhà (Q.10)', patient: 'Trương Vĩnh Kỳ (64t)', type: 'home' },
+  },
+  {
+    time: '19:30 - 21:00',
+    monday: { title: 'Telehealth Buổi Tối', patient: 'Nguyễn Minh Quân (12t)', type: 'telehealth' },
+    wednesday: { title: 'Telehealth Buổi Tối', patient: 'Bùi Thị Hà (38t)', type: 'telehealth' },
+    thursday: { title: 'Telehealth Buổi Tối', patient: 'Đỗ Hữu Tài (45t)', type: 'telehealth' },
+  },
 ];
 
-const STANDARD_TIME_SLOTS = ['08:00', '09:00', '10:30', '14:00', '15:30', '17:00', '19:30'];
+function getWeekNumber(d: Date): number {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
 
-function getWeekDates(weekOffset = 0): { dayName: string; dateIso: string; label: string }[] {
+function getWeekDates(): { dayName: string; dateStr: string }[] {
   const now = new Date();
   const currentDay = now.getDay();
   const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
   const monday = new Date(now);
-  monday.setDate(now.getDate() + distanceToMonday + weekOffset * 7);
+  monday.setDate(now.getDate() + distanceToMonday);
 
-  const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
-  return dayNames.map((dayName, index) => {
+  const days = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  return days.map((dayName, index) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + index);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
     return {
       dayName,
-      dateIso: `${y}-${m}-${day}`,
-      label: `${dayName} (${day}/${m})`,
+      dateStr: `${dayName} (${day}/${month})`,
     };
   });
 }
 
-function getHourDecimal(hm: string): number {
-  const [h, m] = hm.split(':').map(Number);
-  if (Number.isNaN(h)) return 8;
-  return h + (Number.isNaN(m) ? 0 : m / 60);
-}
-
-interface ContractPatientOption {
-  patientId: string;
-  fullName: string;
-}
-
 export function DoctorTimetableView() {
-  const [weekOffset, setWeekOffset] = useState(0);
-  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
-
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const now = new Date();
+  const currentWeek = getWeekNumber(now);
+  const currentYear = now.getFullYear();
+  const weekDates = getWeekDates();
 
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
   const [encounters, setEncounters] = useState<EncounterItem[]>([]);
-  const [activeContracts, setActiveContracts] = useState<FourPartyContract[]>([]);
+  const [pendingReschedules, setPendingReschedules] = useState<EncounterRescheduleRequestItem[]>([]);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<EncounterItem | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('09:30');
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
+  const [timetableData, setTimetableData] = useState<TimeSlot[]>(TIMETABLE_DATA);
+  const [panelCap, setPanelCap] = useState({ current: 0, max: 5 });
   const [isEmergencyReady, setIsEmergencyReady] = useState(true);
-  const [maxRadius, setMaxRadius] = useState(10);
+  const [maxRadius, setMaxRadius] = useState(10); // km
 
-  // Modal: Lên lịch định kỳ
-  const [showPeriodicModal, setShowPeriodicModal] = useState(false);
-  const [periodicError, setPeriodicError] = useState('');
-  const [contractPatients, setContractPatients] = useState<ContractPatientOption[]>([]);
-  const [loadingPatients, setLoadingPatients] = useState(false);
-  const [periodicForm, setPeriodicForm] = useState({
-    contractId: '',
-    patientId: '',
-    encounterType: 'HOME_VISIT' as EncounterType,
-    scheduledDate: getTodayIsoDate(),
-    scheduledTime: '09:00',
-    notes: '',
-  });
-
-  // Modal: Hoàn tất / Điều chỉnh lịch (Finalize Ad-hoc hoặc xử lý Conflict)
-  const [finalizeTarget, setFinalizeTarget] = useState<EncounterItem | null>(null);
-  const [finalizeForm, setFinalizeForm] = useState({
-    encounterType: 'HOME_VISIT' as EncounterType,
-    scheduledDate: getTodayIsoDate(),
-    scheduledTime: '09:00',
-    doctorNotes: '',
-  });
-
-  // Modal: Phản hồi yêu cầu đổi lịch (Accept / Counter-propose / No suitable slot)
-  const [rescheduleReviewTarget, setRescheduleReviewTarget] = useState<EncounterItem | null>(null);
-  const [counterMode, setCounterMode] = useState<'COUNTER' | 'NO_SLOT'>('COUNTER');
-  const [counterDate, setCounterDate] = useState(getTodayIsoDate());
-  const [counterTime, setCounterTime] = useState('14:00');
-  const [reviewNotes, setReviewNotes] = useState('');
-  const [reviewError, setReviewError] = useState('');
-
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const [profileRes, timetableRes, contractsRes] = await Promise.all([
-        doctorsApi.getDoctorMe().catch(() => null),
-        encountersApi.getDoctorTimetable({ pageSize: 150 }),
-        contractsApi.getMedicalContracts({ status: 'ACTIVE' }).catch(() => [] as FourPartyContract[]),
-      ]);
-
-      setDoctorProfile(profileRes);
-      setEncounters(timetableRes.data || []);
-      setActiveContracts(contractsRes || []);
-    } catch (err: any) {
-      setLoadError(err?.message || 'Không thể tải dữ liệu thời gian biểu bác sĩ.');
-    } finally {
-      setLoading(false);
-    }
+  const loadTimetableAndRequests = useCallback(() => {
+    encountersApi
+      .getPendingRescheduleRequests()
+      .then((list) => {
+        setPendingReschedules(
+          (Array.isArray(list) ? list : []).filter((r) => r.doctorDecision === 'PENDING')
+        );
+      })
+      .catch(() => { });
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    let isMounted = true;
+    loadTimetableAndRequests();
+    doctorsApi
+      .getDoctorMe()
+      .then((data) => {
+        if (!isMounted) return;
+        if (data) {
+          setDoctorProfile(data);
+          setPanelCap({
+            current: data.activePanelCount ?? 0,
+            max: data.maxPanelCapacity || 5,
+          });
+        }
+      })
+      .catch(() => { });
 
-  const loadPatientsForContract = useCallback(async (contractId: string) => {
-    if (!contractId) {
-      setContractPatients([]);
-      return;
-    }
-    setLoadingPatients(true);
-    try {
-      const detail = await contractsApi.getMedicalContractDetail(contractId);
-      const opts: ContractPatientOption[] = (detail.members || [])
-        .map((m) => ({
-          patientId: m.patientId || m.patient?.id || '',
-          fullName: m.patient?.fullName || 'Thành viên hộ gia đình',
-        }))
-        .filter((o) => Boolean(o.patientId));
-      setContractPatients(opts);
-      setPeriodicForm((prev) => ({
-        ...prev,
-        patientId: opts[0]?.patientId || '',
-      }));
-    } catch {
-      setContractPatients([]);
-    } finally {
-      setLoadingPatients(false);
-    }
-  }, []);
+    encountersApi
+      .getDoctorTimetable()
+      .then((res) => {
+        if (!isMounted) return;
+        if (res && Array.isArray(res.data) && res.data.length > 0) {
+          setEncounters(res.data);
+          const slots: TimeSlot[] = [
+            { time: '08:00 - 09:30' },
+            { time: '09:30 - 11:00' },
+            { time: '14:00 - 15:30' },
+            { time: '15:30 - 17:00' },
+            { time: '19:30 - 21:00' },
+          ];
 
-  const handleOpenPeriodicModal = async (preselectedContractId?: string) => {
-    const targetContractId = preselectedContractId || activeContracts[0]?.id || '';
-    setPeriodicError('');
-    setPeriodicForm((prev) => ({
-      ...prev,
-      contractId: targetContractId,
-      patientId: '',
-      scheduledDate: getTodayIsoDate(),
-      notes: '',
-    }));
-    setShowPeriodicModal(true);
-    if (targetContractId) {
-      await loadPatientsForContract(targetContractId);
-    }
-  };
+          const dayKeys: ('monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday')[] = [
+            'monday',
+            'tuesday',
+            'wednesday',
+            'thursday',
+            'friday',
+            'saturday',
+          ];
 
-  const handleCreatePeriodic = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!periodicForm.contractId) {
-      setPeriodicError('Vui lòng chọn hợp đồng hộ gia đình.');
-      return;
-    }
-    if (!periodicForm.patientId) {
-      setPeriodicError('Vui lòng chọn thành viên gia đình cần khám.');
-      return;
-    }
+          res.data.forEach((item, index) => {
+            const date = item.scheduledDate ? new Date(item.scheduledDate) : null;
+            let dayIndex = date ? date.getDay() - 1 : index % 6;
+            if (dayIndex < 0 || dayIndex > 5) dayIndex = 0;
+            const dayKey = dayKeys[dayIndex];
 
-    setSubmitting(true);
-    setPeriodicError('');
-    try {
-      await encountersApi.createPeriodicEncounter({
-        contractId: periodicForm.contractId,
-        patientId: periodicForm.patientId,
-        encounterType: periodicForm.encounterType,
-        scheduledDate: periodicForm.scheduledDate,
-        scheduledTime: periodicForm.scheduledTime,
-        notes: periodicForm.notes.trim() || undefined,
-      });
-      toast.success('Đã lên lịch khám định kỳ và gửi đề xuất tới Gia đình xác nhận.');
-      setShowPeriodicModal(false);
-      await loadData();
-    } catch (err: any) {
-      setPeriodicError(err?.message || 'Không thể tạo lịch khám định kỳ.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+            const slotIndex = index % slots.length;
+            const title =
+              item.encounterType === 'HOME_VISIT'
+                ? 'Khám Tại Nhà'
+                : 'Tư vấn Telehealth';
+            const patientName =
+              item.participants && item.participants.length > 0
+                ? item.participants.map((p) => p.patient?.fullName).filter(Boolean).join(', ')
+                : item.patient?.fullName ||
+                (item.visitScope === 'FAMILY'
+                  ? 'Cả gia đình'
+                  : `BN #${(item.patientId ?? item.id).slice(0, 5)}`);
+            const type: 'home' | 'telehealth' =
+              item.encounterType === 'HOME_VISIT' ? 'home' : 'telehealth';
 
-  const handleOpenFinalize = (enc: EncounterItem) => {
-    setFinalizeTarget(enc);
-    setFinalizeForm({
-      encounterType:
-        (enc.encounterType === 'TELEHEALTH' || enc.encounterType === 'FACILITY_VISIT'
-          ? enc.encounterType
-          : 'HOME_VISIT') as EncounterType,
-      scheduledDate: extractEncounterDateIso(enc.scheduledDate) || getTodayIsoDate(),
-      scheduledTime: extractEncounterTimeHm(enc.scheduledTime) || '09:00',
-      doctorNotes: '',
-    });
-  };
-
-  const handleSubmitFinalize = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!finalizeTarget) return;
-    setSubmitting(true);
-    try {
-      await encountersApi.finalizeEncounter(finalizeTarget.id, {
-        encounterType: finalizeForm.encounterType,
-        scheduledDate: finalizeForm.scheduledDate,
-        scheduledTime: finalizeForm.scheduledTime,
-        doctorNotes: finalizeForm.doctorNotes.trim() || undefined,
-      });
-      toast.success('Đã hoàn tất lịch khám và gửi thông báo cho Gia đình xác nhận.');
-      setFinalizeTarget(null);
-      await loadData();
-    } catch (err: any) {
-      toast.error(err?.message || 'Không thể cập nhật lịch khám.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleAcceptReschedule = async (enc: EncounterItem) => {
-    setActionBusyId(enc.id);
-    try {
-      const res = await encountersApi.reviewReschedule(enc.id, { accept: true });
-      if (res?.status === 'CONFLICT_ALERT') {
-        toast.warning(res.message || 'Khung giờ gia đình chọn trùng ca trực tại CSYT. Vui lòng đề xuất giờ khác.');
-      } else {
-        toast.success('Đã chấp nhận yêu cầu đổi lịch và chốt lịch mới cho cả 3 bên.');
-      }
-      await loadData();
-    } catch (err: any) {
-      toast.error(err?.message || 'Không thể xử lý yêu cầu đổi lịch.');
-    } finally {
-      setActionBusyId(null);
-    }
-  };
-
-  const handleOpenCounterModal = (enc: EncounterItem, mode: 'COUNTER' | 'NO_SLOT') => {
-    setRescheduleReviewTarget(enc);
-    setCounterMode(mode);
-    setCounterDate(extractEncounterDateIso(enc.proposedDate || enc.scheduledDate) || getTodayIsoDate());
-    setCounterTime(extractEncounterTimeHm(enc.proposedTime || enc.scheduledTime) || '14:00');
-    setReviewNotes('');
-    setReviewError('');
-  };
-
-  const handleSubmitRescheduleReview = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!rescheduleReviewTarget) return;
-
-    setSubmitting(true);
-    setReviewError('');
-    try {
-      const payload =
-        counterMode === 'COUNTER'
-          ? {
-              accept: false,
-              counterDate,
-              counterTime,
-              notes: reviewNotes.trim() || undefined,
-            }
-          : {
-              accept: false,
-              notes: reviewNotes.trim() || undefined,
+            slots[slotIndex][dayKey] = {
+              title,
+              patient: patientName,
+              type,
             };
+          });
 
-      const res = await encountersApi.reviewReschedule(rescheduleReviewTarget.id, payload);
+          setTimetableData(slots);
+        }
+      })
+      .catch(() => { });
 
-      if (res?.status === 'CONFLICT_ALERT') {
-        setReviewError(res.message || 'Khung giờ thay thế vẫn trùng lịch / ca trực tại CSYT.');
-        await loadData();
-        return;
-      }
+    return () => {
+      isMounted = false;
+    };
+  }, [loadTimetableAndRequests]);
 
-      if (res?.status === 'NO_SUITABLE_SLOT') {
-        toast.info('Đã thông báo Gia đình hiện chưa có slot phù hợp và mời chọn khung giờ khác.');
-      } else {
-        toast.success('Đã gửi đề xuất khung giờ thay thế tới Gia đình xem xét.');
-      }
-      setRescheduleReviewTarget(null);
-      await loadData();
-    } catch (err: any) {
-      setReviewError(err?.message || 'Không thể phản hồi yêu cầu đổi lịch.');
+  const handleDecideReschedule = async (
+    encounterId: string,
+    requestId: string,
+    decision: 'APPROVE' | 'REJECT'
+  ) => {
+    setDecidingId(requestId);
+    try {
+      await encountersApi.decideRescheduleRequest(encounterId, requestId, { decision });
+      toast.success(
+        decision === 'APPROVE'
+          ? 'Bác sĩ đã đồng ý đổi lịch khám.'
+          : 'Bác sĩ đã từ chối yêu cầu đổi lịch. Lịch cũ được giữ nguyên.'
+      );
+      loadTimetableAndRequests();
+      const res = await encountersApi.getDoctorTimetable();
+      if (Array.isArray(res?.data)) setEncounters(res.data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Không thể xử lý yêu cầu đổi lịch.');
     } finally {
-      setSubmitting(false);
+      setDecidingId(null);
     }
   };
 
-  const conflictEncounters = useMemo(
-    () => encounters.filter((e) => Boolean(e.conflictAlert) && e.encounterStatus !== 'CANCELLED'),
-    [encounters]
-  );
+  const handleOpenRescheduleModal = (enc: EncounterItem) => {
+    setRescheduleTarget(enc);
+    setRescheduleDate(enc.scheduledDate?.slice(0, 10) || '');
+    setRescheduleTime(enc.scheduledTime?.slice(11, 16) || '09:30');
+    setRescheduleReason('');
+  };
 
-  const pendingAdHocEncounters = useMemo(
-    () =>
-      encounters.filter(
-        (e) =>
-          (e.encounterStatus === 'REQUESTED' || e.encounterStatus === 'PROPOSED') &&
-          e.proposedBy === 'FAMILY_REP'
-      ),
-    [encounters]
-  );
+  const handleSubmitReschedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rescheduleTarget) return;
+    if (!rescheduleDate || !rescheduleTime || !rescheduleReason.trim()) {
+      toast.error('Vui lòng nhập đầy đủ ngày, giờ và lý do đổi lịch.');
+      return;
+    }
+    setSubmittingReschedule(true);
+    try {
+      await encountersApi.requestReschedule(rescheduleTarget.id, {
+        proposedDate: rescheduleDate,
+        proposedTime: rescheduleTime,
+        rescheduleReason: rescheduleReason.trim(),
+      });
+      toast.success('Đã gửi yêu cầu đổi lịch tới Gia đình và Cơ sở Y tế phê duyệt.');
+      setRescheduleTarget(null);
+      loadTimetableAndRequests();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Không thể gửi yêu cầu đổi lịch.');
+    } finally {
+      setSubmittingReschedule(false);
+    }
+  };
 
-  const pendingRescheduleEncounters = useMemo(
-    () =>
-      encounters.filter(
-        (e) => e.encounterStatus === 'RESCHEDULE_REQUESTED' && e.proposedBy !== 'DOCTOR'
-      ),
-    [encounters]
-  );
+  const capPercentage = Math.round((panelCap.current / panelCap.max) * 100);
 
-  const doctorName = doctorProfile?.doctorName || 'Bác sĩ Gia đình';
-  const facilityName = doctorProfile?.facility?.facilityName || 'Cơ sở y tế liên kết';
-  const panelMax = doctorProfile?.maxPanelCapacity ?? 150;
-  const panelCurrent = Math.max(doctorProfile?.activePanelCount ?? 0, activeContracts.length);
-  const capPercentage = panelMax > 0 ? Math.min(100, Math.round((panelCurrent / panelMax) * 100)) : 0;
+  const homeCount = encounters.filter((e) => e.encounterType === 'HOME_VISIT').length || 12;
+  const teleCount = encounters.filter((e) => e.encounterType === 'TELEMEDICINE').length || 18;
+  const totalSlots = homeCount + teleCount + 5;
+  const homePct = Math.round((homeCount / totalSlots) * 100);
+  const telePct = Math.round((teleCount / totalSlots) * 100);
+  const researchPct = Math.max(0, 100 - homePct - telePct);
 
-  const homeCount = encounters.filter((e) => e.encounterType === 'HOME_VISIT').length;
-  const teleCount = encounters.filter(
-    (e) => e.encounterType === 'TELEHEALTH' || e.encounterType === 'TELEMEDICINE'
-  ).length;
-  const confirmedCount = encounters.filter((e) => e.encounterStatus === 'CONFIRMED').length;
+  const facilityName =
+    doctorProfile?.facility?.facilityName || doctorProfile?.facilityName || 'BV Đại học Y Dược';
 
   return (
-    <div className="min-h-screen bg-[#f5f6f8] text-[#0f172a] font-sans">
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* Header Bar */}
-        <Card className="bg-white p-6 rounded-2xl border-slate-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge
-                variant="outline"
-                className="px-2.5 py-0.5 rounded-full bg-blue-50 text-primary text-xs font-bold uppercase tracking-wider border-blue-200"
-              >
-                Lịch Khám &amp; Điều Phối Bác Sĩ
+    <div className="min-h-screen bg-[#f5f6f8] text-[#0f172a] font-sans antialiased">
+
+      <div className="max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
+        {/* Header & Controls */}
+        <Card className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border-slate-200 shadow-xs">
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl font-bold text-[#0f172a]">
+                Thời Gian Biểu Lâm Sàng &amp; Quản Lý Hạn Mức (Panel Cap)
+              </h1>
+              <Badge variant="outline" className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-primary/10 text-primary border-primary/20">
+                Tuần {currentWeek} / {currentYear}
               </Badge>
-              <span className="text-xs text-slate-400 font-medium">{facilityName}</span>
             </div>
-            <h1 className="text-2xl font-bold text-[#0f172a]">{doctorName}</h1>
+            <p className="text-xs text-[#475569] mt-1">
+              Điều phối thời gian biểu khám tại nhà và tư vấn từ xa, kiểm soát trần số lượng bệnh nhân phụ trách (Panel Cap) tránh quá tải.
+            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-3 self-start md:self-auto">
+            {/* Emergency Toggle */}
             <label className="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 cursor-pointer text-xs font-semibold">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Sẵn sàng tiếp nhận khẩn cấp:</span>
+              <span>Sẵn sàng tiếp nhận Cấp cứu:</span>
               <Checkbox
                 checked={isEmergencyReady}
                 onCheckedChange={(checked) => setIsEmergencyReady(checked === true)}
               />
             </label>
 
-            <Button
-              type="button"
-              onClick={() => handleOpenPeriodicModal()}
-              disabled={activeContracts.length === 0}
-              className="rounded-xl text-xs font-bold gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[18px]">add_circle</span>
-              <span>Lên lịch định kỳ</span>
-            </Button>
-
-            <Button asChild variant="outline" size="sm" className="rounded-xl text-xs font-bold">
-              <Link href="/doctor/encounters">Ca khám hôm nay</Link>
+            <Button asChild size="sm" className="rounded-xl text-xs font-bold">
+              <Link href="/doctor/encounters">Xem ca khám hôm nay</Link>
             </Button>
           </div>
         </Card>
 
-        {loadError && (
-          <div
-            role="alert"
-            className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between gap-4"
-          >
-            <span>{loadError}</span>
-            <Button type="button" variant="outline" size="sm" onClick={loadData}>
-              Thử lại
-            </Button>
-          </div>
-        )}
-
-        {/* Capacity & Summary Row */}
+        {/* Panel Cap & Capacity Indicators */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Panel Cap Indicator */}
           <Card className="bg-white p-6 rounded-2xl border-slate-200 shadow-xs space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-xs font-bold text-[#475569] uppercase tracking-wider flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-primary text-[18px]">group</span>
-                Hợp đồng hộ đang phụ trách
+                Hạn mức Gia đình (Panel Cap)
               </span>
               <span className="text-xs font-bold text-primary tabular-nums">{capPercentage}% Tải</span>
             </div>
+
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-[#0f172a] tabular-nums">{panelCurrent}</span>
-              <span className="text-xs text-slate-400 font-medium">/ tối đa {panelMax} hộ</span>
+              <span className="text-3xl font-bold text-[#0f172a] tabular-nums">{panelCap.current}</span>
+              <span className="text-xs text-slate-400 font-medium">/ tối đa {panelCap.max} hộ gia đình</span>
             </div>
+
             <Progress value={capPercentage} className="h-2.5" />
+            <p className="text-[11px] text-slate-400">
+              Quy chuẩn Y tế Gia đình khuyến nghị &lt;= 150 hộ/bác sĩ để đảm bảo chất lượng phản hồi 15 phút.
+            </p>
           </Card>
 
+          {/* Home Visit Radius Settings */}
           <Card className="bg-white p-6 rounded-2xl border-slate-200 shadow-xs space-y-3">
             <span className="text-xs font-bold text-[#475569] uppercase tracking-wider flex items-center gap-1.5">
               <span className="material-symbols-outlined text-emerald-600 text-[18px]">near_me</span>
               Bán Kính Khám Tại Nhà
             </span>
+
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-bold text-emerald-600 tabular-nums">{maxRadius}</span>
               <span className="text-xs text-slate-400 font-medium">km quanh {facilityName}</span>
             </div>
+
             <input
               type="range"
               min="5"
@@ -460,718 +349,276 @@ export function DoctorTimetableView() {
               onChange={(e) => setMaxRadius(parseInt(e.target.value, 10))}
               className="w-full accent-[#0037c1]"
             />
+            <div className="flex justify-between text-[11px] text-slate-400">
+              <span>5 km (Nội thành)</span>
+              <span>10 km</span>
+              <span>20 km (Vùng ven)</span>
+            </div>
           </Card>
 
+          {/* Weekly Workload Distribution */}
           <Card className="bg-white p-6 rounded-2xl border-slate-200 shadow-xs space-y-2">
             <span className="text-xs font-bold text-[#475569] uppercase tracking-wider flex items-center gap-1.5">
               <span className="material-symbols-outlined text-amber-600 text-[18px]">pie_chart</span>
-              Tổng quan lịch khám
+              Phân Bổ Lịch Trong Tuần
             </span>
-            <div className="space-y-1.5 text-xs pt-1 tabular-nums">
+            <div className="space-y-1.5 text-xs pt-1">
               <div className="flex justify-between">
-                <span className="text-slate-500">Đã chốt lịch (Confirmed):</span>
-                <strong className="text-emerald-700">{confirmedCount} ca</strong>
+                <span className="text-slate-500">Khám tại nhà riêng:</span>
+                <strong className="text-[#0f172a]">{homeCount} buổi / tuần ({homePct}%)</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Khám tại nhà:</span>
-                <strong className="text-[#0f172a]">{homeCount} ca</strong>
+                <span className="text-slate-500">Tư vấn Telehealth 24/7:</span>
+                <strong className="text-primary">{teleCount} buổi / tuần ({telePct}%)</strong>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Tư vấn Telehealth:</span>
-                <strong className="text-primary">{teleCount} ca</strong>
+                <span className="text-slate-500">Nghiên cứu &amp; Giao ban viện:</span>
+                <strong className="text-slate-400">5 buổi / tuần ({researchPct}%)</strong>
               </div>
             </div>
           </Card>
         </div>
 
-        {/* HỘP XỬ LÝ XUNG ĐỘT & YÊU CẦU TỪ GIA ĐÌNH */}
-        {(conflictEncounters.length > 0 ||
-          pendingAdHocEncounters.length > 0 ||
-          pendingRescheduleEncounters.length > 0) && (
-          <section aria-label="Hộp xử lý yêu cầu lịch khám" className="space-y-4">
-            <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <span className="material-symbols-outlined text-amber-600">inbox</span>
-              <span>Yêu cầu cần Bác sĩ xử lý ({conflictEncounters.length + pendingAdHocEncounters.length + pendingRescheduleEncounters.length})</span>
-            </h2>
-
-            {/* 1. Cảnh báo xung đột ca trực CSYT */}
-            {conflictEncounters.map((enc) => (
-              <Card
-                key={`conflict-${enc.id}`}
-                className="bg-rose-50/70 p-5 rounded-2xl border-2 border-rose-300 flex flex-col lg:flex-row lg:items-center justify-between gap-4"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-rose-600 text-white">Cảnh báo xung đột (CONFLICT_ALERT)</Badge>
-                    <Badge variant="outline">{getEncounterTypeLabel(enc.encounterType)}</Badge>
-                  </div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    {enc.patient?.fullName || 'Bệnh nhân'} — {extractEncounterTimeHm(enc.scheduledTime)} ·{' '}
-                    {formatEncounterDateVi(enc.scheduledDate)}
-                  </h3>
-                  <p className="text-xs text-rose-800 font-medium">
-                    {enc.conflictDetails || 'Trùng khung giờ với ca trực nội viện tại CSYT.'}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => handleOpenFinalize(enc)}
-                  className="rounded-xl shrink-0 font-semibold"
+        {/* Master Timetable Grid */}
+        {pendingReschedules.length > 0 && (
+          <Card className="bg-amber-50/70 border-amber-200 p-5 rounded-2xl space-y-3">
+            <h3 className="text-sm font-bold text-amber-900">
+              Yêu cầu đổi lịch chờ Bác sĩ duyệt ({pendingReschedules.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {pendingReschedules.map((req) => (
+                <div
+                  key={req.id}
+                  className="bg-white rounded-xl border border-amber-200/80 p-4 flex flex-col justify-between gap-3"
                 >
-                  Điều chỉnh giờ khác
-                </Button>
-              </Card>
-            ))}
-
-            {/* 2. Yêu cầu khám đột xuất (Ad-hoc) chờ duyệt */}
-            {pendingAdHocEncounters.map((enc) => (
-              <Card
-                key={`adhoc-${enc.id}`}
-                className="bg-white p-5 rounded-2xl border-2 border-sky-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4"
-              >
-                <div className="space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge className="bg-sky-100 text-sky-900 border-sky-200 hover:bg-sky-100">
-                      Yêu cầu khám đột xuất (Ad-hoc)
-                    </Badge>
-                    <Badge variant="outline">{getEncounterTypeLabel(enc.encounterType)}</Badge>
-                    <span className="text-xs text-slate-500 tabular-nums">
-                      HĐ #{enc.contract?.contractNumber || '—'}
-                    </span>
-                  </div>
-                  <h3 className="text-base font-bold text-slate-900">
-                    {enc.patient?.fullName || 'Thành viên gia đình'} — Mong muốn:{' '}
-                    <span className="text-primary tabular-nums">
-                      {extractEncounterTimeHm(enc.scheduledTime)} · {formatEncounterDateVi(enc.scheduledDate)}
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-600">
-                    <strong>Triệu chứng / Lý do:</strong> {enc.subjectiveNote || 'Không có mô tả'}
-                  </p>
-                </div>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => handleOpenFinalize(enc)}
-                  className="rounded-xl shrink-0 font-semibold gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[16px]">fact_check</span>
-                  <span>Duyệt &amp; Hoàn tất lịch</span>
-                </Button>
-              </Card>
-            ))}
-
-            {/* 3. Yêu cầu xin đổi lịch từ Gia đình */}
-            {pendingRescheduleEncounters.map((enc) => {
-              const isBusy = actionBusyId === enc.id;
-              return (
-                <Card
-                  key={`reschedule-${enc.id}`}
-                  className="bg-white p-5 rounded-2xl border-2 border-amber-300 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4"
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge className="bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-100">
-                        Gia đình xin đổi lịch
-                      </Badge>
-                      <Badge variant="outline">{getEncounterTypeLabel(enc.encounterType)}</Badge>
+                  <div className="space-y-1 text-xs">
+                    <div className="font-bold text-slate-900">
+                      Gia đình xin đổi sang {req.proposedDate?.slice(0, 10)} lúc {req.proposedTime?.slice(11, 16)}
                     </div>
-                    <h3 className="text-base font-bold text-slate-900">
-                      {enc.patient?.fullName || 'Thành viên gia đình'}
-                    </h3>
-                    <div className="text-xs text-slate-700 space-y-0.5 tabular-nums">
-                      <div>
-                        Giờ cũ: {extractEncounterTimeHm(enc.scheduledTime)} ·{' '}
-                        {formatEncounterDateVi(enc.scheduledDate)} →{' '}
-                        <strong className="text-primary">
-                          Giờ gia đình đề xuất: {extractEncounterTimeHm(enc.proposedTime)} ·{' '}
-                          {formatEncounterDateVi(enc.proposedDate)}
-                        </strong>
-                      </div>
-                      <div className="text-slate-600">
-                        <strong>Lý do:</strong> {enc.rescheduleReason || 'Không ghi chú'}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={isBusy}
-                      onClick={() => handleAcceptReschedule(enc)}
-                      className="rounded-xl font-semibold gap-1"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">check</span>
-                      <span>Chấp nhận giờ mới</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isBusy}
-                      onClick={() => handleOpenCounterModal(enc, 'COUNTER')}
-                      className="rounded-xl font-semibold gap-1"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">schedule_send</span>
-                      <span>Đề xuất giờ khác</span>
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled={isBusy}
-                      onClick={() => handleOpenCounterModal(enc, 'NO_SLOT')}
-                      className="rounded-xl font-semibold text-rose-600 border-rose-200 hover:bg-rose-50"
-                    >
-                      Báo không có slot
-                    </Button>
-                  </div>
-                </Card>
-              );
-            })}
-          </section>
-        )}
-
-        {/* HỢP ĐỒNG ACTIVE ĐANG PHỤ TRÁCH */}
-        <section aria-label="Hợp đồng gia đình đang phụ trách" className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-slate-900">
-              Hợp đồng gia đình hiệu lực ({activeContracts.length})
-            </h2>
-          </div>
-
-          {activeContracts.length === 0 ? (
-            <Card className="bg-white p-5 rounded-2xl border-slate-200 text-xs text-slate-500">
-              Chưa có hợp đồng gia đình đang ở trạng thái ACTIVE được phân công cho bạn.
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {activeContracts.map((c) => (
-                <Card
-                  key={c.id}
-                  className="bg-white p-4 rounded-2xl border-slate-200 shadow-xs flex flex-col justify-between gap-3"
-                >
-                  <div className="space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-primary bg-primary/5 tabular-nums">
-                        #{c.contractNumber}
-                      </Badge>
-                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                        ACTIVE
-                      </Badge>
-                    </div>
-                    <h3 className="text-sm font-bold text-slate-900 pt-1">
-                      Hộ {c.familyRepresentativeName || 'Gia đình'}
-                    </h3>
-                    <p className="text-xs text-slate-500">
-                      {c.packageName} · {c.membersCount} thành viên
+                    <p className="text-slate-600">{req.reason}</p>
+                    <p className="text-[11px] text-slate-500">
+                      CSYT: {req.facilityDecision === 'APPROVED' ? 'Đã đồng ý' : 'Đang chờ duyệt'}
                     </p>
                   </div>
-
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleOpenPeriodicModal(c.id)}
-                    className="w-full rounded-xl text-xs font-semibold gap-1.5"
-                  >
-                    <span className="material-symbols-outlined text-[16px] text-primary">
-                      calendar_add_on
-                    </span>
-                    <span>+ Lên lịch định kỳ</span>
-                  </Button>
-                </Card>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={decidingId === req.id}
+                      onClick={() => void handleDecideReschedule(req.encounterId, req.id, 'APPROVE')}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                    >
+                      Đồng ý
+                    </button>
+                    <button
+                      type="button"
+                      disabled={decidingId === req.id}
+                      onClick={() => void handleDecideReschedule(req.encounterId, req.id, 'REJECT')}
+                      className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
+                    >
+                      Từ chối
+                    </button>
+                  </div>
+                </div>
               ))}
             </div>
-          )}
-        </section>
+          </Card>
+        )}
 
-        {/* Master Timetable Grid (Real Encounters mapped to weekDates) */}
+        {encounters.length > 0 && (
+          <Card className="bg-white p-5 rounded-2xl border-slate-200 shadow-xs space-y-3">
+            <h3 className="font-bold text-sm text-[#0f172a]">
+              Danh sách ca khám trên nền tảng ({encounters.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {encounters.map((enc) => (
+                <div
+                  key={enc.id}
+                  className="rounded-xl border border-slate-200 p-3.5 flex items-center justify-between gap-3 text-xs"
+                >
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-slate-900">
+                      {enc.scheduledDate?.slice(0, 10)} lúc {enc.scheduledTime?.slice(11, 16)} ·{' '}
+                      {enc.encounterType === 'HOME_VISIT' ? 'Khám tại nhà' : 'Telehealth'}
+                    </div>
+                    <div className="text-slate-600">
+                      {enc.participants?.map((p) => p.patient?.fullName).filter(Boolean).join(', ') || 'Cả gia đình'}
+                      {' · '}
+                      <span className="font-semibold">{enc.encounterStatus}</span>
+                    </div>
+                  </div>
+                  {enc.encounterStatus === 'CONFIRMED' && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenRescheduleModal(enc)}
+                      className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 font-semibold hover:bg-slate-100 cursor-pointer"
+                    >
+                      Xin đổi lịch
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         <Card className="bg-white rounded-2xl border-slate-200 shadow-xs overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="font-bold text-base text-[#0f172a] flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">calendar_month</span>
-              <span>Thời Gian Biểu Tuần Thực Tế</span>
+              Thời Gian Biểu Lâm Sàng (Thứ Hai - Thứ Bảy)
             </h3>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setWeekOffset((w) => w - 1)}
-                className="rounded-xl text-xs"
-              >
-                Tuần trước
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setWeekOffset(0)}
-                className="rounded-xl text-xs"
-              >
-                Tuần này
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setWeekOffset((w) => w + 1)}
-                className="rounded-xl text-xs"
-              >
-                Tuần sau
-              </Button>
+            <div className="flex items-center gap-4 text-xs">
+              <span className="flex items-center gap-1.5 font-semibold text-emerald-700">
+                <span className="w-3 h-3 rounded-md bg-emerald-100 border border-emerald-300" />
+                Khám Tại Nhà
+              </span>
+              <span className="flex items-center gap-1.5 font-semibold text-blue-700">
+                <span className="w-3 h-3 rounded-md bg-blue-100 border border-blue-300" />
+                Tư vấn Telehealth
+              </span>
             </div>
           </div>
 
-          {loading ? (
-            <div className="p-10 text-center text-sm text-slate-500">Đang tải lịch khám...</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table className="text-xs">
-                <TableHeader>
-                  <TableRow className="bg-slate-50 border-b border-slate-200 text-[#475569] hover:bg-slate-50">
-                    <TableHead className="p-3.5 w-32 border-r border-slate-200 text-[#475569]">
-                      Khung giờ
-                    </TableHead>
-                    {weekDates.slice(0, 6).map((wd, idx) => (
-                      <TableHead
-                        key={wd.dateIso}
-                        className={`p-3.5 text-[#475569] ${idx < 5 ? 'border-r border-slate-200' : ''}`}
-                      >
-                        {wd.label}
-                      </TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-slate-100 text-[#0f172a]">
-                  {TIME_WINDOWS.map((win) => (
-                    <TableRow key={win.label} className="hover:bg-slate-50/50">
-                      <TableCell className="p-3.5 tabular-nums font-bold text-slate-500 border-r border-slate-200 bg-slate-50/30 whitespace-nowrap">
-                        {win.label}
-                      </TableCell>
-                      {weekDates.slice(0, 6).map((wd, dayIdx) => {
-                        const cellItems = encounters.filter((enc) => {
-                          if (enc.encounterStatus === 'CANCELLED') return false;
-                          const dateIso = extractEncounterDateIso(enc.scheduledDate);
-                          if (dateIso !== wd.dateIso) return false;
-                          const hm = extractEncounterTimeHm(enc.scheduledTime);
-                          const dec = getHourDecimal(hm);
-                          return dec >= win.minHour && dec < win.maxHour;
-                        });
+          <div className="hidden md:block overflow-x-auto">
+            <Table className="text-xs">
+              <TableHeader>
+                <TableRow className="bg-slate-50 border-b border-slate-200 text-[#475569] hover:bg-slate-50">
+                  <TableHead className="p-3.5 w-32 border-r border-slate-200 text-[#475569]">Khung giờ</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[0].dateStr}</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[1].dateStr}</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[2].dateStr}</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[3].dateStr}</TableHead>
+                  <TableHead className="p-3.5 border-r border-slate-200 text-[#475569]">{weekDates[4].dateStr}</TableHead>
+                  <TableHead className="p-3.5 text-[#475569]">{weekDates[5].dateStr}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-slate-100 text-[#0f172a]">
+                {timetableData.map((slot, idx) => (
+                  <TableRow key={idx} className="hover:bg-slate-50/50">
+                    <TableCell className="p-3.5 tabular-nums font-bold text-slate-500 border-r border-slate-200 bg-slate-50/30 whitespace-nowrap">
+                      {slot.time}
+                    </TableCell>
 
-                        return (
-                          <TableCell
-                            key={wd.dateIso}
-                            className={`p-2 align-top ${dayIdx < 5 ? 'border-r border-slate-200' : ''}`}
-                          >
-                            {cellItems.length === 0 ? (
-                              <span className="text-[11px] text-slate-300 block text-center py-2">
-                                Trống
-                              </span>
-                            ) : (
-                              <div className="space-y-1.5">
-                                {cellItems.map((enc) => {
-                                  const statusMeta = getEncounterStatusLabel(enc);
-                                  const isTele =
-                                    enc.encounterType === 'TELEHEALTH' ||
-                                    enc.encounterType === 'TELEMEDICINE';
-                                  return (
-                                    <div
-                                      key={enc.id}
-                                      className={`p-2 rounded-xl border text-[11px] space-y-0.5 ${
-                                        enc.conflictAlert
-                                          ? 'bg-rose-50 border-rose-300 text-rose-900'
-                                          : isTele
-                                          ? 'bg-blue-50/80 border-blue-200 text-blue-900'
-                                          : 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
-                                      }`}
-                                    >
-                                      <div className="font-bold flex items-center justify-between gap-1">
-                                        <span className="tabular-nums">
-                                          {extractEncounterTimeHm(enc.scheduledTime)}
-                                        </span>
-                                        <span className="truncate">{getEncounterTypeLabel(enc.encounterType)}</span>
-                                      </div>
-                                      <div className="font-semibold truncate">
-                                        {enc.patient?.fullName || 'Bệnh nhân'}
-                                      </div>
-                                      <div className="text-[10px] opacity-80 truncate">
-                                        {statusMeta.label} · {getEncounterCategoryLabel(enc.category)}
-                                      </div>
-                                    </div>
-                                  );
-                                })}
+                    {[slot.monday, slot.tuesday, slot.wednesday, slot.thursday, slot.friday, slot.saturday].map(
+                      (item, dayIdx) => (
+                        <TableCell
+                          key={dayIdx}
+                          className={`p-2 ${dayIdx < 5 ? 'border-r border-slate-200' : ''}`}
+                        >
+                          {item ? (
+                            <div
+                              className={`p-2.5 rounded-xl border ${item.type === 'home'
+                                  ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+                                  : 'bg-blue-50/80 border-blue-200 text-blue-900'
+                                }`}
+                            >
+                              <div className="font-bold text-[11px] flex items-center gap-1">
+                                <span className="material-symbols-outlined text-[13px]">
+                                  {item.type === 'home' ? 'home_health' : 'videocam'}
+                                </span>
+                                {item.title}
                               </div>
-                            )}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                              <div className="text-[10px] text-slate-600 truncate">{item.patient}</div>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-300 block text-center py-2">Trống</span>
+                          )}
+                        </TableCell>
+                      )
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="divide-y divide-slate-100 md:hidden">
+            {timetableData.map((slot, idx) => (
+              <div key={idx} className="space-y-2 p-4 text-xs">
+                <div className="font-bold text-slate-900 tabular-nums">{slot.time}</div>
+                <div className="grid grid-cols-1 gap-1.5">
+                  {[slot.monday, slot.tuesday, slot.wednesday, slot.thursday, slot.friday, slot.saturday].map(
+                    (item, dIdx) => (
+                      <div key={dIdx} className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2.5 py-1.5">
+                        <span className="font-medium text-slate-500">Thứ {dIdx + 2}</span>
+                        <span className="font-semibold text-slate-800 truncate">{item?.title || 'Trống'}</span>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
         </Card>
       </div>
 
-      {/* MODAL 1: LÊN LỊCH KHÁM ĐỊNH KỲ */}
-      <Dialog open={showPeriodicModal} onOpenChange={setShowPeriodicModal}>
-        <DialogContent className="sm:max-w-lg rounded-2xl p-0 overflow-hidden border-slate-200 gap-0">
-          <DialogHeader className="px-6 py-5 bg-primary text-primary-foreground text-left">
-            <DialogTitle className="font-bold text-base text-white">
-              Lên lịch khám định kỳ cho Gia đình
-            </DialogTitle>
-            <DialogDescription className="text-xs text-blue-100 mt-0.5">
-              Hệ thống sẽ kiểm tra hạn mức gói, kiểm tra xung đột và gửi lịch tới Gia đình xác nhận.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleCreatePeriodic} className="p-6 space-y-4 text-xs">
-            {periodicError && (
-              <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
-                {periodicError}
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label htmlFor="periodic-contract" className="font-semibold text-slate-700">
-                Hợp đồng hộ gia đình
-              </Label>
-              <select
-                id="periodic-contract"
-                value={periodicForm.contractId}
-                onChange={async (e) => {
-                  const id = e.target.value;
-                  setPeriodicForm((prev) => ({ ...prev, contractId: id, patientId: '' }));
-                  await loadPatientsForContract(id);
-                }}
-                className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold"
-              >
-                {activeContracts.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    #{c.contractNumber} — {c.familyRepresentativeName} ({c.packageName})
-                  </option>
-                ))}
-              </select>
+      {rescheduleTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+        >
+          <form
+            onSubmit={(e) => void handleSubmitReschedule(e)}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4 border border-slate-200"
+          >
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Bác sĩ xin đổi lịch khám</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Yêu cầu cần Gia đình và Cơ sở Y tế cùng đồng ý (báo trước tối thiểu 4 giờ).
+              </p>
             </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="periodic-patient" className="font-semibold text-slate-700">
-                Thành viên khám
-              </Label>
-              <select
-                id="periodic-patient"
-                disabled={loadingPatients}
-                value={periodicForm.patientId}
-                onChange={(e) => setPeriodicForm((prev) => ({ ...prev, patientId: e.target.value }))}
-                className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold"
-              >
-                {contractPatients.length === 0 ? (
-                  <option value="">{loadingPatients ? 'Đang tải thành viên...' : 'Không có thành viên'}</option>
-                ) : (
-                  contractPatients.map((p) => (
-                    <option key={p.patientId} value={p.patientId}>
-                      {p.fullName}
-                    </option>
-                  ))
-                )}
-              </select>
-            </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="periodic-type" className="font-semibold text-slate-700">
-                Hình thức khám
-              </Label>
-              <select
-                id="periodic-type"
-                value={periodicForm.encounterType}
-                onChange={(e) =>
-                  setPeriodicForm((prev) => ({ ...prev, encounterType: e.target.value as EncounterType }))
-                }
-                className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold"
-              >
-                <option value="HOME_VISIT">Khám tại nhà (HOME_VISIT)</option>
-                <option value="TELEHEALTH">Tư vấn Video (TELEHEALTH)</option>
-                <option value="FACILITY_VISIT">Tại CSYT (FACILITY_VISIT)</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="periodic-date" className="font-semibold text-slate-700">
-                  Ngày khám
-                </Label>
-                <Input
-                  id="periodic-date"
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Ngày mới</label>
+                <input
                   type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
                   required
-                  min={getTodayIsoDate()}
-                  value={periodicForm.scheduledDate}
-                  onChange={(e) => setPeriodicForm((prev) => ({ ...prev, scheduledDate: e.target.value }))}
-                  className="h-10 rounded-xl tabular-nums font-semibold"
                 />
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="periodic-time" className="font-semibold text-slate-700">
-                  Giờ khám
-                </Label>
-                <select
-                  id="periodic-time"
-                  value={periodicForm.scheduledTime}
-                  onChange={(e) => setPeriodicForm((prev) => ({ ...prev, scheduledTime: e.target.value }))}
-                  className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold tabular-nums"
-                >
-                  {STANDARD_TIME_SLOTS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Giờ mới</label>
+                <input
+                  type="time"
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                  required
+                />
               </div>
             </div>
-
-            <div className="space-y-1.5">
-              <Label htmlFor="periodic-notes" className="font-semibold text-slate-700">
-                Ghi chú kế hoạch khám
-              </Label>
-              <Textarea
-                id="periodic-notes"
-                rows={2}
-                placeholder="Ví dụ: Kiểm tra huyết áp định kỳ tháng 11, mang máy đo đường huyết..."
-                value={periodicForm.notes}
-                onChange={(e) => setPeriodicForm((prev) => ({ ...prev, notes: e.target.value }))}
-                className="rounded-xl"
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700">Lý do bận</label>
+              <textarea
+                rows={3}
+                value={rescheduleReason}
+                onChange={(e) => setRescheduleReason(e.target.value)}
+                placeholder="Nhập lý do bác sĩ cần đổi lịch..."
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                required
               />
             </div>
-
-            <div className="flex gap-2.5 pt-2 border-t border-slate-100">
-              <Button
+            <div className="flex justify-end gap-2 pt-2">
+              <button
                 type="button"
-                variant="outline"
-                onClick={() => setShowPeriodicModal(false)}
-                className="flex-1 rounded-xl font-semibold"
+                onClick={() => setRescheduleTarget(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
               >
                 Hủy
-              </Button>
-              <Button type="submit" disabled={submitting} className="flex-1 rounded-xl font-semibold">
-                {submitting ? 'Đang gửi...' : 'Gửi lịch cho Gia đình'}
-              </Button>
+              </button>
+              <button
+                type="submit"
+                disabled={submittingReschedule}
+                className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+              >
+                {submittingReschedule ? 'Đang gửi...' : 'Gửi yêu cầu đổi lịch'}
+              </button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* MODAL 2: HOÀN TẤT / ĐIỀU CHỈNH LỊCH (AD-HOC HOẶC XUNG ĐỘT) */}
-      <Dialog open={Boolean(finalizeTarget)} onOpenChange={(open) => !open && setFinalizeTarget(null)}>
-        <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden border-slate-200 gap-0">
-          {finalizeTarget && (
-            <>
-              <DialogHeader className="px-6 py-5 bg-primary text-primary-foreground text-left">
-                <DialogTitle className="font-bold text-base text-white">
-                  Xác định hình thức &amp; Hoàn tất lịch khám
-                </DialogTitle>
-                <DialogDescription className="text-xs text-blue-100 mt-0.5">
-                  Bệnh nhân: {finalizeTarget.patient?.fullName || 'Thành viên gia đình'}
-                </DialogDescription>
-              </DialogHeader>
-
-              <form onSubmit={handleSubmitFinalize} className="p-6 space-y-4 text-xs">
-                <div className="space-y-1.5">
-                  <Label htmlFor="finalize-type" className="font-semibold text-slate-700">
-                    Hình thức khám
-                  </Label>
-                  <select
-                    id="finalize-type"
-                    value={finalizeForm.encounterType}
-                    onChange={(e) =>
-                      setFinalizeForm((prev) => ({ ...prev, encounterType: e.target.value as EncounterType }))
-                    }
-                    className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold"
-                  >
-                    <option value="HOME_VISIT">Khám tại nhà</option>
-                    <option value="TELEHEALTH">Tư vấn Video (Telehealth)</option>
-                    <option value="FACILITY_VISIT">Tại CSYT</option>
-                  </select>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="finalize-date" className="font-semibold text-slate-700">
-                      Ngày khám
-                    </Label>
-                    <Input
-                      id="finalize-date"
-                      type="date"
-                      required
-                      value={finalizeForm.scheduledDate}
-                      onChange={(e) =>
-                        setFinalizeForm((prev) => ({ ...prev, scheduledDate: e.target.value }))
-                      }
-                      className="h-10 rounded-xl tabular-nums font-semibold"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="finalize-time" className="font-semibold text-slate-700">
-                      Giờ khám
-                    </Label>
-                    <select
-                      id="finalize-time"
-                      value={finalizeForm.scheduledTime}
-                      onChange={(e) =>
-                        setFinalizeForm((prev) => ({ ...prev, scheduledTime: e.target.value }))
-                      }
-                      className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold tabular-nums"
-                    >
-                      {STANDARD_TIME_SLOTS.map((t) => (
-                        <option key={t} value={t}>
-                          {t}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="finalize-notes" className="font-semibold text-slate-700">
-                    Ghi chú của bác sĩ gửi gia đình
-                  </Label>
-                  <Textarea
-                    id="finalize-notes"
-                    rows={2}
-                    placeholder="Ví dụ: Bác sĩ xác nhận đến khám tại nhà theo khung giờ này..."
-                    value={finalizeForm.doctorNotes}
-                    onChange={(e) => setFinalizeForm((prev) => ({ ...prev, doctorNotes: e.target.value }))}
-                    className="rounded-xl"
-                  />
-                </div>
-
-                <div className="flex gap-2.5 pt-2 border-t border-slate-100">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setFinalizeTarget(null)}
-                    className="flex-1 rounded-xl font-semibold"
-                  >
-                    Hủy
-                  </Button>
-                  <Button type="submit" disabled={submitting} className="flex-1 rounded-xl font-semibold">
-                    {submitting ? 'Đang lưu...' : 'Gửi lịch cho Gia đình'}
-                  </Button>
-                </div>
-              </form>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* MODAL 3: ĐỀ XUẤT GIỜ KHÁC HOẶC BÁO KHÔNG CÓ SLOT */}
-      <Dialog
-        open={Boolean(rescheduleReviewTarget)}
-        onOpenChange={(open) => !open && setRescheduleReviewTarget(null)}
-      >
-        <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden border-slate-200 gap-0">
-          {rescheduleReviewTarget && (
-            <>
-              <DialogHeader className="px-6 py-5 bg-primary text-primary-foreground text-left">
-                <DialogTitle className="font-bold text-base text-white">
-                  {counterMode === 'COUNTER'
-                    ? 'Đề xuất khung giờ khám thay thế'
-                    : 'Thông báo không có khung giờ phù hợp'}
-                </DialogTitle>
-                <DialogDescription className="text-xs text-blue-100 mt-0.5">
-                  Bệnh nhân: {rescheduleReviewTarget.patient?.fullName || 'Thành viên gia đình'}
-                </DialogDescription>
-              </DialogHeader>
-
-              <form onSubmit={handleSubmitRescheduleReview} className="p-6 space-y-4 text-xs">
-                {reviewError && (
-                  <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800">
-                    {reviewError}
-                  </div>
-                )}
-
-                {counterMode === 'COUNTER' ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="counter-date" className="font-semibold text-slate-700">
-                        Ngày đề xuất
-                      </Label>
-                      <Input
-                        id="counter-date"
-                        type="date"
-                        required
-                        min={getTodayIsoDate()}
-                        value={counterDate}
-                        onChange={(e) => setCounterDate(e.target.value)}
-                        className="h-10 rounded-xl tabular-nums font-semibold"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="counter-time" className="font-semibold text-slate-700">
-                        Giờ đề xuất
-                      </Label>
-                      <select
-                        id="counter-time"
-                        value={counterTime}
-                        onChange={(e) => setCounterTime(e.target.value)}
-                        className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold tabular-nums"
-                      >
-                        {STANDARD_TIME_SLOTS.map((t) => (
-                          <option key={t} value={t}>
-                            {t}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900">
-                    Hệ thống sẽ xóa khung giờ đề xuất hiện tại và gửi thông báo mời Gia đình chọn một khung giờ khác phù hợp hơn.
-                  </div>
-                )}
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="review-notes" className="font-semibold text-slate-700">
-                    Lời nhắn tới Gia đình
-                  </Label>
-                  <Textarea
-                    id="review-notes"
-                    rows={2}
-                    placeholder="Nhập ghi chú lý do hoặc khung giờ bác sĩ có thể khám..."
-                    value={reviewNotes}
-                    onChange={(e) => setReviewNotes(e.target.value)}
-                    className="rounded-xl"
-                  />
-                </div>
-
-                <div className="flex gap-2.5 pt-2 border-t border-slate-100">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setRescheduleReviewTarget(null)}
-                    className="flex-1 rounded-xl font-semibold"
-                  >
-                    Đóng
-                  </Button>
-                  <Button type="submit" disabled={submitting} className="flex-1 rounded-xl font-semibold">
-                    {submitting
-                      ? 'Đang gửi...'
-                      : counterMode === 'COUNTER'
-                      ? 'Gửi giờ đề xuất mới'
-                      : 'Xác nhận báo hết slot'}
-                  </Button>
-                </div>
-              </form>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </div>
   );
 }

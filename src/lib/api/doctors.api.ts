@@ -446,4 +446,20 @@ export const doctorsApi = {
     );
     return unwrapApiEnvelope<DoctorQuotaProposalDto>(res);
   },
+
+  updateDoctorPanelCapacity: async (
+    doctorId: string,
+    payload: { maxPanelCapacity: number; reason: string }
+  ): Promise<{ id: string; doctorName: string; maxPanelCapacity: number; activePanelCount: number }> => {
+    const res = await httpClient.patch<unknown>(
+      `/api/v1/admin/doctors/${encodeURIComponent(doctorId)}/panel-capacity`,
+      payload
+    );
+    return unwrapApiEnvelope(res) as {
+      id: string;
+      doctorName: string;
+      maxPanelCapacity: number;
+      activePanelCount: number;
+    };
+  },
 };

@@ -1,8 +1,11 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { contractsApi } from '@/lib/api/contracts.api';
+import { encountersApi, type EncounterItem } from '@/lib/api/encounters.api';
+import { patientsApi, type PatientDto } from '@/lib/api/patients.api';
 import { ConfirmDialog } from '@/components/shared';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,355 +20,254 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  contractsApi,
-  type FamilyGateStatusDto,
-  type MedicalContractDetailDto,
-} from '@/lib/api/contracts.api';
-import {
-  encountersApi,
-  type EncounterItem,
-  type EncounterType,
-} from '@/lib/api/encounters.api';
-import { patientsApi, type PatientDto } from '@/lib/api/patients.api';
-import {
-  extractEncounterDateIso,
-  extractEncounterTimeHm,
-  formatEncounterDateVi,
-  getEncounterCategoryLabel,
-  getEncounterStatusLabel,
-  getEncounterTypeLabel,
-  getHoursUntilEncounter,
-  getTodayIsoDate,
-} from '@/lib/utils/encounter-format';
 
-type FamilyTab = 'awaiting_doctor' | 'upcoming' | 'history' | 'all';
-
-const TIME_SLOTS = [
-  { value: '08:00', label: '08:00 (Sáng sớm)' },
-  { value: '09:00', label: '09:00 (Sáng)' },
-  { value: '10:30', label: '10:30 (Cuối sáng)' },
-  { value: '14:00', label: '14:00 (Đầu chiều)' },
-  { value: '15:30', label: '15:30 (Chiều)' },
-  { value: '17:00', label: '17:00 (Cuối chiều)' },
-  { value: '19:30', label: '19:30 (Tối)' },
-];
-
-const SUPPORT_HOTLINE = '1900 6868';
-
-function isFamilyActionNeeded(enc: EncounterItem): boolean {
-  if (enc.encounterStatus === 'REQUESTED' || enc.encounterStatus === 'PROPOSED') {
-    return enc.proposedBy !== 'FAMILY_REP';
-  }
-  if (enc.encounterStatus === 'RESCHEDULE_REQUESTED') {
-    return enc.proposedBy === 'DOCTOR';
-  }
-  return false;
+interface Appointment {
+  id: string;
+  type: 'home' | 'telehealth';
+  patientName: string;
+  doctorName: string;
+  doctorTitle: string;
+  doctorAvatar: string;
+  hospital: string;
+  date: string;
+  time: string;
+  status: 'confirmed' | 'in_transit' | 'completed' | 'cancelled';
+  rawStatus: 'REQUESTED' | 'CONFIRMED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  chiefComplaint: string;
+  address?: string;
+  meetLink?: string;
 }
 
-function isAwaitingDoctor(enc: EncounterItem): boolean {
-  if (enc.encounterStatus === 'REQUESTED' || enc.encounterStatus === 'PROPOSED') {
-    return enc.proposedBy === 'FAMILY_REP';
-  }
-  if (enc.encounterStatus === 'RESCHEDULE_REQUESTED') {
-    return enc.proposedBy !== 'DOCTOR';
-  }
-  return false;
-}
-
-function getEffectiveDisplayDateAndTime(enc: EncounterItem): {
-  dateRaw: string;
-  timeRaw: string;
-  isCounterOffer: boolean;
-} {
-  const hasCounter =
-    enc.encounterStatus === 'RESCHEDULE_REQUESTED' && Boolean(enc.proposedDate && enc.proposedTime);
+function mapEncounterToAppointment(item: EncounterItem): Appointment {
+  const participantNames =
+    item.participants?.map((p) => p.patient?.fullName).filter(Boolean).join(', ') ||
+    item.patient?.fullName ||
+    (item.visitScope === 'FAMILY' ? 'Toàn bộ gia đình' : 'Thành viên gia đình');
+  const dateStr = item.scheduledDate ? item.scheduledDate.slice(0, 10) : '';
+  const timeStr = item.scheduledTime?.includes('T')
+    ? item.scheduledTime.slice(11, 16)
+    : item.scheduledTime?.slice(0, 5) || '';
+  const rawStatus = (item.encounterStatus as Appointment['rawStatus']) || 'REQUESTED';
+  const statusMap: Record<string, Appointment['status']> = {
+    CONFIRMED: 'confirmed',
+    IN_PROGRESS: 'in_transit',
+    COMPLETED: 'completed',
+    CANCELLED: 'cancelled',
+    REQUESTED: 'confirmed',
+  };
   return {
-    dateRaw: hasCounter ? enc.proposedDate || enc.scheduledDate : enc.scheduledDate,
-    timeRaw: hasCounter ? enc.proposedTime || enc.scheduledTime : enc.scheduledTime,
-    isCounterOffer: hasCounter,
+    id: item.id,
+    type: item.encounterType === 'TELEHEALTH' ? 'telehealth' : 'home',
+    patientName: participantNames,
+    doctorName: item.doctor?.doctorName || 'Bác sĩ phụ trách',
+    doctorTitle: 'Bác sĩ Gia đình',
+    doctorAvatar:
+      'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
+    hospital: item.doctor?.facility?.facilityName || 'Cơ sở y tế đối tác',
+    date: dateStr,
+    time: timeStr,
+    status: statusMap[rawStatus] ?? 'confirmed',
+    rawStatus,
+    chiefComplaint:
+      item.category === 'PERIODIC_ROUTINE'
+        ? 'Khám định kỳ gia đình theo gói chăm sóc'
+        : 'Khám theo nhu cầu gia đình',
   };
 }
 
 export function FamilyAppointmentsView() {
-  const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
-  const [actionBusyId, setActionBusyId] = useState<string | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  const [gateStatus, setGateStatus] = useState<FamilyGateStatusDto | null>(null);
-  const [contractDetail, setContractDetail] = useState<MedicalContractDetailDto | null>(null);
-  const [members, setMembers] = useState<PatientDto[]>([]);
-  const [encounters, setEncounters] = useState<EncounterItem[]>([]);
-
-  const [activeTab, setActiveTab] = useState<FamilyTab>('upcoming');
-  const [showBookingModal, setShowBookingModal] = useState(false);
-  const [bookingError, setBookingError] = useState('');
-
-  const [rescheduleTarget, setRescheduleTarget] = useState<EncounterItem | null>(null);
-  const [rescheduleDate, setRescheduleDate] = useState(getTodayIsoDate());
-  const [rescheduleTime, setRescheduleTime] = useState('14:00');
-  const [rescheduleReason, setRescheduleReason] = useState('');
-  const [rescheduleError, setRescheduleError] = useState('');
-
-  const [declineTarget, setDeclineTarget] = useState<EncounterItem | null>(null);
-  const [conflictNotice, setConflictNotice] = useState<string | null>(null);
-
-  const [newBooking, setNewBooking] = useState({
-    encounterType: 'HOME_VISIT' as EncounterType,
-    patientId: '',
-    desiredDate: getTodayIsoDate(),
-    desiredTime: '09:00',
-    reason: '',
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeContractId, setActiveContractId] = useState<string | null>(null);
+  const [doctorDisplay, setDoctorDisplay] = useState({
+    name: 'Bác sĩ Gia đình phụ trách',
+    hospital: 'Cơ sở y tế đối tác',
   });
+  const [quotas, setQuotas] = useState({ home: 0, telehealth: 0 });
+  const [familyMembers, setFamilyMembers] = useState<PatientDto[]>([]);
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [submittingBooking, setSubmittingBooking] = useState(false);
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
+  const [rescheduleReason, setRescheduleReason] = useState('');
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
+  const loadTimetable = useCallback(async () => {
     try {
-      const [gateRes, membersRes, timetableRes] = await Promise.all([
-        contractsApi.getFamilyGateStatus(),
-        patientsApi.getFamilyMembers(),
-        encountersApi.getFamilyTimetable({ pageSize: 100 }),
-      ]);
-
-      setGateStatus(gateRes);
-      setMembers(membersRes);
-      setEncounters(timetableRes.data || []);
-
-      if (membersRes.length > 0) {
-        setNewBooking((prev) => ({
-          ...prev,
-          patientId: prev.patientId || membersRes[0].id,
-        }));
+      const res = await encountersApi.getFamilyTimetable({ pageSize: 50 });
+      if (Array.isArray(res.data)) {
+        setAppointments(res.data.map(mapEncounterToAppointment));
       }
-
-      if (gateRes.activeContract?.id) {
-        try {
-          const detail = await contractsApi.getMedicalContractDetail(gateRes.activeContract.id);
-          setContractDetail(detail);
-        } catch {
-          setContractDetail(null);
-        }
-      } else {
-        setContractDetail(null);
-      }
-    } catch (err: any) {
-      setLoadError(err?.message || 'Không thể tải dữ liệu lịch hẹn gia đình.');
+    } catch {
+      // Keep current list on transient failure
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    void loadTimetable();
+    contractsApi
+      .getFamilyGateStatus()
+      .then(async (gate) => {
+        if (gate?.activeContract) {
+          setActiveContractId(gate.activeContract.id);
+          setDoctorDisplay({
+            name: gate.activeContract.doctor?.fullName || 'Bác sĩ Gia đình phụ trách',
+            hospital: gate.activeContract.doctor?.hospitalName || 'Cơ sở y tế đối tác',
+          });
+          try {
+            const detail = (await contractsApi.getMedicalContractDetail(
+              gate.activeContract.id
+            )) as unknown as Record<string, any>;
+            setQuotas({
+              home: detail?.remainingHomeVisits ?? 0,
+              telehealth: detail?.remainingTelehealth ?? 0,
+            });
+          } catch {
+            // Keep default 0 quotas if detail fetch fails
+          }
+        }
+      })
+      .catch(() => { });
+    patientsApi
+      .getFamilyMembers()
+      .then((res) => {
+        const list = Array.isArray(res) ? res : ((res as any)?.data ?? []);
+        if (Array.isArray(list)) {
+          setFamilyMembers(list.filter((p: PatientDto) => !p.status || p.status === 'ACTIVE'));
+        }
+      })
+      .catch(() => { });
+  }, [loadTimetable]);
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Appointment | null>(null);
+  const [bookingError, setBookingError] = useState('');
+  const [rescheduleDate, setRescheduleDate] = useState('2026-11-25');
+  const [rescheduleTime, setRescheduleTime] = useState('14:00');
+  const [rescheduleError, setRescheduleError] = useState('');
 
-  const activeContract = gateStatus?.activeContract ?? null;
+  // New Booking Form State
+  const [newBooking, setNewBooking] = useState({
+    type: 'home' as 'home' | 'telehealth',
+    targetMemberId: '__ALL__',
+    date: '2026-11-25',
+    time: '08:30',
+    chiefComplaint: '',
+    address: '',
+  });
 
-  const doctorDisplayName =
-    contractDetail?.doctor?.user?.fullName ||
-    contractDetail?.doctor?.doctorName ||
-    activeContract?.doctor?.fullName ||
-    'Chưa phân công bác sĩ';
-  const facilityDisplayName =
-    contractDetail?.facility?.facilityName ||
-    activeContract?.doctor?.hospitalName ||
-    'Cơ sở y tế liên kết';
-  const familyAddress =
-    contractDetail?.familyUnit?.homeAddress ||
-    gateStatus?.familyUnit?.homeAddress ||
-    'Địa chỉ hộ gia đình đã đăng ký';
+  const filteredAppointments = appointments.filter((apt) => {
+    if (activeTab === 'upcoming') return apt.status === 'confirmed' || apt.status === 'in_transit';
+    if (activeTab === 'completed') return apt.status === 'completed';
+    return true;
+  });
 
-  const remainingHomeVisits = contractDetail?.remainingHomeVisits ?? 0;
-  const totalHomeVisits =
-    contractDetail?.servicePackage?.periodicVisitsQuota ?? Math.max(remainingHomeVisits, 1);
-  const remainingTelehealth = contractDetail?.remainingTelehealth ?? 0;
-  const totalTelehealth =
-    contractDetail?.servicePackage?.telehealthQuota ?? Math.max(remainingTelehealth, 1);
-
-  const actionNeededList = useMemo(
-    () => encounters.filter(isFamilyActionNeeded),
-    [encounters]
-  );
-
-  const awaitingDoctorList = useMemo(
-    () => encounters.filter(isAwaitingDoctor),
-    [encounters]
-  );
-
-  const upcomingList = useMemo(
-    () =>
-      encounters.filter(
-        (e) => e.encounterStatus === 'CONFIRMED' || e.encounterStatus === 'IN_PROGRESS'
-      ),
-    [encounters]
-  );
-
-  const historyList = useMemo(
-    () =>
-      encounters.filter(
-        (e) => e.encounterStatus === 'COMPLETED' || e.encounterStatus === 'CANCELLED'
-      ),
-    [encounters]
-  );
-
-  const filteredEncounters = useMemo(() => {
-    switch (activeTab) {
-      case 'awaiting_doctor':
-        return awaitingDoctorList;
-      case 'upcoming':
-        return upcomingList;
-      case 'history':
-        return historyList;
-      case 'all':
-      default:
-        return encounters;
-    }
-  }, [activeTab, awaitingDoctorList, upcomingList, historyList, encounters]);
-
-  const rescheduleHoursRemaining = useMemo(() => {
-    if (!rescheduleTarget) return null;
-    return getHoursUntilEncounter(rescheduleTarget.scheduledDate, rescheduleTarget.scheduledTime);
-  }, [rescheduleTarget]);
-
-  const handleOpenBookingModal = () => {
-    setBookingError('');
-    setNewBooking((prev) => ({
-      ...prev,
-      patientId: prev.patientId || members[0]?.id || '',
-      desiredDate: prev.desiredDate || getTodayIsoDate(),
-    }));
-    setShowBookingModal(true);
-  };
-
-  const handleCreateAdHocBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeContract?.id) {
-      setBookingError('Gia đình cần có hợp đồng dịch vụ đang hiệu lực để đặt lịch khám.');
-      return;
-    }
-    if (!newBooking.patientId) {
-      setBookingError('Vui lòng chọn thành viên gia đình cần khám.');
-      return;
-    }
-    if (!newBooking.reason.trim()) {
-      setBookingError('Vui lòng mô tả triệu chứng hoặc lý do khám.');
-      return;
-    }
-
-    setSubmitting(true);
-    setBookingError('');
+  const handleConfirmEncounter = async (encounterId: string) => {
+    setConfirmingId(encounterId);
     try {
-      await encountersApi.createAdHocEncounter({
-        contractId: activeContract.id,
-        patientId: newBooking.patientId,
-        encounterType: newBooking.encounterType,
-        desiredDate: newBooking.desiredDate,
-        desiredTime: newBooking.desiredTime,
-        reason: newBooking.reason.trim(),
-      });
-      toast.success('Đã gửi yêu cầu đặt lịch khám đột xuất tới Bác sĩ phụ trách.');
-      setShowBookingModal(false);
-      setNewBooking((prev) => ({ ...prev, reason: '' }));
-      setActiveTab('awaiting_doctor');
-      await loadData();
-    } catch (err: any) {
-      setBookingError(err?.message || 'Không thể gửi yêu cầu đặt lịch khám.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleConfirmSchedule = async (enc: EncounterItem) => {
-    setActionBusyId(enc.id);
-    setConflictNotice(null);
-    try {
-      const res = await encountersApi.confirmEncounter(enc.id, { confirmed: true });
+      const res = await encountersApi.confirmEncounter(encounterId, true);
       if (res?.status === 'CONFLICT_ALERT') {
-        const msg =
-          res.message ||
-          'Khung giờ này hiện trùng với ca trực của bác sĩ tại CSYT. Hệ thống đã gửi cảnh báo xung đột tới Bác sĩ & CSYT.';
-        setConflictNotice(msg);
-        toast.warning('Phát hiện xung đột lịch với ca trực tại CSYT.');
+        toast.warning(
+          res.conflictDetails ||
+          'Khung giờ này trùng ca trực của bác sĩ tại cơ sở y tế. Vui lòng đổi sang giờ khác.'
+        );
       } else {
-        toast.success('Đã xác nhận chốt lịch khám! Hệ thống sẽ nhắc lịch trước 24h và 2h.');
+        toast.success('Đã xác nhận lịch khám! Lịch đã được đồng bộ với bác sĩ và cơ sở y tế.');
       }
-      await loadData();
-    } catch (err: any) {
-      toast.error(err?.message || 'Không thể xác nhận lịch khám.');
+      await loadTimetable();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Không thể xác nhận lịch khám.');
     } finally {
-      setActionBusyId(null);
+      setConfirmingId(null);
     }
   };
 
-  const handleConfirmDeclineSchedule = async () => {
-    if (!declineTarget) return;
-    setActionBusyId(declineTarget.id);
+  const handleCreateBooking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBooking.chiefComplaint.trim()) {
+      setBookingError('Vui lòng mô tả triệu chứng hoặc nhu cầu khám của gia đình.');
+      return;
+    }
+    if (!activeContractId) {
+      setBookingError('Chưa tìm thấy hợp đồng đang hiệu lực để đặt lịch.');
+      return;
+    }
+    setBookingError('');
+    setSubmittingBooking(true);
     try {
-      await encountersApi.confirmEncounter(declineTarget.id, { confirmed: false });
-      toast.success('Đã từ chối đề xuất lịch khám này.');
-      setDeclineTarget(null);
-      await loadData();
-    } catch (err: any) {
-      toast.error(err?.message || 'Không thể từ chối lịch khám.');
+      const isWholeFamily = newBooking.targetMemberId === '__ALL__';
+      await encountersApi.createAdHocEncounter({
+        contractId: activeContractId,
+        visitScope: isWholeFamily ? 'FAMILY' : 'INDIVIDUAL',
+        ...(isWholeFamily ? {} : { patientIds: [newBooking.targetMemberId] }),
+        encounterType: newBooking.type === 'telehealth' ? 'TELEHEALTH' : 'HOME_VISIT',
+        desiredDate: newBooking.date,
+        desiredTime: newBooking.time,
+        reason: newBooking.chiefComplaint.trim(),
+      });
+      await loadTimetable();
+      setShowBookingModal(false);
+      setNewBooking((prev) => ({ ...prev, chiefComplaint: '' }));
+      toast.success('Đặt lịch hẹn thành công! Bác sĩ quản nhiệm đã nhận được yêu cầu.');
+    } catch (err) {
+      setBookingError(err instanceof Error ? err.message : 'Không thể tạo lịch hẹn khám.');
     } finally {
-      setActionBusyId(null);
+      setSubmittingBooking(false);
     }
   };
 
-  const handleOpenReschedule = (enc: EncounterItem) => {
-    const initialDate = extractEncounterDateIso(enc.scheduledDate) || getTodayIsoDate();
-    const initialTime = extractEncounterTimeHm(enc.scheduledTime) || '14:00';
-    setRescheduleTarget(enc);
-    setRescheduleDate(initialDate);
-    setRescheduleTime(initialTime);
-    setRescheduleReason('');
-    setRescheduleError('');
+  const handleConfirmCancelAppointment = () => {
+    if (!cancelTarget) return;
+    setAppointments((prev) =>
+      prev.map((a) => (a.id === cancelTarget.id ? { ...a, status: 'cancelled', rawStatus: 'CANCELLED' } : a))
+    );
+    toast.success(`Đã ghi nhận yêu cầu hủy ca khám ${cancelTarget.id}.`);
+    setCancelTarget(null);
   };
 
-  const handleSubmitReschedule = async (e: React.FormEvent) => {
+  const handleOpenReschedule = (apt: Appointment) => {
+    setRescheduleTarget(apt);
+    setRescheduleError('');
+    setRescheduleReason('');
+  };
+
+  const handleConfirmReschedule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!rescheduleTarget) return;
-    if (!rescheduleReason.trim()) {
-      setRescheduleError('Vui lòng nhập lý do xin đổi lịch để bác sĩ nắm thông tin.');
-      return;
-    }
-
-    setSubmitting(true);
     setRescheduleError('');
+    setSubmittingReschedule(true);
     try {
-      const res = await encountersApi.requestReschedule(rescheduleTarget.id, {
+      await encountersApi.requestReschedule(rescheduleTarget.id, {
         proposedDate: rescheduleDate,
         proposedTime: rescheduleTime,
-        rescheduleReason: rescheduleReason.trim(),
+        rescheduleReason: rescheduleReason.trim() || 'Gia đình đề xuất đổi sang khung giờ thuận tiện hơn',
       });
-
-      if (res?.status === 'AUTO_REJECTED_TOO_LATE') {
-        const msg =
-          res.message ||
-          `Yêu cầu đổi lịch bị từ chối tự động do không báo trước tối thiểu 4 giờ. Vui lòng liên hệ Hotline ${SUPPORT_HOTLINE}.`;
-        setRescheduleError(`${msg} (Hotline hỗ trợ: ${SUPPORT_HOTLINE})`);
-        toast.error('Không thể đổi lịch trong vòng 4 giờ trước giờ khám.');
-        await loadData();
-        return;
-      }
-
-      toast.success('Đã gửi yêu cầu đổi lịch mới tới Bác sĩ xem xét.');
+      await loadTimetable();
+      toast.success(
+        `Đã gửi yêu cầu đổi lịch sang ${rescheduleTime} ngày ${rescheduleDate} tới Bác sĩ phụ trách.`
+      );
       setRescheduleTarget(null);
-      setActiveTab('awaiting_doctor');
-      await loadData();
-    } catch (err: any) {
-      setRescheduleError(err?.message || 'Không thể gửi yêu cầu đổi lịch.');
+    } catch (err) {
+      setRescheduleError(
+        err instanceof Error
+          ? err.message
+          : 'Không thể gửi yêu cầu dời lịch. Vui lòng kiểm tra quy định báo trước tối thiểu 4 giờ.'
+      );
     } finally {
-      setSubmitting(false);
+      setSubmittingReschedule(false);
     }
   };
+
+  const upcomingCount = appointments.filter(
+    (a) => a.status === 'confirmed' || a.status === 'in_transit'
+  ).length;
+  const completedCount = appointments.filter((a) => a.status === 'completed').length;
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
       <main className="w-full max-w-7xl mx-auto py-6 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-8">
-        {/* 1. HEADER */}
+        {/* 1. HEADER CANVAS THOÁNG ĐÃNG ĐỒNG BỘ VỚI /family */}
         <header className="space-y-4">
           <nav className="flex items-center gap-2 text-xs text-slate-500 font-medium">
             <Link
@@ -376,107 +278,55 @@ export function FamilyAppointmentsView() {
               <span>Bảng Sức Khỏe Gia Đình</span>
             </Link>
             <span className="text-slate-300">/</span>
-            <span className="text-slate-800 font-semibold">Lịch Hẹn &amp; Điều Phối Khám</span>
+            <span className="text-slate-800 font-semibold">Lịch Hẹn Khám</span>
           </nav>
 
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="space-y-2 min-w-0">
               <div className="flex flex-wrap items-center gap-2.5">
-                <Badge
-                  variant="outline"
-                  className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-primary bg-primary/10 border-primary/20"
-                >
-                  {activeContract ? `Hợp đồng #${activeContract.contractNumber}` : 'Chưa có hợp đồng hiệu lực'}
+                <Badge variant="outline" className="px-3 py-1 rounded-full text-xs font-semibold tabular-nums text-primary bg-primary/10 border-primary/20">
+                  Hộ #FAM-88219
                 </Badge>
-                <Badge
-                  variant="outline"
-                  className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border-emerald-200/60"
-                >
+                <Badge variant="outline" className="gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border-emerald-200/60">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                  <span>Hotline hỗ trợ: {SUPPORT_HOTLINE}</span>
+                  <span>Sẵn sàng điều phối 24/7</span>
+                </Badge>
+                <Badge variant="secondary" className="gap-1 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200/60 hidden sm:inline-flex">
+                  <span className="material-symbols-outlined text-[14px] text-slate-500">home_health</span>
+                  <span>Khám tại nhà &amp; Telehealth</span>
                 </Badge>
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight text-balance">
-                Lịch Khám Định Kỳ &amp; Đặt Lịch Đột Xuất
+                Đặt Lịch &amp; Quản Lý Lịch Hẹn Khám Gia Đình
               </h1>
 
               <p className="text-sm text-slate-600 max-w-3xl leading-relaxed">
-                Xem và xác nhận lịch khám định kỳ từ Bác sĩ gia đình, đề xuất đổi giờ trước tối thiểu 4 tiếng hoặc chủ động đặt lịch khám đột xuất khi thành viên có dấu hiệu bất thường.
+                Chủ động đặt lịch Bác sĩ gia đình đến khám tận nhà hoặc tư vấn qua Video trực tuyến. Toàn bộ hồ sơ chẩn đoán và đơn thuốc được lưu trữ tự động vào bệnh án của từng thành viên.
               </p>
             </div>
 
+            {/* Cụm nút hành động tinh gọn & phân cấp chuẩn */}
             <div className="flex flex-wrap items-center gap-3 shrink-0">
               <Button
                 type="button"
-                disabled={!activeContract || loading}
-                onClick={handleOpenBookingModal}
+                onClick={() => setShowBookingModal(true)}
                 className="min-h-11 rounded-xl text-sm font-semibold gap-2"
               >
                 <span className="material-symbols-outlined text-[20px]">add_circle</span>
-                <span>Đặt lịch khám đột xuất</span>
+                <span>Đặt lịch khám mới</span>
               </Button>
             </div>
           </div>
         </header>
 
-        {loadError && (
-          <div
-            role="alert"
-            className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm flex items-center justify-between gap-4"
-          >
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-rose-600">error</span>
-              <span>{loadError}</span>
-            </div>
-            <Button type="button" variant="outline" size="sm" onClick={loadData}>
-              Thử lại
-            </Button>
-          </div>
-        )}
-
-        {conflictNotice && (
-          <div
-            role="alert"
-            className="p-4 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-sm flex items-start justify-between gap-4"
-          >
-            <div className="flex items-start gap-2.5">
-              <span className="material-symbols-outlined text-amber-600 mt-0.5">warning</span>
-              <div>
-                <p className="font-bold">Cảnh báo xung đột lịch với ca trực CSYT</p>
-                <p className="text-xs text-amber-800 mt-0.5">{conflictNotice}</p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setConflictNotice(null)}
-              className="text-xs font-semibold text-amber-700 hover:underline shrink-0"
-            >
-              Đóng
-            </button>
-          </div>
-        )}
-
-        {!loading && !activeContract && (
-          <Card className="bg-white p-6 rounded-2xl border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <h2 className="text-base font-bold text-slate-900">Gia đình chưa kích hoạt hợp đồng dịch vụ</h2>
-              <p className="text-sm text-slate-600">
-                Vui lòng hoàn tất ký kết và kích hoạt hợp đồng gói chăm sóc sức khỏe để bắt đầu lập lịch với Bác sĩ gia đình.
-              </p>
-            </div>
-            <Button asChild className="rounded-xl shrink-0">
-              <Link href="/family/contracts">Xem hợp đồng của gia đình</Link>
-            </Button>
-          </Card>
-        )}
-
-        {/* 2. THẺ HẠN MỨC GÓI KHÁM & BÁC SĨ PHỤ TRÁCH */}
+        {/* 2. THẺ HẠN MỨC GÓI KHÁM & BÁC SĨ PHỤ TRÁCH (3 CỘT CÂN ĐỐI & KHOẢNG THỞ LỚN) */}
         <section
           aria-label="Hạn mức và bác sĩ quản nhiệm"
           className="grid grid-cols-1 sm:grid-cols-3 gap-5 sm:gap-6"
         >
-          <Card className="bg-white p-6 rounded-2xl border-slate-200/70 shadow-xs flex flex-col justify-between gap-4">
+          {/* Cột 1: Khám tại nhà */}
+          <Card className="bg-white p-6 rounded-2xl border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Khám Bác sĩ Tại Nhà
@@ -488,25 +338,17 @@ export function FamilyAppointmentsView() {
 
             <div className="space-y-2">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
-                  {activeContract ? remainingHomeVisits : 0}
-                </span>
-                <span className="text-xs text-slate-400 font-medium tabular-nums">
-                  / {activeContract ? totalHomeVisits : 0} lượt còn lại
-                </span>
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">{quotas.home}</span>
+                <span className="text-xs text-slate-400 font-medium tabular-nums">lượt còn lại trong kỳ</span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-primary h-full rounded-full transition-all"
-                  style={{
-                    width: `${activeContract && totalHomeVisits > 0 ? Math.min(100, Math.round((remainingHomeVisits / totalHomeVisits) * 100)) : 0}%`,
-                  }}
-                />
+                <div className="bg-primary h-full rounded-full transition-all" style={{ width: quotas.home > 0 ? '100%' : '0%' }} />
               </div>
             </div>
           </Card>
 
-          <Card className="bg-white p-6 rounded-2xl border-slate-200/70 shadow-xs flex flex-col justify-between gap-4">
+          {/* Cột 2: Tư vấn Telehealth */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Tư Vấn Video (Telehealth)
@@ -518,186 +360,73 @@ export function FamilyAppointmentsView() {
 
             <div className="space-y-2">
               <div className="flex items-baseline gap-2">
-                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">
-                  {activeContract ? remainingTelehealth : 0}
-                </span>
-                <span className="text-xs text-slate-400 font-medium tabular-nums">
-                  / {activeContract ? totalTelehealth : 0} lượt còn lại
-                </span>
+                <span className="text-2xl sm:text-3xl font-bold tabular-nums text-slate-900">{quotas.telehealth}</span>
+                <span className="text-xs text-slate-400 font-medium tabular-nums">lượt còn lại trong kỳ</span>
               </div>
               <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div
-                  className="bg-sky-500 h-full rounded-full transition-all"
-                  style={{
-                    width: `${activeContract && totalTelehealth > 0 ? Math.min(100, Math.round((remainingTelehealth / totalTelehealth) * 100)) : 0}%`,
-                  }}
-                />
+                <div className="bg-sky-500 h-full rounded-full transition-all" style={{ width: quotas.telehealth > 0 ? '100%' : '0%' }} />
               </div>
             </div>
-          </Card>
+          </div>
 
-          <Card className="bg-white p-6 rounded-2xl border-slate-200/70 shadow-xs flex flex-col justify-between gap-4">
+          {/* Cột 3: Bác sĩ gia đình phụ trách */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/70 shadow-xs hover:border-slate-300 hover:shadow-md transition-all flex flex-col justify-between gap-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 Bác Sĩ Quản Nhiệm Hộ
               </span>
               <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                {activeContract ? 'Đang phụ trách' : 'Chưa gán'}
+                Trực tuyến
               </span>
             </div>
 
             <div className="flex items-center gap-3.5">
-              <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[24px]">stethoscope</span>
-              </div>
+              <img
+                src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop"
+                alt={doctorDisplay.name}
+                className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
+              />
               <div className="min-w-0">
-                <div className="text-sm font-bold text-slate-900 truncate">{doctorDisplayName}</div>
-                <p className="text-xs text-primary font-medium truncate mt-0.5">{facilityDisplayName}</p>
+                <div className="text-sm font-bold text-slate-900 truncate">
+                  {doctorDisplay.name}
+                </div>
+                <p className="text-xs text-primary font-medium truncate mt-0.5">
+                  {doctorDisplay.hospital}
+                </p>
               </div>
             </div>
-          </Card>
+          </div>
         </section>
 
-        {/* 3. KHỐI LỊCH CẦN BẠN XÁC NHẬN */}
-        {actionNeededList.length > 0 && (
-          <section aria-label="Lịch cần bạn xác nhận" className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <span className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center">
-                  <span className="material-symbols-outlined text-[18px]">notifications_active</span>
-                </span>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    Lịch cần bạn xác nhận ({actionNeededList.length})
-                  </h2>
-                  <p className="text-xs text-slate-500">
-                    Bác sĩ đã đề xuất lịch khám hoặc khung giờ thay thế. Vui lòng xác nhận hoặc đề xuất giờ phù hợp hơn.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              {actionNeededList.map((enc) => {
-                const { dateRaw, timeRaw, isCounterOffer } = getEffectiveDisplayDateAndTime(enc);
-                const patientName = enc.patient?.fullName || 'Thành viên gia đình';
-                const encDoctorName =
-                  enc.doctor?.user?.name || enc.doctor?.doctorName || doctorDisplayName;
-                const isBusy = actionBusyId === enc.id;
-
-                return (
-                  <Card
-                    key={enc.id}
-                    className="bg-white p-5 rounded-2xl border-2 border-amber-300/80 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-5"
-                  >
-                    <div className="space-y-2.5 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge className="bg-amber-100 text-amber-900 border-amber-200 hover:bg-amber-100">
-                          {isCounterOffer ? 'Bác sĩ đề xuất giờ mới' : 'Chờ gia đình xác nhận'}
-                        </Badge>
-                        <Badge variant="outline">{getEncounterTypeLabel(enc.encounterType)}</Badge>
-                        <Badge variant="secondary">{getEncounterCategoryLabel(enc.category)}</Badge>
-                      </div>
-
-                      <div>
-                        <h3 className="text-base font-bold text-slate-900">
-                          {patientName} — {encDoctorName}
-                        </h3>
-                        <p className="text-xs text-slate-600 mt-1">
-                          {enc.rescheduleReason || enc.subjectiveNote || 'Lịch khám do bác sĩ quản nhiệm đề xuất'}
-                        </p>
-                      </div>
-
-                      {enc.conflictAlert && enc.conflictDetails && (
-                        <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800">
-                          <strong>Cảnh báo xung đột:</strong> {enc.conflictDetails}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center lg:items-end gap-3 shrink-0">
-                      <div className="px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-right">
-                        <div className="text-sm font-bold tabular-nums text-amber-950">
-                          {extractEncounterTimeHm(timeRaw)} · {formatEncounterDateVi(dateRaw)}
-                        </div>
-                        {isCounterOffer && (
-                          <div className="text-[11px] text-amber-800 tabular-nums">
-                            Giờ cũ: {extractEncounterTimeHm(enc.scheduledTime)} ·{' '}
-                            {formatEncounterDateVi(enc.scheduledDate)}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={isBusy}
-                          onClick={() => handleConfirmSchedule(enc)}
-                          className="rounded-xl font-semibold gap-1.5"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                          <span>{isCounterOffer ? 'Chấp nhận giờ mới' : 'Xác nhận lịch'}</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={isBusy}
-                          onClick={() => handleOpenReschedule(enc)}
-                          className="rounded-xl font-semibold gap-1.5"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">edit_calendar</span>
-                          <span>Đề xuất giờ khác</span>
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={isBusy}
-                          onClick={() => setDeclineTarget(enc)}
-                          className="rounded-xl font-semibold text-rose-600 border-rose-200 hover:bg-rose-50"
-                        >
-                          Từ chối
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          </section>
-        )}
-
-        {/* 4. BỘ LỌC TABS & DANH SÁCH LỊCH HẸN */}
+        {/* 3. BỘ LỌC TABS & DANH SÁCH LỊCH HẸN */}
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="inline-flex flex-wrap items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl">
+            {/* Tabs phân loại */}
+            <div className="inline-flex items-center gap-1.5 p-1 bg-slate-100/90 rounded-xl">
               {[
-                { id: 'upcoming', label: 'Sắp tới', count: upcomingList.length, icon: 'event_upcoming' },
-                { id: 'awaiting_doctor', label: 'Chờ bác sĩ', count: awaitingDoctorList.length, icon: 'hourglass_top' },
-                { id: 'history', label: 'Lịch sử', count: historyList.length, icon: 'task_alt' },
-                { id: 'all', label: 'Tất cả', count: encounters.length, icon: 'list_alt' },
+                { id: 'upcoming', label: 'Sắp tới', count: upcomingCount, icon: 'event_upcoming' },
+                { id: 'completed', label: 'Đã khám', count: completedCount, icon: 'task_alt' },
+                { id: 'all', label: 'Tất cả', count: appointments.length, icon: 'list_alt' },
               ].map((t) => {
                 const isActive = activeTab === t.id;
                 return (
                   <button
                     key={t.id}
                     type="button"
-                    onClick={() => setActiveTab(t.id as FamilyTab)}
-                    className={`min-h-10 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                      isActive
-                        ? 'bg-white text-primary shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    onClick={() => setActiveTab(t.id as 'upcoming' | 'completed' | 'all')}
+                    className={`min-h-10 flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${isActive
+                      ? 'bg-white text-primary shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                      }`}
                   >
-                    <span className="material-symbols-outlined text-[16px]">{t.icon}</span>
+                    <span className="material-symbols-outlined text-[18px] hidden sm:inline">
+                      {t.icon}
+                    </span>
                     <span>{t.label}</span>
                     <span
-                      className={`px-1.5 py-0.5 rounded-full text-[11px] font-bold tabular-nums ${
-                        isActive ? 'bg-primary/10 text-primary' : 'bg-slate-200/80 text-slate-600'
-                      }`}
+                      className={`px-1.5 py-0.5 rounded-md text-[11px] tabular-nums font-semibold leading-none ${isActive ? 'bg-primary/10 text-primary' : 'bg-slate-200 text-slate-600'
+                        }`}
                     >
                       {t.count}
                     </span>
@@ -705,167 +434,260 @@ export function FamilyAppointmentsView() {
                 );
               })}
             </div>
+
+            <div className="text-xs sm:text-sm text-slate-500 font-medium">
+              Hiển thị <span className="font-bold tabular-nums text-slate-800">{filteredAppointments.length}</span> lịch hẹn
+            </div>
           </div>
 
-          {loading ? (
-            <Card className="bg-white p-10 rounded-2xl border-slate-200/70 text-center text-sm text-slate-500">
-              Đang tải dữ liệu lịch khám...
-            </Card>
-          ) : filteredEncounters.length === 0 ? (
-            <Card className="bg-white p-10 rounded-2xl border-slate-200/70 text-center space-y-3">
-              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-                <span className="material-symbols-outlined text-[24px]">event_busy</span>
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-900">Chưa có lịch hẹn nào trong mục này</h3>
-                <p className="text-xs text-slate-500">
-                  Khi Bác sĩ lên lịch định kỳ hoặc bạn đặt lịch khám đột xuất, thông tin sẽ hiển thị tại đây.
-                </p>
-              </div>
-            </Card>
+          {/* Danh sách Thẻ Lịch Hẹn */}
+          {isLoading ? (
+            <div className="bg-white rounded-2xl border border-slate-200/70 p-10 text-center space-y-3 shadow-xs">
+              <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+              <p className="text-xs font-medium text-slate-500">Đang tải lịch hẹn khám gia đình...</p>
+            </div>
+          ) : filteredAppointments.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200/70 p-10 sm:p-14 text-center space-y-3 shadow-xs">
+              <span className="material-symbols-outlined text-4xl text-slate-300">event_busy</span>
+              <h3 className="font-bold text-sm text-slate-900">Chưa có lịch hẹn nào trong mục này</h3>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Gia đình có thể đặt lịch Bác sĩ đến nhà hoặc kết nối tư vấn qua Video bất cứ lúc nào cần.
+              </p>
+              <Button
+                type="button"
+                onClick={() => setShowBookingModal(true)}
+                className="min-h-11 rounded-xl text-xs sm:text-sm font-semibold gap-2"
+              >
+                <span className="material-symbols-outlined text-[18px]">add_circle</span>
+                <span>Đặt lịch khám ngay</span>
+              </Button>
+            </div>
           ) : (
-            <div className="space-y-4">
-              {filteredEncounters.map((enc) => {
-                const statusBadge = getEncounterStatusLabel(enc);
-                const patientName = enc.patient?.fullName || 'Thành viên gia đình';
-                const encDoctorName =
-                  enc.doctor?.user?.name || enc.doctor?.doctorName || doctorDisplayName;
-                const encFacilityName = enc.doctor?.facility?.facilityName || facilityDisplayName;
-                const displayDate = formatEncounterDateVi(enc.scheduledDate);
-                const displayTime = extractEncounterTimeHm(enc.scheduledTime);
-                const isConfirmed = enc.encounterStatus === 'CONFIRMED';
-                const isTelehealth =
-                  enc.encounterType === 'TELEHEALTH' || enc.encounterType === 'TELEMEDICINE';
-                const isHome = enc.encounterType === 'HOME_VISIT';
-
-                const toneClass =
-                  statusBadge.tone === 'success'
-                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                    : statusBadge.tone === 'warning'
-                    ? 'bg-amber-50 text-amber-800 border-amber-200'
-                    : statusBadge.tone === 'danger'
-                    ? 'bg-rose-50 text-rose-800 border-rose-200'
-                    : statusBadge.tone === 'info'
-                    ? 'bg-sky-50 text-sky-800 border-sky-200'
-                    : 'bg-slate-100 text-slate-700 border-slate-200';
+            <div className="space-y-6">
+              {filteredAppointments.map((apt) => {
+                const isHome = apt.type === 'home';
+                const isCancelled = apt.status === 'cancelled';
+                const isCompleted = apt.status === 'completed';
 
                 return (
                   <Card
-                    key={enc.id}
-                    className="bg-white rounded-2xl border-slate-200/70 shadow-xs overflow-hidden"
+                    key={apt.id}
+                    className="group bg-white rounded-2xl border-slate-200/70 hover:border-slate-300 shadow-xs hover:shadow-md transition-all overflow-hidden space-y-5 p-6"
                   >
-                    <div className="px-5 py-3 bg-slate-50/80 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="bg-white">
-                          {getEncounterTypeLabel(enc.encounterType)}
+                    {/* Thanh tiêu đề nhẹ nhàng phân biệt loại lịch hẹn */}
+                    <div className="pb-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2.5">
+                        <Badge
+                          variant="outline"
+                          className={`gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold ${isHome
+                            ? 'bg-primary/10 text-primary border-primary/20'
+                            : 'bg-sky-50 text-sky-700 border-sky-200/70'
+                            }`}
+                        >
+                          <span className="material-symbols-outlined text-[16px]">
+                            {isHome ? 'home_health' : 'videocam'}
+                          </span>
+                          <span>
+                            {isHome ? 'Khám Bác sĩ Tại Nhà' : 'Tư Vấn Video (Telehealth)'}
+                          </span>
                         </Badge>
-                        <Badge variant="secondary">{getEncounterCategoryLabel(enc.category)}</Badge>
-                        {typeof enc.rescheduleCount === 'number' && enc.rescheduleCount > 0 && (
-                          <Badge variant="outline" className="text-[11px] tabular-nums">
-                            Đã đổi {enc.rescheduleCount}/3 lần
-                          </Badge>
+                        <span className="text-xs font-bold tabular-nums text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/60">
+                          #{apt.id}
+                        </span>
+                      </div>
+
+                      <div>
+                        {apt.rawStatus === 'REQUESTED' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            <span>Chờ gia đình xác nhận</span>
+                          </span>
+                        )}
+                        {apt.status === 'confirmed' && apt.rawStatus !== 'REQUESTED' && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span>Đã xác nhận · Sắp diễn ra</span>
+                          </span>
+                        )}
+                        {isCompleted && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200/70 inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="material-symbols-outlined text-[15px] text-emerald-600">
+                              check_circle
+                            </span>
+                            <span>Đã hoàn thành</span>
+                          </span>
+                        )}
+                        {isCancelled && (
+                          <span className="px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/80 inline-flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="material-symbols-outlined text-[15px]">cancel</span>
+                            <span>Đã hủy lịch</span>
+                          </span>
                         )}
                       </div>
-                      <Badge variant="outline" className={toneClass}>
-                        {statusBadge.label}
-                      </Badge>
                     </div>
 
-                    <div className="p-5 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                      <div className="lg:col-span-8 space-y-3">
-                        <div className="flex items-start gap-3">
-                          <div className="w-11 h-11 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                            <span className="material-symbols-outlined text-[22px]">
-                              {isHome ? 'home_health' : isTelehealth ? 'videocam' : 'local_hospital'}
-                            </span>
+                    {/* Nội dung chi tiết ca hẹn */}
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+                      {/* Cột trái (8 cols): Bác sĩ, Người bệnh & Lý do khám */}
+                      <div className="lg:col-span-8 flex flex-col justify-between space-y-4">
+                        {/* Thông tin Bác sĩ & Người thân được khám */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <img
+                              src={apt.doctorAvatar}
+                              alt={apt.doctorName}
+                              className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
+                            />
+                            <div className="min-w-0">
+                              <div className="text-[11px] text-primary font-semibold uppercase tracking-wider">
+                                {apt.doctorTitle}
+                              </div>
+                              <h3 className="text-sm sm:text-base font-bold text-slate-900 truncate mt-0.5">
+                                {apt.doctorName}
+                              </h3>
+                              <p className="text-xs text-slate-500 truncate">{apt.hospital}</p>
+                            </div>
                           </div>
-                          <div>
-                            <h3 className="text-base font-bold text-slate-900">{patientName}</h3>
-                            <p className="text-xs text-slate-600 mt-0.5">
-                              Bác sĩ: <strong className="text-slate-900">{encDoctorName}</strong> · {encFacilityName}
-                            </p>
+
+                          <div className="self-start sm:self-center px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs shrink-0">
+                            <span className="text-[10px] font-semibold text-slate-400 uppercase block">
+                              Người thân được khám
+                            </span>
+                            <strong className="font-semibold text-slate-900 flex items-center gap-1 mt-0.5">
+                              <span className="material-symbols-outlined text-[15px] text-primary">
+                                person
+                              </span>
+                              <span>{apt.patientName}</span>
+                            </strong>
                           </div>
                         </div>
 
-                        <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60 space-y-1.5 text-xs text-slate-700">
-                          <div>
-                            <strong className="text-slate-900">Nội dung / Ghi chú: </strong>
-                            <span>{enc.subjectiveNote || enc.rescheduleReason || 'Khám theo kế hoạch chăm sóc'}</span>
+                        {/* Lý do khám & Địa điểm */}
+                        <div className="space-y-2.5">
+                          <div className="p-3.5 rounded-xl bg-slate-50/70 border border-slate-200/60 border-l-4 border-l-primary text-xs space-y-1">
+                            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+                              Triệu chứng &amp; Nhu cầu thăm khám
+                            </span>
+                            <p className="text-slate-800 font-medium leading-relaxed text-xs sm:text-sm">
+                              {apt.chiefComplaint}
+                            </p>
                           </div>
-                          {isHome && (
-                            <div className="text-slate-600">
-                              <strong className="text-slate-800">Địa chỉ khám: </strong>
-                              <span>{familyAddress}</span>
-                            </div>
-                          )}
-                          {enc.proposedDate && enc.proposedTime && enc.encounterStatus === 'RESCHEDULE_REQUESTED' && (
-                            <div className="text-sky-800 font-medium tabular-nums">
-                              Giờ đề xuất mới: {extractEncounterTimeHm(enc.proposedTime)} ngày{' '}
-                              {formatEncounterDateVi(enc.proposedDate)}
-                            </div>
-                          )}
-                          {enc.conflictAlert && enc.conflictDetails && (
-                            <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-800">
-                              <strong>Cảnh báo xung đột:</strong> {enc.conflictDetails}
-                            </div>
-                          )}
-                          {enc.cancelReason && enc.encounterStatus === 'CANCELLED' && (
-                            <div className="text-rose-700">
-                              <strong>Lý do hủy:</strong> {enc.cancelReason}
+
+                          {apt.address && (
+                            <div className="flex items-start gap-2 text-xs text-slate-600 bg-slate-50/50 px-3.5 py-2.5 rounded-xl border border-slate-200/60">
+                              <span className="material-symbols-outlined text-[16px] text-primary shrink-0 mt-0.5">
+                                location_on
+                              </span>
+                              <div>
+                                <strong className="text-slate-800">Địa chỉ khám tại nhà: </strong>
+                                <span>{apt.address}</span>
+                              </div>
                             </div>
                           )}
                         </div>
                       </div>
 
-                      <div className="lg:col-span-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 space-y-3">
-                        <div className="p-3 rounded-xl bg-white border border-slate-200/70 space-y-1">
-                          <div className="font-bold tabular-nums text-base text-primary flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-[18px]">schedule</span>
-                            <span>{displayTime || '—'}</span>
-                          </div>
-                          <div className="text-xs font-semibold text-slate-700 tabular-nums flex items-center gap-1.5">
-                            <span className="material-symbols-outlined text-[15px] text-slate-400">
-                              calendar_today
-                            </span>
-                            <span>{displayDate}</span>
+                      {/* Cột phải (4 cols): Khung giờ hẹn & Các nút thao tác */}
+                      <div className="lg:col-span-4 bg-slate-50/70 p-4 rounded-xl border border-slate-200/60 flex flex-col justify-between gap-4">
+                        <div className="space-y-2">
+                          <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                            Thời gian hẹn khám
+                          </span>
+                          <div className="p-3.5 rounded-xl bg-white border border-slate-200/70 space-y-1 shadow-2xs">
+                            <div className="font-bold tabular-nums text-base text-primary flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[18px]">schedule</span>
+                              <span>{apt.time}</span>
+                            </div>
+                            <div className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
+                              <span className="material-symbols-outlined text-[15px] text-slate-400">
+                                calendar_today
+                              </span>
+                              <span>{apt.date}</span>
+                            </div>
                           </div>
                         </div>
 
-                        {isConfirmed && (
-                          <div className="space-y-2">
-                            {isTelehealth && (
+                        {/* Nút hành động theo trạng thái */}
+                        {apt.status === 'confirmed' && (
+                          <div className="space-y-2.5">
+                            {apt.rawStatus === 'REQUESTED' && (
+                              <Button
+                                type="button"
+                                disabled={confirmingId === apt.id}
+                                onClick={() => void handleConfirmEncounter(apt.id)}
+                                className="min-h-10 w-full rounded-xl bg-emerald-700 hover:bg-emerald-800 text-xs font-semibold gap-1.5 text-white"
+                              >
+                                <span className="material-symbols-outlined text-[17px]">check_circle</span>
+                                <span>{confirmingId === apt.id ? 'Đang xác nhận...' : 'Xác nhận lịch khám'}</span>
+                              </Button>
+                            )}
+                            {apt.type === 'telehealth' && apt.rawStatus !== 'REQUESTED' && (
                               <Button asChild className="min-h-10 w-full rounded-xl text-xs font-semibold gap-1.5">
-                                <Link href="/family/telemedicine">
+                                <Link href={`/family/telemedicine?encounterId=${apt.id}`}>
                                   <span className="material-symbols-outlined text-[17px]">videocam</span>
                                   <span>Vào phòng khám Video</span>
                                 </Link>
                               </Button>
                             )}
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenReschedule(enc)}
-                              className="min-h-9 w-full rounded-xl text-xs font-semibold gap-1.5"
-                            >
-                              <span className="material-symbols-outlined text-[15px] text-primary">
-                                edit_calendar
-                              </span>
-                              <span>Xin đổi giờ hẹn</span>
-                            </Button>
+
+                            {isHome && (
+                              <div className="p-2.5 rounded-xl bg-emerald-50/90 border border-emerald-200/80 text-[11px] text-emerald-800 font-medium flex items-start gap-2">
+                                <span className="material-symbols-outlined text-[16px] text-emerald-600 shrink-0 mt-0.5">
+                                  medical_services
+                                </span>
+                                <span>Bác sĩ mang theo máy đo điện tim ECG &amp; bộ lấy mẫu tại nhà.</span>
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleOpenReschedule(apt)}
+                                className="min-h-9 rounded-xl text-xs font-semibold gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[15px] text-primary">
+                                  edit_calendar
+                                </span>
+                                <span>Đổi giờ</span>
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setCancelTarget(apt)}
+                                className="min-h-9 rounded-xl text-xs text-rose-600 hover:bg-rose-50 hover:text-rose-700 border-rose-200 font-semibold gap-1"
+                              >
+                                <span className="material-symbols-outlined text-[15px]">close</span>
+                                <span>Hủy lịch</span>
+                              </Button>
+                            </div>
                           </div>
                         )}
 
-                        {enc.encounterStatus === 'COMPLETED' && (
+                        {isCompleted && (
                           <Button
                             asChild
                             variant="outline"
-                            className="min-h-10 w-full rounded-xl text-primary border-primary/20 text-xs font-semibold gap-1.5"
+                            className="min-h-10 w-full rounded-xl text-primary hover:bg-primary hover:text-primary-foreground border-primary/20 text-xs font-semibold gap-1.5"
                           >
                             <Link href="/family/members">
                               <span className="material-symbols-outlined text-[16px]">clinical_notes</span>
-                              <span>Xem hồ sơ khám &amp; đơn thuốc</span>
+                              <span>Xem kết quả khám &amp; toa thuốc</span>
                             </Link>
+                          </Button>
+                        )}
+
+                        {isCancelled && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => setShowBookingModal(true)}
+                            className="min-h-10 w-full rounded-xl text-xs font-semibold gap-1.5"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">replay</span>
+                            <span>Đặt lại lịch khám này</span>
                           </Button>
                         )}
                       </div>
@@ -878,142 +700,203 @@ export function FamilyAppointmentsView() {
         </section>
       </main>
 
-      {/* MODAL 1: ĐẶT LỊCH KHÁM ĐỘT XUẤT */}
+      {/* MODAL 1: ĐẶT LỊCH HẸN KHÁM MỚI */}
       <Dialog open={showBookingModal} onOpenChange={setShowBookingModal}>
         <DialogContent className="sm:max-w-xl rounded-2xl p-0 overflow-hidden border-slate-200/80 gap-0">
           <DialogHeader className="px-6 py-5 bg-primary text-primary-foreground text-left">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="w-10 h-10 rounded-xl bg-white/15 border border-white/20 flex items-center justify-center shrink-0">
-                <span className="material-symbols-outlined text-[20px]">event_available</span>
+                <span className="material-symbols-outlined text-[22px]">calendar_add_on</span>
               </div>
               <div className="min-w-0">
-                <DialogTitle className="font-bold text-base text-white">
-                  Đặt lịch khám đột xuất
+                <DialogTitle className="font-bold text-base text-white truncate">
+                  Đặt Lịch Hẹn Bác Sĩ Gia Đình
                 </DialogTitle>
-                <DialogDescription className="text-xs text-blue-100 mt-0.5">
-                  Yêu cầu được gửi tới {doctorDisplayName} xem xét và chốt khung giờ khám.
+                <DialogDescription className="text-xs text-blue-100 truncate mt-0.5">
+                  Chọn hình thức khám tại nhà hoặc tư vấn qua Video trực tuyến
                 </DialogDescription>
               </div>
             </div>
           </DialogHeader>
 
-          <form onSubmit={handleCreateAdHocBooking} className="p-6 space-y-4 text-xs">
-            {bookingError && (
-              <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-medium">
-                {bookingError}
-              </div>
-            )}
-
-            <div className="space-y-1.5">
-              <Label className="block font-semibold text-slate-700">Hình thức khám</Label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {[
-                  { id: 'HOME_VISIT' as EncounterType, label: 'Khám tại nhà' },
-                  { id: 'TELEHEALTH' as EncounterType, label: 'Tư vấn Video' },
-                  { id: 'FACILITY_VISIT' as EncounterType, label: 'Tại CSYT' },
-                ].map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setNewBooking((prev) => ({ ...prev, encounterType: opt.id }))}
-                    className={`min-h-10 px-3 py-2 rounded-xl border font-semibold transition-all cursor-pointer ${
-                      newBooking.encounterType === opt.id
-                        ? 'border-primary bg-primary/10 text-primary'
-                        : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+          <form onSubmit={handleCreateBooking} className="p-6 space-y-4 text-xs">
+            {/* Chọn hình thức khám */}
+            <div>
+              <Label className="block font-semibold text-slate-700 mb-2">
+                1. Chọn hình thức thăm khám <span className="text-rose-500">*</span>
+              </Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <label
+                  className={`p-3.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${newBooking.type === 'home'
+                    ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/15 font-semibold'
+                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
                     }`}
+                >
+                  <input
+                    type="radio"
+                    name="bookingType"
+                    checked={newBooking.type === 'home'}
+                    onChange={() => setNewBooking({ ...newBooking, type: 'home' })}
+                    className="sr-only"
+                  />
+                  <span
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${newBooking.type === 'home'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-slate-100 text-slate-600'
+                      }`}
                   >
-                    {opt.label}
-                  </button>
-                ))}
+                    <span className="material-symbols-outlined text-[20px]">home_health</span>
+                  </span>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold">Khám Tại Nhà</div>
+                    <div className="text-[11px] text-slate-500 font-normal">
+                      Bác sĩ đến tận nơi (Còn 3 lượt)
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  className={`p-3.5 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${newBooking.type === 'telehealth'
+                    ? 'border-primary bg-primary/5 text-primary ring-2 ring-primary/15 font-semibold'
+                    : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="bookingType"
+                    checked={newBooking.type === 'telehealth'}
+                    onChange={() => setNewBooking({ ...newBooking, type: 'telehealth' })}
+                    className="sr-only"
+                  />
+                  <span
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${newBooking.type === 'telehealth'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-slate-100 text-slate-600'
+                      }`}
+                  >
+                    <span className="material-symbols-outlined text-[20px]">videocam</span>
+                  </span>
+                  <div>
+                    <div className="text-xs sm:text-sm font-bold">Tư Vấn Video 24/7</div>
+                    <div className="text-[11px] text-slate-500 font-normal">
+                      Gọi trực tuyến (Còn 18 lượt)
+                    </div>
+                  </div>
+                </label>
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="adhoc-patient" className="block font-semibold text-slate-700">
-                Thành viên cần khám
+            {/* Chọn thành viên */}
+            <div>
+              <Label className="block font-semibold text-slate-700 mb-1.5">
+                2. Đối tượng thăm khám <span className="text-rose-500">*</span>
               </Label>
               <select
-                id="adhoc-patient"
-                value={newBooking.patientId}
-                onChange={(e) => setNewBooking((prev) => ({ ...prev, patientId: e.target.value }))}
-                className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold text-slate-900"
+                value={newBooking.targetMemberId}
+                onChange={(e) => setNewBooking({ ...newBooking, targetMemberId: e.target.value })}
+                className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white font-semibold text-slate-900 text-xs sm:text-sm focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none"
               >
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.fullName}
+                <option value="__ALL__">
+                  Cả gia đình ({familyMembers.length > 0 ? `${familyMembers.length} thành viên` : 'theo hợp đồng'})
+                </option>
+                {familyMembers.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.fullName}
                   </option>
                 ))}
               </select>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="adhoc-date" className="block font-semibold text-slate-700">
-                  Ngày mong muốn
+            {/* Ngày & Khung giờ */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1.5">
+                  3. Ngày khám mong muốn <span className="text-rose-500">*</span>
                 </Label>
                 <Input
-                  id="adhoc-date"
                   type="date"
-                  min={getTodayIsoDate()}
-                  required
-                  value={newBooking.desiredDate}
-                  onChange={(e) => setNewBooking((prev) => ({ ...prev, desiredDate: e.target.value }))}
-                  className="h-10 rounded-xl bg-slate-50/50 font-semibold text-slate-900 tabular-nums"
+                  value={newBooking.date}
+                  onChange={(e) => setNewBooking({ ...newBooking, date: e.target.value })}
+                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white font-semibold text-slate-900 text-xs sm:text-sm"
                 />
               </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="adhoc-time" className="block font-semibold text-slate-700">
-                  Khung giờ mong muốn
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1.5">
+                  4. Khung giờ hẹn <span className="text-rose-500">*</span>
                 </Label>
                 <select
-                  id="adhoc-time"
-                  value={newBooking.desiredTime}
-                  onChange={(e) => setNewBooking((prev) => ({ ...prev, desiredTime: e.target.value }))}
-                  className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold text-slate-900 tabular-nums"
+                  value={newBooking.time}
+                  onChange={(e) => setNewBooking({ ...newBooking, time: e.target.value })}
+                  className="w-full h-10 px-3.5 rounded-xl border border-input bg-slate-50/50 focus:bg-white font-semibold text-slate-900 text-xs sm:text-sm focus:border-primary focus:ring-2 focus:ring-primary/15 outline-none"
                 >
-                  {TIME_SLOTS.map((slot) => (
-                    <option key={slot.value} value={slot.value}>
-                      {slot.label}
-                    </option>
-                  ))}
+                  <option value="08:30">08:30 (Buổi sáng)</option>
+                  <option value="09:30">09:30 (Buổi sáng)</option>
+                  <option value="10:30">10:30 (Buổi sáng)</option>
+                  <option value="14:00">14:00 (Buổi chiều)</option>
+                  <option value="15:00">15:00 (Buổi chiều)</option>
+                  <option value="16:00">16:00 (Buổi chiều)</option>
                 </select>
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <Label htmlFor="adhoc-reason" className="block font-semibold text-slate-700">
-                Triệu chứng / Lý do đặt lịch
+            {/* Địa chỉ khám tại nhà */}
+            {newBooking.type === 'home' && (
+              <div>
+                <Label className="block font-semibold text-slate-700 mb-1.5">
+                  Địa chỉ đón Bác sĩ tại nhà <span className="text-rose-500">*</span>
+                </Label>
+                <Input
+                  type="text"
+                  value={newBooking.address}
+                  onChange={(e) => setNewBooking({ ...newBooking, address: e.target.value })}
+                  className="h-10 rounded-xl bg-slate-50/50 focus:bg-white font-medium text-slate-900 text-xs sm:text-sm"
+                />
+              </div>
+            )}
+
+            {/* Lý do khám */}
+            <div>
+              <Label className="block font-semibold text-slate-700 mb-1.5">
+                Mô tả triệu chứng hoặc nhu cầu khám <span className="text-rose-500">*</span>
               </Label>
               <Textarea
-                id="adhoc-reason"
                 rows={3}
                 required
-                placeholder="Ví dụ: Sốt nhẹ từ hôm qua, ho khan, cần bác sĩ kiểm tra..."
-                value={newBooking.reason}
-                onChange={(e) => setNewBooking((prev) => ({ ...prev, reason: e.target.value }))}
-                className="rounded-xl bg-slate-50/50"
+                value={newBooking.chiefComplaint}
+                onChange={(e) => {
+                  setNewBooking({ ...newBooking, chiefComplaint: e.target.value });
+                  if (bookingError) setBookingError('');
+                }}
+                placeholder="Ví dụ: Đo lại huyết áp và kiểm tra đường huyết định kỳ, đau mỏi khớp gối..."
+                className="p-3 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 text-xs sm:text-sm"
               />
+              {bookingError && (
+                <p role="alert" className="text-xs text-rose-600 font-semibold mt-1">{bookingError}</p>
+              )}
             </div>
 
-            <div className="flex gap-2.5 pt-3 border-t border-slate-100">
+            <div className="flex items-center gap-2.5 pt-2 border-t border-slate-100">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowBookingModal(false)}
-                className="flex-1 rounded-xl font-semibold"
+                className="flex-1 h-10 rounded-xl font-semibold text-xs sm:text-sm"
               >
                 Hủy bỏ
               </Button>
-              <Button type="submit" disabled={submitting} className="flex-1 rounded-xl font-semibold">
-                {submitting ? 'Đang gửi...' : 'Gửi yêu cầu đặt lịch'}
+              <Button
+                type="submit"
+                className="flex-1 h-10 rounded-xl font-semibold text-xs sm:text-sm gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                <span>Xác nhận đặt lịch</span>
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 2: ĐỔI GIỜ HẸN KHÁM (SLA >= 4 GIỜ) */}
+      {/* MODAL 2: ĐỔI GIỜ HẸN KHÁM */}
       <Dialog open={Boolean(rescheduleTarget)} onOpenChange={(open) => !open && setRescheduleTarget(null)}>
         <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden border-slate-200/80 gap-0">
           {rescheduleTarget && (
@@ -1025,10 +908,10 @@ export function FamilyAppointmentsView() {
                   </div>
                   <div>
                     <DialogTitle className="font-bold text-base text-white">
-                      Đề xuất đổi ngày giờ khám
+                      Đổi Ngày Giờ Hẹn Khám
                     </DialogTitle>
                     <DialogDescription className="text-xs text-blue-100">
-                      Bệnh nhân: {rescheduleTarget.patient?.fullName || 'Thành viên'}
+                      Mã lịch hẹn: #{rescheduleTarget.id}
                     </DialogDescription>
                   </div>
                 </div>
@@ -1036,37 +919,20 @@ export function FamilyAppointmentsView() {
 
               <div className="p-6 space-y-4">
                 <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80 space-y-1 text-xs">
-                  <div className="text-slate-600">
-                    Lịch hiện tại:{' '}
-                    <strong className="text-slate-900 tabular-nums">
-                      {extractEncounterTimeHm(rescheduleTarget.scheduledTime)} ·{' '}
-                      {formatEncounterDateVi(rescheduleTarget.scheduledDate)}
-                    </strong>
+                  <div className="text-slate-500">
+                    Lịch hiện tại: <strong className="text-slate-900 tabular-nums">{rescheduleTarget.time}</strong> ·{' '}
+                    <strong className="text-slate-900 tabular-nums">{rescheduleTarget.date}</strong>
                   </div>
-                  <div className="text-slate-600">
-                    Quy định: Báo trước tối thiểu <strong className="text-slate-900">4 giờ</strong> trước giờ khám.
+                  <div className="text-slate-500">
+                    Bác sĩ: <strong className="text-primary">{rescheduleTarget.doctorName}</strong>
+                  </div>
+                  <div className="text-slate-500">
+                    Người khám: <strong className="text-slate-900">{rescheduleTarget.patientName}</strong>
                   </div>
                 </div>
 
-                {rescheduleHoursRemaining !== null && rescheduleHoursRemaining < 4 && (
-                  <div
-                    role="status"
-                    className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs flex items-start gap-2"
-                  >
-                    <span className="material-symbols-outlined text-amber-600 text-[18px] shrink-0">
-                      schedule
-                    </span>
-                    <span>
-                      Chỉ còn dưới 4 giờ trước giờ khám dự kiến. Yêu cầu đổi lịch có thể bị từ chối tự động; nếu khẩn cấp vui lòng liên hệ Hotline <strong>{SUPPORT_HOTLINE}</strong>.
-                    </span>
-                  </div>
-                )}
-
                 {rescheduleError && (
-                  <div
-                    role="alert"
-                    className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2"
-                  >
+                  <div role="alert" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2">
                     <span className="material-symbols-outlined text-rose-600 text-[18px] shrink-0">
                       error
                     </span>
@@ -1074,54 +940,46 @@ export function FamilyAppointmentsView() {
                   </div>
                 )}
 
-                <form onSubmit={handleSubmitReschedule} className="space-y-4 text-xs">
+                <form onSubmit={handleConfirmReschedule} className="space-y-4 text-xs">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <Label htmlFor="reschedule-date" className="block font-semibold text-slate-700 mb-1.5">
-                        Ngày khám mới
-                      </Label>
+                      <Label className="block font-semibold text-slate-700 mb-1.5">Ngày khám mới</Label>
                       <Input
-                        id="reschedule-date"
                         type="date"
-                        min={getTodayIsoDate()}
                         required
                         value={rescheduleDate}
                         onChange={(e) => setRescheduleDate(e.target.value)}
-                        className="h-10 rounded-xl bg-slate-50/50 font-semibold text-slate-900 tabular-nums"
+                        className="h-10 rounded-xl bg-slate-50/50 font-semibold text-slate-900"
                       />
                     </div>
 
                     <div>
-                      <Label htmlFor="reschedule-time" className="block font-semibold text-slate-700 mb-1.5">
-                        Khung giờ mới
-                      </Label>
+                      <Label className="block font-semibold text-slate-700 mb-1.5">Khung giờ mới</Label>
                       <select
-                        id="reschedule-time"
                         value={rescheduleTime}
                         onChange={(e) => setRescheduleTime(e.target.value)}
-                        className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold text-slate-900 tabular-nums"
+                        className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold text-slate-900 focus:border-primary outline-none"
                       >
-                        {TIME_SLOTS.map((slot) => (
-                          <option key={slot.value} value={slot.value}>
-                            {slot.label}
-                          </option>
-                        ))}
+                        <option value="08:30">08:30 (Sáng)</option>
+                        <option value="09:30">09:30 (Sáng)</option>
+                        <option value="10:30">10:30 (Sáng)</option>
+                        <option value="14:00">14:00 (Chiều)</option>
+                        <option value="15:00">15:00 (Chiều)</option>
+                        <option value="16:00">16:00 (Chiều)</option>
                       </select>
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="reschedule-reason" className="block font-semibold text-slate-700 mb-1.5">
-                      Lý do xin đổi giờ
+                    <Label className="block font-semibold text-slate-700 mb-1.5">
+                      Lý do đổi lịch (Báo trước tối thiểu 4 giờ)
                     </Label>
                     <Textarea
-                      id="reschedule-reason"
                       rows={2}
-                      required
-                      placeholder="Ví dụ: Gia đình có việc bận đột xuất buổi sáng..."
                       value={rescheduleReason}
                       onChange={(e) => setRescheduleReason(e.target.value)}
-                      className="rounded-xl bg-slate-50/50"
+                      placeholder="Ví dụ: Gia đình có việc bận đột xuất, mong muốn dời sang buổi chiều."
+                      className="p-3 rounded-xl bg-slate-50/50 focus:bg-white text-slate-900 text-xs"
                     />
                   </div>
 
@@ -1132,10 +990,15 @@ export function FamilyAppointmentsView() {
                       onClick={() => setRescheduleTarget(null)}
                       className="flex-1 rounded-xl font-semibold"
                     >
-                      Đóng
+                      Hủy bỏ
                     </Button>
-                    <Button type="submit" disabled={submitting} className="flex-1 rounded-xl font-semibold">
-                      {submitting ? 'Đang gửi...' : 'Gửi yêu cầu đổi lịch'}
+                    <Button
+                      type="submit"
+                      disabled={submittingReschedule}
+                      className="flex-1 rounded-xl font-semibold gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                      <span>{submittingReschedule ? 'Đang gửi...' : 'Lưu giờ hẹn mới'}</span>
                     </Button>
                   </div>
                 </form>
@@ -1145,17 +1008,39 @@ export function FamilyAppointmentsView() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL 3: XÁC NHẬN TỪ CHỐI ĐỀ XUẤT LỊCH */}
+      {/* MODAL 3: XÁC NHẬN HỦY LỊCH HẸN */}
       <ConfirmDialog
-        open={Boolean(declineTarget)}
-        onOpenChange={(open) => !open && setDeclineTarget(null)}
-        title="Từ chối đề xuất lịch khám?"
-        description="Nếu từ chối, lịch khám này sẽ chuyển sang trạng thái đã hủy và bác sĩ sẽ được thông báo để sắp xếp lại nếu cần."
-        confirmLabel="Xác nhận từ chối"
-        cancelLabel="Quay lại"
+        open={Boolean(cancelTarget)}
+        onOpenChange={(open) => !open && setCancelTarget(null)}
+        title="Xác Nhận Hủy Lịch Khám"
+        description={cancelTarget ? `Mã ca hẹn: #${cancelTarget.id}` : undefined}
+        headerIcon={<span className="material-symbols-outlined text-[20px] text-rose-600">event_busy</span>}
+        confirmLabel="Xác nhận hủy lịch"
+        cancelLabel="Giữ lại lịch hẹn"
         variant="destructive"
-        onConfirm={handleConfirmDeclineSchedule}
-      />
+        onConfirm={handleConfirmCancelAppointment}
+      >
+        {cancelTarget && (
+          <div className="space-y-3">
+            <div className="p-3.5 rounded-xl bg-rose-50/70 border border-rose-200/80 text-xs text-rose-950 space-y-1.5 leading-relaxed">
+              <div>
+                Người khám: <strong>{cancelTarget.patientName}</strong>
+              </div>
+              <div>
+                Thời gian: <strong className="tabular-nums">{cancelTarget.time} · {cancelTarget.date}</strong>
+              </div>
+              <p className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 pt-1">
+                <span className="material-symbols-outlined text-[15px]">check_circle</span>
+                <span>Lượt khám sẽ được hoàn lại nguyên vẹn vào gói của gia đình.</span>
+              </p>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed">
+              Hệ thống sẽ tự động gửi thông báo cho <strong>{cancelTarget.doctorName}</strong> để điều chỉnh lịch trình.
+            </p>
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }
