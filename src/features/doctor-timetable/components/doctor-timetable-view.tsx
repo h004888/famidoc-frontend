@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -20,6 +21,7 @@ import {
   encountersApi,
   type DoctorProfileDto,
   type EncounterItem,
+  type EncounterRescheduleRequestItem,
 } from '@/lib/api';
 
 interface TimeSlot {
@@ -99,13 +101,32 @@ export function DoctorTimetableView() {
 
   const [doctorProfile, setDoctorProfile] = useState<DoctorProfileDto | null>(null);
   const [encounters, setEncounters] = useState<EncounterItem[]>([]);
+  const [pendingReschedules, setPendingReschedules] = useState<EncounterRescheduleRequestItem[]>([]);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [rescheduleTarget, setRescheduleTarget] = useState<EncounterItem | null>(null);
+  const [rescheduleDate, setRescheduleDate] = useState('');
+  const [rescheduleTime, setRescheduleTime] = useState('09:30');
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [submittingReschedule, setSubmittingReschedule] = useState(false);
   const [timetableData, setTimetableData] = useState<TimeSlot[]>(TIMETABLE_DATA);
-  const [panelCap, setPanelCap] = useState({ current: 112, max: 150 });
+  const [panelCap, setPanelCap] = useState({ current: 0, max: 5 });
   const [isEmergencyReady, setIsEmergencyReady] = useState(true);
   const [maxRadius, setMaxRadius] = useState(10); // km
 
+  const loadTimetableAndRequests = useCallback(() => {
+    encountersApi
+      .getPendingRescheduleRequests()
+      .then((list) => {
+        setPendingReschedules(
+          (Array.isArray(list) ? list : []).filter((r) => r.doctorDecision === 'PENDING')
+        );
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
+    loadTimetableAndRequests();
     doctorsApi
       .getDoctorMe()
       .then((data) => {
@@ -113,8 +134,8 @@ export function DoctorTimetableView() {
         if (data) {
           setDoctorProfile(data);
           setPanelCap({
-            current: data.activePanelCount ?? 112,
-            max: data.maxPanelCapacity || 150,
+            current: data.activePanelCount ?? 0,
+            max: data.maxPanelCapacity || 5,
           });
         }
       })
@@ -154,7 +175,13 @@ export function DoctorTimetableView() {
               item.encounterType === 'HOME_VISIT'
                 ? 'Khám Tại Nhà'
                 : 'Tư vấn Telehealth';
-            const patientName = item.patient?.fullName || `BN #${item.patientId.slice(0, 5)}`;
+            const patientName =
+              item.participants && item.participants.length > 0
+                ? item.participants.map((p) => p.patient?.fullName).filter(Boolean).join(', ')
+                : item.patient?.fullName ||
+                  (item.visitScope === 'FAMILY'
+                    ? 'Cả gia đình'
+                    : `BN #${(item.patientId ?? item.id).slice(0, 5)}`);
             const type: 'home' | 'telehealth' =
               item.encounterType === 'HOME_VISIT' ? 'home' : 'telehealth';
 
@@ -173,7 +200,61 @@ export function DoctorTimetableView() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [loadTimetableAndRequests]);
+
+  const handleDecideReschedule = async (
+    encounterId: string,
+    requestId: string,
+    decision: 'APPROVE' | 'REJECT'
+  ) => {
+    setDecidingId(requestId);
+    try {
+      await encountersApi.decideRescheduleRequest(encounterId, requestId, { decision });
+      toast.success(
+        decision === 'APPROVE'
+          ? 'Bác sĩ đã đồng ý đổi lịch khám.'
+          : 'Bác sĩ đã từ chối yêu cầu đổi lịch. Lịch cũ được giữ nguyên.'
+      );
+      loadTimetableAndRequests();
+      const res = await encountersApi.getDoctorTimetable();
+      if (Array.isArray(res?.data)) setEncounters(res.data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Không thể xử lý yêu cầu đổi lịch.');
+    } finally {
+      setDecidingId(null);
+    }
+  };
+
+  const handleOpenRescheduleModal = (enc: EncounterItem) => {
+    setRescheduleTarget(enc);
+    setRescheduleDate(enc.scheduledDate?.slice(0, 10) || '');
+    setRescheduleTime(enc.scheduledTime?.slice(11, 16) || '09:30');
+    setRescheduleReason('');
+  };
+
+  const handleSubmitReschedule = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rescheduleTarget) return;
+    if (!rescheduleDate || !rescheduleTime || !rescheduleReason.trim()) {
+      toast.error('Vui lòng nhập đầy đủ ngày, giờ và lý do đổi lịch.');
+      return;
+    }
+    setSubmittingReschedule(true);
+    try {
+      await encountersApi.requestReschedule(rescheduleTarget.id, {
+        proposedDate: rescheduleDate,
+        proposedTime: rescheduleTime,
+        rescheduleReason: rescheduleReason.trim(),
+      });
+      toast.success('Đã gửi yêu cầu đổi lịch tới Gia đình và Cơ sở Y tế phê duyệt.');
+      setRescheduleTarget(null);
+      loadTimetableAndRequests();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Không thể gửi yêu cầu đổi lịch.');
+    } finally {
+      setSubmittingReschedule(false);
+    }
+  };
 
   const capPercentage = Math.round((panelCap.current / panelCap.max) * 100);
 
@@ -299,6 +380,87 @@ export function DoctorTimetableView() {
         </div>
 
         {/* Master Timetable Grid */}
+        {pendingReschedules.length > 0 && (
+          <Card className="bg-amber-50/70 border-amber-200 p-5 rounded-2xl space-y-3">
+            <h3 className="text-sm font-bold text-amber-900">
+              Yêu cầu đổi lịch chờ Bác sĩ duyệt ({pendingReschedules.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {pendingReschedules.map((req) => (
+                <div
+                  key={req.id}
+                  className="bg-white rounded-xl border border-amber-200/80 p-4 flex flex-col justify-between gap-3"
+                >
+                  <div className="space-y-1 text-xs">
+                    <div className="font-bold text-slate-900">
+                      Gia đình xin đổi sang {req.proposedDate?.slice(0, 10)} lúc {req.proposedTime?.slice(11, 16)}
+                    </div>
+                    <p className="text-slate-600">{req.reason}</p>
+                    <p className="text-[11px] text-slate-500">
+                      CSYT: {req.facilityDecision === 'APPROVED' ? 'Đã đồng ý' : 'Đang chờ duyệt'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={decidingId === req.id}
+                      onClick={() => void handleDecideReschedule(req.encounterId, req.id, 'APPROVE')}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                    >
+                      Đồng ý
+                    </button>
+                    <button
+                      type="button"
+                      disabled={decidingId === req.id}
+                      onClick={() => void handleDecideReschedule(req.encounterId, req.id, 'REJECT')}
+                      className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
+                    >
+                      Từ chối
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
+        {encounters.length > 0 && (
+          <Card className="bg-white p-5 rounded-2xl border-slate-200 shadow-xs space-y-3">
+            <h3 className="font-bold text-sm text-[#0f172a]">
+              Danh sách ca khám trên nền tảng ({encounters.length})
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {encounters.map((enc) => (
+                <div
+                  key={enc.id}
+                  className="rounded-xl border border-slate-200 p-3.5 flex items-center justify-between gap-3 text-xs"
+                >
+                  <div className="space-y-0.5">
+                    <div className="font-bold text-slate-900">
+                      {enc.scheduledDate?.slice(0, 10)} lúc {enc.scheduledTime?.slice(11, 16)} ·{' '}
+                      {enc.encounterType === 'HOME_VISIT' ? 'Khám tại nhà' : 'Telehealth'}
+                    </div>
+                    <div className="text-slate-600">
+                      {enc.participants?.map((p) => p.patient?.fullName).filter(Boolean).join(', ') || 'Cả gia đình'}
+                      {' · '}
+                      <span className="font-semibold">{enc.encounterStatus}</span>
+                    </div>
+                  </div>
+                  {enc.encounterStatus === 'CONFIRMED' && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenRescheduleModal(enc)}
+                      className="shrink-0 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-700 font-semibold hover:bg-slate-100 cursor-pointer"
+                    >
+                      Xin đổi lịch
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </Card>
+        )}
+
         <Card className="bg-white rounded-2xl border-slate-200 shadow-xs overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <h3 className="font-bold text-base text-[#0f172a] flex items-center gap-2">
@@ -389,6 +551,75 @@ export function DoctorTimetableView() {
           </div>
         </Card>
       </div>
+
+      {rescheduleTarget && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+        >
+          <form
+            onSubmit={(e) => void handleSubmitReschedule(e)}
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl space-y-4 border border-slate-200"
+          >
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Bác sĩ xin đổi lịch khám</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Yêu cầu cần Gia đình và Cơ sở Y tế cùng đồng ý (báo trước tối thiểu 4 giờ).
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Ngày mới</label>
+                <input
+                  type="date"
+                  value={rescheduleDate}
+                  onChange={(e) => setRescheduleDate(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700">Giờ mới</label>
+                <input
+                  type="time"
+                  value={rescheduleTime}
+                  onChange={(e) => setRescheduleTime(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                  required
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-slate-700">Lý do bận</label>
+              <textarea
+                rows={3}
+                value={rescheduleReason}
+                onChange={(e) => setRescheduleReason(e.target.value)}
+                placeholder="Nhập lý do bác sĩ cần đổi lịch..."
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setRescheduleTarget(null)}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={submittingReschedule}
+                className="px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary/90 disabled:opacity-50 cursor-pointer"
+              >
+                {submittingReschedule ? 'Đang gửi...' : 'Gửi yêu cầu đổi lịch'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

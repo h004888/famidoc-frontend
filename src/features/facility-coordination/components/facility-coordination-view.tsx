@@ -1,9 +1,14 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { AdminDisputesView } from '@/features/admin-disputes/components/admin-disputes-view';
+import {
+  encountersApi,
+  type EncounterItem,
+  type EncounterRescheduleRequestItem,
+} from '@/lib/api/encounters.api';
 
 interface AppointmentCoordination {
   id: string;
@@ -63,8 +68,64 @@ const INITIAL_APPOINTMENTS: AppointmentCoordination[] = [
 
 export function FacilityCoordinationView() {
   const [activeTab, setActiveTab] = useState<'coordination' | 'complaints'>('complaints');
-  const [appointments, setAppointments] = useState<AppointmentCoordination[]>(INITIAL_APPOINTMENTS);
+  const [appointments, setAppointments] = useState<AppointmentCoordination[]>([]);
+  const [pendingReschedules, setPendingReschedules] = useState<EncounterRescheduleRequestItem[]>([]);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'home_visit' | 'facility' | 'telehealth'>('all');
+
+  const loadScheduleBoard = useCallback(async () => {
+    try {
+      const board = await encountersApi.getFacilityScheduleBoard();
+      const mapped: AppointmentCoordination[] = (board.encounters ?? []).map((enc: EncounterItem) => ({
+        id: enc.id,
+        type:
+          enc.encounterType === 'TELEHEALTH'
+            ? 'telehealth'
+            : enc.encounterType === 'FACILITY_VISIT'
+              ? 'facility'
+              : 'home_visit',
+        patientName:
+          enc.participants?.map((p) => p.patient?.fullName).filter(Boolean).join(', ') ||
+          'Cả gia đình',
+        familyId: enc.contract?.contractNumber || enc.contractId,
+        assignedDoctor: enc.doctor?.doctorName || 'Bác sĩ phụ trách',
+        slotTime: `${enc.scheduledDate?.slice(0, 10) ?? ''} ${enc.scheduledTime?.slice(11, 16) ?? ''}`.trim(),
+        addressOrRoom: enc.contract?.familyUnit?.homeAddress || 'Theo hợp đồng nền tảng',
+        status: enc.encounterStatus === 'IN_PROGRESS' ? 'in_progress' : 'assigned',
+      }));
+      setAppointments(mapped);
+      setPendingReschedules(
+        (board.pendingRescheduleRequests ?? []).filter((r) => r.facilityDecision === 'PENDING')
+      );
+    } catch {
+      // Keep current state on transient failure
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadScheduleBoard();
+  }, [loadScheduleBoard]);
+
+  const handleDecideReschedule = async (
+    encounterId: string,
+    requestId: string,
+    decision: 'APPROVE' | 'REJECT'
+  ) => {
+    setDecidingId(requestId);
+    try {
+      await encountersApi.decideRescheduleRequest(encounterId, requestId, { decision });
+      toast.success(
+        decision === 'APPROVE'
+          ? 'CSYT đã đồng ý yêu cầu đổi lịch.'
+          : 'CSYT đã từ chối yêu cầu đổi lịch. Lịch cũ được giữ nguyên.'
+      );
+      await loadScheduleBoard();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Không thể xử lý yêu cầu đổi lịch.');
+    } finally {
+      setDecidingId(null);
+    }
+  };
 
   const showNotification = (message: string, type: 'success' | 'info' | 'warning' = 'success') => {
     if (type === 'warning') {
@@ -161,6 +222,48 @@ export function FacilityCoordinationView() {
         {/* ========================================================================= */}
         {activeTab === 'coordination' && (
           <div className="space-y-6">
+            {pendingReschedules.length > 0 && (
+              <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-5 space-y-3">
+                <h2 className="text-sm font-bold text-amber-900">
+                  Yêu cầu đổi lịch chờ CSYT phê duyệt ({pendingReschedules.length})
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {pendingReschedules.map((req) => (
+                    <div
+                      key={req.id}
+                      className="bg-white rounded-xl border border-amber-200/80 p-4 flex flex-col justify-between gap-3"
+                    >
+                      <div className="space-y-1 text-xs">
+                        <div className="font-bold text-slate-900">
+                          {req.requestedByRole === 'DOCTOR' ? 'Bác sĩ xin đổi lịch' : 'Gia đình xin đổi lịch'}
+                          {' · '}
+                          {req.proposedDate?.slice(0, 10)} lúc {req.proposedTime?.slice(11, 16)}
+                        </div>
+                        <p className="text-slate-600">{req.reason}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={decidingId === req.id}
+                          onClick={() => void handleDecideReschedule(req.encounterId, req.id, 'APPROVE')}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-700 disabled:opacity-50 cursor-pointer"
+                        >
+                          Đồng ý
+                        </button>
+                        <button
+                          type="button"
+                          disabled={decidingId === req.id}
+                          onClick={() => void handleDecideReschedule(req.encounterId, req.id, 'REJECT')}
+                          className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-xs font-semibold hover:bg-rose-100 disabled:opacity-50 cursor-pointer"
+                        >
+                          Từ chối
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             {/* Filter Pills Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs">
               <div className="flex items-center gap-2 flex-wrap">

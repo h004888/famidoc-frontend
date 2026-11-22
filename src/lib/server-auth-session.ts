@@ -1,3 +1,4 @@
+import { cacheLife } from 'next/cache';
 import { cookies, headers } from 'next/headers';
 import type { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { COOKIE_KEYS, DEFAULT_USERS, isJwtExpired, type AuthUser } from './auth-storage';
@@ -39,6 +40,9 @@ async function readRequestHostSafely(): Promise<string> {
 export async function readServerAuthSession(
   expectedPortal?: PortalRole,
 ): Promise<ServerAuthSession | null> {
+  'use cache: private';
+  cacheLife('minutes');
+
   const cookieStore = await cookies();
   const rawRole = cookieStore.get(COOKIE_KEYS.ROLE)?.value;
   const rawToken = cookieStore.get(COOKIE_KEYS.TOKEN)?.value;

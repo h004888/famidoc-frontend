@@ -116,9 +116,10 @@ export function DoctorTelemedicineView() {
       .map((s) => s[0]?.toUpperCase())
       .join('') || 'BS';
 
-  const patientName = encounter?.patient?.fullName || 'Chưa có thông tin người bệnh';
-  const patientAge = encounter?.patient?.dateOfBirth
-    ? `${new Date().getFullYear() - new Date(encounter.patient.dateOfBirth).getFullYear()} tuổi`
+  const primaryParticipant = encounter?.participants?.[0]?.patient ?? encounter?.patient;
+  const patientName = primaryParticipant?.fullName || 'Chưa có thông tin người bệnh';
+  const patientAge = primaryParticipant?.dateOfBirth
+    ? `${new Date().getFullYear() - new Date(primaryParticipant.dateOfBirth).getFullYear()} tuổi`
     : 'Chưa rõ tuổi';
   const patientInitials =
     patientName
@@ -142,8 +143,12 @@ export function DoctorTelemedicineView() {
   const patientChronic = (Array.isArray(diseases) ? diseases.join(', ') : diseases)
     || 'Chưa có thông tin bệnh mạn tính';
 
+  const primaryPatientId = encounter?.participants?.[0]?.patientId ?? encounter?.patientId;
   const emrLink = encounter?.id
-    ? `/doctor/encounters?${new URLSearchParams({ patientId: encounter.patientId, encounterId: encounter.id })}`
+    ? `/doctor/encounters?${new URLSearchParams({
+        ...(primaryPatientId ? { patientId: primaryPatientId } : {}),
+        encounterId: encounter.id,
+      })}`
     : '/doctor/encounters';
 
   const handleSendMessage = (e: React.FormEvent) => {

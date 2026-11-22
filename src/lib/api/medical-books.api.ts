@@ -32,6 +32,8 @@ export interface BookVisit {
 }
 
 export interface BookVisitDetail extends Omit<BookVisit, 'diagnosis'> {
+  visitScope?: 'FAMILY' | 'INDIVIDUAL';
+  participants?: Array<{ id: string; fullName: string }>;
   patient: BookMember & { familyId: string };
   exam: PrescriptionExam | null;
   finalizedAt: string | null;
@@ -128,11 +130,11 @@ export const medicalBooksApi = {
       { cache: 'no-store' },
     );
   },
-  async visit(id: string, signal: AbortSignal) {
+  async visit(id: string, signal: AbortSignal, patientId?: string) {
     return unwrapApiEnvelope<BookVisitDetail>(
       await httpClient.get(
         `${path}/visits/${encodeURIComponent(id)}`,
-        undefined,
+        patientId ? { patientId } : undefined,
         { signal, cache: 'no-store' },
       ),
     );
