@@ -204,4 +204,61 @@ describe('DoctorTimetableView (/doctor/timetable)', () => {
       expect(reviewSpy).toHaveBeenCalledWith('enc-res-1', { accept: true });
     });
   });
+
+  it('displays cadence drafts and allows bulk finalization or milestone adjustment', async () => {
+    const cadenceDraftEnc: EncounterItem = {
+      id: 'enc-cad-1',
+      contractId: 'ctr-1',
+      patientId: 'pat-1',
+      doctorId: 'doc-1',
+      scheduledDate: '2026-12-01T00:00:00.000Z',
+      scheduledTime: '1970-01-01T09:00:00.000Z',
+      encounterType: 'HOME_VISIT',
+      category: 'PERIODIC_ROUTINE',
+      encounterStatus: 'REQUESTED',
+      proposedBy: 'SYSTEM_CADENCE',
+      rescheduleReason: JSON.stringify({ isCadenceDraft: true, milestoneIndex: 1, totalMilestones: 4 }),
+      patient: { id: 'pat-1', fullName: 'Phạm Quang Huy' },
+      contract: { id: 'ctr-1', contractNumber: 'HĐ-2026-888' },
+    };
+
+    vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValue({
+      data: [cadenceDraftEnc],
+      pagination: { page: 1, pageSize: 150, totalItems: 1, totalPages: 1 },
+    });
+
+    const finalizeCadenceSpy = vi.spyOn(encountersApi, 'finalizeCadenceSchedule').mockResolvedValue({
+      finalizedCount: 1,
+      encounters: [{ ...cadenceDraftEnc, proposedBy: 'ASSIGNED_DOCTOR' }],
+    });
+
+    const adjustCadenceSpy = vi.spyOn(encountersApi, 'adjustCadenceMilestone').mockResolvedValue({
+      ...cadenceDraftEnc,
+      scheduledDate: '2026-12-15T00:00:00.000Z',
+    });
+
+    render(<DoctorTimetableView />);
+
+    await screen.findByText(/Khung Lịch Định Kỳ Theo Gói Cần Duyệt/i);
+    expect(screen.getByText(/Khung lịch dự kiến theo gói/i)).toBeInTheDocument();
+
+    // 1. Test Bulk Finalize
+    fireEvent.click(screen.getByRole('button', { name: /Giữ nguyên khung lịch/i }));
+    await waitFor(() => {
+      expect(finalizeCadenceSpy).toHaveBeenCalledWith('ctr-1');
+    });
+
+    // 2. Test Adjust Milestone
+    fireEvent.click(screen.getByRole('button', { name: /Tùy chỉnh lịch/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Lưu điều chỉnh/i }));
+
+    await waitFor(() => {
+      expect(adjustCadenceSpy).toHaveBeenCalledWith(
+        'enc-cad-1',
+        expect.objectContaining({
+          encounterType: 'HOME_VISIT',
+        })
+      );
+    });
+  });
 });

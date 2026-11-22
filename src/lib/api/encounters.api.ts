@@ -45,16 +45,26 @@ export interface EncounterPatient {
 export interface EncounterContract {
   id: string;
   contractNumber?: string;
+  familyRepresentativeName?: string;
+  familyRepresentativePhone?: string;
   familyUnit?: {
     id: string;
     familyName?: string;
     address?: string;
     homeAddress?: string;
+    emergencyPhone?: string;
     representativeUser?: {
       name?: string;
       phone?: string;
+      email?: string;
     };
   };
+  members?: Array<{
+    id?: string;
+    patientId?: string;
+    relationship?: string;
+    patient?: EncounterPatient;
+  }>;
   servicePackage?: {
     id: string;
     packageName: string;
@@ -77,6 +87,13 @@ export interface EncounterItem {
   visitScope?: EncounterVisitScope;
   scheduledDate: string;
   scheduledTime: string;
+  proposedDate?: string | null;
+  proposedTime?: string | null;
+  proposedBy?: string | null;
+  rescheduleReason?: string | null;
+  rescheduleCount?: number;
+  conflictAlert?: boolean;
+  conflictDetails?: string | null;
   encounterType: EncounterType | string;
   category: EncounterCategory | string;
   encounterStatus: EncounterStatus | string;
@@ -190,11 +207,19 @@ export interface FinalizeEncounterDto {
   notes?: string;
 }
 
+export interface AdjustCadenceMilestoneDto {
+  scheduledDate?: string;
+  scheduledTime?: string;
+  encounterType?: EncounterType;
+}
+
 export interface DoctorRescheduleReviewDto {
-  action: 'ACCEPT' | 'COUNTER_PROPOSE' | 'REJECT';
+  action?: 'ACCEPT' | 'COUNTER_PROPOSE' | 'REJECT';
+  accept?: boolean;
   counterDate?: string;
   counterTime?: string;
   doctorNotes?: string;
+  notes?: string;
 }
 
 export const encountersApi = {
@@ -249,8 +274,9 @@ export const encountersApi = {
     return unwrapApiEnvelope(raw) as EncounterItem;
   },
 
-  confirmEncounter: async (id: string, confirmed = true): Promise<any> => {
-    const raw = await httpClient.patch(`/api/v1/encounters/${id}/confirm`, { confirmed });
+  confirmEncounter: async (id: string, payload: { confirmed?: boolean } | boolean = true): Promise<any> => {
+    const body = typeof payload === 'boolean' ? { confirmed: payload } : { confirmed: payload.confirmed ?? true };
+    const raw = await httpClient.patch(`/api/v1/encounters/${id}/confirm`, body);
     return unwrapApiEnvelope(raw);
   },
 
@@ -301,5 +327,32 @@ export const encountersApi = {
   finalizeEncounter: async (id: string, payload: FinalizeEncounterDto): Promise<EncounterItem> => {
     const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/finalize`, payload);
     return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  reviewReschedule: async (id: string, payload: DoctorRescheduleReviewDto): Promise<EncounterItem> => {
+    const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/reschedule-review`, payload);
+    return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  finalizeCadenceSchedule: async (
+    contractId: string
+  ): Promise<{ finalizedCount: number; encounters: EncounterItem[] }> => {
+    const raw = await httpClient.post<any>(`/api/v1/encounters/cadence/finalize/${contractId}`, {});
+    return unwrapApiEnvelope(raw);
+  },
+
+  adjustCadenceMilestone: async (
+    id: string,
+    payload: AdjustCadenceMilestoneDto
+  ): Promise<EncounterItem> => {
+    const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/cadence/${id}`, payload);
+    return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  backfillCadence: async (
+    contractId: string
+  ): Promise<{ generatedCount: number; encounters: EncounterItem[] }> => {
+    const raw = await httpClient.post<any>(`/api/v1/encounters/cadence/backfill/${contractId}`, {});
+    return unwrapApiEnvelope(raw);
   },
 };

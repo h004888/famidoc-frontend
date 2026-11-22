@@ -1,6 +1,5 @@
 import { cacheLife } from 'next/cache';
 import { cookies, headers } from 'next/headers';
-import { connection } from 'next/server';
 import type { LoginRole } from '@/features/auth/schemas/auth.schema';
 import { COOKIE_KEYS, DEFAULT_USERS, isJwtExpired, type AuthUser } from './auth-storage';
 import { getPortalFromHost, isRoleAllowedOnPortal, type PortalRole } from './portal-routing';
@@ -53,9 +52,6 @@ export async function readServerAuthSession(
   if (!rawRole || !rawToken) {
     return null;
   }
-
-  // Defer past Next.js cacheComponents prerender phase before isJwtExpired() reads Date.now().
-  await connection();
 
   const token = decodeURIComponent(rawToken);
   if (isJwtExpired(token) && !rawRefreshToken) {
