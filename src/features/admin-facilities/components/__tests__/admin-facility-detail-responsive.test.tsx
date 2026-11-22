@@ -192,7 +192,7 @@ describe('AdminFacilityDetailView Responsive Contracts Table', () => {
     await screen.findAllByText('Bệnh viện Kiểm Thử');
 
     expect(
-      screen.getByRole('button', { name: /Duyệt Pháp Lý & Kích Hoạt \(ACTIVE\)/i }),
+      screen.getByRole('button', { name: /Duyệt Pháp Lý & Kích Hoạt/i }),
     ).toBeDisabled();
   });
 

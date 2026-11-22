@@ -4,19 +4,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import {
-  AlertTriangle,
   Building2,
   CheckCircle2,
   Clock,
-  ExternalLink,
-  FileText,
-  Lightbulb,
   Mail,
   Phone,
   Plus,
   RefreshCw,
   Search,
-  SearchCheck,
   ShieldCheck,
   Stethoscope,
   User,
@@ -25,17 +20,11 @@ import {
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
 import { doctorsApi } from '@/lib/api/doctors.api';
 import { extractErrorMessage } from '@/lib/api';
-import { useVietQrBanks } from '@/hooks/use-vietqr-banks';
-import {
-  buildVietQrQuickLinkUrl,
-  resolveBankByInput,
-  resolveVietQrBankId,
-} from '@/lib/vietqr';
 import {
   isValidVietnameseMobilePhone,
   normalizeVietnameseMobilePhone,
 } from '@/lib/phone-vn';
-import { ConfirmDialog, EmptyState, PageHeader, VietQrPreviewCard } from '@/components/shared';
+import { ConfirmDialog, EmptyState, PageHeader } from '@/components/shared';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -60,7 +49,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 
 type WorkspaceTab = 'FACILITIES' | 'DOCTOR_VERIFY';
@@ -103,10 +91,6 @@ function formatDateTimeVN(value?: string): string {
 function formatShortId(id: string): string {
   if (!id) return '—';
   return id.length > 18 ? `${id.slice(0, 8)}…${id.slice(-4)}` : id;
-}
-
-function isExternalUrl(value: string): boolean {
-  return /^https?:\/\//i.test(value) || value.startsWith('/');
 }
 
 function FacilityStatusBadge({
@@ -176,9 +160,6 @@ export function AdminFacilitiesView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [doctorSearchQuery, setDoctorSearchQuery] = useState('');
 
-  const [selectedFacility, setSelectedFacility] = useState<AdminFacilityItem | null>(null);
-  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [isActionLoading, setIsActionLoading] = useState(false);
   const [approvingDoctorId, setApprovingDoctorId] = useState<string | null>(null);
   const [confirmApproveDoctor, setConfirmApproveDoctor] = useState<{
     id: string;
@@ -190,9 +171,7 @@ export function AdminFacilitiesView() {
   const [doctorPage, setDoctorPage] = useState(1);
   const itemsPerPage = 6;
 
-  // Rejection & Create Facility dialog states
-  const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
+  // Create Facility dialog states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreatingFacility, setIsCreatingFacility] = useState(false);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
@@ -203,7 +182,6 @@ export function AdminFacilitiesView() {
     phone: '',
     address: '',
   });
-  const { banks } = useVietQrBanks();
 
   const fetchFacilitiesData = useCallback(async () => {
     setIsLoading(true);
@@ -375,12 +353,6 @@ export function AdminFacilitiesView() {
     setCurrentPage(1);
   };
 
-  // Actions
-  const handleOpenDetail = (fac: AdminFacilityItem) => {
-    setSelectedFacility(fac);
-    setIsDetailModalOpen(true);
-  };
-
   // Admin tạo mới tài khoản CSYT và gửi mật khẩu ngẫu nhiên qua email
   const handleCreateFacility = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -451,77 +423,6 @@ export function AdminFacilitiesView() {
     }
   };
 
-  // Thẩm định pháp lý & Kích hoạt ACTIVE
-  const handleExecuteVerifyLegal = async () => {
-    if (!selectedFacility) return;
-    setIsActionLoading(true);
-    try {
-      await facilitiesApi.verifyLegal(selectedFacility.id, { approved: true, verified: true });
-      setFacilities((prev) =>
-        prev.map((f) =>
-          f.id === selectedFacility.id
-            ? { ...f, onboardingStatus: 'ACTIVE' as const, status: 'ACTIVE' as const, legalRejectionReason: null }
-            : f
-        )
-      );
-      setSelectedFacility((prev) =>
-        prev ? { ...prev, onboardingStatus: 'ACTIVE', status: 'ACTIVE', legalRejectionReason: null } : null
-      );
-      toast.success(
-        `Thẩm định pháp lý thành công! Cơ sở y tế "${selectedFacility.facilityName}" đã chính thức chuyển sang trạng thái ACTIVE.`
-      );
-      setIsDetailModalOpen(false);
-    } catch (err: any) {
-      toast.error(extractErrorMessage(err, 'Không thể thẩm định pháp lý trên máy chủ.'));
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  // Từ chối / Yêu cầu bổ sung hồ sơ pháp lý
-  const handleExecuteReject = async () => {
-    if (!selectedFacility || !rejectReason.trim()) return;
-    setIsActionLoading(true);
-    const reason = rejectReason.trim();
-    try {
-      await facilitiesApi.verifyLegal(selectedFacility.id, {
-        approved: false,
-        rejectionReason: reason,
-      });
-      setFacilities((prev) =>
-        prev.map((f) =>
-          f.id === selectedFacility.id
-            ? { ...f, onboardingStatus: 'REJECTED' as const, legalRejectionReason: reason }
-            : f
-        )
-      );
-      setSelectedFacility((prev) =>
-        prev ? { ...prev, onboardingStatus: 'REJECTED', legalRejectionReason: reason } : null
-      );
-      toast.success('Đã gửi thông báo từ chối / yêu cầu bổ sung hồ sơ tới cơ sở y tế.');
-      setRejectReason('');
-      setShowRejectModal(false);
-      setIsDetailModalOpen(false);
-    } catch (err: any) {
-      toast.error(extractErrorMessage(err, 'Không thể từ chối hồ sơ trên máy chủ.'));
-    } finally {
-      setIsActionLoading(false);
-    }
-  };
-
-  const handleOpenLegalDocument = async (
-    facilityId: string,
-    docType: 'operating' | 'business' = 'operating',
-  ) => {
-    try {
-      const url = await facilitiesApi.fetchLegalDocumentBlobUrl(facilityId, docType);
-      window.open(url, '_blank', 'noopener,noreferrer');
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    } catch (err: any) {
-      toast.error(extractErrorMessage(err, 'Không thể tải bản scan hồ sơ pháp lý.'));
-    }
-  };
-
   // Duyệt Bác sĩ Cấp 2
   const handleApproveDoctorPlatform = async (docId: string, docName: string) => {
     setApprovingDoctorId(docId);
@@ -537,45 +438,6 @@ export function AdminFacilitiesView() {
       setApprovingDoctorId(null);
     }
   };
-
-  const selectedEffectiveStatus = selectedFacility ? getEffectiveOnboardingStatus(selectedFacility) : null;
-  const hasOperatingDoc = Boolean(
-    selectedFacility?.hasOperatingLicense ?? selectedFacility?.hasLegalDocument
-  );
-  const hasBusinessDoc = Boolean(selectedFacility?.hasBusinessLicense);
-  const hasCompleteLegalDocs = Boolean(
-    selectedFacility?.taxCode &&
-      selectedFacility?.operatingLicense &&
-      hasOperatingDoc &&
-      hasBusinessDoc
-  );
-
-  const selectedResolvedBank = useMemo(
-    () =>
-      selectedFacility
-        ? resolveBankByInput(banks, {
-            bankBin: selectedFacility.bankBin,
-            bankCode: selectedFacility.bankCode,
-            bankName: selectedFacility.bankName,
-          })
-        : undefined,
-    [banks, selectedFacility]
-  );
-
-  const selectedFacilityQrUrl = useMemo(() => {
-    if (!selectedFacility?.bankAccount) return null;
-    const bankId = resolveVietQrBankId(banks, {
-      bankBin: selectedFacility.bankBin || selectedResolvedBank?.bin,
-      bankCode: selectedFacility.bankCode || selectedResolvedBank?.code,
-      bankName: selectedFacility.bankName,
-    });
-    return buildVietQrQuickLinkUrl({
-      bankId,
-      accountNumber: selectedFacility.bankAccount,
-      accountName: selectedFacility.bankAccountHolder,
-      template: 'compact2',
-    });
-  }, [banks, selectedFacility, selectedResolvedBank]);
 
   const kpiCards: Array<{
     key: FacilityStatusFilter;
@@ -959,23 +821,14 @@ export function AdminFacilitiesView() {
                             </TableCell>
 
                             <TableCell className="px-4 py-3.5 text-right whitespace-nowrap">
-                              <div className="flex items-center justify-end gap-2">
+                              <div className="flex items-center justify-end">
                                 <Button
                                   asChild
-                                  variant="outline"
-                                  size="xs"
-                                  className="h-8 rounded-lg px-2.5 text-xs font-semibold text-slate-700"
-                                >
-                                  <Link href={`/admin/facilities/${fac.id}`}>Trang hồ sơ</Link>
-                                </Button>
-                                <Button
-                                  type="button"
                                   size="xs"
                                   variant="secondary"
-                                  onClick={() => handleOpenDetail(fac)}
-                                  className="h-8 cursor-pointer rounded-lg border border-blue-200/80 bg-blue-50 px-3 text-xs font-semibold text-primary hover:bg-blue-100"
+                                  className="h-8 rounded-lg border border-blue-200/80 bg-blue-50 px-3 text-xs font-semibold text-primary hover:bg-blue-100"
                                 >
-                                  Chi tiết &amp; Thẩm định
+                                  <Link href={`/admin/facilities/${fac.id}`}>Chi tiết &amp; Thẩm định</Link>
                                 </Button>
                               </div>
                             </TableCell>
@@ -1030,19 +883,10 @@ export function AdminFacilitiesView() {
                           <div className="flex items-center gap-2">
                             <Button
                               asChild
-                              variant="outline"
                               size="sm"
                               className="h-9 rounded-lg px-3 text-xs font-semibold"
                             >
-                              <Link href={`/admin/facilities/${fac.id}`}>Trang hồ sơ</Link>
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              onClick={() => handleOpenDetail(fac)}
-                              className="h-9 cursor-pointer rounded-lg px-3 text-xs font-semibold"
-                            >
-                              Thẩm định
+                              <Link href={`/admin/facilities/${fac.id}`}>Chi tiết &amp; Thẩm định</Link>
                             </Button>
                           </div>
                         </div>
@@ -1390,360 +1234,6 @@ export function AdminFacilitiesView() {
         </Tabs>
 
         {/* ========================================================================= */}
-        {/* DIALOG CHI TIẾT HỒ SƠ & THẨM ĐỊNH CƠ SỞ Y TẾ                              */}
-        {/* ========================================================================= */}
-        <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
-          <DialogContent className="max-h-[90vh] gap-0 overflow-hidden rounded-3xl border-slate-200 p-0 sm:max-w-2xl [&>[data-slot=dialog-close]]:top-4 [&>[data-slot=dialog-close]]:right-4 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:bg-white/15 [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:text-white [&>[data-slot=dialog-close]]:opacity-90 [&>[data-slot=dialog-close]]:hover:bg-white/25 [&>[data-slot=dialog-close]]:hover:opacity-100">
-            {selectedFacility && (
-              <>
-                <DialogHeader className="bg-gradient-to-r from-[#09253b] to-[#0037c1] p-5 text-left text-white sm:p-6">
-                  <div className="flex flex-wrap items-center gap-2 pr-8 text-xs font-medium text-blue-100">
-                    <span>Hồ Sơ Chi Tiết Cơ Sở Y Tế</span>
-                    <span aria-hidden="true">•</span>
-                    <span className="rounded bg-white/15 px-1.5 py-0.5 font-sans text-[11px] tabular-nums text-white">
-                      {selectedFacility.id}
-                    </span>
-                  </div>
-                  <DialogTitle className="mt-1 text-lg font-bold leading-snug text-white sm:text-xl">
-                    {selectedFacility.facilityName}
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-blue-100/90">
-                    {selectedFacility.address}
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="max-h-[60vh] space-y-5 overflow-y-auto p-4 text-xs sm:p-6 sm:text-sm">
-                  {/* PHẦN 1: THÔNG TIN CƠ BẢN (DUYỆT LẦN 1) */}
-                  <section className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                      <h3 className="flex items-center gap-2 font-bold text-slate-900">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-primary">
-                          1
-                        </span>
-                        Thông Tin Tài Khoản &amp; Đại Diện Cơ Sở Y Tế
-                      </h3>
-                      {selectedEffectiveStatus === 'REJECTED' ? (
-                        <Badge className="rounded-full bg-rose-100 text-[10px] font-bold text-rose-800 hover:bg-rose-100">
-                          Đã từ chối / Cần bổ sung
-                        </Badge>
-                      ) : (
-                        <Badge className="rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100">
-                          Đã cấp tài khoản Portal
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs sm:grid-cols-2">
-                      <div>
-                        <span className="block text-xs font-medium text-slate-500">Đại diện pháp luật:</span>
-                        <span className="font-bold text-slate-900">
-                          {selectedFacility.representativeName || '—'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-xs font-medium text-slate-500">Số điện thoại liên hệ:</span>
-                        <span className="font-semibold text-slate-900 tabular-nums">
-                          {selectedFacility.phone || '—'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-xs font-medium text-slate-500">Email Portal:</span>
-                        <span className="font-semibold text-slate-900 break-all tabular-nums text-xs">
-                          {selectedFacility.email || '—'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-xs font-medium text-slate-500 mb-1">Trạng thái hiện tại:</span>
-                        <FacilityStatusBadge facility={selectedFacility} compact />
-                      </div>
-                    </div>
-                  </section>
-
-                  {/* PHẦN 2: THÔNG TIN PHÁP LÝ CHUYÊN SÂU (DUYỆT LẦN 2) */}
-                  <section className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2">
-                      <h3 className="flex items-center gap-2 font-bold text-slate-900">
-                        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
-                          2
-                        </span>
-                        Thông Tin Hồ Sơ Pháp Lý (Duyệt Lần 2 - Pháp lý)
-                      </h3>
-                      {selectedEffectiveStatus === 'ACTIVE' ? (
-                        <Badge className="rounded-full bg-emerald-100 text-[10px] font-bold text-emerald-800 hover:bg-emerald-100">
-                          Đã Kích Hoạt ACTIVE
-                        </Badge>
-                      ) : hasCompleteLegalDocs ? (
-                        <Badge className="rounded-full bg-blue-100 text-[10px] font-bold text-blue-800 hover:bg-blue-100">
-                          Đã nộp đủ hồ sơ pháp lý
-                        </Badge>
-                      ) : (
-                        <Badge className="rounded-full bg-amber-100 text-[10px] font-bold text-amber-800 hover:bg-amber-100">
-                          Chưa hoàn thiện pháp lý
-                        </Badge>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3.5 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-2xs sm:grid-cols-2">
-                      <div>
-                        <span className="block text-xs font-medium text-slate-500">Mã số thuế (MST):</span>
-                        <span
-                          className={cn(
-                            'font-bold tabular-nums text-primary',
-                            selectedFacility.taxCode ? 'text-slate-900' : 'text-slate-400 italic font-normal'
-                          )}
-                        >
-                          {selectedFacility.taxCode || 'Chưa cập nhật'}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="block text-xs font-medium text-slate-500">Giấy phép hoạt động KCB (GPHĐ):</span>
-                        <span
-                          className={cn(
-                            'font-bold tabular-nums text-primary',
-                            selectedFacility.operatingLicense ? 'text-slate-900' : 'text-slate-400 italic font-normal'
-                          )}
-                        >
-                          {selectedFacility.operatingLicense || 'Chưa nộp'}
-                        </span>
-                      </div>
-                      {selectedFacility.licenseIssuer && (
-                        <div className="sm:col-span-2">
-                          <span className="block text-xs font-medium text-slate-500">Cơ quan cấp GPHĐ:</span>
-                          <span className="font-semibold text-slate-900">{selectedFacility.licenseIssuer}</span>
-                        </div>
-                      )}
-                      <div>
-                        <span className="block text-xs font-medium text-slate-500">Ngân hàng thụ hưởng đối soát:</span>
-                        <span
-                          className={cn(
-                            'font-semibold',
-                            selectedFacility.bankName ? 'text-slate-900' : 'text-slate-400 italic font-normal'
-                          )}
-                        >
-                          {selectedFacility.bankName || 'Chưa cập nhật'}
-                        </span>
-                        {(selectedFacility.bankCode || selectedFacility.bankBin || selectedResolvedBank) && (
-                          <div className="mt-1 flex flex-wrap gap-1.5 text-[11px] font-medium text-slate-600 tabular-nums">
-                            {(selectedFacility.bankCode || selectedResolvedBank?.code) && (
-                              <span className="rounded bg-white px-1.5 py-0.5 border border-slate-200">
-                                Mã NH: {selectedFacility.bankCode || selectedResolvedBank?.code}
-                              </span>
-                            )}
-                            {(selectedFacility.bankBin || selectedResolvedBank?.bin) && (
-                              <span className="rounded bg-white px-1.5 py-0.5 border border-slate-200">
-                                BIN: {selectedFacility.bankBin || selectedResolvedBank?.bin}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <span className="block text-xs font-medium text-slate-500">Tài khoản &amp; Chủ tài khoản:</span>
-                        <span
-                          className={cn(
-                            'font-semibold tabular-nums',
-                            selectedFacility.bankAccount ? 'text-slate-900' : 'text-slate-400 italic font-normal'
-                          )}
-                        >
-                          {selectedFacility.bankAccount
-                            ? `${selectedFacility.bankAccount}${
-                                selectedFacility.bankAccountHolder ? ` (${selectedFacility.bankAccountHolder})` : ''
-                              }`
-                            : 'Chưa cập nhật'}
-                        </span>
-                      </div>
-                    </div>
-
-                    {selectedFacilityQrUrl && (
-                      <VietQrPreviewCard
-                        qrUrl={selectedFacilityQrUrl}
-                        title="Đối soát nhanh tài khoản thụ hưởng VietQR"
-                        subtitle="Quét mã để kiểm tra thông tin ngân hàng thụ hưởng của cơ sở y tế trước khi duyệt."
-                        bankLabel={selectedFacility.bankName}
-                        bankBin={selectedFacility.bankBin || selectedResolvedBank?.bin || null}
-                        bankCode={selectedFacility.bankCode || selectedResolvedBank?.code || null}
-                        accountNumber={selectedFacility.bankAccount}
-                        accountHolder={selectedFacility.bankAccountHolder}
-                      />
-                    )}
-
-                    {selectedFacility.legalRejectionReason && (
-                      <p className="text-sm text-rose-700">Lý do yêu cầu bổ sung: {selectedFacility.legalRejectionReason}</p>
-                    )}
-                    {selectedFacility.hasLegalDocument && (
-                      <Link className="text-sm font-medium text-primary underline" href={`/admin/facilities/${selectedFacility.id}`}>
-                        Mở hồ sơ để tải bản scan trong tab pháp lý
-                      </Link>
-                    )}
-                    {/* Danh sách tài liệu pháp lý đính kèm */}
-                    {(selectedFacility.hasLegalDocument ||
-                      (selectedFacility.licenseFiles && selectedFacility.licenseFiles.length > 0)) && (
-                      <div>
-                        <span className="mb-1.5 block text-xs font-semibold text-slate-600">
-                          Tài liệu pháp lý scan đính kèm:
-                        </span>
-                        <div className="flex flex-wrap gap-2">
-                          {(selectedFacility.hasOperatingLicense || selectedFacility.hasLegalDocument) && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenLegalDocument(selectedFacility.id, 'operating')}
-                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-primary hover:bg-blue-100"
-                            >
-                              <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                              <span>Xem / Tải GPHĐ KBCB</span>
-                              <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
-                            </Button>
-                          )}
-                          {selectedFacility.hasBusinessLicense && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenLegalDocument(selectedFacility.id, 'business')}
-                              className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
-                            >
-                              <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                              <span>Xem / Tải Giấy ĐKKD</span>
-                              <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
-                            </Button>
-                          )}
-                          {(selectedFacility.licenseFiles ?? []).map((fileRef, idx) =>
-                            fileRef.startsWith('/api/v1/facilities/') ? (
-                              selectedFacility.hasLegalDocument ? null : (
-                                <Button
-                                  key={idx}
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleOpenLegalDocument(selectedFacility.id)}
-                                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-primary hover:bg-blue-100"
-                                >
-                                  <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                                  <span>Xem / Tải bản scan pháp lý</span>
-                                  <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
-                                </Button>
-                              )
-                            ) : isExternalUrl(fileRef) ? (
-                              <a
-                                key={idx}
-                                href={fileRef}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-blue-100"
-                              >
-                                <FileText className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                                <span className="max-w-[240px] truncate">{fileRef}</span>
-                                <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
-                              </a>
-                            ) : (
-                              <div
-                                key={idx}
-                                className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700"
-                              >
-                                <FileText className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
-                                <span className="max-w-[240px] truncate">{fileRef}</span>
-                              </div>
-                            )
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Hướng dẫn & Cảnh báo điều kiện duyệt */}
-                    {selectedEffectiveStatus !== 'ACTIVE' &&
-                      selectedEffectiveStatus !== 'REJECTED' &&
-                      (hasCompleteLegalDocs ? (
-                        <div className="flex items-start gap-2.5 rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-xs leading-relaxed text-indigo-900">
-                          <SearchCheck className="mt-0.5 h-4 w-4 shrink-0 text-indigo-600" aria-hidden="true" />
-                          <div>
-                            <strong>Hồ sơ sẵn sàng thẩm định:</strong> CSYT đã nộp đầy đủ MST và GPHĐ. Quản trị viên vui lòng tra cứu đối soát trên CSDL Quốc gia trước khi bấm{' '}
-                            <em>&ldquo;Duyệt Pháp Lý: Kích Hoạt ACTIVE&rdquo;</em>.
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="flex items-start gap-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-900">
-                          <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
-                          <div>
-                            <strong>Chưa đủ điều kiện kích hoạt ACTIVE:</strong>{' '}
-                            {!selectedFacility.taxCode || !selectedFacility.operatingLicense
-                              ? 'CSYT chưa hoàn tất nộp Giấy phép hoạt động KCB hoặc Mã số thuế trên Portal.'
-                              : `Thiếu bản scan bắt buộc: ${[
-                                  !hasOperatingDoc ? 'Giấy phép hoạt động KBCB (GPHĐ)' : null,
-                                  !hasBusinessDoc ? 'Giấy chứng nhận Đăng ký doanh nghiệp (ĐKKD)' : null,
-                                ]
-                                  .filter(Boolean)
-                                  .join(' và ')}.`}
-                          </div>
-                        </div>
-                      ))}
-                  </section>
-                </div>
-
-                <DialogFooter className="flex-row flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 bg-slate-50 px-4 py-3.5 sm:px-6">
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsDetailModalOpen(false)}
-                      className="cursor-pointer rounded-xl bg-white text-xs font-semibold"
-                    >
-                      Đóng
-                    </Button>
-                    <Button asChild variant="ghost" size="sm" className="rounded-xl text-xs font-semibold text-primary">
-                      <Link href={`/admin/facilities/${selectedFacility.id}`}>
-                        <span>Mở trang hồ sơ</span>
-                        <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                      </Link>
-                    </Button>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {selectedEffectiveStatus !== 'ACTIVE' && selectedEffectiveStatus !== 'REJECTED' && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowRejectModal(true)}
-                        className="cursor-pointer rounded-xl border-rose-200 bg-rose-50 text-xs font-semibold text-rose-700 hover:bg-rose-100 hover:text-rose-800"
-                      >
-                        Yêu cầu bổ sung / Từ chối
-                      </Button>
-                    )}
-
-                    {selectedEffectiveStatus !== 'ACTIVE' &&
-                      selectedEffectiveStatus !== 'REJECTED' && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={!hasCompleteLegalDocs || isActionLoading}
-                          onClick={handleExecuteVerifyLegal}
-                          className="cursor-pointer rounded-xl bg-emerald-600 text-xs font-bold text-white shadow-md shadow-emerald-600/20 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:shadow-none"
-                        >
-                          <ShieldCheck className="h-4 w-4" aria-hidden="true" />
-                          <span>{isActionLoading ? 'Đang kích hoạt...' : 'Duyệt Cấp 2: Kích Hoạt ACTIVE'}</span>
-                        </Button>
-                      )}
-
-                    {selectedEffectiveStatus === 'ACTIVE' && (
-                      <Badge
-                        variant="outline"
-                        className="gap-1.5 rounded-xl border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700"
-                      >
-                        <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                        Cơ sở y tế đã được kích hoạt hợp tác
-                      </Badge>
-                    )}
-                  </div>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* ========================================================================= */}
         {/* DIALOG: ADMIN TẠO TÀI KHOẢN CƠ SỞ Y TẾ MỚI                                */}
         {/* ========================================================================= */}
         <Dialog
@@ -1869,76 +1359,6 @@ export function AdminFacilitiesView() {
           </DialogContent>
         </Dialog>
 
-        {/* ========================================================================= */}
-        {/* DIALOG: TỪ CHỐI / YÊU CẦU BỔ SUNG HỒ SƠ                                   */}
-        {/* ========================================================================= */}
-        <Dialog
-          open={showRejectModal && Boolean(selectedFacility)}
-          onOpenChange={(open) => {
-            setShowRejectModal(open);
-            if (!open) setRejectReason('');
-          }}
-        >
-          <DialogContent className="rounded-2xl border-slate-200 sm:max-w-md">
-            {selectedFacility && (
-              <>
-                <DialogHeader>
-                  <div className="mb-1 flex h-11 w-11 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
-                    <AlertTriangle className="h-5 w-5" aria-hidden="true" />
-                  </div>
-                  <DialogTitle className="text-base font-bold text-slate-900">
-                    Yêu cầu bổ sung hồ sơ / Từ chối
-                  </DialogTitle>
-                  <DialogDescription className="text-xs text-slate-500">
-                    Gửi lý do chi tiết tới <strong className="text-slate-800">{selectedFacility.facilityName}</strong> (
-                    {selectedFacility.email}).
-                  </DialogDescription>
-                </DialogHeader>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="facility-reject-reason" className="text-xs font-semibold text-slate-700">
-                    Lý do yêu cầu sửa đổi hoặc từ chối: <span className="text-rose-500">*</span>
-                  </Label>
-                  <Textarea
-                    id="facility-reject-reason"
-                    rows={4}
-                    required
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
-                    placeholder="Ví dụ: Giấy phép hoạt động KCB đã mờ hoặc hết hạn; Thông tin Mã số thuế chưa khớp với CSDL Thuế Quốc gia..."
-                    className="rounded-xl bg-slate-50/70 text-xs focus-visible:bg-white"
-                  />
-                </div>
-
-                <DialogFooter className="gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    disabled={isActionLoading}
-                    onClick={() => {
-                      setShowRejectModal(false);
-                      setRejectReason('');
-                    }}
-                    className="cursor-pointer rounded-xl text-xs font-semibold"
-                  >
-                    Hủy bỏ
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    disabled={!rejectReason.trim() || isActionLoading}
-                    onClick={handleExecuteReject}
-                    className="cursor-pointer rounded-xl text-xs font-bold"
-                  >
-                    {isActionLoading ? 'Đang gửi...' : 'Gửi yêu cầu'}
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
         <ConfirmDialog
           open={Boolean(confirmApproveDoctor)}
           onOpenChange={(open) => {
