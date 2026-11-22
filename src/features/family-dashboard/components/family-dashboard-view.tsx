@@ -708,7 +708,7 @@ export function FamilyDashboardView() {
                   Sức khỏe gia đình hôm nay: Chưa ghi nhận cảnh báo chỉ số bất thường
                 </AlertTitle>
                 <AlertDescription className="mt-0.5 text-xs leading-relaxed text-slate-700 sm:text-sm">
-                  Cập nhật chỉ số đo hằng ngày giúp bạn và bác sĩ gia đình phát hiện sớm các thay đổi bất thường.
+                  Ghi nhận chỉ số cho thành viên có bệnh nền hoặc khi có dấu hiệu bất thường giúp bạn và bác sĩ gia đình phát hiện sớm các thay đổi.
                 </AlertDescription>
               </div>
             </div>
@@ -789,7 +789,7 @@ export function FamilyDashboardView() {
                 Chỉ Số Sức Khỏe Hôm Nay Của Các Thành Viên ({totalMembers})
               </h2>
               <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
-                Theo dõi từ nhật ký đo chỉ số hằng ngày của từng thành viên trong hộ gia đình
+                Tổng hợp chỉ số đo gần nhất và trạng thái sức khỏe của từng thành viên trong hộ gia đình
               </p>
             </div>
 

@@ -158,7 +158,15 @@ export interface MedicalContractDetailDto {
     status: string;
     completedAt?: string | null;
   }>;
-  servicePackage?: { id?: string; packageName?: string; durationMonths?: number };
+  remainingHomeVisits?: number;
+  remainingTelehealth?: number;
+  servicePackage?: {
+    id?: string;
+    packageName?: string;
+    durationMonths?: number;
+    periodicVisitsQuota?: number;
+    telehealthQuota?: number;
+  };
   billingSnapshot?: {
     package?: { name?: string };
     pricing?: { totalPriceVnd?: number };

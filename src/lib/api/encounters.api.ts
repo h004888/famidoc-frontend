@@ -1,9 +1,10 @@
 import { httpClient } from './http-client';
 import { unwrapApiEnvelope } from './envelope';
 
-export type EncounterType = 'HOME_VISIT' | 'TELEMEDICINE';
+export type EncounterType = 'HOME_VISIT' | 'TELEHEALTH' | 'FACILITY_VISIT' | 'TELEMEDICINE';
 export type EncounterCategory = 'PERIODIC_ROUTINE' | 'AD_HOC_ON_DEMAND';
 export type EncounterStatus =
+  | 'REQUESTED'
   | 'PROPOSED'
   | 'CONFIRMED'
   | 'IN_PROGRESS'
@@ -51,6 +52,14 @@ export interface EncounterItem {
   encounterType: EncounterType | string;
   category: EncounterCategory | string;
   encounterStatus: EncounterStatus | string;
+  rescheduleCount?: number;
+  proposedDate?: string | null;
+  proposedTime?: string | null;
+  proposedBy?: 'DOCTOR' | 'FAMILY_REP' | string | null;
+  rescheduleReason?: string | null;
+  conflictAlert?: boolean;
+  conflictDetails?: string | null;
+  cancelReason?: string | null;
   subjectiveNote?: string | null;
   objectiveExam?: string | null;
   assessment?: string | null;
@@ -99,31 +108,83 @@ export interface ListEncountersQueryDto {
 export interface CreatePeriodicEncounterDto {
   contractId: string;
   patientId: string;
+  encounterType: EncounterType;
   scheduledDate: string;
   scheduledTime: string;
-  encounterType: EncounterType;
-  clinicalNotes?: string;
-}
-
-export interface FinalizeEncounterDto {
-  scheduledDate?: string;
-  scheduledTime?: string;
-  encounterType?: EncounterType;
-  subjectiveNote?: string;
-  objectiveExam?: string;
-  assessment?: string;
-  plan?: string;
-  prescription?: any;
-  icd10Code?: string;
-  digitalSignature?: string;
   notes?: string;
 }
 
+export interface CreateAdHocEncounterDto {
+  contractId: string;
+  patientId: string;
+  encounterType: EncounterType;
+  desiredDate: string;
+  desiredTime: string;
+  reason: string;
+}
+
+export interface FinalizeEncounterDto {
+  encounterType?: EncounterType;
+  scheduledDate?: string;
+  scheduledTime?: string;
+  doctorNotes?: string;
+}
+
+export interface ConfirmEncounterDto {
+  confirmed: boolean;
+}
+
+export interface RequestRescheduleDto {
+  proposedDate: string;
+  proposedTime: string;
+  rescheduleReason: string;
+}
+
 export interface DoctorRescheduleReviewDto {
-  action: 'ACCEPT' | 'COUNTER_PROPOSE' | 'REJECT';
+  accept: boolean;
   counterDate?: string;
   counterTime?: string;
-  doctorNotes?: string;
+  notes?: string;
+}
+
+export interface CreateDoctorShiftDto {
+  doctorId: string;
+  shiftDate: string;
+  startTime: string;
+  endTime: string;
+  shiftType: string;
+  notes?: string;
+}
+
+export interface DoctorShiftItem {
+  id: string;
+  doctorId: string;
+  facilityId: string;
+  shiftDate: string;
+  startTime: string;
+  endTime: string;
+  shiftType: string;
+  notes?: string | null;
+  doctor?: {
+    id: string;
+    doctorName?: string;
+    specialty?: string;
+    user?: { name?: string; phone?: string };
+  };
+}
+
+export interface FacilityScheduleBoardResponse {
+  facilityId: string;
+  dutyShifts: DoctorShiftItem[];
+  externalEncounters: EncounterItem[];
+}
+
+export interface SchedulingActionResponse {
+  status?: 'CONFLICT_ALERT' | 'AUTO_REJECTED_TOO_LATE' | 'NO_SUITABLE_SLOT' | string;
+  message?: string;
+  encounter?: EncounterItem;
+  id?: string;
+  encounterStatus?: EncounterStatus | string;
 }
 
 export const encountersApi = {
@@ -173,13 +234,67 @@ export const encountersApi = {
     return unwrapApiEnvelope(raw) as EncounterItem;
   },
 
+  createAdHocEncounter: async (payload: CreateAdHocEncounterDto): Promise<EncounterItem> => {
+    const raw = await httpClient.post<EncounterItem>('/api/v1/encounters/ad-hoc', payload);
+    return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
   finalizeEncounter: async (id: string, payload: FinalizeEncounterDto): Promise<EncounterItem> => {
     const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/finalize`, payload);
     return unwrapApiEnvelope(raw) as EncounterItem;
   },
 
-  reviewReschedule: async (id: string, payload: DoctorRescheduleReviewDto): Promise<any> => {
-    const raw = await httpClient.patch(`/api/v1/encounters/${id}/reschedule-review`, payload);
-    return unwrapApiEnvelope(raw);
+  confirmEncounter: async (
+    id: string,
+    payload: ConfirmEncounterDto
+  ): Promise<EncounterItem & SchedulingActionResponse> => {
+    const raw = await httpClient.patch<EncounterItem & SchedulingActionResponse>(
+      `/api/v1/encounters/${id}/confirm`,
+      payload
+    );
+    return unwrapApiEnvelope(raw) as EncounterItem & SchedulingActionResponse;
+  },
+
+  requestReschedule: async (
+    id: string,
+    payload: RequestRescheduleDto
+  ): Promise<EncounterItem & SchedulingActionResponse> => {
+    const raw = await httpClient.post<EncounterItem & SchedulingActionResponse>(
+      `/api/v1/encounters/${id}/reschedule`,
+      payload
+    );
+    return unwrapApiEnvelope(raw) as EncounterItem & SchedulingActionResponse;
+  },
+
+  reviewReschedule: async (
+    id: string,
+    payload: DoctorRescheduleReviewDto
+  ): Promise<EncounterItem & SchedulingActionResponse> => {
+    const raw = await httpClient.patch<EncounterItem & SchedulingActionResponse>(
+      `/api/v1/encounters/${id}/reschedule-review`,
+      payload
+    );
+    return unwrapApiEnvelope(raw) as EncounterItem & SchedulingActionResponse;
+  },
+
+  createDoctorShift: async (payload: CreateDoctorShiftDto): Promise<DoctorShiftItem> => {
+    const raw = await httpClient.post<DoctorShiftItem>('/api/v1/encounters/shifts', payload);
+    return unwrapApiEnvelope(raw) as DoctorShiftItem;
+  },
+
+  getFacilityScheduleBoard: async (query?: {
+    fromDate?: string;
+    toDate?: string;
+  }): Promise<FacilityScheduleBoardResponse> => {
+    const raw = await httpClient.get<FacilityScheduleBoardResponse>(
+      '/api/v1/encounters/facility/schedule-board',
+      query
+    );
+    const unwrapped = unwrapApiEnvelope(raw) as FacilityScheduleBoardResponse | null;
+    return {
+      facilityId: unwrapped?.facilityId ?? '',
+      dutyShifts: Array.isArray(unwrapped?.dutyShifts) ? unwrapped.dutyShifts : [],
+      externalEncounters: Array.isArray(unwrapped?.externalEncounters) ? unwrapped.externalEncounters : [],
+    };
   },
 };

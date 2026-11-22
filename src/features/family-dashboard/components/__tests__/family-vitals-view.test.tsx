@@ -71,6 +71,16 @@ describe('FamilyVitalsView (/family/vitals)', () => {
         relationshipToHead: 'HEAD_OF_HOUSEHOLD',
         status: 'ACTIVE',
       },
+      {
+        id: 'm-3',
+        familyId: 'fam-1',
+        fullName: 'Trần Thị Lan',
+        dateOfBirth: '1963-05-12',
+        gender: 'FEMALE',
+        relationshipToHead: 'PARENT',
+        chronicDiseases: 'Tăng huyết áp',
+        status: 'ACTIVE',
+      },
     ]);
 
     mockGetMemberVitalSigns.mockImplementation(async (patientId: string) => {
@@ -125,21 +135,29 @@ describe('FamilyVitalsView (/family/vitals)', () => {
 
     expect(screen.getByText(/Huyết áp 152\/94 mmHg/)).toBeInTheDocument();
     expect(screen.getByText('Chưa đo hôm nay')).toBeInTheDocument();
+    expect(screen.getByText('Theo dõi khi cần')).toBeInTheDocument();
 
-    // Auto-selected alerted member m-1
+    // Auto-selected alerted member m-1 (has EMR/historic respiratoryRate: 18)
     expect(screen.getByTestId('vital-card-bp')).toHaveAttribute('data-abnormal', 'true');
+    expect(screen.getByTestId('vital-card-respiratoryRate')).toBeInTheDocument();
 
-    // Switch to member m-2 (no vitals recorded)
+    // Switch to healthy member m-2 (no vitals recorded, no chronic diseases)
     fireEvent.click(screen.getByRole('button', { name: /Nguyễn Minh Châu/i }));
     await waitFor(() => {
-      expect(
-        screen.getByText('Hôm nay chưa có chỉ số sức khỏe nào được ghi nhận')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Chưa ghi nhận chỉ số hôm nay')).toBeInTheDocument();
     });
     expect(screen.getByRole('link', { name: /Mở y bạ Nguyễn Minh Châu/i })).toHaveAttribute(
       'href',
       '/family/members/m-2'
     );
+
+    // Switch to chronic member m-3 (no vitals recorded, has Tăng huyết áp)
+    fireEvent.click(screen.getByRole('button', { name: /Trần Thị Lan/i }));
+    await waitFor(() => {
+      expect(
+        screen.getByText('Hôm nay chưa có chỉ số sức khỏe nào được ghi nhận')
+      ).toBeInTheDocument();
+    });
   });
 
   it('updates household alert summary immediately when adding a stable reading for the alerted member', async () => {
@@ -151,24 +169,43 @@ describe('FamilyVitalsView (/family/vitals)', () => {
       ).toBeInTheDocument();
     });
 
+    expect(screen.queryByRole('columnheader', { name: 'Nhịp tim' })).not.toBeInTheDocument();
+
     fireEvent.click(screen.getByRole('button', { name: /Nhập chỉ số hôm nay/i }));
-    fireEvent.change(screen.getByLabelText(/Huyết áp tâm thu/i), {
-      target: { value: '124' },
+    expect(screen.queryByLabelText(/Nhịp thở/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nhịp tim/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Thời điểm đo/i)).not.toBeInTheDocument();
+
+    // Invalid inverted BP shows inline error and blocks submit
+    fireEvent.change(screen.getByLabelText(/Huyết áp \(mmHg\)/i), {
+      target: { value: '80/120' },
     });
-    fireEvent.change(screen.getByLabelText(/Huyết áp tâm trương/i), {
-      target: { value: '78' },
+    fireEvent.click(screen.getByRole('button', { name: 'Lưu chỉ số' }));
+    expect(
+      screen.getByText(/Huyết áp tâm thu phải lớn hơn huyết áp tâm trương/i)
+    ).toBeInTheDocument();
+    expect(mockAddMemberVitalSign).not.toHaveBeenCalled();
+
+    // Valid combined BP 124/78 submits cleanly with automatic real-time timestamp and hides unmeasured cards
+    fireEvent.change(screen.getByLabelText(/Huyết áp \(mmHg\)/i), {
+      target: { value: '124/78' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Lưu chỉ số' }));
 
     await waitFor(() => {
       expect(mockAddMemberVitalSign).toHaveBeenCalledWith(
         'm-1',
-        expect.objectContaining({ systolicBp: 124, diastolicBp: 78 })
+        expect.objectContaining({
+          systolicBp: 124,
+          diastolicBp: 78,
+          recordedAt: expect.any(String),
+        })
       );
       expect(
         screen.getByText('Các chỉ số đo hôm nay của gia đình đều trong ngưỡng ổn định')
       ).toBeInTheDocument();
     });
+    expect(screen.queryByTestId('vital-card-respiratoryRate')).not.toBeInTheDocument();
   });
 
   it('renders empty member CTA when household has no members', async () => {

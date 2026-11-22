@@ -20,6 +20,13 @@ const SKIP_AUTH_REFRESH_PATHS = [
   '/api/v1/auth/reset-password',
 ];
 
+const TRANSIENT_BLOB_STATUSES = new Set([502, 503, 504]);
+const BLOB_RETRY_DELAY_MS = 250;
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 class HttpClient {
   private baseUrl: string;
   private token: string | null = null;
@@ -294,52 +301,78 @@ class HttpClient {
       ...((options.headers as Record<string, string>) || {}),
     };
 
-    const res = await this.fetchWithAuthRetry(
-      path,
-      (authHeader) => {
-        const headers = { ...baseHeaders };
-        if (authHeader) {
-          headers['Authorization'] = authHeader;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      let res: Response;
+      try {
+        res = await this.fetchWithAuthRetry(
+          path,
+          (authHeader) => {
+            const headers = { ...baseHeaders };
+            if (authHeader) {
+              headers['Authorization'] = authHeader;
+            }
+            return fetch(url, {
+              ...options,
+              method: 'GET',
+              headers,
+            });
+          },
+          baseHeaders['Authorization'],
+        );
+      } catch (networkErr) {
+        if (attempt === 0 && !options.signal?.aborted) {
+          await sleepMs(BLOB_RETRY_DELAY_MS);
+          continue;
         }
-        return fetch(url, {
-          ...options,
-          method: 'GET',
-          headers,
-        });
-      },
-      baseHeaders['Authorization'],
-    );
-
-    if (!res.ok) {
-      let errorData: unknown = undefined;
-      let detailMessage = `API error (${res.status})`;
-      const contentType =
-        typeof res.headers?.get === 'function'
-          ? res.headers.get('content-type') || ''
-          : '';
-
-      if (contentType.includes('application/json') && typeof res.json === 'function') {
-        errorData = await res.json().catch(() => undefined);
-        detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
-      } else if (typeof res.text === 'function') {
-        const text = await res.text().catch(() => '');
-        if (text.trim()) {
-          try {
-            errorData = JSON.parse(text);
-            detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
-          } catch {
-            detailMessage = text.trim();
-          }
-        }
-      } else if (typeof res.json === 'function') {
-        errorData = await res.json().catch(() => undefined);
-        detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+        if (networkErr instanceof ApiError) throw networkErr;
+        throw new ApiError(
+          networkErr instanceof Error ? networkErr.message : 'Lỗi kết nối máy chủ',
+          503,
+        );
       }
 
-      throw new ApiError(detailMessage, res.status, errorData);
+      if (!res.ok) {
+        if (
+          attempt === 0 &&
+          TRANSIENT_BLOB_STATUSES.has(res.status) &&
+          !options.signal?.aborted
+        ) {
+          await sleepMs(BLOB_RETRY_DELAY_MS);
+          continue;
+        }
+
+        let errorData: unknown = undefined;
+        let detailMessage = `API error (${res.status})`;
+        const contentType =
+          typeof res.headers?.get === 'function'
+            ? res.headers.get('content-type') || ''
+            : '';
+
+        if (contentType.includes('application/json') && typeof res.json === 'function') {
+          errorData = await res.json().catch(() => undefined);
+          detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+        } else if (typeof res.text === 'function') {
+          const text = await res.text().catch(() => '');
+          if (text.trim()) {
+            try {
+              errorData = JSON.parse(text);
+              detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+            } catch {
+              detailMessage = text.trim();
+            }
+          }
+        } else if (typeof res.json === 'function') {
+          errorData = await res.json().catch(() => undefined);
+          detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+        }
+
+        throw new ApiError(detailMessage, res.status, errorData);
+      }
+
+      return res.blob();
     }
 
-    return res.blob();
+    throw new ApiError('Không thể tải tệp từ máy chủ', 503);
   }
 
   post<T>(path: string, body?: unknown, options?: RequestInit): Promise<T> {

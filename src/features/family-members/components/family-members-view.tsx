@@ -881,74 +881,82 @@ export function FamilyMembersView() {
                 return (
                   <div
                     key={m.id}
-                    className="bg-white rounded-2xl border border-slate-200/80 hover:border-slate-300 p-4 sm:p-5 transition-all shadow-2xs hover:shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4"
+                    className="bg-white rounded-2xl border border-slate-200/80 hover:border-slate-300 p-4 sm:px-5 sm:py-4 transition-all shadow-2xs hover:shadow-xs grid grid-cols-1 lg:grid-cols-[minmax(260px,1.25fr)_minmax(220px,1fr)_auto] lg:items-center gap-3.5 lg:gap-5"
                   >
                     {/* Cột 1: Thông tin nhân khẩu & Nhóm máu */}
-                    <div className="flex items-center gap-3.5 min-w-0 lg:w-5/12">
-                      <div className="w-12 h-12 rounded-full bg-primary/10 text-primary font-bold text-base flex items-center justify-center shrink-0 border border-primary/20">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div className="size-11 rounded-full bg-primary/10 text-primary font-bold text-sm flex items-center justify-center shrink-0 border border-primary/20">
                         {initials}
                       </div>
 
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <Link
                             href={`/family/members/${m.id}`}
-                            className="font-bold text-slate-900 hover:text-primary transition-colors truncate text-sm sm:text-base"
+                            className="font-bold text-slate-900 hover:text-primary transition-colors truncate text-sm sm:text-[15px]"
                           >
                             {m.name}
                           </Link>
                           <span
-                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${m.isHouseholdHead
+                            className={`px-2 py-0.5 rounded-md text-[11px] font-semibold shrink-0 ${m.isHouseholdHead
                               ? 'bg-primary/10 text-primary border border-primary/20'
                               : 'bg-slate-100 text-slate-700'
                               }`}
                           >
                             {m.relationship}
                           </span>
-                          <span className="px-1.5 py-0.5 rounded text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200">
+                          <span className="px-1.5 py-0.5 rounded text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 tabular-nums shrink-0">
                             {m.bloodType}
                           </span>
                         </div>
 
-                        <div className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                        <div className="text-xs text-slate-500 flex items-center gap-1.5 tabular-nums">
                           <span>{m.gender}</span>
-                          <span>•</span>
+                          <span aria-hidden="true">•</span>
                           <span>{ageDisplay}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Cột 2: Sức khỏe tóm tắt */}
-                    <div className="min-w-0 lg:w-4/12 space-y-1 text-xs">
-                      <div className="text-slate-600 truncate flex items-center gap-1.5">
-                        <span className="text-slate-400 shrink-0">Sức khỏe:</span>
+                    {/* Cột 2: Sức khỏe tóm tắt (2 dòng cân đối với cột 1) */}
+                    <div className="min-w-0 flex flex-col justify-center gap-1 border-t border-slate-100 pt-3 lg:border-t-0 lg:pt-0 lg:border-l lg:pl-5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] font-medium text-slate-400">Sức khỏe:</span>
                         {hasChronic ? (
-                          <span className="text-amber-800 font-medium truncate">
-                            {m.chronicDiseases.join(', ')}
+                          <span className="inline-flex items-center rounded-md bg-amber-50 border border-amber-200 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                            Đang theo dõi
                           </span>
                         ) : (
-                          <span className="text-emerald-700 font-medium">Bình thường</span>
+                          <span className="inline-flex items-center rounded-md bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                            Bình thường
+                          </span>
                         )}
                         {hasAllergy && (
-                          <span className="text-rose-600 shrink-0 text-[11px] bg-rose-50 px-1.5 rounded">
-                            (Dị ứng)
+                          <span className="inline-flex items-center rounded-md bg-rose-50 border border-rose-200 px-2 py-0.5 text-[11px] font-semibold text-rose-700">
+                            Dị ứng
                           </span>
                         )}
                       </div>
+                      <p
+                        title={hasChronic ? m.chronicDiseases.join(', ') : 'Chưa ghi nhận bệnh lý nền'}
+                        className="text-xs text-slate-600 truncate"
+                      >
+                        {hasChronic ? m.chronicDiseases.join(', ') : 'Chưa ghi nhận bệnh lý nền'}
+                      </p>
                     </div>
 
-                    {/* Cột 3: Nút xem hồ sơ và thao tác */}
-                    <div className="flex flex-wrap justify-end items-center gap-2 self-end lg:self-center">
+                    {/* Cột 3: Nút xem hồ sơ và thao tác (thẳng hàng dọc giữa mọi thành viên) */}
+                    <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3 lg:border-t-0 lg:pt-0 shrink-0">
                       <Link
                         href={`/family/medical-book?patientId=${encodeURIComponent(m.id)}`}
-                        className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-semibold text-teal-800 hover:bg-teal-50"
+                        className="inline-flex items-center justify-center gap-1 h-8 rounded-lg border border-teal-200/80 bg-teal-50/60 hover:bg-teal-100/70 px-3 text-xs font-semibold text-teal-800 transition-colors whitespace-nowrap"
                       >
                         <span className="material-symbols-outlined text-[15px]" aria-hidden="true">clinical_notes</span>
-                        Sổ khám
+                        <span>Sổ khám</span>
                       </Link>
                       <Link
                         href={`/family/members/${m.id}`}
-                        className="px-3.5 py-2 rounded-xl bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-semibold text-xs transition-all inline-flex items-center gap-1"
+                        className="inline-flex items-center justify-center gap-1 h-8 px-3.5 rounded-lg bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-semibold text-xs transition-all whitespace-nowrap"
                       >
                         <span>Xem y bạ</span>
                         <span className="material-symbols-outlined text-[15px]">arrow_forward</span>
@@ -960,26 +968,28 @@ export function FamilyMembersView() {
                           setEditError(null);
                           setEditingMember(m);
                         }}
-                        className="w-8 h-8 rounded-xl bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+                        className="size-8 rounded-lg bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 border border-slate-200 flex items-center justify-center transition-colors cursor-pointer shrink-0"
                         title="Sửa thông tin"
                         aria-label={`Sửa thông tin của ${m.name}`}
                       >
                         <span className="material-symbols-outlined text-[16px]">edit</span>
                       </button>
 
-                      {!m.isHouseholdHead && (
+                      {!m.isHouseholdHead ? (
                         <button
                           type="button"
                           onClick={() => {
                             setDeleteError(null);
                             setDeletingMember(m);
                           }}
-                          className="w-8 h-8 rounded-xl bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
+                          className="size-8 rounded-lg bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-200 flex items-center justify-center transition-colors cursor-pointer shrink-0"
                           title="Tách khỏi hộ"
                           aria-label={`Tách ${m.name} khỏi hộ`}
                         >
                           <span className="material-symbols-outlined text-[16px]">delete</span>
                         </button>
+                      ) : (
+                        <span className="hidden lg:inline-block size-8 shrink-0" aria-hidden="true" />
                       )}
                     </div>
                   </div>

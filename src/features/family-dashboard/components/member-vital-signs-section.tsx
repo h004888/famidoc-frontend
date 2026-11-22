@@ -31,18 +31,19 @@ import {
 } from '@/lib/api';
 import {
   computeVitalMetricDeltas,
+  formatBloodPressureInput,
   getVitalMetricAlerts,
+  parseBloodPressureInput,
   VITAL_REFERENCE_LABELS,
   type VitalMetricKey,
 } from '../utils/vital-metrics.util';
 
 const VN_TZ = 'Asia/Ho_Chi_Minh';
 
-type ChartMetricKey = 'bp' | 'heartRate' | 'spo2' | 'bloodGlucose' | 'temperature';
+type ChartMetricKey = 'bp' | 'spo2' | 'bloodGlucose' | 'temperature';
 
 const METRIC_OPTIONS: { key: ChartMetricKey; label: string; unit: string }[] = [
   { key: 'bp', label: 'Huyết áp', unit: 'mmHg' },
-  { key: 'heartRate', label: 'Nhịp tim', unit: 'bpm' },
   { key: 'spo2', label: 'SpO2', unit: '%' },
   { key: 'bloodGlucose', label: 'Đường huyết', unit: 'mmol/L' },
   { key: 'temperature', label: 'Nhiệt độ', unit: '°C' },
@@ -80,33 +81,6 @@ function formatVnFullDate(rawIso: string): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-function toVnDateTimeLocalInput(rawIso?: string): string {
-  const target = rawIso ? new Date(rawIso) : new Date();
-  const safe = Number.isNaN(target.getTime()) ? new Date() : target;
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: VN_TZ,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).formatToParts(safe);
-  const map: Record<string, string> = {};
-  for (const part of parts) {
-    map[part.type] = part.value;
-  }
-  const hour = map.hour === '24' ? '00' : map.hour;
-  return `${map.year}-${map.month}-${map.day}T${hour}:${map.minute}`;
-}
-
-function fromVnDateTimeLocalInput(localVal: string): string | undefined {
-  if (!localVal.trim()) return undefined;
-  const parsed = new Date(`${localVal.trim()}:00+07:00`);
-  if (Number.isNaN(parsed.getTime())) return undefined;
-  return parsed.toISOString();
-}
-
 function formatBpDisplay(v: VitalSignDto): string {
   if (v.systolicBp != null && v.diastolicBp != null) {
     return `${v.systolicBp}/${v.diastolicBp}`;
@@ -121,7 +95,6 @@ function formatMetricSummary(v: VitalSignDto): string {
   if (v.systolicBp != null || v.diastolicBp != null) {
     parts.push(`HA ${formatBpDisplay(v)} mmHg`);
   }
-  if (v.heartRate != null) parts.push(`Nhịp tim ${v.heartRate} bpm`);
   if (v.spo2 != null) parts.push(`SpO2 ${v.spo2}%`);
   if (v.temperature != null) parts.push(`${v.temperature}°C`);
   if (v.bloodGlucose != null) parts.push(`ĐH ${v.bloodGlucose} mmol/L`);
@@ -136,6 +109,7 @@ export interface MemberVitalSignsSectionProps {
   onVitalAdded: (vital: VitalSignDto) => void;
   onVitalUpdated: (vital: VitalSignDto) => void;
   onVitalDeleted: (vitalId: string) => void;
+  hasChronicCondition?: boolean;
 }
 
 /**
@@ -148,6 +122,7 @@ export function MemberVitalSignsSection({
   onVitalAdded,
   onVitalUpdated,
   onVitalDeleted,
+  hasChronicCondition = false,
 }: MemberVitalSignsSectionProps) {
   const [rangeDays, setRangeDays] = useState<7 | 14 | 30>(7);
   const [activeMetric, setActiveMetric] = useState<ChartMetricKey>('bp');
@@ -156,14 +131,11 @@ export function MemberVitalSignsSection({
   const [editingVital, setEditingVital] = useState<VitalSignDto | null>(null);
   const [isSubmittingVital, setIsSubmittingVital] = useState(false);
 
-  const [systolicInput, setSystolicInput] = useState('');
-  const [diastolicInput, setDiastolicInput] = useState('');
-  const [heartRateInput, setHeartRateInput] = useState('');
+  const [bpInput, setBpInput] = useState('');
+  const [bpError, setBpError] = useState<string | null>(null);
   const [temperatureInput, setTemperatureInput] = useState('');
   const [spo2Input, setSpo2Input] = useState('');
-  const [respiratoryRateInput, setRespiratoryRateInput] = useState('');
   const [bloodGlucoseInput, setBloodGlucoseInput] = useState('');
-  const [recordedAtInput, setRecordedAtInput] = useState('');
 
   const [deletingVital, setDeletingVital] = useState<VitalSignDto | null>(null);
   const [isDeletingVital, setIsDeletingVital] = useState(false);
@@ -211,12 +183,16 @@ export function MemberVitalSignsSection({
   }[] = latestToday
     ? [
         { key: 'bp', label: 'Huyết áp', value: formatBpDisplay(latestToday), unit: 'mmHg' },
-        {
-          key: 'heartRate',
-          label: 'Nhịp tim',
-          value: latestToday.heartRate != null ? String(latestToday.heartRate) : '--',
-          unit: 'bpm',
-        },
+        ...(latestToday.heartRate != null
+          ? [
+              {
+                key: 'heartRate' as const,
+                label: 'Nhịp tim',
+                value: String(latestToday.heartRate),
+                unit: 'bpm',
+              },
+            ]
+          : []),
         {
           key: 'spo2',
           label: 'SpO2',
@@ -235,12 +211,16 @@ export function MemberVitalSignsSection({
           value: latestToday.bloodGlucose != null ? String(latestToday.bloodGlucose) : '--',
           unit: 'mmol/L',
         },
-        {
-          key: 'respiratoryRate',
-          label: 'Nhịp thở',
-          value: latestToday.respiratoryRate != null ? String(latestToday.respiratoryRate) : '--',
-          unit: 'lần/ph',
-        },
+        ...(latestToday.respiratoryRate != null
+          ? [
+              {
+                key: 'respiratoryRate' as const,
+                label: 'Nhịp thở',
+                value: String(latestToday.respiratoryRate),
+                unit: 'lần/ph',
+              },
+            ]
+          : []),
       ]
     : [];
 
@@ -261,7 +241,6 @@ export function MemberVitalSignsSection({
           label: formatVnShortDateTime(v.recordedAt),
           systolicBp: v.systolicBp ?? undefined,
           diastolicBp: v.diastolicBp ?? undefined,
-          heartRate: v.heartRate ?? undefined,
           spo2: v.spo2 ?? undefined,
           bloodGlucose: v.bloodGlucose ?? undefined,
           temperature: v.temperature ?? undefined,
@@ -271,40 +250,42 @@ export function MemberVitalSignsSection({
 
   const openCreateModal = () => {
     setEditingVital(null);
-    setSystolicInput('');
-    setDiastolicInput('');
-    setHeartRateInput('');
+    setBpInput('');
+    setBpError(null);
     setTemperatureInput('');
     setSpo2Input('');
-    setRespiratoryRateInput('');
     setBloodGlucoseInput('');
-    setRecordedAtInput(toVnDateTimeLocalInput());
     setShowVitalModal(true);
   };
 
   const openEditModal = (vital: VitalSignDto) => {
     setEditingVital(vital);
-    setSystolicInput(vital.systolicBp != null ? String(vital.systolicBp) : '');
-    setDiastolicInput(vital.diastolicBp != null ? String(vital.diastolicBp) : '');
-    setHeartRateInput(vital.heartRate != null ? String(vital.heartRate) : '');
+    setBpInput(formatBloodPressureInput(vital));
+    setBpError(null);
     setTemperatureInput(vital.temperature != null ? String(vital.temperature) : '');
     setSpo2Input(vital.spo2 != null ? String(vital.spo2) : '');
-    setRespiratoryRateInput(vital.respiratoryRate != null ? String(vital.respiratoryRate) : '');
     setBloodGlucoseInput(vital.bloodGlucose != null ? String(vital.bloodGlucose) : '');
-    setRecordedAtInput(toVnDateTimeLocalInput(vital.recordedAt));
     setShowVitalModal(true);
   };
 
   const handleVitalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const parsedBp = parseBloodPressureInput(bpInput);
+    if (parsedBp.error) {
+      setBpError(parsedBp.error);
+      toast.error(parsedBp.error);
+      return;
+    }
+    setBpError(null);
+
     const payload: CreateVitalSignDto = {};
-    if (systolicInput.trim()) payload.systolicBp = Number(systolicInput.trim());
-    if (diastolicInput.trim()) payload.diastolicBp = Number(diastolicInput.trim());
-    if (heartRateInput.trim()) payload.heartRate = Number(heartRateInput.trim());
+    if (parsedBp.systolicBp != null && parsedBp.diastolicBp != null) {
+      payload.systolicBp = parsedBp.systolicBp;
+      payload.diastolicBp = parsedBp.diastolicBp;
+    }
     if (temperatureInput.trim()) payload.temperature = Number(temperatureInput.trim());
     if (spo2Input.trim()) payload.spo2 = Number(spo2Input.trim());
-    if (respiratoryRateInput.trim()) payload.respiratoryRate = Number(respiratoryRateInput.trim());
     if (bloodGlucoseInput.trim()) payload.bloodGlucose = Number(bloodGlucoseInput.trim());
 
     const hasMetric = Object.keys(payload).some((k) => Number.isFinite(payload[k as keyof CreateVitalSignDto] as number));
@@ -313,9 +294,8 @@ export function MemberVitalSignsSection({
       return;
     }
 
-    const isoRecordedAt = fromVnDateTimeLocalInput(recordedAtInput);
-    if (isoRecordedAt) {
-      payload.recordedAt = isoRecordedAt;
+    if (!editingVital) {
+      payload.recordedAt = new Date().toISOString();
     }
 
     setIsSubmittingVital(true);
@@ -368,7 +348,9 @@ export function MemberVitalSignsSection({
             <span>Chỉ số sức khỏe hôm nay &amp; Xu hướng</span>
           </h2>
           <p className="text-xs text-slate-500 mt-0.5">
-            Theo dõi huyết áp, nhịp tim, SpO2, nhiệt độ và đường huyết hằng ngày của {memberName}.
+            {hasChronicCondition
+              ? `Theo dõi định kỳ huyết áp, SpO2, nhiệt độ và đường huyết cho ${memberName} (cần chú ý bệnh nền).`
+              : `Ghi nhận huyết áp, SpO2, nhiệt độ và đường huyết khi cần hoặc khi có dấu hiệu bất thường cho ${memberName}.`}
           </p>
         </div>
 
@@ -475,11 +457,14 @@ export function MemberVitalSignsSection({
           ) : (
             <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center space-y-2">
               <p className="text-sm font-semibold text-slate-800">
-                Hôm nay chưa có chỉ số sức khỏe nào được ghi nhận
+                {hasChronicCondition
+                  ? 'Hôm nay chưa có chỉ số sức khỏe nào được ghi nhận'
+                  : 'Chưa ghi nhận chỉ số hôm nay'}
               </p>
               <p className="text-xs text-slate-500">
-                Nhấn &ldquo;Nhập chỉ số hôm nay&rdquo; để lưu lần đo huyết áp, SpO2, nhiệt độ hoặc
-                đường huyết cho {memberName}.
+                {hasChronicCondition
+                  ? `Nhấn “Nhập chỉ số hôm nay” để lưu lần đo huyết áp, SpO2, nhiệt độ hoặc đường huyết cho ${memberName}.`
+                  : `Thành viên khỏe mạnh không cần đo hằng ngày. Nhấn “Nhập chỉ số hôm nay” khi muốn kiểm tra hoặc thấy bất thường cho ${memberName}.`}
               </p>
             </div>
           )}
@@ -646,7 +631,6 @@ export function MemberVitalSignsSection({
                   <tr>
                     <th className="px-4 py-2.5">Thời gian</th>
                     <th className="px-4 py-2.5">Huyết áp</th>
-                    <th className="px-4 py-2.5">Nhịp tim</th>
                     <th className="px-4 py-2.5">SpO2</th>
                     <th className="px-4 py-2.5">Nhiệt độ</th>
                     <th className="px-4 py-2.5">Đường huyết</th>
@@ -662,9 +646,6 @@ export function MemberVitalSignsSection({
                       </td>
                       <td className="px-4 py-2.5 tabular-nums font-semibold">
                         {formatBpDisplay(v)}
-                      </td>
-                      <td className="px-4 py-2.5 tabular-nums">
-                        {v.heartRate != null ? `${v.heartRate} bpm` : '--'}
                       </td>
                       <td className="px-4 py-2.5 tabular-nums">
                         {v.spo2 != null ? `${v.spo2}%` : '--'}
@@ -747,129 +728,185 @@ export function MemberVitalSignsSection({
 
       {/* Add / Edit Vital Sign Dialog */}
       <Dialog open={showVitalModal} onOpenChange={setShowVitalModal}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editingVital ? 'Chỉnh sửa chỉ số sức khỏe' : 'Nhập chỉ số sức khỏe hôm nay'}
-            </DialogTitle>
-            <DialogDescription>
-              Nhập tối thiểu một chỉ số đo được cho {memberName}. Hệ thống tự động kiểm tra ngưỡng
-              cảnh báo.
-            </DialogDescription>
+        <DialogContent className="sm:max-w-[540px] p-0 gap-0 overflow-hidden rounded-2xl">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 bg-slate-50/60 text-left">
+            <div className="flex items-start gap-3 pr-6">
+              <div className="size-10 rounded-xl bg-[#2E37A4]/10 text-[#2E37A4] flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[20px]">monitor_heart</span>
+              </div>
+              <div className="space-y-1 min-w-0">
+                <DialogTitle className="text-base sm:text-lg font-bold text-slate-900">
+                  {editingVital ? 'Chỉnh sửa chỉ số sức khỏe' : 'Nhập chỉ số sức khỏe hôm nay'}
+                </DialogTitle>
+                <DialogDescription className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  Nhập tối thiểu 1 chỉ số vừa đo cho{' '}
+                  <span className="font-semibold text-slate-800">{memberName}</span>.
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <form onSubmit={handleVitalSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="vital-sys">Huyết áp tâm thu (mmHg)</Label>
-                <Input
-                  id="vital-sys"
-                  type="number"
-                  min={40}
-                  max={300}
-                  value={systolicInput}
-                  onChange={(e) => setSystolicInput(e.target.value)}
-                  placeholder="VD: 120"
-                />
+          <form onSubmit={handleVitalSubmit}>
+            <div className="px-6 py-5 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                <div
+                  className={`rounded-xl border p-3.5 space-y-2 transition-colors ${
+                    bpError
+                      ? 'border-rose-300 bg-rose-50/50'
+                      : 'border-slate-200 bg-slate-50/60 focus-within:border-[#2E37A4]/50 focus-within:bg-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="vital-bp" className="text-xs font-semibold text-slate-800">
+                      Huyết áp<span className="sr-only"> (mmHg)</span>
+                    </Label>
+                    <span className="text-[11px] font-medium text-slate-500 tabular-nums">
+                      90–139 / 60–89
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="vital-bp"
+                      type="text"
+                      inputMode="numeric"
+                      value={bpInput}
+                      onChange={(e) => {
+                        setBpInput(e.target.value);
+                        if (bpError) setBpError(null);
+                      }}
+                      placeholder="120/80"
+                      aria-invalid={bpError ? true : undefined}
+                      className="h-10 bg-white pr-14 font-semibold tabular-nums"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-slate-400">
+                      mmHg
+                    </span>
+                  </div>
+                  {bpError ? (
+                    <p
+                      role="alert"
+                      className="flex items-start gap-1 text-xs font-medium text-rose-600 leading-snug"
+                    >
+                      <span className="material-symbols-outlined text-[14px] shrink-0 mt-0.5">
+                        error
+                      </span>
+                      <span>{bpError}</span>
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-slate-500">Tâm thu / Tâm trương</p>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2 transition-colors focus-within:border-[#2E37A4]/50 focus-within:bg-white">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="vital-spo2" className="text-xs font-semibold text-slate-800">
+                      SpO2<span className="sr-only"> (%)</span>
+                    </Label>
+                    <span className="text-[11px] font-medium text-slate-500 tabular-nums">
+                      ≥ 95%
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="vital-spo2"
+                      type="number"
+                      min={50}
+                      max={100}
+                      value={spo2Input}
+                      onChange={(e) => setSpo2Input(e.target.value)}
+                      placeholder="98"
+                      className="h-10 bg-white pr-10 font-semibold tabular-nums"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-slate-400">
+                      %
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">Độ bão hòa oxy máu</p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2 transition-colors focus-within:border-[#2E37A4]/50 focus-within:bg-white">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="vital-temp" className="text-xs font-semibold text-slate-800">
+                      Nhiệt độ<span className="sr-only"> (°C)</span>
+                    </Label>
+                    <span className="text-[11px] font-medium text-slate-500 tabular-nums">
+                      35.5–37.9
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="vital-temp"
+                      type="number"
+                      step="0.1"
+                      min={30}
+                      max={45}
+                      value={temperatureInput}
+                      onChange={(e) => setTemperatureInput(e.target.value)}
+                      placeholder="36.7"
+                      className="h-10 bg-white pr-10 font-semibold tabular-nums"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-slate-400">
+                      °C
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">Thân nhiệt cơ thể</p>
+                </div>
+
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 space-y-2 transition-colors focus-within:border-[#2E37A4]/50 focus-within:bg-white">
+                  <div className="flex items-center justify-between gap-2">
+                    <Label htmlFor="vital-glucose" className="text-xs font-semibold text-slate-800">
+                      Đường huyết<span className="sr-only"> (mmol/L)</span>
+                    </Label>
+                    <span className="text-[11px] font-medium text-slate-500 tabular-nums">
+                      3.9–11.0
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <Input
+                      id="vital-glucose"
+                      type="number"
+                      step="0.1"
+                      min={1}
+                      max={40}
+                      value={bloodGlucoseInput}
+                      onChange={(e) => setBloodGlucoseInput(e.target.value)}
+                      placeholder="5.5"
+                      className="h-10 bg-white pr-16 font-semibold tabular-nums"
+                    />
+                    <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-slate-400">
+                      mmol/L
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">Chỉ số đường máu</p>
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="vital-dia">Huyết áp tâm trương (mmHg)</Label>
-                <Input
-                  id="vital-dia"
-                  type="number"
-                  min={30}
-                  max={200}
-                  value={diastolicInput}
-                  onChange={(e) => setDiastolicInput(e.target.value)}
-                  placeholder="VD: 80"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="vital-hr">Nhịp tim (bpm)</Label>
-                <Input
-                  id="vital-hr"
-                  type="number"
-                  min={25}
-                  max={250}
-                  value={heartRateInput}
-                  onChange={(e) => setHeartRateInput(e.target.value)}
-                  placeholder="VD: 74"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="vital-spo2">SpO2 (%)</Label>
-                <Input
-                  id="vital-spo2"
-                  type="number"
-                  min={50}
-                  max={100}
-                  value={spo2Input}
-                  onChange={(e) => setSpo2Input(e.target.value)}
-                  placeholder="VD: 98"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="vital-temp">Nhiệt độ (°C)</Label>
-                <Input
-                  id="vital-temp"
-                  type="number"
-                  step="0.1"
-                  min={30}
-                  max={45}
-                  value={temperatureInput}
-                  onChange={(e) => setTemperatureInput(e.target.value)}
-                  placeholder="VD: 36.7"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="vital-glucose">Đường huyết (mmol/L)</Label>
-                <Input
-                  id="vital-glucose"
-                  type="number"
-                  step="0.1"
-                  min={1}
-                  max={40}
-                  value={bloodGlucoseInput}
-                  onChange={(e) => setBloodGlucoseInput(e.target.value)}
-                  placeholder="VD: 5.5"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="vital-resp">Nhịp thở (lần/phút)</Label>
-                <Input
-                  id="vital-resp"
-                  type="number"
-                  min={5}
-                  max={60}
-                  value={respiratoryRateInput}
-                  onChange={(e) => setRespiratoryRateInput(e.target.value)}
-                  placeholder="VD: 16"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="vital-recorded-at">Thời điểm đo</Label>
-                <Input
-                  id="vital-recorded-at"
-                  type="datetime-local"
-                  value={recordedAtInput}
-                  onChange={(e) => setRecordedAtInput(e.target.value)}
-                />
+
+              <div className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-200/80 px-3 py-2 text-xs text-slate-600">
+                <span className="material-symbols-outlined text-[16px] text-slate-400 shrink-0">
+                  schedule
+                </span>
+                <span>
+                  {editingVital
+                    ? 'Giữ nguyên thời điểm đo ban đầu của bản ghi.'
+                    : 'Thời điểm đo tự động ghi nhận theo thời gian thực khi bấm lưu.'}
+                </span>
               </div>
             </div>
 
-            <DialogFooter>
+            <DialogFooter className="px-6 py-4 border-t border-slate-100 bg-slate-50/60 gap-2 sm:gap-2.5">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowVitalModal(false)}
                 disabled={isSubmittingVital}
+                className="h-10 bg-white"
               >
                 Hủy bỏ
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmittingVital}
-                className="bg-[#2E37A4] hover:bg-[#222982] text-white"
+                className="h-10 px-5 bg-[#2E37A4] hover:bg-[#222982] text-white"
               >
                 {isSubmittingVital ? 'Đang lưu...' : editingVital ? 'Cập nhật chỉ số' : 'Lưu chỉ số'}
               </Button>

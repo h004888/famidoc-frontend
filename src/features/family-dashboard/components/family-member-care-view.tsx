@@ -12,6 +12,7 @@ import {
   type PatientDto,
   type VitalSignDto,
 } from '@/lib/api';
+import { hasTrackedChronicCondition } from '../utils/vital-metrics.util';
 import { MemberDocumentUploadSection } from './member-document-upload-section';
 import { MemberPathologySection } from './member-pathology-section';
 import { MemberVitalSignsSection } from './member-vital-signs-section';
@@ -469,6 +470,7 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
       <MemberVitalSignsSection
         memberId={member.id}
         memberName={member.fullName}
+        hasChronicCondition={hasTrackedChronicCondition(member.chronicDiseases)}
         vitalSigns={vitalSigns}
         onVitalAdded={(vital) => setVitalSigns((prev) => [vital, ...prev])}
         onVitalUpdated={(updated) =>

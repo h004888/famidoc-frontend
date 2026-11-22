@@ -13,6 +13,7 @@ import {
 } from '@/lib/api';
 import {
   getAbnormalMetricSummaries,
+  hasTrackedChronicCondition,
   isSameLocalCalendarDay,
 } from '../utils/vital-metrics.util';
 import { MemberVitalSignsSection } from './member-vital-signs-section';
@@ -142,6 +143,7 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
       const isToday = latest ? isSameLocalCalendarDay(latest.recordedAt, referenceNow) : false;
       const isAlertToday = Boolean(latest && isToday && latest.isAbnormalAlert);
       const abnormalDetails = isAlertToday ? getAbnormalMetricSummaries(latest) : [];
+      const hasChronicCondition = hasTrackedChronicCondition(member.chronicDiseases);
       return {
         member,
         vitals,
@@ -149,6 +151,7 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
         isToday,
         isAlertToday,
         abnormalDetails,
+        hasChronicCondition,
       };
     });
   }, [members, vitalSignsByMember, referenceNow]);
@@ -246,7 +249,8 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
             <span>Chỉ số &amp; Cảnh báo sức khỏe gia đình</span>
           </h1>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
-            Tổng hợp nhật ký tự đo hằng ngày, cảnh báo vượt ngưỡng và biểu đồ xu hướng cho từng thành viên.
+            Ưu tiên theo dõi định kỳ cho thành viên có bệnh nền, ghi nhận khi cần cho thành viên khỏe
+            mạnh và cảnh báo sớm khi có chỉ số vượt ngưỡng.
           </p>
         </div>
 
@@ -318,7 +322,7 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
               <AlertDescription className="col-start-auto block text-xs leading-relaxed text-emerald-800">
                 {anyMeasuredToday
                   ? 'Chọn thành viên bên dưới để xem chi tiết nhật ký trong ngày và xu hướng nhiều ngày.'
-                  : 'Chọn thành viên bên dưới và bấm "Nhập chỉ số hôm nay" để bắt đầu theo dõi.'}
+                  : 'Chọn thành viên bên dưới nếu cần ghi nhận chỉ số mới (đặc biệt với người đang theo dõi bệnh nền).'}
               </AlertDescription>
             </div>
           </div>
@@ -331,7 +335,7 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
           Thành viên trong hộ ({members.length})
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
-          {memberSummaries.map(({ member, latest, isToday, isAlertToday }) => {
+          {memberSummaries.map(({ member, latest, isToday, isAlertToday, hasChronicCondition }) => {
             const isSelected = member.id === selectedMember.id;
             const relLabel = member.relationshipToHead
               ? RELATIONSHIP_LABELS[member.relationshipToHead] || member.relationshipToHead
@@ -374,9 +378,16 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
                     <Badge className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] hover:bg-emerald-50">
                       Ổn định
                     </Badge>
-                  ) : (
+                  ) : hasChronicCondition ? (
                     <Badge variant="secondary" className="text-[11px]">
                       Chưa đo hôm nay
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="outline"
+                      className="border-slate-200 bg-slate-50 text-slate-600 text-[11px]"
+                    >
+                      Theo dõi khi cần
                     </Badge>
                   )}
                 </div>
@@ -392,9 +403,9 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
                     </span>
                   </div>
                   <div>
-                    <span className="block text-[10px] text-slate-500">Nhịp tim</span>
+                    <span className="block text-[10px] text-slate-500">Nhiệt độ</span>
                     <span className="text-xs font-bold tabular-nums text-slate-900">
-                      {latest?.heartRate ?? '--'}
+                      {latest?.temperature != null ? `${latest.temperature}°C` : '--'}
                     </span>
                   </div>
                   <div>
@@ -421,6 +432,7 @@ export function FamilyVitalsView({ initialMemberId }: FamilyVitalsViewProps = {}
         key={selectedMember.id}
         memberId={selectedMember.id}
         memberName={selectedMember.fullName}
+        hasChronicCondition={hasTrackedChronicCondition(selectedMember.chronicDiseases)}
         vitalSigns={vitalSignsByMember[selectedMember.id] ?? []}
         onVitalAdded={(vital) =>
           setVitalSignsByMember((prev) => ({

@@ -315,7 +315,7 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
       respiratoryRate: 17,
       bloodGlucose: 5.6,
       isAbnormalAlert: false,
-      recordedAt: new Date().toISOString(),
+      recordedAt: new Date(Date.now() + 15_000).toISOString(),
     });
     mockUpdateMemberVitalSign.mockImplementation(async (_pid, _vid, dto) => ({
       ...buildSampleVitals()[0],
@@ -453,28 +453,35 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     fireEvent.click(screen.getByRole('button', { name: '14 ngày' }));
     expect(screen.getAllByText('118/76').length).toBeGreaterThan(0);
 
-    // Add new vital sign
+    // Add new vital sign with combined BP input & without respiratory rate, heart rate, or manual timestamp fields
+    expect(screen.queryByRole('columnheader', { name: 'Nhịp tim' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Nhập chỉ số hôm nay/i }));
-    fireEvent.change(screen.getByLabelText(/Huyết áp tâm thu/i), {
-      target: { value: '132' },
-    });
-    fireEvent.change(screen.getByLabelText(/Huyết áp tâm trương/i), {
-      target: { value: '84' },
+    expect(screen.queryByLabelText(/Nhịp thở/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nhịp tim/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Thời điểm đo/i)).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/Huyết áp \(mmHg\)/i), {
+      target: { value: '132/84' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Lưu chỉ số' }));
 
     await waitFor(() => {
       expect(mockAddMemberVitalSign).toHaveBeenCalledWith(
         'mem-real-1',
-        expect.objectContaining({ systolicBp: 132, diastolicBp: 84 })
+        expect.objectContaining({
+          systolicBp: 132,
+          diastolicBp: 84,
+          recordedAt: expect.any(String),
+        })
       );
       expect(screen.getAllByText('132/84').length).toBeGreaterThan(0);
     });
 
-    // Edit family-recorded vital sign
+    // Edit family-recorded vital sign (pre-filled as 132/84)
     fireEvent.click(screen.getAllByRole('button', { name: 'Sửa' })[0]);
-    fireEvent.change(screen.getByLabelText(/Huyết áp tâm thu/i), {
-      target: { value: '125' },
+    const editBpInput = screen.getByLabelText(/Huyết áp \(mmHg\)/i) as HTMLInputElement;
+    expect(editBpInput.value).toBe('132/84');
+    fireEvent.change(editBpInput, {
+      target: { value: '125/84' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Cập nhật chỉ số' }));
 
@@ -482,7 +489,7 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
       expect(mockUpdateMemberVitalSign).toHaveBeenCalledWith(
         'mem-real-1',
         'vit-created-99',
-        expect.objectContaining({ systolicBp: 125 })
+        expect.objectContaining({ systolicBp: 125, diastolicBp: 84 })
       );
     });
 
@@ -589,11 +596,17 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     expect(screen.getByText('Đơn thuốc tim mạch T11')).toBeInTheDocument();
     expect(screen.queryByText('Xét nghiệm mỡ máu Q3')).not.toBeInTheDocument();
 
-    // Search filters accurately
+    // Search filters accurately and Note-style toggle collapses/expands notes
     fireEvent.change(screen.getByLabelText('Tìm kiếm tài liệu y tế'), {
       target: { value: 'BS. Hùng' },
     });
     expect(screen.getByText('Đơn thuốc tim mạch T11')).toBeInTheDocument();
+    expect(screen.getByText('BV ĐHYD - BS. Hùng')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Thu gọn nội dung Đơn thuốc tim mạch T11' }));
+    expect(screen.queryByText('BV ĐHYD - BS. Hùng')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Mở rộng nội dung Đơn thuốc tim mạch T11' }));
+    expect(screen.getByText('BV ĐHYD - BS. Hùng')).toBeInTheDocument();
 
     // Open image lightbox
     const uploadedCard = screen.getByText('Đơn thuốc tim mạch T11').closest('article');
@@ -645,10 +658,10 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     render(<FamilyMemberCareView memberId="mem-real-1" />);
 
     await waitFor(() => {
-      expect(screen.getByText('SMB Installation Overview_Rev. 1.14')).toBeInTheDocument();
+      expect(screen.getAllByText('SMB Installation Overview_Rev. 1.14').length).toBeGreaterThan(0);
     });
 
-    const pdfCard = screen.getByText('SMB Installation Overview_Rev. 1.14').closest('article');
+    const pdfCard = screen.getAllByText('SMB Installation Overview_Rev. 1.14')[0].closest('article');
     expect(pdfCard).not.toBeNull();
 
     // Opening internal S3 PDF fetches authenticated blob and renders iframe modal + open-in-new-tab link
@@ -691,5 +704,134 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
 
     createElSpy.mockRestore();
     anchorClickSpy.mockRestore();
+  });
+
+  it('caches blob URL across reopen/download, shows loading/error retry, and revokes blob URL on delete', async () => {
+    mockGetMemberById.mockResolvedValueOnce({
+      ...SAMPLE_MEMBER,
+      documents: [
+        {
+          id: 'doc-cache-pdf',
+          patientId: 'mem-real-1',
+          documentName: 'Phiếu siêu âm tổng quát',
+          documentType: 'IMAGING_XRAY_CT',
+          fileUrl: 'patient-documents/mem-real-1/sieu-am.pdf',
+          mimeType: 'application/pdf',
+          fileSizeKb: 310,
+          recordedDate: '2026-11-19',
+        },
+      ],
+    });
+    mockFetchMemberDocumentBlob
+      .mockRejectedValueOnce(new Error('Không thể tải tệp từ kho lưu trữ.'))
+      .mockResolvedValueOnce(new Blob(['%PDF-1.7'], { type: 'application/pdf' }));
+    mockDeleteMemberDocument.mockResolvedValueOnce({
+      id: 'doc-cache-pdf',
+      documentName: 'Phiếu siêu âm tổng quát',
+      documentType: 'IMAGING_XRAY_CT',
+      fileUrl: 'patient-documents/mem-real-1/sieu-am.pdf',
+      recordedDate: '2026-11-19',
+    });
+
+    const revokeSpy = vi.spyOn(URL, 'revokeObjectURL');
+
+    render(<FamilyMemberCareView memberId="mem-real-1" />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Phiếu siêu âm tổng quát').length).toBeGreaterThan(0);
+    });
+
+    const card = screen.getAllByText('Phiếu siêu âm tổng quát')[0].closest('article');
+    expect(card).not.toBeNull();
+
+    // First open fails -> inline error with "Thử lại"
+    fireEvent.click(within(card!).getByRole('button', { name: /Xem tệp/i }));
+    await waitFor(() => {
+      expect(screen.getByText('Không thể tải tệp từ kho lưu trữ.')).toBeInTheDocument();
+    });
+
+    // Click "Thử lại" -> loads PDF into iframe
+    fireEvent.click(screen.getByRole('button', { name: 'Thử lại' }));
+    await waitFor(() => {
+      expect(screen.getByTitle('Phiếu siêu âm tổng quát')).toHaveAttribute(
+        'src',
+        'blob:http://localhost:3000/mock-preview-1'
+      );
+    });
+    expect(mockFetchMemberDocumentBlob).toHaveBeenCalledTimes(2);
+
+    // Close and reopen -> reuses cached blob URL without hitting API again
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
+    fireEvent.click(within(card!).getByRole('button', { name: /Xem tệp/i }));
+    await waitFor(() => {
+      expect(screen.getByTitle('Phiếu siêu âm tổng quát')).toHaveAttribute(
+        'src',
+        'blob:http://localhost:3000/mock-preview-1'
+      );
+    });
+    expect(mockFetchMemberDocumentBlob).toHaveBeenCalledTimes(2);
+
+    // Close and delete -> revokes cached blob URL
+    fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
+    fireEvent.click(
+      within(card!).getByRole('button', { name: 'Xóa tài liệu Phiếu siêu âm tổng quát' })
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Xóa tài liệu' }));
+
+    await waitFor(() => {
+      expect(revokeSpy).toHaveBeenCalledWith('blob:http://localhost:3000/mock-preview-1');
+    });
+  });
+
+  it('falls back from broken imgproxy previewUrl to authenticated blob fetch in Lightbox', async () => {
+    mockGetMemberById.mockResolvedValueOnce({
+      ...SAMPLE_MEMBER,
+      documents: [
+        {
+          id: 'doc-broken-preview-1',
+          patientId: 'mem-real-1',
+          documentName: 'Đơn thuốc ảnh lạnh cache',
+          documentType: 'PRESCRIPTION',
+          fileUrl: 'patient-documents/mem-real-1/cold.jpg',
+          previewUrl: 'https://media.famidoc.online/broken-cold.webp',
+          mimeType: 'image/jpeg',
+          fileSizeKb: 220,
+          recordedDate: '2026-11-19',
+        },
+      ],
+    });
+    mockFetchMemberDocumentBlob.mockResolvedValueOnce(
+      new Blob(['jpeg-bytes'], { type: 'image/jpeg' })
+    );
+
+    render(<FamilyMemberCareView memberId="mem-real-1" />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Đơn thuốc ảnh lạnh cache').length).toBeGreaterThan(0);
+    });
+
+    const card = screen.getAllByText('Đơn thuốc ảnh lạnh cache')[0].closest('article');
+    expect(card).not.toBeNull();
+
+    // Open Lightbox using previewUrl initially
+    fireEvent.click(within(card!).getByRole('button', { name: /Xem ảnh/i }));
+
+    await waitFor(() => {
+      const dialog = screen.getByRole('dialog');
+      const img = within(dialog).getByAltText('Đơn thuốc ảnh lạnh cache');
+      expect(img).toHaveAttribute('src', 'https://media.famidoc.online/broken-cold.webp');
+      fireEvent.error(img);
+    });
+
+    // After previewUrl fails, automatically falls back to authenticated blob URL
+    await waitFor(() => {
+      expect(mockFetchMemberDocumentBlob).toHaveBeenCalledWith(
+        'mem-real-1',
+        'doc-broken-preview-1'
+      );
+      const dialog = screen.getByRole('dialog');
+      const img = within(dialog).getByAltText('Đơn thuốc ảnh lạnh cache');
+      expect(img).toHaveAttribute('src', 'blob:http://localhost:3000/mock-preview-1');
+    });
   });
 });
