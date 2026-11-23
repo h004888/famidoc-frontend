@@ -8,12 +8,21 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Eye,
   FileText,
   Pill,
   Users,
 } from 'lucide-react';
 import { DashboardPageShell } from '@/components/shared';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { PrescriptionForm } from '@/features/doctor-encounters/components/prescription-form';
 import {
   medicalBooksApi,
@@ -462,13 +471,60 @@ function MemberDocuments({
   setPending: (value: boolean) => void;
 }) {
   const [downloading, setDownloading] = useState('');
+  const [previewingId, setPreviewingId] = useState('');
   const [downloadError, setDownloadError] = useState('');
+  const [preview, setPreview] = useState<{
+    record: BookDocument;
+    url: string;
+    isImage: boolean;
+  } | null>(null);
   const request = useCallback(
     (signal: AbortSignal) =>
       medicalBooksApi.documents(familyId, patientId, signal),
     [familyId, patientId],
   );
   const query = useBookQuery(request);
+
+  useEffect(() => {
+    return () => {
+      if (preview?.url) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview]);
+
+  function closePreview() {
+    setPreview((current) => {
+      if (current?.url) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
+
+  async function previewDocument(record: BookDocument) {
+    setPreviewingId(record.id);
+    setDownloadError('');
+    try {
+      const rawBlob = await medicalBooksApi.downloadDocument(
+        familyId,
+        patientId,
+        record.id,
+      );
+      const isImage = rawBlob.type.startsWith('image/');
+      const typedBlob =
+        !rawBlob.type || rawBlob.type === 'application/octet-stream'
+          ? new Blob([rawBlob], { type: 'application/pdf' })
+          : rawBlob;
+      const url = URL.createObjectURL(typedBlob);
+      setPreview((prev) => {
+        if (prev?.url) URL.revokeObjectURL(prev.url);
+        return { record, url, isImage };
+      });
+    } catch (error) {
+      setDownloadError(
+        prescriptionErrorMessage(error, 'Chưa mở xem được tệp. Vui lòng thử lại.'),
+      );
+    } finally {
+      setPreviewingId('');
+    }
+  }
 
   async function download(record: BookDocument) {
     setDownloading(record.id);
@@ -552,19 +608,34 @@ function MemberDocuments({
                   {document.documentName}
                 </span>
               </div>
-              <div className="flex items-center gap-4 text-xs text-slate-600">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-slate-600">
                 {dateLabel(document.recordedDate)}
                 {document.downloadAvailable && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    aria-label={`Tải tài liệu ${document.documentName}`}
-                    disabled={Boolean(downloading)}
-                    onClick={() => download(document)}
-                  >
-                    {downloading === document.id ? 'Đang tải…' : 'Tải tệp'}
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Xem tài liệu ${document.documentName}`}
+                      disabled={Boolean(downloading) || Boolean(previewingId)}
+                      onClick={() => void previewDocument(document)}
+                    >
+                      <Eye size={14} aria-hidden="true" />
+                      <span>
+                        {previewingId === document.id ? 'Đang mở…' : 'Xem tệp'}
+                      </span>
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      aria-label={`Tải tài liệu ${document.documentName}`}
+                      disabled={Boolean(downloading) || Boolean(previewingId)}
+                      onClick={() => download(document)}
+                    >
+                      {downloading === document.id ? 'Đang tải…' : 'Tải tệp'}
+                    </Button>
+                  </>
                 )}
                 {href && (
                   <a
@@ -582,6 +653,57 @@ function MemberDocuments({
           );
         })}
       </ul>
+
+      <Dialog open={Boolean(preview)} onOpenChange={(open) => !open && closePreview()}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>{preview?.record.documentName}</DialogTitle>
+            <DialogDescription>
+              {preview ? `Ngày ghi nhận: ${dateLabel(preview.record.recordedDate)}` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {preview && (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+              {preview.isImage ? (
+                <div className="max-h-[65vh] overflow-auto flex items-center justify-center p-2">
+                  <img
+                    src={preview.url}
+                    alt={preview.record.documentName}
+                    className="max-h-[60vh] w-auto object-contain rounded-lg"
+                  />
+                </div>
+              ) : (
+                <iframe
+                  src={preview.url}
+                  title={preview.record.documentName}
+                  className="w-full h-[65vh] bg-white"
+                />
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            {preview && (
+              <>
+                <Button type="button" variant="outline" asChild>
+                  <a href={preview.url} target="_blank" rel="noopener noreferrer">
+                    Mở tab mới
+                  </a>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void download(preview.record)}
+                >
+                  Tải về
+                </Button>
+              </>
+            )}
+            <Button type="button" onClick={closePreview}>
+              Đóng
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

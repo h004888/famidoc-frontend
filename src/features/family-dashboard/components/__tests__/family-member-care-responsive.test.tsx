@@ -517,18 +517,15 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     expect(screen.queryByText(/Nguyễn Văn Phúc/i)).not.toBeInTheDocument();
   });
 
-  it('renders member documents summary card with links to document detail and documents tab', async () => {
+  it('renders interactive member documents section with upload, view, and download controls', async () => {
     render(<FamilyMemberCareView memberId="mem-real-1" />);
 
     await waitFor(() => {
       expect(screen.getByText('Xét nghiệm mỡ máu Q3')).toBeInTheDocument();
     });
 
-    const docLink = screen.getByText('Xét nghiệm mỡ máu Q3').closest('a');
-    expect(docLink).not.toBeNull();
-    expect(docLink).toHaveAttribute('href', '/family/members/mem-real-1?doc=doc-1');
-
-    const viewAllLink = screen.getByRole('link', { name: /Xem tất cả/i });
-    expect(viewAllLink).toHaveAttribute('href', '/family/members/mem-real-1?tab=documents');
+    expect(screen.getByRole('button', { name: /Tải tài liệu lên/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xem tệp/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Tải về/i })).toBeInTheDocument();
   });
 });

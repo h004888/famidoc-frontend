@@ -7,7 +7,7 @@ import { MemberVitalSignsSection } from './member-vital-signs-section';
 import { MemberHeroBanner } from './member-hero-section';
 import { HealthMetricsCards } from './member-metrics-cards';
 import { MemberQuickActionTasks, MemberEmptyVitalsState } from './member-actions';
-import { MemberDocumentsSidebar } from './member-sidebar';
+import { MemberDocumentUploadSection } from './member-document-upload-section';
 import { MemberPathologySection } from './member-pathology-section';
 import { MemberProfileSkeleton, MemberProfileError } from './member-common';
 import { MemberContext } from './member-context';
@@ -139,10 +139,15 @@ export function FamilyMemberCareView({ memberId }: { memberId: string }) {
           </div>
 
           {/* Documents section */}
-          <div>
-            <MemberDocumentsSidebar
+          <div id="documents-section">
+            <MemberDocumentUploadSection
               memberId={member.id}
+              memberName={member.fullName}
               documents={documents}
+              onDocumentAdded={(created) => setDocuments((prev) => [created, ...prev])}
+              onDocumentDeleted={(id) =>
+                setDocuments((prev) => prev.filter((doc) => doc.id !== id))
+              }
             />
           </div>
         </div>
