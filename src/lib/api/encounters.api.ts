@@ -14,6 +14,15 @@ export type EncounterStatus =
   | 'CANCELLED'
   | 'RESCHEDULE_REQUESTED';
 
+export type EncounterScheduleStage =
+  | 'CADENCE_DRAFT'
+  | 'AWAITING_FAMILY_CONFIRM'
+  | 'AWAITING_DOCTOR_REVIEW'
+  | 'CONFIRMED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED';
+
 export type RescheduleDecision = 'PENDING' | 'APPROVED' | 'REJECTED';
 export type RescheduleRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
@@ -31,6 +40,32 @@ export interface EncounterRescheduleRequestItem {
   status: RescheduleRequestStatus;
   createdAt?: string;
   resolvedAt?: string | null;
+  encounter?: {
+    id: string;
+    contractId?: string;
+    encounterType?: EncounterType | string;
+    category?: EncounterCategory | string;
+    visitScope?: EncounterVisitScope;
+    scheduledDate?: string;
+    scheduledTime?: string;
+    encounterStatus?: EncounterStatus | string;
+    doctor?: { id: string; doctorName: string };
+    participants?: EncounterParticipant[];
+    contract?: {
+      id: string;
+      contractNumber?: string;
+      familyUnit?: {
+        id: string;
+        homeAddress?: string;
+        representativeUser?: {
+          id?: string;
+          fullName?: string;
+          name?: string;
+          phone?: string;
+        };
+      };
+    };
+  };
 }
 
 export interface EncounterPatient {
@@ -103,6 +138,10 @@ export interface EncounterItem {
   onTheWayAt?: string | null;
   arrivedAt?: string | null;
   familyConfirmedArrivalAt?: string | null;
+  scheduleStage?: EncounterScheduleStage;
+  milestoneIndex?: number | null;
+  totalMilestones?: number | null;
+  displayNotes?: string | null;
   subjectiveNote?: string | null;
   cancelReason?: string | null;
   objectiveExam?: string | null;
@@ -360,6 +399,13 @@ export const encountersApi = {
     contractId: string
   ): Promise<{ finalizedCount: number; encounters: EncounterItem[] }> => {
     const raw = await httpClient.post<any>(`/api/v1/encounters/cadence/finalize/${contractId}`, {});
+    return unwrapApiEnvelope(raw);
+  },
+
+  confirmCadenceSchedule: async (
+    contractId: string
+  ): Promise<{ confirmedCount: number; encounters: EncounterItem[] }> => {
+    const raw = await httpClient.post<any>(`/api/v1/encounters/cadence/confirm/${contractId}`, {});
     return unwrapApiEnvelope(raw);
   },
 
