@@ -126,7 +126,7 @@ describe('DashboardSidebar Navigation', () => {
     expect(screen.getAllByRole('button', { name: 'Đăng xuất' }).length).toBeGreaterThan(0);
   });
 
-  it('excludes training and package catalog from ADMIN sidebar and shows "Cài đặt" without BHYT', () => {
+  it('excludes training and package catalog from ADMIN sidebar and keeps logout without BHYT', () => {
     const adminItems = ROLE_MENUS.ADMIN.items;
     const trainingItem = adminItems.find((item) => item.href === '/admin/training');
     expect(trainingItem).toBeUndefined();
@@ -136,12 +136,10 @@ describe('DashboardSidebar Navigation', () => {
     const aside = within(screen.getByRole('complementary'));
     expect(aside.getByRole('link', { name: 'Cấu hình AI Matching' })).toHaveAttribute('href', '/admin/matching-config');
 
-    // Bottom utilities should not contain 'Danh mục Gói Dịch vụ'
+    // Bottom utilities should not contain 'Danh mục Gói Dịch vụ' or BHYT links
     expect(screen.queryByText('Danh mục Gói Dịch vụ')).not.toBeInTheDocument();
-
-    // Settings item should be 'Cài đặt' and not 'Cài đặt & Hồ sơ BHYT'
-    expect(screen.getAllByText('Cài đặt').length).toBeGreaterThan(0);
     expect(screen.queryByText(/Hồ sơ BHYT/i)).not.toBeInTheDocument();
+    expect(aside.getByRole('button', { name: 'Đăng xuất' })).toBeInTheDocument();
   });
 
   it.each([
@@ -156,8 +154,6 @@ describe('DashboardSidebar Navigation', () => {
 
     const aside = within(screen.getByRole('complementary'));
     expect(aside.queryByRole('link', { name: 'Danh mục Gói Dịch vụ' })).not.toBeInTheDocument();
-    const settingsLabel = role === 'FAMILY' || role === 'PATIENT' ? 'Cài đặt & Hồ sơ BHYT' : 'Cài đặt tài khoản';
-    expect(aside.getByRole('link', { name: settingsLabel })).toHaveAttribute('href', '/settings');
     expect(aside.getByRole('button', { name: 'Đăng xuất' })).toBeInTheDocument();
   });
 
@@ -166,7 +162,7 @@ describe('DashboardSidebar Navigation', () => {
     render(<DashboardSidebar />);
 
     const aside = within(screen.getByRole('complementary'));
-    expect(aside.getByRole('link', { name: 'Cài đặt' })).toHaveAttribute('href', '/settings');
+    expect(aside.getByRole('link', { name: 'Tổng quan Nền tảng' })).toHaveAttribute('href', '/admin');
     expect(aside.queryByRole('link', { name: 'Danh mục Gói Dịch vụ' })).not.toBeInTheDocument();
     expect(aside.getByRole('button', { name: 'Đăng xuất' })).toBeInTheDocument();
   });
