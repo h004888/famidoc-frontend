@@ -230,7 +230,9 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
 
     render(<AdminFacilitiesView />);
 
-    expect(await screen.findByText(/Network down/i)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Không thể tải danh sách cơ sở y tế từ máy chủ/i),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /Thử lại/i }));
 

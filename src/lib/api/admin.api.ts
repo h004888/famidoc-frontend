@@ -66,6 +66,13 @@ export interface AdminOverview {
   series: Array<{ label: string; HOME_VISIT: number; TELEHEALTH: number; FACILITY_VISIT: number }>;
 }
 
+export interface AdminFinanceReport {
+  year: number;
+  environment: 'LIVE' | 'TEST';
+  totals: { receivedVnd: number; paidVnd: number; netVnd: number };
+  months: { month: number; receivedVnd: number; paidVnd: number }[];
+}
+
 export const complaintStatusLabel: Record<ComplaintStatus, string> = {
   SUBMITTED: 'Chờ thụ lý', INVESTIGATING: 'Đang xác minh', RESOLVED: 'Đã kết luận', CLOSED: 'Đã đóng',
 };
@@ -76,6 +83,8 @@ async function get<T>(path: string, params?: Record<string, string | number | un
 
 export const adminApi = {
   overview: (period: AdminPeriod, environment: 'LIVE' | 'TEST' = 'LIVE') => get<AdminOverview>('/api/v1/admin/overview', { period, environment }),
+  financeReport: (year: number, environment: AdminFinanceReport['environment']) =>
+    get<AdminFinanceReport>('/api/v1/admin/finance-report', { year, environment }),
   users: (params: { page: number; limit?: number; role?: AdminUserRole; q?: string }) =>
     get<AdminPage<AdminUser>>('/api/v1/admin/users', params),
   auditLogs: (params: {

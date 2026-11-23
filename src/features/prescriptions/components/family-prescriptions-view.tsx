@@ -1,5 +1,7 @@
 'use client';
 
+import { PrescriptionContextSummary } from './prescription-context-summary';
+
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, ClipboardList, Pill } from 'lucide-react';
@@ -66,7 +68,9 @@ export function FamilyPrescriptionsView({ patientId }: { patientId?: string }) {
       },
       (failure) => {
         if (!controller.signal.aborted)
-          setError(prescriptionErrorMessage(failure, 'Chưa tải được đơn thuốc.'));
+          setError(
+            prescriptionErrorMessage(failure, 'Chưa tải được đơn thuốc.'),
+          );
       },
     );
     return () => controller.abort();
@@ -229,7 +233,10 @@ export function FamilyPrescriptionDetailView({ id }: { id: string }) {
       (failure) => {
         if (!controller.signal.aborted)
           setError(
-            prescriptionErrorMessage(failure, 'Chưa tải được chi tiết đơn thuốc.'),
+            prescriptionErrorMessage(
+              failure,
+              'Chưa tải được chi tiết đơn thuốc.',
+            ),
           );
       },
     );
@@ -297,6 +304,78 @@ export function FamilyPrescriptionDetailView({ id }: { id: string }) {
             <p className="break-all text-xs text-slate-600">
               Mã lưu nội bộ {record.prescriptionCode}
             </p>
+            <p className="text-sm text-slate-700">
+              Hạn lĩnh thuốc:{' '}
+              {record.validUntil
+                ? dateLabel(record.validUntil)
+                : 'Bản cũ chưa ghi nhận'}
+            </p>
+            {record.replacedBy && (
+              <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
+                Đơn đã được thay thế.{' '}
+                <Link
+                  href={`/family/prescriptions/${record.replacedBy.id}`}
+                  className="font-semibold underline"
+                >
+                  Mở đơn mới
+                </Link>
+              </p>
+            )}
+            {record.replaces && (
+              <p className="text-sm text-slate-700">
+                Thay thế đơn {record.replaces.prescriptionCode}. Lý do:{' '}
+                {record.replacementReason}
+              </p>
+            )}
+            {record.recordSnapshot && (
+              <dl className="grid gap-3 text-sm sm:grid-cols-2">
+                {[
+                  [
+                    'Ngày sinh',
+                    dateLabel(record.recordSnapshot.patient.dateOfBirth),
+                  ],
+                  [
+                    'Giới tính',
+                    (
+                      { MALE: 'Nam', FEMALE: 'Nữ', OTHER: 'Khác' } as Record<
+                        string,
+                        string
+                      >
+                    )[record.recordSnapshot.patient.gender],
+                  ],
+                  ['Địa chỉ CSYT', record.recordSnapshot.facility.address],
+                  [
+                    'Điện thoại CSYT / bác sĩ',
+                    record.recordSnapshot.facility.phone,
+                  ],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <dt className="text-slate-600">{label}</dt>
+                    <dd className="font-medium">
+                      {value || 'Chưa có thông tin'}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={async () => {
+                try {
+                  await prescriptionsApi.downloadRecord(record.id);
+                } catch (failure) {
+                  setError(
+                    prescriptionErrorMessage(
+                      failure,
+                      'Chưa tải được bản lưu đơn thuốc. Vui lòng thử lại.',
+                    ),
+                  );
+                }
+              }}
+            >
+              Tải bản lưu đơn thuốc (JSON)
+            </Button>
             {!record.hasSignature && (
               <p className="text-sm text-slate-700">
                 Bản lưu dùng để xem lại chỉ dẫn. Đơn chính thức do cơ sở y tế
@@ -304,6 +383,7 @@ export function FamilyPrescriptionDetailView({ id }: { id: string }) {
               </p>
             )}
           </Card>
+          <PrescriptionContextSummary context={record.clinicalContext} />
           <section className="space-y-3">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <Pill size={20} className="text-teal-700" aria-hidden="true" />{' '}
@@ -315,13 +395,23 @@ export function FamilyPrescriptionDetailView({ id }: { id: string }) {
                   {detail.medicationName}
                   {detail.strength && ` · ${detail.strength}`}
                 </h3>
+                {(detail.medicationCode || detail.activeIngredient) && (
+                  <p className="text-xs text-slate-600">
+                    {[detail.medicationCode, detail.activeIngredient]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                )}
                 <dl className="grid gap-3 text-sm sm:grid-cols-2">
                   {[
                     ['Liều mỗi lần', detail.dosage],
                     ['Tần suất và thời điểm dùng', detail.frequency],
                     ['Đường dùng', detail.administrationRoute],
                     ['Thời gian dùng', `${detail.durationDays} ngày`],
-                    ['Tổng số lượng', `${detail.quantity} ${detail.unit}`],
+                    [
+                      'Tổng số lượng',
+                      `${String(detail.quantity).padStart(2, '0')} ${detail.unit}`,
+                    ],
                   ].map(
                     ([label, value]) =>
                       value && (

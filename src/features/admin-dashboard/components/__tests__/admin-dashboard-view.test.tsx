@@ -1,7 +1,8 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { adminApi, type AdminOverview } from '@/lib/api/admin.api';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { adminApi, type AdminFinanceReport, type AdminOverview } from '@/lib/api/admin.api';
+import { formatCurrencyVND } from '@/lib/utils';
 import { AdminDashboardView } from '../admin-dashboard-view';
 
 vi.mock('@/features/admin-doctors/components/admin-quota-proposals-panel', () => ({
@@ -13,7 +14,7 @@ vi.mock('@/features/admin-doctors/components/admin-matching-queue-panel', () => 
 
 vi.mock('@/lib/api/admin.api', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/api/admin.api')>(),
-  adminApi: { overview: vi.fn() },
+  adminApi: { overview: vi.fn(), financeReport: vi.fn() },
 }));
 
 const stats: AdminOverview = {
@@ -23,21 +24,50 @@ const stats: AdminOverview = {
   series: [],
 };
 
-beforeEach(() => vi.clearAllMocks());
+const currentYear = Number(new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date()));
+const report: AdminFinanceReport = {
+  year: currentYear, environment: 'LIVE',
+  totals: { receivedVnd: 800000, paidVnd: 200000, netVnd: 600000 },
+  months: Array.from({ length: 12 }, (_, index) => ({
+    month: index + 1, receivedVnd: index === 9 ? 800000 : 0, paidVnd: index === 10 ? 200000 : 0,
+  })),
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(adminApi.overview).mockResolvedValue(stats);
+  vi.mocked(adminApi.financeReport).mockImplementation(async (year, environment) => ({ ...report, year, environment }));
+});
 
 describe('AdminDashboardView', () => {
-  it('requests statistics when the selected period changes', async () => {
-    vi.mocked(adminApi.overview).mockImplementation(async (period) => period === 'weekly'
-      ? { ...stats, counts: { ...stats.counts, total: 1482 } } : stats);
+  it('shows yearly totals and exact amounts for each of the twelve months', async () => {
     render(<AdminDashboardView />);
-    expect(await screen.findByText(new Intl.NumberFormat('vi-VN').format(6314))).toBeInTheDocument();
+    expect(await screen.findByText(formatCurrencyVND(600000))).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Báo cáo tài chính năm' })).toBeInTheDocument();
+    expect(screen.queryByText('Lịch hẹn theo loại dịch vụ')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Đề xuất hạn mức' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Hàng đợi ghép bác sĩ' })).toBeInTheDocument();
-    const weekTab = screen.getByRole('tab', { name: 'Tuần' });
-    fireEvent.mouseDown(weekTab);
-    fireEvent.click(weekTab);
-    expect(await screen.findByText(new Intl.NumberFormat('vi-VN').format(1482))).toBeInTheDocument();
-    expect(adminApi.overview).toHaveBeenCalledWith('weekly', 'LIVE');
+    fireEvent.click(screen.getByText('Xem số liệu từng tháng'));
+    const table = screen.getByRole('table', { name: `Thu và chi trả từng tháng năm ${currentYear}` });
+    expect(within(table).getAllByRole('rowheader')).toHaveLength(12);
+    const october = within(table).getByRole('row', { name: /Tháng 10/ });
+    const november = within(table).getByRole('row', { name: /Tháng 11/ });
+    expect(within(october).getAllByRole('cell').map((cell) => cell.textContent)).toEqual([formatCurrencyVND(800000), formatCurrencyVND(0)]);
+    expect(within(november).getAllByRole('cell').map((cell) => cell.textContent)).toEqual([formatCurrencyVND(0), formatCurrencyVND(200000)]);
+  });
+
+  it('reloads financial data for the selected year and environment', async () => {
+    render(<AdminDashboardView />);
+    await waitFor(() => expect(adminApi.financeReport).toHaveBeenCalledWith(currentYear, 'LIVE'));
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Năm báo cáo tài chính' }), { target: { value: String(currentYear - 1) } });
+    await waitFor(() => expect(adminApi.financeReport).toHaveBeenLastCalledWith(currentYear - 1, 'LIVE'));
+    expect(adminApi.overview).toHaveBeenCalledTimes(1);
+
+    fireEvent.change(screen.getByRole('combobox', { name: 'Môi trường tổng quan' }), { target: { value: 'TEST' } });
+    await waitFor(() => expect(adminApi.financeReport).toHaveBeenLastCalledWith(currentYear - 1, 'TEST'));
+    expect(adminApi.overview).toHaveBeenLastCalledWith('monthly', 'TEST');
+    await screen.findByText('Chênh lệch thu chi');
   });
 
   it('opens the actual complaint from the overview response', async () => {

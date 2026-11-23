@@ -10,6 +10,8 @@ export class ApiError extends Error {
   }
 }
 
+export class ApiConnectionError extends ApiError {}
+
 export class UnauthorizedError extends ApiError {
   constructor(message: string = 'Phiên đăng nhập đã hết hạn') {
     super(message, 401);

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { httpClient } from '../http-client';
-import { ApiError } from '@/lib/http/errors';
+import { ApiConnectionError, ApiError } from '@/lib/http/errors';
 
 describe('httpClient error extraction (JSON, upload, getBlob)', () => {
   beforeEach(() => {
@@ -64,6 +64,67 @@ describe('httpClient error extraction (JSON, upload, getBlob)', () => {
     }
   });
 
+  it('localizes network failures directly in request() ApiError.message', async () => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    const result = httpClient.get('/api/v1/test');
+    await expect(result).rejects.toBeInstanceOf(ApiConnectionError);
+    await expect(result).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 500,
+      message: 'Không thể kết nối đến máy chủ lúc này. Vui lòng thử lại sau.',
+    });
+  });
+
+  it('mentions offline mode when the browser reports it', async () => {
+    const online = vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false);
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new TypeError('Failed to fetch'));
+
+    try {
+      await expect(httpClient.get('/api/v1/test')).rejects.toMatchObject({
+        name: 'ApiError',
+        message: 'Thiết bị đang ngoại tuyến. Hãy kết nối mạng rồi thử lại.',
+      });
+    } finally {
+      online.mockRestore();
+    }
+  });
+
+  it('reports an invalid server response when a successful request returns HTML', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(new Response('<html></html>'));
+
+    await expect(httpClient.get('/api/v1/test')).rejects.toMatchObject({
+      name: 'ApiError',
+      message: 'Máy chủ trả về dữ liệu không hợp lệ. Vui lòng thử lại sau.',
+    });
+  });
+
+  it.each(['getBlob', 'upload'] as const)('localizes a fetch rejection in %s()', async (method) => {
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new TypeError('Failed to fetch'));
+    const operation = method === 'getBlob'
+      ? httpClient.getBlob('/api/v1/download')
+      : httpClient.upload('/api/v1/upload', new FormData());
+    await expect(operation).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 500,
+      message: 'Không thể kết nối đến máy chủ lúc này. Vui lòng thử lại sau.',
+    });
+  });
+
+  it.each(['getBlob', 'upload'] as const)('localizes a connection failure while reading the %s() response', async (method) => {
+    const readBody = vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce({ ok: true, blob: readBody, json: readBody } as unknown as Response);
+    const operation = method === 'getBlob'
+      ? httpClient.getBlob('/api/v1/download')
+      : httpClient.upload('/api/v1/upload', new FormData());
+    await expect(operation).rejects.toMatchObject({
+      name: 'ApiError',
+      status: 500,
+      message: 'Không thể kết nối đến máy chủ lúc này. Vui lòng thử lại sau.',
+    });
+    expect(readBody).toHaveBeenCalledTimes(1);
+  });
+
   it('retries getBlob() once on transient HTTP 503 and resolves when retry succeeds', async () => {
     const expectedBlob = new Blob(['%PDF-1.7'], { type: 'application/pdf' });
     const fetchSpy = vi
@@ -86,18 +147,18 @@ describe('httpClient error extraction (JSON, upload, getBlob)', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 
-  it('retries getBlob() once on transient network error and throws ApiError if retry also fails', async () => {
+  it('retries getBlob() once on transient network error and throws localized ApiError if retry also fails', async () => {
     const fetchSpy = vi
       .spyOn(globalThis, 'fetch')
       .mockRejectedValueOnce(new TypeError('Failed to fetch'))
-      .mockRejectedValueOnce(new TypeError('Still offline'));
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'));
 
     await expect(
       httpClient.getBlob('/api/v1/patients/p-1/documents/d-1/file')
     ).rejects.toMatchObject({
       name: 'ApiError',
-      status: 503,
-      message: 'Still offline',
+      status: 500,
+      message: 'Không thể kết nối đến máy chủ lúc này. Vui lòng thử lại sau.',
     });
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });

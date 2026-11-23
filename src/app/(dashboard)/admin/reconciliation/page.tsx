@@ -1,6 +1,7 @@
 'use client';
 
-import { BanknoteArrowUp, Bell, Landmark, QrCode } from 'lucide-react';
+import { BanknoteArrowUp, Bell, Landmark, MessageSquareWarning, QrCode } from 'lucide-react';
+import { AdminPaymentIssuesView } from '@/features/admin-contracts/components/admin-payment-issues-view';
 import { AdminPaymentRequestView } from '@/features/admin-contracts/components/admin-payment-request-view';
 import { AdminWebhookEventsView } from '@/features/admin-contracts/components/admin-webhook-events-view';
 import { AdminReconciliationView, AdminSettlementsView } from '@/features/admin-contracts';
@@ -10,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 const reconciliationTabs = [
   { value: 'settlements', label: 'Chi trả cơ sở y tế', icon: BanknoteArrowUp, View: AdminSettlementsView },
   { value: 'sepay', label: 'Giao dịch ngân hàng', icon: Landmark, View: AdminReconciliationView },
+  { value: 'payment-issues', label: 'Báo lỗi chuyển khoản', icon: MessageSquareWarning, View: AdminPaymentIssuesView },
   { value: 'request', label: 'Tạo mã thu tiền', icon: QrCode, View: AdminPaymentRequestView },
   { value: 'webhook', label: 'Thông báo SePay', icon: Bell, View: AdminWebhookEventsView },
 ];
@@ -19,13 +21,13 @@ export default function AdminReconciliationPage() {
     <main className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <PageHeader
         title="Đối soát doanh thu"
-        description="Theo dõi tiền vào và chi trả cho các cơ sở y tế."
+        description="Quản lý tiền gia đình thanh toán vào nền tảng và quyết toán chi trả 85% hàng tháng cho các cơ sở y tế (chưa khấu trừ thuế)."
         className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
       />
       <Tabs defaultValue="settlements" className="min-w-0 gap-6">
         <TabsList
           aria-label="Công việc đối soát doanh thu"
-          className="grid w-full auto-rows-fr grid-cols-2 items-stretch gap-2 rounded-2xl border border-slate-200 bg-white p-2 group-data-[orientation=horizontal]/tabs:h-auto lg:grid-cols-4"
+          className="grid w-full auto-rows-fr grid-cols-2 items-stretch gap-2 rounded-2xl border border-slate-200 bg-white p-2 group-data-[orientation=horizontal]/tabs:h-auto md:grid-cols-3 lg:grid-cols-5"
         >
           {reconciliationTabs.map(({ value, label, icon: Icon }) => (
             <TabsTrigger

@@ -35,6 +35,12 @@ export interface AdminPaymentRequestPayload extends CreatePaymentRequestPayload 
   reason: string;
 }
 
+export interface PaymentEligibility {
+  eligible: boolean;
+  message?: string;
+  blockingReasons: string[];
+}
+
 export interface SePayWebhookEvent {
   id: string;
   environment: 'TEST' | 'LIVE';
@@ -96,7 +102,47 @@ export interface PaymentActivationResult {
   blockingReasons: string[];
 }
 
+export interface FamilyPaymentRequestItem {
+  id: string;
+  contractId: string;
+  contractNumber: string;
+  contractStatus: string;
+  packageName: string;
+  facilityName: string;
+  paymentCode: string;
+  transferContent: string;
+  amountVnd: number;
+  status: PaymentRequestStatus;
+  expectedAccountNumber: string | null;
+  expectedGateway: string | null;
+  createdAt: string;
+  expiresAt: string;
+  paidAt: string | null;
+  latestTransaction: {
+    id: string;
+    providerTransactionId: string;
+    amountReceived: number;
+    paymentTime: string;
+    outcome: 'MATCHED' | 'REVIEW_REQUIRED' | 'IGNORED' | string;
+    reason: string | null;
+    referenceCode: string;
+    gateway: string;
+  } | null;
+  openSupportCase: {
+    id: string;
+    caseCode: string;
+    status: string;
+    updatedAt: string;
+  } | null;
+}
+
 export const paymentsApi = {
+  getAdminPaymentEligibility: async (
+    contractId: string,
+    addendumId?: string,
+  ): Promise<PaymentEligibility> =>
+    unwrapApiEnvelope(await httpClient.get('/api/v1/payments/admin/eligibility', { contractId, addendumId }, { cache: 'no-store' })),
+
   createAdminPaymentRequest: async (payload: AdminPaymentRequestPayload): Promise<PaymentRequest> =>
     unwrapApiEnvelope(await httpClient.post('/api/v1/payments/admin/requests', payload)),
 
@@ -133,5 +179,9 @@ export const paymentsApi = {
     },
   ): Promise<PaymentTransactionsPage> => {
     return unwrapApiEnvelope(await httpClient.get('/api/v1/payments/transactions', params, { cache: 'no-store' }));
+  },
+
+  listMyPaymentRequests: async (): Promise<FamilyPaymentRequestItem[]> => {
+    return unwrapApiEnvelope(await httpClient.get('/api/v1/payments/my-requests', undefined, { cache: 'no-store' }));
   },
 };

@@ -37,5 +37,6 @@ export const adminPackagesApi = {
     unwrapApiEnvelope(await httpClient.patch(`${base}/${id}`, payload)),
   createVersion: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/versions`)),
   publishPackage: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/publish`)),
+  reopenPackage: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/reopen`)),
   retirePackage: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/retire`)),
 };

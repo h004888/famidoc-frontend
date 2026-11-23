@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, type FormEvent } from 'react';
+import { useCallback, useState, type FormEvent, type ReactNode } from 'react';
 import {
   AlertCircle,
   ArrowDownWideNarrow,
@@ -26,11 +26,25 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { adminPackagesApi, type AdminCarePackageItem, type PackageStatus, type PackageTerms } from '@/lib/api/admin-packages.api';
+import { adminPackagesApi, type AdminCarePackageItem, type PackageStatus } from '@/lib/api/admin-packages.api';
 import { useAdminQuery } from '@/hooks/use-admin-query';
 import { cn, formatCurrencyVND } from '@/lib/utils';
+import {
+  createPackageForm,
+  getPackageApiError,
+  getPackagePrice,
+  packageDurations,
+  packageNumberFields,
+  toPackageTerms,
+  usesContractVideoQuota,
+  validatePackageForm,
+  type PackageField,
+  type PackageFieldErrors,
+  type PackageForm,
+  type PackageNumberField,
+} from '../package-form';
 
-const statuses: Record<PackageStatus, string> = { DRAFT: 'Bản nháp', ACTIVE: 'Đang bán', DEPRECATED: 'Ngừng bán' };
+const statuses: Record<PackageStatus, string> = { DRAFT: 'Chưa mở bán', ACTIVE: 'Đang bán', DEPRECATED: 'Ngừng bán' };
 const statusStyles: Record<PackageStatus, string> = {
   DRAFT: 'border-amber-200 bg-amber-50 text-amber-900',
   ACTIVE: 'border-emerald-200 bg-emerald-50 text-emerald-800',
@@ -42,12 +56,7 @@ const statusFilters: { value: CatalogStatusFilter; label: string }[] = [
   { value: 'ACTIVE', label: statuses.ACTIVE },
   { value: 'DEPRECATED', label: statuses.DEPRECATED },
 ];
-const emptyTerms: PackageTerms = {
-  name: '', description: '', durationMonths: 1, priceVnd: 0, includedMembers: 1, maxMembers: 1,
-  additionalMemberMonthlyPriceVnd: 0, quotaPeriod: 'PER_TERM', videoQuotaPolicy: 'FIXED',
-  quotas: { homeVisits: 0, videoConsultations: 0, facilityVisits: 0 },
-};
-const actionLabel = { publish: 'Xuất bản', retire: 'Ngừng bán' };
+const actionLabel = { publish: 'Mở bán', retire: 'Ngừng bán', reopen: 'Mở bán' };
 type PackageAction = keyof typeof actionLabel;
 const pageSize = 6;
 const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-normal focus-visible:outline-2 focus-visible:outline-ring';
@@ -72,14 +81,16 @@ export function AdminPackagesView() {
     try {
       if (action === 'publish') {
         await adminPackagesApi.publishPackage(item.id);
+      } else if (action === 'reopen') {
+        await adminPackagesApi.reopenPackage(item.id);
       } else {
         await adminPackagesApi.retirePackage(item.id);
       }
-      toast.success('Đã cập nhật danh mục gói.');
+      toast.success(action === 'reopen' ? 'Đã mở bán lại gói dịch vụ.' : 'Đã cập nhật danh mục gói.');
       setDecision(null);
       refresh();
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : 'Không cập nhật được gói dịch vụ.');
+      setActionError(getPackageApiError(cause, 'Không cập nhật được gói dịch vụ. Vui lòng thử lại.'));
     } finally {
       setActing(false);
     }
@@ -128,7 +139,7 @@ export function AdminPackagesView() {
         {loading && <p role="status" className="rounded-xl border border-slate-200 bg-white px-5 py-6 text-sm text-slate-600">Đang tải danh mục…</p>}
         {error && (
           <p role="alert" className="flex items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-            <AlertCircle aria-hidden="true" className="size-5 shrink-0" /> {error}
+            <AlertCircle aria-hidden="true" className="size-5 shrink-0" /> {getPackageApiError(error, 'Không tải được danh mục gói. Vui lòng thử lại.')}
           </p>
         )}
         {data?.items.length === 0 && (
@@ -266,6 +277,11 @@ function PackageCard({ item, onView, onEdit, onAction }: {
             {actionLabel.retire}
           </Button>
         )}
+        {item.status === 'DEPRECATED' && (
+          <Button type="button" size="sm" onClick={() => onAction('reopen')}>
+            <PackageCheck aria-hidden="true" className="size-4" />{actionLabel.reopen}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
@@ -363,7 +379,7 @@ function PackageDetailDialog({
                 <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-white">
                   <div className="flex items-center gap-2.5 text-slate-700">
                     <span className="material-symbols-outlined text-[18px] text-primary">payments</span>
-                    <span>Đơn giá lượt tại nhà phát sinh</span>
+                    <span>Đơn giá lượt khám tại nhà</span>
                   </div>
                   <span className="font-semibold text-slate-900 tabular-nums">
                     {formatCurrencyVND(item.homeVisitUnitPriceVnd)} / lượt
@@ -428,36 +444,121 @@ function PackageDetailDialog({
   );
 }
 
+function PackageFormField({ field, label, error, help, className, children }: {
+  field: PackageField;
+  label: string;
+  error?: string;
+  help?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn('grid min-w-0 content-start gap-1.5', className)}>
+      <Label htmlFor={`package-${field}`} className="leading-snug">{label}</Label>
+      {children}
+      {help && <p id={`package-${field}-help`} className="text-xs leading-snug text-slate-600">{help}</p>}
+      {error && <p id={`package-${field}-error`} role="alert" className="text-xs leading-snug text-destructive">{error}</p>}
+    </div>
+  );
+}
+
 function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | null; close: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<PackageTerms>(() => item ? {
-    name: item.name, description: item.description ?? '', durationMonths: item.durationMonths, priceVnd: item.priceVnd,
-    includedMembers: item.includedMembers, maxMembers: item.maxMembers,
-    additionalMemberMonthlyPriceVnd: item.additionalMemberMonthlyPriceVnd,
-    quotaPeriod: item.quotaPeriod, videoQuotaPolicy: item.videoQuotaPolicy ?? 'FIXED',
-    homeVisitUnitPriceVnd: item.homeVisitUnitPriceVnd, quotas: item.quotas,
-  } : emptyTerms);
-  const [code, setCode] = useState(item?.code ?? '');
+  const [form, setForm] = useState(() => createPackageForm(item));
+  const [submitted, setSubmitted] = useState(false);
+  const [invalidNumbers, setInvalidNumbers] = useState<PackageFieldErrors>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  const set = <K extends keyof PackageTerms>(key: K, value: PackageTerms[K]) => setForm((previous) => ({ ...previous, [key]: value }));
+  const requiresUnitPrice = item?.homeVisitUnitPriceVnd !== undefined;
+  const calculatesPrice = requiresUnitPrice || form.amounts.homeVisitUnitPriceVnd !== '';
+  const contractVideo = usesContractVideoQuota(form);
+  const price = getPackagePrice(form, requiresUnitPrice);
+  const quotaHelp = form.quotaPeriod === 'PER_TERM'
+    ? `Số lượt áp dụng cho cả kỳ ${form.durationMonths} tháng.`
+    : 'Số lượt áp dụng cho từng tháng trong kỳ.';
+  const errors = submitted ? validatePackageForm(form, item) : {};
+  const inputErrors = { ...invalidNumbers };
+  if (calculatesPrice) delete inputErrors.priceVnd;
+  if (contractVideo) delete inputErrors.videoConsultations;
+  Object.assign(errors, inputErrors);
+
+  function set<K extends keyof PackageForm>(key: K, value: PackageForm[K]) {
+    setError('');
+    setForm((previous) => ({ ...previous, [key]: value }));
+  }
+
+  function setNumber(field: PackageNumberField, value: string) {
+    setError('');
+    if (!/^\d*$/.test(value)) {
+      setInvalidNumbers((previous) => ({ ...previous, [field]: 'Chỉ nhập chữ số từ 0 đến 9.' }));
+      return;
+    }
+    if (invalidNumbers[field]) {
+      setInvalidNumbers((previous) => {
+        const next = { ...previous };
+        delete next[field];
+        return next;
+      });
+    }
+    const amount = value.replace(/^0+(?=\d)/, '');
+    setForm((previous) => ({ ...previous, amounts: { ...previous.amounts, [field]: amount } }));
+  }
+
+  function fieldProps(field: PackageField, help?: string) {
+    const id = `package-${field}`;
+    const describedBy = [help && `${id}-help`, errors[field] && `${id}-error`].filter(Boolean).join(' ');
+    return { id, name: field, 'aria-invalid': Boolean(errors[field]), 'aria-describedby': describedBy || undefined };
+  }
+
+  function numberField(field: PackageNumberField, options: {
+    label?: string;
+    help?: string;
+    className?: string;
+    value?: string;
+    disabled?: boolean;
+    readOnly?: boolean;
+  } = {}) {
+    const { label = packageNumberFields[field].label, help, className, value = form.amounts[field], disabled, readOnly } = options;
+    return (
+      <PackageFormField key={field} field={field} label={label} help={help} error={errors[field]} className={className}>
+        <Input
+          {...fieldProps(field, help)}
+          type="text"
+          inputMode="numeric"
+          value={value}
+          disabled={disabled}
+          readOnly={readOnly}
+          className={cn('tabular-nums', readOnly && 'bg-blue-50 font-semibold text-primary')}
+          onChange={(event) => setNumber(field, event.target.value)}
+        />
+      </PackageFormField>
+    );
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
-    setBusy(true);
     setError('');
+    setSubmitted(true);
+    const firstError = Object.keys({ ...validatePackageForm(form, item), ...inputErrors })[0];
+    if (firstError) {
+      const field = event.currentTarget.elements.namedItem(firstError);
+      if (field instanceof HTMLElement) field.focus();
+      return;
+    }
+    const terms = toPackageTerms(form, requiresUnitPrice);
+    setBusy(true);
     try {
       if (item) {
-        await adminPackagesApi.updatePackage(item.id, form);
+        await adminPackagesApi.updatePackage(item.id, terms);
         toast.success('Đã lưu thay đổi gói dịch vụ.');
       } else {
-        await adminPackagesApi.createPackage({ ...form, code: code.trim() });
-        toast.success('Đã tạo gói dịch vụ mới.');
+        await adminPackagesApi.createPackage({ ...terms, code: form.code.trim() });
+        toast.success('Đã tạo và mở bán gói dịch vụ.');
       }
       onSaved();
       close();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'Không lưu được gói dịch vụ.');
+      setError(getPackageApiError(cause, 'Không lưu được gói dịch vụ. Vui lòng thử lại.'));
     } finally {
       setBusy(false);
     }
@@ -466,67 +567,71 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
   return (
     <Dialog open onOpenChange={(open) => { if (!open && !busy) close(); }}>
       <DialogContent className="gap-0 overflow-hidden rounded-2xl p-0 sm:max-w-2xl">
-        <form className="flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col" onSubmit={submit}>
+        <form noValidate className="flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col" onSubmit={submit}>
           <DialogHeader className="shrink-0 border-b border-slate-200 px-5 py-4 pr-12 text-left sm:px-6">
             <DialogTitle>{item ? 'Sửa gói dịch vụ' : 'Tạo gói dịch vụ'}</DialogTitle>
-            <DialogDescription>Giá gói tính cho toàn bộ kỳ hạn đã chọn.</DialogDescription>
+            <DialogDescription>{item ? 'Giá gói tính cho toàn bộ kỳ hạn đã chọn.' : 'Gói sẽ được mở bán ngay sau khi tạo thành công.'}</DialogDescription>
           </DialogHeader>
           <div className="min-h-0 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
-            <fieldset className="min-w-0">
+            <fieldset disabled={busy} className="min-w-0">
               <legend className="mb-3 text-sm font-semibold text-slate-900">Thông tin gói</legend>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Label className="grid gap-1.5">Mã gói<Input required minLength={2} maxLength={40} pattern="[A-Z][A-Z0-9_]*" disabled={Boolean(item)} value={code} onChange={(event) => setCode(event.target.value.toUpperCase())} /></Label>
-                <Label className="grid gap-1.5">Tên gói<Input required maxLength={120} value={form.name} onChange={(event) => set('name', event.target.value)} /></Label>
-                <Label className="grid gap-1.5 sm:col-span-2">Mô tả<Textarea maxLength={2000} value={form.description} onChange={(event) => set('description', event.target.value)} /></Label>
+                <PackageFormField field="code" label="Mã gói" error={errors.code}>
+                  <Input {...fieldProps('code')} required disabled={Boolean(item)} value={form.code} onChange={(event) => set('code', event.target.value)} />
+                </PackageFormField>
+                <PackageFormField field="name" label="Tên gói" error={errors.name}>
+                  <Input {...fieldProps('name')} required value={form.name} onChange={(event) => set('name', event.target.value)} />
+                </PackageFormField>
+                <PackageFormField field="description" label="Mô tả" error={errors.description} className="sm:col-span-2">
+                  <Textarea {...fieldProps('description')} required value={form.description} onChange={(event) => set('description', event.target.value)} />
+                </PackageFormField>
               </div>
             </fieldset>
 
-            <fieldset className="min-w-0">
-              <legend className="mb-3 text-sm font-semibold text-slate-900">Kỳ hạn, giá và thành viên</legend>
+            <fieldset disabled={busy} className="min-w-0">
+              <legend className="mb-3 text-sm font-semibold text-slate-900">Kỳ hạn và thành viên</legend>
               <div className="grid gap-3 sm:grid-cols-2">
-                <Label className="grid gap-1.5">Kỳ hạn
-                  <select className={selectClass} value={form.durationMonths} onChange={(event) => {
+                <PackageFormField field="durationMonths" label="Kỳ hạn" error={errors.durationMonths}>
+                  <select {...fieldProps('durationMonths')} className={selectClass} value={form.durationMonths} onChange={(event) => {
                     const months = Number(event.target.value);
+                    setError('');
                     setForm((value) => ({ ...value, durationMonths: months, videoQuotaPolicy: months === 12 ? value.videoQuotaPolicy : 'FIXED' }));
-                  }}>{[1, 3, 6, 12].map((months) => <option key={months} value={months}>{months} tháng</option>)}</select>
-                </Label>
-                {([
-                  ['priceVnd', 'Giá trọn kỳ (VND)', 1, 9999999999],
-                  ['includedMembers', 'Số người trong giá', 1, 10],
-                  ['maxMembers', 'Số người tối đa', 1, 10],
-                  ['additionalMemberMonthlyPriceVnd', 'Phụ phí mỗi người thêm / tháng (VND)', 0, 9999999999],
-                ] as const).map(([key, label, min, max]) => (
-                  <Label key={key} className="grid content-start gap-1.5 leading-snug">{label}<Input required type="number" min={min} max={max} value={form[key]} onChange={(event) => set(key, Number(event.target.value))} /></Label>
-                ))}
+                  }}>{packageDurations.map((months) => <option key={months} value={months}>{months} tháng</option>)}</select>
+                </PackageFormField>
+                {numberField('includedMembers')}
+                {numberField('maxMembers')}
+                {numberField('additionalMemberMonthlyPriceVnd')}
               </div>
             </fieldset>
 
-            <fieldset className="min-w-0">
-              <legend className="mb-3 text-sm font-semibold text-slate-900">Hạn mức khám và tư vấn</legend>
+            <fieldset disabled={busy} className="min-w-0">
+              <legend className="mb-3 text-sm font-semibold text-slate-900">Hạn mức khám, tư vấn và giá gói</legend>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label className="grid content-start gap-1.5 leading-snug">Áp dụng hạn mức
-                    <select className={selectClass} aria-describedby={form.quotaPeriod === 'PER_TERM' ? 'package-quota-period-help' : undefined} value={form.quotaPeriod} onChange={(event) => set('quotaPeriod', event.target.value as PackageTerms['quotaPeriod'])}>
-                      <option value="PER_TERM">Toàn kỳ</option><option value="PER_MONTH">Mỗi tháng</option>
-                    </select>
-                  </Label>
-                  {form.quotaPeriod === 'PER_TERM' && (
-                    <p id="package-quota-period-help" className="text-xs leading-snug text-slate-600">
-                      Số lượt bên dưới là tổng hạn mức cho cả {form.durationMonths} tháng.
-                    </p>
-                  )}
-                </div>
-                <Label className="grid content-start gap-1.5 leading-snug">Đơn giá lượt tại nhà (tùy chọn)
-                  <Input type="number" min={1} max={9999999999} value={form.homeVisitUnitPriceVnd ?? ''} disabled={item?.homeVisitUnitPriceVnd !== undefined && busy} required={item?.homeVisitUnitPriceVnd !== undefined} onChange={(event) => set('homeVisitUnitPriceVnd', event.target.value ? Number(event.target.value) : undefined)} />
-                </Label>
-                {form.durationMonths === 12 && <Label className="grid gap-1.5 sm:col-span-2">Hạn mức video
-                  <select className={selectClass} value={form.videoQuotaPolicy ?? 'FIXED'} onChange={(event) => set('videoQuotaPolicy', event.target.value as PackageTerms['videoQuotaPolicy'])}>
-                    <option value="FIXED">Cố định</option><option value="CONTRACT">Chốt khi ký hợp đồng</option>
+                <PackageFormField field="quotaPeriod" label="Áp dụng hạn mức" help={quotaHelp} error={errors.quotaPeriod}>
+                  <select {...fieldProps('quotaPeriod', quotaHelp)} className={selectClass} value={form.quotaPeriod} onChange={(event) => set('quotaPeriod', event.target.value as PackageForm['quotaPeriod'])}>
+                    <option value="PER_TERM">Toàn kỳ</option><option value="PER_MONTH">Mỗi tháng</option>
                   </select>
-                </Label>}
-                {([['homeVisits', 'Lượt khám tại nhà'], ['videoConsultations', 'Lượt tư vấn video']] as const).map(([key, label]) => (
-                  <Label key={key} className="grid gap-1.5">{label}<Input required type="number" min={0} max={100000} value={form.quotas[key]} onChange={(event) => set('quotas', { ...form.quotas, [key]: Number(event.target.value) })} /></Label>
-                ))}
+                </PackageFormField>
+                {numberField('homeVisitUnitPriceVnd', { help: requiresUnitPrice ? undefined : 'Có thể để trống để nhập giá gói thủ công.' })}
+                {form.durationMonths === 12 && (
+                  <PackageFormField field="videoQuotaPolicy" label="Hạn mức video" error={errors.videoQuotaPolicy} className="sm:col-span-2">
+                    <select {...fieldProps('videoQuotaPolicy')} className={selectClass} value={form.videoQuotaPolicy} onChange={(event) => set('videoQuotaPolicy', event.target.value as PackageForm['videoQuotaPolicy'])}>
+                      <option value="FIXED">Cố định</option><option value="CONTRACT">Chốt khi ký hợp đồng</option>
+                    </select>
+                  </PackageFormField>
+                )}
+                {numberField('homeVisits')}
+                {numberField('videoConsultations', {
+                  value: contractVideo ? '' : undefined,
+                  disabled: contractVideo,
+                  help: contractVideo ? 'Số lượt video sẽ được chốt khi ký hợp đồng.' : 'Lượt video đã bao gồm trong giá gói.',
+                })}
+                {numberField('priceVnd', {
+                  value: price,
+                  readOnly: calculatesPrice,
+                  className: 'rounded-xl border border-blue-100 bg-blue-50/60 p-3 sm:col-span-2',
+                  help: calculatesPrice ? 'Giá gói = đơn giá khám tại nhà × số lượt khám tại nhà.' : undefined,
+                })}
               </div>
             </fieldset>
           </div>
@@ -534,7 +639,7 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <DialogFooter className="min-[340px]:flex-row min-[340px]:justify-end">
               <Button type="button" variant="outline" disabled={busy} onClick={close}>Hủy</Button>
-              <Button type="submit" disabled={busy}>{busy ? 'Đang lưu…' : item ? 'Lưu thay đổi' : 'Lưu bản nháp'}</Button>
+              <Button type="submit" disabled={busy}>{busy ? 'Đang lưu…' : item ? 'Lưu thay đổi' : 'Tạo và mở bán'}</Button>
             </DialogFooter>
           </div>
         </form>

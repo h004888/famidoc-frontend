@@ -36,6 +36,9 @@ export function getNotificationTime(item: FamilyNotification) {
 }
 
 export function getNotificationAction(item: FamilyNotification) {
+  const supportQuery = item.referenceId
+    ? '?supportCaseId=' + encodeURIComponent(item.referenceId)
+    : '';
   if (item.type === PRESCRIPTION_NOTIFICATION && item.referenceId) {
     return {
       href: `/family/prescriptions/${encodeURIComponent(item.referenceId)}`,
@@ -61,6 +64,28 @@ export function getNotificationAction(item: FamilyNotification) {
       label: 'Xem hợp đồng',
       icon: 'event_note',
       type: 'Hợp đồng',
+    };
+  }
+  if (
+    item.type === 'COMPLAINT' ||
+    item.type === 'SUPPORT_CASE_COMPLAINT'
+  ) {
+    return {
+      href: '/family/feedback' + (item.type === 'SUPPORT_CASE_COMPLAINT' ? supportQuery : ''),
+      label: 'Xem khiếu nại',
+      icon: 'gavel',
+      type: 'Khiếu nại',
+    };
+  }
+  if (
+    item.type === 'SUPPORT_CASE_PAYMENT' ||
+    item.type === 'SUPPORT_CASE'
+  ) {
+    return {
+      href: '/family/billing' + supportQuery,
+      label: 'Xem hỗ trợ thanh toán',
+      icon: 'payments',
+      type: 'Thanh toán',
     };
   }
   return null;

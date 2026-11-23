@@ -9,16 +9,27 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { PaymentIssueDialog } from '@/components/shared/payment-issue-dialog';
 import {
   contractsApi,
   type VietQRPaymentRequestDto,
 } from '@/lib/api/contracts.api';
+import {
+  getSupportCaseStatusLabel,
+  isOpenSupportCaseStatus,
+  supportCasesApi,
+  type SupportCaseSummary,
+} from '@/lib/api/support-cases.api';
 import {
   encountersApi,
   type EncounterItem,
 } from '@/lib/api/encounters.api';
 import { FAMILY_GATE_REFRESH_EVENT } from '@/components/layout/family-subscription-gate';
 import { ApiError } from '@/lib/http/errors';
+import {
+  describeBlockingReasons,
+  readBlockingReasonsFromError,
+} from '@/lib/payment-blocking-reasons';
 import { useBookingNavigationOptional } from './booking-navigation-context';
 
 export interface BookingPaymentStepProps {
@@ -100,44 +111,13 @@ function PaymentCountdown({
   );
 }
 
+type OpenPaymentIssue = Pick<SupportCaseSummary, 'id' | 'caseCode' | 'status'>;
+
 type PaymentLoadOutcome =
   | { kind: 'active'; payment: VietQRPaymentRequestDto | null }
-  | { kind: 'payment'; payment: VietQRPaymentRequestDto }
+  | { kind: 'payment'; payment: VietQRPaymentRequestDto; openIssue?: OpenPaymentIssue }
   | { kind: 'needs_signing'; message: string; blockingReasons: string[] }
   | { kind: 'error'; message: string; blockingReasons: string[] };
-
-/**
- * Diễn giải mã lý do chặn thanh toán do backend trả trong `error.blockingReasons`
- * (RFC 9457 extension) thành thông báo tiếng Việt dễ hiểu cho hộ gia đình.
- */
-const BLOCKING_REASON_LABELS: Record<string, string> = {
-  FAMILY_SIGNATURE_REQUIRED:
-    'Đại diện hộ gia đình chưa hoàn tất chữ ký số trên hợp đồng 4 bên.',
-  ADMIN_SIGNATURE_REQUIRED:
-    'Ban quản trị FamiDoc chưa hoàn tất chữ ký số trên hợp đồng 4 bên.',
-  FACILITY_SIGNATURE_REQUIRED:
-    'Cơ sở y tế chưa hoàn tất chữ ký số trên hợp đồng 4 bên.',
-  DOCTOR_SIGNATURE_REQUIRED:
-    'Bác sĩ phụ trách chưa hoàn tất chữ ký số trên hợp đồng 4 bên.',
-  FACILITY_ASSIGNMENT_REQUIRED:
-    'Hợp đồng chưa được gán cơ sở y tế phụ trách.',
-  DOCTOR_ASSIGNMENT_REQUIRED:
-    'Hợp đồng chưa có bác sĩ gia đình phụ trách.',
-  DOCTOR_VERIFICATION_REQUIRED:
-    'Cơ sở y tế hoặc bác sĩ phụ trách chưa hoàn tất điều kiện kích hoạt: cơ sở cần có hợp đồng cung ứng nhân lực B2B còn hiệu lực và hồ sơ bác sĩ phải được xác minh.',
-  PANEL_CAPACITY_UNAVAILABLE:
-    'Bác sĩ phụ trách đã đạt giới hạn số hộ gia đình nhận chăm sóc. Vui lòng chọn bác sĩ khác.',
-  CONTRACT_TERM_NOT_CURRENT:
-    'Thời hạn hợp đồng chưa bắt đầu hoặc đã hết hiệu lực tại thời điểm thanh toán.',
-  ADDITIONAL_FAMILY_MEMBERS_PAYMENT_REQUIRED:
-    'Số thành viên đang hoạt động của hộ gia đình vượt quá số suất trên hợp đồng. Vui lòng thanh toán bổ sung cho các thành viên tăng thêm.',
-  CONTRACT_CANCELLED:
-    'Hợp đồng đã bị hủy nên không thể tiếp tục thanh toán.',
-  VERIFIED_PAYMENT_REQUIRED:
-    'Chưa ghi nhận giao dịch chuyển khoản được xác minh cho hợp đồng này.',
-  FAMILY_ALREADY_HAS_ACTIVE_CONTRACT:
-    'Hộ gia đình đang có một hợp đồng khác còn hiệu lực.',
-};
 
 const REVIEW_REASON_LABELS: Record<string, string> = {
   LATE_PAYMENT: 'Giao dịch chuyển khoản đến sau khi mã VietQR hết hạn 15 phút.',
@@ -157,27 +137,6 @@ const REVIEW_REASON_LABELS: Record<string, string> = {
 
 const GENERIC_BLOCKING_MESSAGE =
   'Hợp đồng chưa đủ điều kiện để thanh toán VietQR. Vui lòng xem chi tiết bên dưới.';
-
-function readBlockingReasonsFromError(error: unknown): string[] {
-  const details = (error as { details?: unknown } | null)?.details as
-    | { error?: { blockingReasons?: unknown } }
-    | undefined;
-  const raw = details?.error?.blockingReasons;
-  if (!Array.isArray(raw)) return [];
-  return raw.filter((reason): reason is string => typeof reason === 'string');
-}
-
-function describeBlockingReasons(codes: string[]): string[] {
-  const seen = new Set<string>();
-  const messages: string[] = [];
-  for (const code of codes) {
-    const label = BLOCKING_REASON_LABELS[code] ?? `Lý do chưa xác định (${code}).`;
-    if (seen.has(label)) continue;
-    seen.add(label);
-    messages.push(label);
-  }
-  return messages;
-}
 
 function isClosedPayment(payment: VietQRPaymentRequestDto) {
   return payment.status === 'EXPIRED' || payment.status === 'CANCELLED';
@@ -222,6 +181,24 @@ async function resolvePaymentOrContractState(
 ): Promise<PaymentLoadOutcome> {
   const storageKey = `famidoc:payment-request:${contractId}:${addendumId ?? ''}`;
   try {
+    // Kiểm tra hồ sơ đang đối soát trước khi phát mã mới, kể cả sau khi tải lại trang.
+    const openCases = await supportCasesApi.list({
+      type: 'PAYMENT_ISSUE',
+      contractId,
+      onlyOpen: true,
+      limit: 50,
+    }).catch(() => null);
+    const openIssue = openCases?.items.find((item) =>
+      item.invoiceId &&
+      isOpenSupportCaseStatus(item.status) &&
+      (item.invoice?.addendumId ?? undefined) === addendumId,
+    );
+    if (openIssue?.invoiceId) {
+      const request = await contractsApi.getPaymentStatus(openIssue.invoiceId);
+      const outcome = await resolveIssuedPayment(request, contractId, addendumId);
+      return outcome.kind === 'payment' ? { ...outcome, openIssue } : outcome;
+    }
+
     const request = addendumId
       ? await contractsApi.createVietQRPayment(contractId, addendumId)
       : await contractsApi.createVietQRPayment(contractId);
@@ -232,6 +209,7 @@ async function resolvePaymentOrContractState(
     }
     return await resolveIssuedPayment(request, contractId, addendumId);
   } catch (error) {
+    // Giữ lại từng lý do backend trả về để gia đình biết còn thiếu bước nào.
     const blockingReasons = readBlockingReasonsFromError(error);
     try {
       const previousRequestId = sessionStorage.getItem(storageKey);
@@ -299,6 +277,8 @@ export function BookingPaymentStep({
   const [isReissuing, setIsReissuing] = useState(false);
   const [isRechecking, setIsRechecking] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [showPaymentIssueModal, setShowPaymentIssueModal] = useState(false);
+  const [openPaymentIssue, setOpenPaymentIssue] = useState<OpenPaymentIssue | null>(null);
   const [firstEncounter, setFirstEncounter] = useState<EncounterItem | null>(null);
   const isMountedRef = useRef(true);
   const bookingNavigation = useBookingNavigationOptional();
@@ -334,6 +314,7 @@ export function BookingPaymentStep({
 
   const applyLoadOutcome = useCallback(
     (outcome: PaymentLoadOutcome) => {
+      setOpenPaymentIssue(outcome.kind === 'payment' ? outcome.openIssue ?? null : null);
       if (outcome.kind === 'active') {
         setPayment(outcome.payment);
         setErrorMessage(null);
@@ -420,8 +401,9 @@ export function BookingPaymentStep({
     };
   }, [addendumId, applyLoadOutcome, contractId]);
 
-  // Tự động kiểm tra trạng thái thanh toán để phát hiện hợp đồng đã ACTIVE.
   const paymentId = payment?.id;
+
+  // Tự động kiểm tra trạng thái thanh toán để phát hiện hợp đồng đã ACTIVE.
   const isAddendumPaid = Boolean(addendumId) && payment?.status === 'PAID';
   useEffect(() => {
     if (!contractId || !paymentId || isActivated || isAddendumPaid || pollingIntervalMs <= 0) return;
@@ -540,7 +522,7 @@ export function BookingPaymentStep({
   };
 
   const handleReissue = async () => {
-    if (!contractId || isReissuing) return;
+    if (!contractId || isReissuing || openPaymentIssue) return;
     setIsReissuing(true);
     setErrorMessage(null);
     setBlockingReasons([]);
@@ -549,7 +531,7 @@ export function BookingPaymentStep({
       const outcome = await resolvePaymentOrContractState(contractId, addendumId);
       if (!isMountedRef.current) return;
       applyLoadOutcome(outcome);
-      if (outcome.kind === 'payment' && outcome.payment.status === 'PENDING') {
+      if (outcome.kind === 'payment' && !outcome.openIssue && outcome.payment.status === 'PENDING') {
         toast.success('Đã cập nhật mã thanh toán.');
       }
     } catch (error) {
@@ -738,6 +720,41 @@ export function BookingPaymentStep({
 
   const amountLabel = formatVnd(payment.amountVnd);
   const transferMemo = payment.transferContent || payment.paymentCode;
+  const paymentIssueDialog = (
+    <PaymentIssueDialog
+      open={showPaymentIssueModal}
+      onOpenChange={setShowPaymentIssueModal}
+      context={{
+        contractId: payment.contractId || contractId,
+        invoiceId: payment.id,
+        paymentCode: payment.paymentCode,
+        transferContent: transferMemo,
+        amountVnd: payment.amountVnd,
+        paymentStatus: payment.status,
+        latestTransaction: payment.latestTransaction
+          ? {
+              referenceCode: payment.latestTransaction.referenceCode,
+              outcome: payment.latestTransaction.outcome,
+              reason: payment.latestTransaction.reason,
+              amountReceived: payment.latestTransaction.amountVnd,
+            }
+          : null,
+      }}
+      existingCaseId={openPaymentIssue?.id ?? null}
+      onCaseChanged={(detail) => {
+        if (isOpenSupportCaseStatus(detail.status)) {
+          setOpenPaymentIssue({
+            id: detail.id,
+            caseCode: detail.caseCode,
+            status: detail.status,
+          });
+        } else {
+          setOpenPaymentIssue(null);
+        }
+      }}
+    />
+  );
+
   if (payment.status === 'PAID') {
     if (addendumId) {
       return (
@@ -776,26 +793,42 @@ export function BookingPaymentStep({
             ))}
           </ul>
         )}
-        <button
-          type="button"
-          onClick={() => void handleRecheckActivation()}
-          disabled={isRechecking}
-          data-testid="payment-recheck-activation"
-          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-700 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-amber-800 disabled:opacity-60 cursor-pointer"
-        >
-          {isRechecking ? (
-            <>
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-              <span>Đang kiểm tra lại...</span>
-            </>
-          ) : (
-            <>
-              <span className="material-symbols-outlined text-[18px]">sync</span>
-              <span>Kiểm tra lại tình trạng kích hoạt</span>
-            </>
-          )}
-        </button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => void handleRecheckActivation()}
+            disabled={isRechecking}
+            data-testid="payment-recheck-activation"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-amber-700 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-amber-800 disabled:opacity-60 cursor-pointer"
+          >
+            {isRechecking ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                <span>Đang kiểm tra lại...</span>
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-[18px]">sync</span>
+                <span>Kiểm tra lại tình trạng kích hoạt</span>
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowPaymentIssueModal(true)}
+            data-testid="payment-report-issue"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-amber-400 bg-white px-4 py-2 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[18px]">support_agent</span>
+            <span>
+              {openPaymentIssue
+                ? `Theo dõi báo lỗi (${openPaymentIssue.caseCode})`
+                : 'Báo lỗi chuyển khoản'}
+            </span>
+          </button>
+        </div>
         {errorMessage && <p role="alert" className="text-sm text-destructive">{errorMessage}</p>}
+        {paymentIssueDialog}
       </section>
     );
   }
@@ -844,6 +877,37 @@ export function BookingPaymentStep({
         </div>
       )}
 
+      {openPaymentIssue && (
+        <div
+          role="status"
+          data-testid="payment-open-support-case"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm text-blue-950"
+        >
+          <div className="space-y-1 min-w-0 flex-1">
+            <p className="font-bold">
+              Đang xử lý báo lỗi chuyển khoản ({openPaymentIssue.caseCode}) ·{' '}
+              {getSupportCaseStatusLabel(
+                openPaymentIssue.status,
+                'PAYMENT_ISSUE',
+              )}
+            </p>
+            <p className="text-xs leading-relaxed text-blue-900">
+              Admin đang đối soát giao dịch SePay cho mã thanh toán này. Nếu ngân
+              hàng đã trừ tiền, quý gia đình vui lòng <strong>không chuyển khoản lại</strong>{' '}
+              trước khi có phản hồi.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowPaymentIssueModal(true)}
+            className="inline-flex min-h-10 shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-semibold text-white hover:bg-primary/90 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-[16px]">chat</span>
+            <span>Xem trao đổi với Admin</span>
+          </button>
+        </div>
+      )}
+
       {reviewTransaction && (
         <div
           role="status"
@@ -884,7 +948,9 @@ export function BookingPaymentStep({
               {payment.status === 'CANCELLED' ? 'Mã thanh toán đã bị hủy' : 'Mã thanh toán đã hết hạn'}
             </p>
             <p className="text-muted-foreground">
-              Mã VietQR chỉ có hiệu lực trong 15 phút. Vui lòng tạo mã mới để tiếp tục thanh toán.
+              {openPaymentIssue
+                ? 'Vui lòng theo dõi phản hồi của Admin trong hồ sơ đang đối soát.'
+                : 'Mã VietQR chỉ có hiệu lực trong 15 phút. Vui lòng tạo mã mới để tiếp tục thanh toán.'}
             </p>
           </div>
         </div>
@@ -1007,53 +1073,71 @@ export function BookingPaymentStep({
             </p>
           )}
 
-          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-            {isExpired ? (
+          <div className="flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+              {isExpired ? (
+                !openPaymentIssue && <button
+                  type="button"
+                  onClick={() => void handleReissue()}
+                  disabled={isReissuing}
+                  data-testid="payment-reissue"
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60 sm:w-auto cursor-pointer"
+                >
+                  {isReissuing ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      <span>Đang tạo mã mới...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[18px]">refresh</span>
+                      <span>Tạo mã thanh toán mới</span>
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleVerifyPayment()}
+                  disabled={isVerifying}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60 sm:w-auto cursor-pointer"
+                >
+                  {isVerifying ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      <span>Đang kiểm tra giao dịch...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[18px]">verified</span>
+                      <span>Xác nhận tôi đã chuyển khoản</span>
+                    </>
+                  )}
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={() => void handleReissue()}
-                disabled={isReissuing}
-                data-testid="payment-reissue"
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60 sm:w-auto cursor-pointer"
+                onClick={() => setShowPaymentIssueModal(true)}
+                data-testid="payment-report-issue"
+                className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-4 text-xs sm:text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100 sm:w-auto cursor-pointer"
               >
-                {isReissuing ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    <span>Đang tạo mã mới...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[18px]">refresh</span>
-                    <span>Tạo mã thanh toán mới</span>
-                  </>
-                )}
+                <span className="material-symbols-outlined text-[18px]">report_problem</span>
+                <span>
+                  {openPaymentIssue
+                    ? 'Xem trao đổi báo lỗi'
+                    : 'Báo lỗi chuyển khoản'}
+                </span>
               </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => void handleVerifyPayment()}
-                disabled={isVerifying}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white transition-colors hover:bg-primary/90 disabled:opacity-60 sm:w-auto cursor-pointer"
-              >
-                {isVerifying ? (
-                  <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    <span>Đang kiểm tra giao dịch...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="material-symbols-outlined text-[18px]">verified</span>
-                    <span>Xác nhận tôi đã chuyển khoản</span>
-                  </>
-                )}
-              </button>
-            )}
+            </div>
             <span className="text-xs tabular-nums text-slate-500">
               Mã thanh toán: {payment.paymentCode}
             </span>
           </div>
         </div>
       </div>
+
+      {paymentIssueDialog}
 
       {payment.qrUrl && (
         <Dialog open={showQrModal} onOpenChange={setShowQrModal}>

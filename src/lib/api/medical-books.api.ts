@@ -4,6 +4,7 @@ import type { PatientDocumentType } from './patients.api';
 import type {
   FamilyPrescriptionDetail,
   PrescriptionExam,
+  PrescriptionContext,
   PrescriptionLine,
   PrescriptionPage,
 } from './prescriptions.api';
@@ -34,14 +35,27 @@ export interface BookVisit {
 export interface BookVisitDetail extends Omit<BookVisit, 'diagnosis'> {
   visitScope?: 'FAMILY' | 'INDIVIDUAL';
   participants?: Array<{ id: string; fullName: string }>;
-  patient: BookMember & { familyId: string };
+  patient: BookMember & { familyId: string; gender?: string };
+  facility?: { facilityName: string; address: string | null; phone?: string };
   exam: PrescriptionExam | null;
   finalizedAt: string | null;
   recipient: { id: string; name: string } | null;
   prescription: Pick<
     FamilyPrescriptionDetail,
-    'id' | 'prescriptionCode' | 'status' | 'instructions' | 'details'
+    | 'id'
+    | 'prescriptionCode'
+    | 'status'
+    | 'instructions'
+    | 'details'
+    | 'clinicalContext'
+    | 'prescribedDate'
+    | 'validUntil'
+    | 'recordSnapshot'
+    | 'replaces'
+    | 'replacedBy'
+    | 'replacementReason'
   > | null;
+  prescriptionHistory?: NonNullable<BookVisitDetail['prescription']>[];
 }
 
 export interface BookDocument {
@@ -58,6 +72,7 @@ export interface ConfirmBookVisit {
   confirmed: true;
   exam?: PrescriptionExam;
   prescription?: {
+    clinicalContext?: PrescriptionContext;
     details: PrescriptionLine[];
     instructions: string;
     recipientUserId: string;
@@ -65,11 +80,50 @@ export interface ConfirmBookVisit {
   };
 }
 
+export type FamilyPrescriptionEntry = NonNullable<
+  ConfirmBookVisit['prescription']
+> & {
+  encounterId: string;
+  patientId: string;
+};
+
 const path = '/api/v1/medical-books';
 const patientPath = (familyId: string, patientId: string) =>
   `${path}/families/${encodeURIComponent(familyId)}/patients/${encodeURIComponent(patientId)}`;
 
 export const medicalBooksApi = {
+  async familyPrescriptionVisits(
+    familyId: string,
+    date: string,
+    signal: AbortSignal,
+  ) {
+    return unwrapApiEnvelope<{ items: BookVisitDetail[] }>(
+      await httpClient.get(
+        `${path}/families/${encodeURIComponent(familyId)}/prescription-visits`,
+        { date },
+        { signal, cache: 'no-store' },
+      ),
+    );
+  },
+  async prescribeFamily(
+    familyId: string,
+    prescriptions: FamilyPrescriptionEntry[],
+  ) {
+    return unwrapApiEnvelope<{
+      familyId: string;
+      items: {
+        id: string;
+        prescriptionCode: string;
+        patientId: string;
+        encounterId: string;
+      }[];
+    }>(
+      await httpClient.post(
+        `${path}/families/${encodeURIComponent(familyId)}/prescriptions`,
+        { prescriptions },
+      ),
+    );
+  },
   async families(page: number, signal: AbortSignal) {
     return unwrapApiEnvelope<PrescriptionPage<BookFamily>>(
       await httpClient.get(

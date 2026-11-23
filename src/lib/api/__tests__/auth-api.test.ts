@@ -57,7 +57,7 @@ describe('Task 1: authApi and http-client RFC 9457 & Envelope unpacking', () => 
     fetchSpy.mockRestore();
   });
 
-  it('http-client extracts RFC 9457 error.detail on HTTP 401 error', async () => {
+  it('http-client extracts and localizes RFC 9457 error.detail on HTTP 401 error', async () => {
     const rfc9457Error = {
       success: false,
       code: 401,
@@ -77,7 +77,7 @@ describe('Task 1: authApi and http-client RFC 9457 & Envelope unpacking', () => 
 
     await expect(
       authApi.login({ email: 'wrong@famidoc.vn', password: 'WrongPassword' })
-    ).rejects.toThrow('Incorrect username or password. Please check again.');
+    ).rejects.toThrow('Tên đăng nhập hoặc mật khẩu không đúng. Vui lòng kiểm tra lại.');
 
     fetchSpy.mockRestore();
   });

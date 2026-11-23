@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { financeApi, type SePayReconciliationRunDto, type SePayReconciliationStatusDto } from '@/lib/api/finance.api';
 import { paymentsApi, type PaymentTransactionItem, type PaymentTransactionsPage } from '@/lib/api/payments.api';
+import { extractErrorMessage } from '@/lib/api/error-handler';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -30,7 +31,7 @@ const runLabels: Record<string, string> = {
 };
 
 function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
+  return extractErrorMessage(error, fallback);
 }
 
 function TransactionSource({ transaction }: { transaction: PaymentTransactionItem }) {
@@ -210,9 +211,9 @@ export function AdminReconciliationView() {
             <span className="block">Tìm kiếm toàn sổ</span>
             <Input placeholder="Mã giao dịch, mã thanh toán hoặc nội dung CK" value={search} onChange={(event) => setSearch(event.target.value)} />
           </label>
-          <label className="space-y-1 text-sm">
+          <label className="min-w-0 flex-1 space-y-1 text-sm sm:flex-none">
             <span className="block">Chiều tiền</span>
-            <select className="h-9 rounded-md border bg-white px-2" value={transferType} onChange={(event) => {
+            <select className="h-9 w-full rounded-md border bg-white px-2 sm:w-auto" value={transferType} onChange={(event) => {
               setLedger(null);
               setLedgerError('');
               setPage(1);
@@ -223,9 +224,9 @@ export function AdminReconciliationView() {
               <option value="out">Tiền ra</option>
             </select>
           </label>
-          <label className="space-y-1 text-sm">
+          <label className="min-w-0 flex-1 space-y-1 text-sm sm:flex-none">
             <span className="block">Kết quả xử lý</span>
-            <select className="h-9 rounded-md border bg-white px-2" value={outcome} onChange={(event) => {
+            <select className="h-9 w-full rounded-md border bg-white px-2 sm:w-auto" value={outcome} onChange={(event) => {
               setLedger(null);
               setLedgerError('');
               setPage(1);

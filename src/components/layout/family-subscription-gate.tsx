@@ -34,14 +34,36 @@ function normalizePath(pathname: string | null | undefined): string {
   return (pathname ?? '').split('?')[0].replace(/\/+$/, '') || '/';
 }
 
+function hasSupportCaseQuery(
+  pathname: string | null | undefined,
+  search?: string | null,
+): boolean {
+  const inlineQuery = pathname?.includes('?')
+    ? pathname.slice(pathname.indexOf('?') + 1)
+    : '';
+  const query = search?.trim() || inlineQuery;
+  if (!query) return false;
+  return Boolean(toSearchParams(query).get('supportCaseId')?.trim());
+}
+
 /**
  * Các tính năng chăm sóc yêu cầu hợp đồng ACTIVE. Gia đình vẫn có thể xem
- * sổ khám và đơn đã chia sẻ sau khi gói hết hạn.
+ * sổ khám và đơn đã chia sẻ sau khi gói hết hạn, hoặc mở trực tiếp một hồ sơ
+ * hỗ trợ (`?supportCaseId=...`) từ thông báo.
  */
-export function isRestrictedFamilyPath(pathname: string | null | undefined): boolean {
+export function isRestrictedFamilyPath(
+  pathname: string | null | undefined,
+  search?: string | null,
+): boolean {
   if (!pathname) return false;
   const normalized = normalizePath(pathname);
   if (normalized === '/family/medical-book') return false;
+  if (
+    (normalized === '/family/billing' || normalized === '/family/feedback') &&
+    hasSupportCaseQuery(pathname, search)
+  ) {
+    return false;
+  }
   if (normalized === '/family/prescriptions' || normalized.startsWith('/family/prescriptions/')) return false;
   return normalized === '/family' || normalized.startsWith('/family/');
 }
@@ -269,6 +291,7 @@ export function FamilySubscriptionGateProvider({ children }: { children: React.R
  */
 export function DashboardShellGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { role, isAuthenticated } = useAuth();
   const { isPermissionDenied } = useFamilySubscriptionGateState();
@@ -277,7 +300,7 @@ export function DashboardShellGate({ children }: { children: React.ReactNode }) 
     isPermissionDenied &&
     isAuthenticated &&
     isFamilyRole(role) &&
-    isRestrictedFamilyPath(pathname);
+    isRestrictedFamilyPath(pathname, searchParams?.toString());
 
   useEffect(() => {
     if (shouldDenyAccess) {
@@ -300,11 +323,11 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
   const { gateStatus, isLoadingGate, gateError, isPermissionDenied, refreshGateStatus } =
     useFamilySubscriptionGateState();
 
+  const currentSearch = searchParams?.toString() ?? '';
   const isFamily = isAuthenticated && isFamilyRole(role);
-  const isRestricted = isFamily && isRestrictedFamilyPath(pathname);
+  const isRestricted = isFamily && isRestrictedFamilyPath(pathname, currentSearch);
   const isPermissionDeniedForRoute = isRestricted && isPermissionDenied;
   const shouldBlock = isRestricted && !authLoading && !isLoadingGate && gateStatus !== null && !gateStatus.hasActiveContract;
-  const currentSearch = searchParams?.toString() ?? '';
   const redirectTarget = resolveBlockedFamilyRedirect(gateStatus, {
     pathname,
     search: currentSearch,

@@ -1,28 +1,39 @@
-'use client';
+"use client";
 
-import { useRef, useState, type FormEvent } from 'react';
-import { FilePenLine, Pill, Plus, Trash2 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { useId, useRef, useState, type FormEvent } from "react";
+import { FilePenLine, Pill, Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  eligibleForLongTermPrescription,
+  patientAgeMonths,
+  prescriptionDrugName,
+} from "@/lib/prescription-rules";
 import {
   medicalBooksApi,
   type BookVisitDetail,
-} from '@/lib/api/medical-books.api';
+  type FamilyPrescriptionEntry,
+} from "@/lib/api/medical-books.api";
 import {
   prescriptionErrorMessage,
+  prescriptionsApi,
   type PrescriptionExam,
-  type PrescriptionLine,
-} from '@/lib/api/prescriptions.api';
+  type PrescriptionContext,
+} from "@/lib/api/prescriptions.api";
+import {
+  PrescriptionContextFields,
+  emptyPrescriptionContext,
+} from "./prescription-context-fields";
 
 const emptyExam: PrescriptionExam = {
-  chiefComplaint: '',
-  clinicalFindings: '',
-  icd10Code: '',
-  icd10Diagnosis: '',
-  treatmentPlan: '',
+  chiefComplaint: "",
+  clinicalFindings: "",
+  icd10Code: "",
+  icd10Diagnosis: "",
+  treatmentPlan: "",
 };
 
 const examFields: {
@@ -32,118 +43,348 @@ const examFields: {
   multiline?: boolean;
 }[] = [
   {
-    name: 'chiefComplaint',
-    label: 'Lý do khám',
+    name: "chiefComplaint",
+    label: "Lý do khám",
     maxLength: 4000,
     multiline: true,
   },
   {
-    name: 'clinicalFindings',
-    label: 'Kết quả thăm khám',
+    name: "clinicalFindings",
+    label: "Kết quả thăm khám",
     maxLength: 4000,
     multiline: true,
   },
-  { name: 'icd10Code', label: 'Mã ICD-10', maxLength: 10 },
-  { name: 'icd10Diagnosis', label: 'Chẩn đoán', maxLength: 255 },
+  { name: "icd10Code", label: "Mã ICD-10", maxLength: 10 },
+  { name: "icd10Diagnosis", label: "Chẩn đoán", maxLength: 255 },
   {
-    name: 'treatmentPlan',
-    label: 'Kế hoạch điều trị',
+    name: "treatmentPlan",
+    label: "Kế hoạch điều trị",
     maxLength: 4000,
     multiline: true,
   },
 ];
 
-type DrugRow = Record<keyof PrescriptionLine, string> & { rowId: number };
+type DrugEditableField =
+  | "medicationCode"
+  | "activeIngredient"
+  | "medicationName"
+  | "strength"
+  | "administrationRoute"
+  | "dosage"
+  | "frequency"
+  | "quantity"
+  | "unit"
+  | "durationDays";
+type DrugRow = Record<DrugEditableField, string> & {
+  rowId: number;
+  medicationType: "SINGLE_INGREDIENT" | "COMBINATION" | "BIOLOGICAL";
+};
 const blankDrug = (rowId: number): DrugRow => ({
   rowId,
-  medicationName: '',
-  strength: '',
-  administrationRoute: '',
-  dosage: '',
-  frequency: '',
-  quantity: '',
-  unit: '',
-  durationDays: '',
+  medicationType: "SINGLE_INGREDIENT",
+  medicationCode: "",
+  activeIngredient: "",
+  medicationName: "",
+  strength: "",
+  administrationRoute: "",
+  dosage: "",
+  frequency: "",
+  quantity: "",
+  unit: "",
+  durationDays: "",
 });
 const drugFields: {
-  name: keyof PrescriptionLine;
+  name: DrugEditableField;
   label: string;
   maxLength?: number;
+  optional?: boolean;
   max?: number;
-  wide?: boolean;
 }[] = [
-  { name: 'medicationName', label: 'Tên thuốc', maxLength: 150, wide: true },
-  { name: 'strength', label: 'Hàm lượng / nồng độ', maxLength: 50 },
-  { name: 'administrationRoute', label: 'Đường dùng', maxLength: 50 },
-  { name: 'dosage', label: 'Liều mỗi lần', maxLength: 50 },
+  { name: "medicationCode", label: "Mã thuốc", maxLength: 100, optional: true },
   {
-    name: 'frequency',
-    label: 'Tần suất và thời điểm dùng',
-    maxLength: 100,
-    wide: true,
+    name: "activeIngredient",
+    label: "Hoạt chất",
+    maxLength: 255,
+    optional: true,
   },
-  { name: 'durationDays', label: 'Số ngày dùng', max: 365 },
-  { name: 'quantity', label: 'Tổng số lượng', max: 100000 },
-  { name: 'unit', label: 'Đơn vị', maxLength: 30 },
+  { name: "medicationName", label: "Tên thuốc", maxLength: 150 },
+  { name: "strength", label: "Hàm lượng / nồng độ", maxLength: 50 },
+  { name: "administrationRoute", label: "Đường dùng", maxLength: 50 },
+  { name: "dosage", label: "Liều mỗi lần", maxLength: 50 },
+  {
+    name: "frequency",
+    label: "Tần suất và thời điểm dùng",
+    maxLength: 100,
+  },
+  { name: "durationDays", label: "Số ngày dùng", max: 90 },
+  { name: "quantity", label: "Tổng số lượng", max: 100000 },
+  { name: "unit", label: "Đơn vị", maxLength: 30 },
 ];
-
 export function PrescriptionForm({
   visit,
   onConfirmed,
   onPendingChange,
+  onSaveFamilyDraft,
+  onDraftChange,
+  disabled = false,
+  isReplacement = false,
 }: {
   visit: BookVisitDetail;
   onConfirmed: () => void;
   onPendingChange?: (pending: boolean) => void;
+  onSaveFamilyDraft?: (entry: FamilyPrescriptionEntry) => void;
+  onDraftChange?: () => void;
+  disabled?: boolean;
+  isReplacement?: boolean;
 }) {
-  const [exam, setExam] = useState(emptyExam);
-  const [includePrescription, setIncludePrescription] = useState(false);
-  const [drugs, setDrugs] = useState<DrugRow[]>([blankDrug(1)]);
-  const nextRowId = useRef(2);
-  const [instructions, setInstructions] = useState('');
+  const formId = useId();
+  const [context, setContext] = useState(
+    () =>
+      Object.fromEntries(
+        Object.entries(emptyPrescriptionContext).map(([key, value]) => [
+          key,
+          isReplacement
+            ? String(
+                visit.prescription?.clinicalContext?.[
+                  key as keyof PrescriptionContext
+                ] ?? value,
+              )
+            : value,
+        ]),
+      ) as typeof emptyPrescriptionContext,
+  );
+  const [exam, setExam] = useState(() => visit.exam ?? emptyExam);
+  const [includePrescription, setIncludePrescription] = useState(
+    Boolean(isReplacement || onSaveFamilyDraft || visit.isFinalized),
+  );
+  const [drugs, setDrugs] = useState<DrugRow[]>(() =>
+    isReplacement && visit.prescription
+      ? visit.prescription.details.map((line, index) => ({
+          ...blankDrug(index + 1),
+          ...Object.fromEntries(
+            Object.entries(line)
+              .filter(([key]) => key !== "id")
+              .map(([key, value]) => [key, value == null ? "" : String(value)]),
+          ),
+          medicationType: line.medicationType ?? "SINGLE_INGREDIENT",
+        }))
+      : [blankDrug(1)],
+  );
+  const nextRowId = useRef(drugs.length + 1);
+  const [instructions, setInstructions] = useState(
+    isReplacement ? (visit.prescription?.instructions ?? "") : "",
+  );
+  const [replacementReason, setReplacementReason] = useState("");
   const [authorized, setAuthorized] = useState(false);
   const [pending, setPending] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const { recipient } = visit;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!authorized || pending || (includePrescription && !recipient)) return;
     if (!visit.exam && Object.values(exam).some((value) => !value.trim())) {
-      setError('Vui lòng điền đầy đủ thông tin khám.');
+      setError("Vui lòng điền đầy đủ thông tin khám.");
       return;
     }
+    if (includePrescription) {
+      if (!context.address.trim() || !context.phone.trim()) {
+        setError(
+          "Vui lòng nhập nơi cư trú và số điện thoại liên hệ của người bệnh hoặc người đại diện.",
+        );
+        return;
+      }
+      const today = new Date(Date.now() + 7 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      const ageMonths = patientAgeMonths(visit.patient.dateOfBirth, today);
+      if (ageMonths === null) {
+        setError("Ngày sinh người bệnh không hợp lệ. Vui lòng cập nhật hồ sơ.");
+        return;
+      }
+      if (
+        ageMonths < 72 &&
+        (!context.weightKg.trim() || !context.caregiverName.trim())
+      ) {
+        setError(
+          "Trẻ dưới 72 tháng tuổi cần có cân nặng và họ tên người đưa trẻ đến khám.",
+        );
+        return;
+      }
+      if (
+        isReplacement &&
+        (replacementReason.trim().length < 10 ||
+          replacementReason.trim().length > 2000)
+      ) {
+        setError("Lý do thay thế phải từ 10 đến 2000 ký tự.");
+        return;
+      }
+      if (context.weightKg.trim()) {
+        const w = Number(context.weightKg);
+        if (!Number.isFinite(w) || w < 0.1 || w > 500) {
+          setError("Cân nặng phải nằm trong khoảng từ 0.1 đến 500 kg.");
+          return;
+        }
+      }
+      if (
+        context.citizenId.trim() &&
+        !/^\d{12}$/.test(context.citizenId.trim())
+      ) {
+        setError("Mã định danh công dân phải gồm đúng 12 chữ số.");
+        return;
+      }
+      if (
+        context.phone.trim() &&
+        !/^\+?[0-9]{9,15}$/.test(context.phone.trim())
+      ) {
+        setError("Số điện thoại phải gồm từ 9 đến 15 chữ số.");
+        return;
+      }
+      if (context.followUpDays.trim()) {
+        const days = Number(context.followUpDays);
+        if (!Number.isInteger(days) || days < 1 || days > 365) {
+          setError("Số ngày hẹn tái khám phải là số nguyên từ 1 đến 365.");
+          return;
+        }
+      }
+      if (drugs.length === 0) {
+        setError("Vui lòng kê ít nhất 1 dòng thuốc.");
+        return;
+      }
+      for (let idx = 0; idx < drugs.length; idx++) {
+        const row = drugs[idx];
+        const stt = idx + 1;
+        if (prescriptionDrugName(row).length > 150) {
+          setError(
+            `Thuốc ${stt}: tên INN và tên thương mại kết hợp không được vượt quá 150 ký tự.`,
+          );
+          return;
+        }
+        if (
+          row.medicationType === "SINGLE_INGREDIENT" &&
+          !row.activeIngredient.trim()
+        ) {
+          setError(`Thuốc ${stt}: vui lòng nhập tên hoạt chất (INN).`);
+          return;
+        }
+        if (
+          !row.medicationName.trim() ||
+          !row.strength.trim() ||
+          !row.administrationRoute.trim() ||
+          !row.dosage.trim() ||
+          !row.frequency.trim() ||
+          !row.unit.trim()
+        ) {
+          setError(`Vui lòng điền đầy đủ thông tin bắt buộc cho Thuốc ${stt}.`);
+          return;
+        }
+        const duration = Number(row.durationDays);
+        if (!Number.isInteger(duration) || duration < 1 || duration > 90) {
+          setError(
+            `Số ngày dùng của Thuốc ${stt} phải là số nguyên từ 1 đến 90.`,
+          );
+          return;
+        }
+        if (
+          duration > 30 &&
+          (!eligibleForLongTermPrescription(exam.icd10Code) ||
+            context.longTermReason.trim().length < 10 ||
+            context.longTermReason.trim().length > 2000)
+        ) {
+          setError(
+            `Thuốc ${stt}: kê trên 30 ngày cần chẩn đoán thuộc Phụ lục VII và lý do chuyên môn từ 10 đến 2000 ký tự.`,
+          );
+          return;
+        }
+        const qty = Number(row.quantity);
+        if (!Number.isInteger(qty) || qty < 1 || qty > 100000) {
+          setError(
+            `Tổng số lượng của Thuốc ${stt} phải là số nguyên từ 1 đến 100.000.`,
+          );
+          return;
+        }
+      }
+    }
+    const hasLongTermDrug = drugs.some((row) => Number(row.durationDays) > 30);
     setPending(true);
     onPendingChange?.(true);
-    setError('');
+    setError("");
     try {
-      await medicalBooksApi.confirm(visit.id, {
+      const body = {
         patientId: visit.patient.id,
-        confirmed: true,
+        confirmed: true as const,
         ...(!visit.exam ? { exam } : {}),
         ...(includePrescription && recipient
           ? {
               prescription: {
+                clinicalContext: Object.fromEntries(
+                  Object.entries(context)
+                    .filter(
+                      ([key, value]) =>
+                        value.trim() !== "" &&
+                        (key !== "longTermReason" || hasLongTermDrug),
+                    )
+                    .map(([key, value]) => [
+                      key,
+                      key === "weightKg" || key === "followUpDays"
+                        ? Number(value)
+                        : value.trim(),
+                    ]),
+                ) as PrescriptionContext,
                 details: drugs.map(
-                  ({ rowId: _rowId, quantity, durationDays, ...drug }) => ({
+                  ({
+                    rowId: _rowId,
+                    quantity,
+                    durationDays,
+                    medicationCode,
+                    activeIngredient,
+                    ...drug
+                  }) => ({
                     ...drug,
+                    ...(medicationCode?.trim()
+                      ? { medicationCode: medicationCode.trim() }
+                      : {}),
+                    ...(activeIngredient?.trim()
+                      ? { activeIngredient: activeIngredient.trim() }
+                      : {}),
                     quantity: Number(quantity),
                     durationDays: Number(durationDays),
                   }),
                 ),
                 instructions,
                 recipientUserId: recipient.id,
-                recipientAuthorized: true,
+                recipientAuthorized: true as const,
               },
             }
           : {}),
-      });
-      onConfirmed();
+      };
+      if (onSaveFamilyDraft && body.prescription) {
+        onSaveFamilyDraft({
+          ...body.prescription,
+          encounterId: visit.id,
+          patientId: visit.patient.id,
+        });
+      } else {
+        if (isReplacement && visit.prescription && body.prescription) {
+          await prescriptionsApi.replace(visit.prescription.id, {
+            ...body.prescription,
+            replacementReason: replacementReason.trim(),
+          });
+        } else if (visit.isFinalized && body.prescription) {
+          await prescriptionsApi.share(visit.id, {
+            ...body.prescription,
+            patientId: visit.patient.id,
+          });
+        } else {
+          await medicalBooksApi.confirm(visit.id, body);
+        }
+        onConfirmed();
+      }
     } catch (failure) {
       setError(
         prescriptionErrorMessage(
           failure,
-          'Chưa xác nhận được trang khám. Vui lòng thử lại.',
+          "Chưa xác nhận được trang khám. Vui lòng thử lại.",
         ),
       );
     } finally {
@@ -153,15 +394,27 @@ export function PrescriptionForm({
   }
 
   return (
-    <form className="space-y-5" onSubmit={submit}>
-      <fieldset disabled={pending} className="min-w-0 space-y-5">
+    <form
+      noValidate
+      aria-label={`Kê đơn cho ${visit.patient.fullName}`}
+      className="min-w-0 space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6"
+      onSubmit={submit}
+      onChange={onDraftChange}
+    >
+      <fieldset disabled={pending || disabled} className="min-w-0 space-y-5">
+        <PrescriptionContextFields
+          idPrefix={formId}
+          visit={visit}
+          value={context}
+          onChange={setContext}
+        />
         {!visit.exam && (
           <Card className="gap-4 border-slate-200/80 shadow-none p-4 sm:p-6">
             <h2 className="text-lg font-semibold">Thông tin khám</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               {examFields.map((field) => {
                 const props = {
-                  id: field.name,
+                  id: `${formId}-${field.name}`,
                   required: true,
                   value: exam[field.name],
                   maxLength: field.maxLength,
@@ -179,12 +432,12 @@ export function PrescriptionForm({
                   <div
                     key={field.name}
                     className={
-                      field.name === 'treatmentPlan'
-                        ? 'space-y-2 sm:col-span-2'
-                        : 'space-y-2'
+                      field.name === "treatmentPlan"
+                        ? "space-y-2 sm:col-span-2"
+                        : "space-y-2"
                     }
                   >
-                    <Label htmlFor={field.name}>{field.label}</Label>
+                    <Label htmlFor={props.id}>{field.label}</Label>
                     {field.multiline ? (
                       <Textarea {...props} rows={2} />
                     ) : (
@@ -197,11 +450,11 @@ export function PrescriptionForm({
           </Card>
         )}
 
-        {!visit.prescription && (
+        {(!visit.prescription || isReplacement) && (
           <Card className="gap-4 border-slate-200/80 shadow-none p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 text-lg font-semibold">
-                <Pill size={20} className="text-teal-700" aria-hidden="true" />{' '}
+                <Pill size={20} className="text-teal-700" aria-hidden="true" />{" "}
                 Đơn thuốc
               </h2>
               <label className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 px-3 text-sm font-semibold">
@@ -209,7 +462,12 @@ export function PrescriptionForm({
                   type="checkbox"
                   className="size-4 accent-teal-700"
                   checked={includePrescription}
-                  disabled={!recipient}
+                  disabled={
+                    isReplacement ||
+                    !recipient ||
+                    Boolean(onSaveFamilyDraft) ||
+                    visit.isFinalized
+                  }
                   onChange={(event) => {
                     setIncludePrescription(event.target.checked);
                     setAuthorized(false);
@@ -218,6 +476,25 @@ export function PrescriptionForm({
                 Kê đơn cho lần khám này
               </label>
             </div>
+            {isReplacement && (
+              <div className="space-y-2">
+                <Label htmlFor={`${formId}-replacement-reason`}>
+                  Lý do thay thế đơn *
+                </Label>
+                <Textarea
+                  id={`${formId}-replacement-reason`}
+                  required
+                  minLength={10}
+                  maxLength={2000}
+                  value={replacementReason}
+                  onChange={(event) => setReplacementReason(event.target.value)}
+                />
+                <p className="text-xs text-slate-600">
+                  Khi lưu thành công, bản cũ được đánh dấu đã thay thế và vẫn
+                  xem lại được.
+                </p>
+              </div>
+            )}
             {!recipient && (
               <p className="text-sm text-slate-600">
                 Chưa có người nhận đơn thuốc hợp lệ.
@@ -228,28 +505,66 @@ export function PrescriptionForm({
                 {drugs.map((drug, index) => (
                   <fieldset
                     key={drug.rowId}
-                    className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/70 p-3 sm:p-4"
+                    className="min-w-0 rounded-lg border border-slate-200 bg-slate-50/50 p-3 sm:p-4"
                   >
                     <legend className="px-2 text-sm font-semibold text-slate-800">
                       Thuốc {index + 1}
                     </legend>
-                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor={`${formId}-drug-${drug.rowId}-type`}>
+                          Loại thuốc
+                        </Label>
+                        <select
+                          id={`${formId}-drug-${drug.rowId}-type`}
+                          className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm"
+                          value={drug.medicationType}
+                          onChange={(event) =>
+                            setDrugs((current) =>
+                              current.map((row) =>
+                                row.rowId === drug.rowId
+                                  ? {
+                                      ...row,
+                                      medicationType: event.target
+                                        .value as DrugRow["medicationType"],
+                                    }
+                                  : row,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="SINGLE_INGREDIENT">
+                            Một hoạt chất — ghi tên INN
+                          </option>
+                          <option value="COMBINATION">
+                            Thuốc phối hợp — ghi tên thương mại
+                          </option>
+                          <option value="BIOLOGICAL">
+                            Sinh phẩm — ghi tên thương mại
+                          </option>
+                        </select>
+                      </div>
                       {drugFields.map((field) => {
-                        const id = `drug-${drug.rowId}-${field.name}`;
+                        const id = `${formId}-drug-${drug.rowId}-${field.name}`;
                         return (
-                          <div
-                            key={id}
-                            className={
-                              field.wide
-                                ? 'space-y-2 sm:col-span-2'
-                                : 'space-y-2'
-                            }
-                          >
-                            <Label htmlFor={id}>{field.label}</Label>
+                          <div key={id} className="min-w-0 space-y-2">
+                            <Label
+                              htmlFor={id}
+                              className="text-xs leading-snug"
+                            >
+                              {field.label}
+                            </Label>
+                            {field.name === "medicationName" && (
+                              <p className="text-xs text-slate-600">
+                                {drug.medicationType === "SINGLE_INGREDIENT"
+                                  ? "Ghi tên INN hoặc INN (tên thương mại)."
+                                  : "Ghi tên thương mại của thuốc phối hợp hoặc sinh phẩm."}
+                              </p>
+                            )}
                             <Input
                               id={id}
-                              required
-                              type={field.max ? 'number' : 'text'}
+                              required={!field.optional}
+                              type={field.max ? "number" : "text"}
                               min={field.max ? 1 : undefined}
                               max={field.max}
                               maxLength={field.maxLength}
@@ -269,6 +584,12 @@ export function PrescriptionForm({
                           </div>
                         );
                       })}
+                      <div className="space-y-2 text-xs">
+                        <p className="font-medium">Đã bán</p>
+                        <p className="text-slate-500">
+                          Chưa có dữ liệu từ nhà thuốc
+                        </p>
+                      </div>
                     </div>
                     {drugs.length > 1 && (
                       <Button
@@ -300,15 +621,22 @@ export function PrescriptionForm({
                   <Plus size={16} /> Thêm thuốc
                 </Button>
                 <div className="space-y-2">
-                  <Label htmlFor="prescription-instructions">Lời dặn</Label>
+                  <Label htmlFor={`${formId}-prescription-instructions`}>
+                    Lời dặn
+                  </Label>
                   <Textarea
-                    id="prescription-instructions"
+                    id={`${formId}-prescription-instructions`}
                     value={instructions}
                     maxLength={4000}
                     rows={3}
                     onChange={(event) => setInstructions(event.target.value)}
                   />
                 </div>
+                <p className="text-xs text-slate-600">
+                  Đơn thuốc có giá trị mua, lĩnh thuốc trong thời hạn tối đa 05
+                  ngày kể từ ngày kê đơn. Khám lại khi có biểu hiện bất thường.
+                  Mang theo đơn khi tái khám.
+                </p>
               </>
             )}
           </Card>
@@ -318,14 +646,17 @@ export function PrescriptionForm({
           <div>
             <h2 className="text-lg font-semibold">Xác nhận trang khám</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Người được khám{' '}
+              Bác sĩ kê đơn · {visit.doctorName}
+            </p>
+            <p className="mt-1 text-sm text-slate-600">
+              Người được khám{" "}
               <strong className="text-slate-900">
                 {visit.patient.fullName}
               </strong>
             </p>
             {includePrescription && recipient && (
               <p className="mt-1 text-sm text-slate-600">
-                Người nhận đơn{' '}
+                Người nhận đơn{" "}
                 <strong className="text-slate-900">{recipient.name}</strong>
               </p>
             )}
@@ -341,12 +672,13 @@ export function PrescriptionForm({
             <span>
               Tôi xác nhận nội dung và người được khám.
               {includePrescription &&
-                ' Tôi đã kiểm tra đơn và quyền của người nhận.'}
+                " Tôi đã kiểm tra đơn và quyền của người nhận."}
             </span>
           </label>
           <p className="text-sm text-slate-600">
             Xác nhận nội bộ bằng tài khoản bác sĩ. Trang đã xác nhận sẽ được mở
-            cho gia đình xem.
+            cho gia đình xem. Phần mã liên thông bác sĩ, mã CSYT và chữ ký số sẽ
+            được bổ sung ở bước tích hợp ký số chính thức.
           </p>
           {error && (
             <p
@@ -361,12 +693,16 @@ export function PrescriptionForm({
             disabled={!authorized || pending}
             className="self-start bg-teal-700 hover:bg-teal-800"
           >
-            <FilePenLine size={16} aria-hidden="true" />{' '}
+            <FilePenLine size={16} aria-hidden="true" />{" "}
             {pending
-              ? 'Đang xác nhận…'
-              : includePrescription
-                ? 'Xác nhận và gửi đơn'
-                : 'Xác nhận trang khám'}
+              ? "Đang xác nhận…"
+              : onSaveFamilyDraft
+                ? "Thêm vào đơn gia đình"
+                : isReplacement
+                  ? "Lưu đơn thay thế và thông báo gia đình"
+                  : includePrescription
+                    ? "Xác nhận và gửi đơn"
+                    : "Xác nhận trang khám"}
           </Button>
         </Card>
       </fieldset>

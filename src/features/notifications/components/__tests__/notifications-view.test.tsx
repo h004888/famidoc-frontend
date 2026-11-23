@@ -3,6 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { NotificationsView } from '../notifications-view';
 import * as authContext from '@/features/auth/context/auth-context';
+import { isRestrictedFamilyPath } from '@/components/layout/family-subscription-gate';
+import { getNotificationAction } from '../../hooks/use-family-notifications';
 import { httpClient } from '@/lib/api/http-client';
 
 vi.mock('@/lib/api/http-client', () => ({
@@ -15,6 +17,24 @@ vi.mock('@/lib/api/http-client', () => ({
 describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it.each([
+    ['SUPPORT_CASE_PAYMENT', '/family/billing'],
+    ['SUPPORT_CASE_COMPLAINT', '/family/feedback'],
+  ])('links %s to the specific support case even without an active contract', (type, path) => {
+    const action = getNotificationAction({
+      id: 'notification-1',
+      title: 'Cập nhật hồ sơ',
+      content: '',
+      type,
+      referenceId: 'case-1',
+      isRead: false,
+      createdAt: '2026-11-22T09:00:00Z',
+    });
+    expect(action?.href).toBe(path + '?supportCaseId=case-1');
+    expect(isRestrictedFamilyPath(action?.href)).toBe(false);
+    expect(isRestrictedFamilyPath('/family/appointments')).toBe(true);
   });
   it('renders heading and notification items correctly', () => {
     render(<NotificationsView />);

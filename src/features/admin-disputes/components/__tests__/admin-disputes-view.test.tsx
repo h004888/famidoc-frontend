@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { adminApi, type AdminComplaint, type AdminComplaintDetail } from '@/lib/api/admin.api';
+import { supportCasesApi } from '@/lib/api/support-cases.api';
 import { AdminDisputesView } from '../admin-disputes-view';
 
 vi.mock('@/lib/api/admin.api', async (importOriginal) => ({
@@ -11,6 +12,16 @@ vi.mock('@/lib/api/admin.api', async (importOriginal) => ({
     facilityComplaints: vi.fn(),
     complaint: vi.fn(),
     updateComplaint: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/api/support-cases.api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/api/support-cases.api')>()),
+  supportCasesApi: {
+    list: vi.fn(),
+    detail: vi.fn(),
+    postMessage: vi.fn(),
+    updateStatus: vi.fn(),
   },
 }));
 
@@ -158,5 +169,86 @@ describe('Admin complaint tabs', () => {
         notes: 'Đổi bác sĩ và bù 1 ca khám cho gia đình.',
       });
     });
+  });
+
+  it('renders Vietnamese labels for all backend complaint categories (DOCTOR_ABSENT, UNAUTHORIZED_FEE, OTHER)', async () => {
+    vi.mocked(adminApi.complaints).mockResolvedValue({
+      items: [
+        { ...familyComplaint, id: 'c1', complaintCode: 'CP-1', complaintCategory: 'DOCTOR_ABSENT' },
+        { ...familyComplaint, id: 'c2', complaintCode: 'CP-2', complaintCategory: 'UNAUTHORIZED_FEE' },
+        { ...familyComplaint, id: 'c3', complaintCode: 'CP-3', complaintCategory: 'OTHER' },
+      ],
+      total: 3,
+      page: 1,
+      limit: 20,
+    });
+
+    render(<AdminDisputesView />);
+
+    expect(await screen.findByText('Bác sĩ vắng mặt / Không đến khám')).toBeInTheDocument();
+    expect(screen.getByText('Thu thêm phụ phí ngoài hợp đồng')).toBeInTheDocument();
+    expect(screen.getByText('Sự cố / Phản ánh dịch vụ khác')).toBeInTheDocument();
+  });
+
+  it('shows Admin-only Xem xét lại & Câu hỏi tab and loads complaint support cases', async () => {
+    vi.mocked(adminApi.complaints).mockResolvedValue({
+      items: [familyComplaint],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    vi.mocked(supportCasesApi.list).mockResolvedValue({
+      items: [
+        {
+          id: 'sc-1',
+          caseCode: 'XL-88776655',
+          caseType: 'COMPLAINT_APPEAL',
+          status: 'OPEN',
+          familyUserId: 'fam-1',
+          contractId: 'contract-id',
+          complaintId: 'family-complaint',
+          invoiceId: null,
+          transactionId: null,
+          contextSnapshot: {},
+          resolutionSummary: null,
+          resolvedAt: null,
+          createdAt: '2026-11-22T08:00:00Z',
+          updatedAt: '2026-11-22T09:00:00Z',
+          messageCount: 1,
+          lastMessage: {
+            id: 'm1',
+            senderRole: 'FAMILY_REP',
+            body: 'Gia đình đề nghị xem xét lại kết luận.',
+            createdAt: '2026-11-22T08:00:00Z',
+          },
+          familyUser: { id: 'fam-1', fullName: 'Nguyễn Văn A', phone: '0901234567' },
+          contract: {
+            id: 'contract-id',
+            contractNumber: 'HD-2026-001',
+            contractStatus: 'ACTIVE',
+            facilityName: 'BV Bạch Mai',
+            packageName: 'Gói Toàn Diện',
+          },
+          complaint: {
+            id: 'family-complaint',
+            complaintCode: 'CP-FAMILY',
+            complaintCategory: 'MISSED_VISIT',
+            status: 'RESOLVED',
+            resolutionOutcome: 'WARNING',
+          },
+          invoice: null,
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    const user = userEvent.setup();
+    render(<AdminDisputesView />);
+
+    await user.click(screen.getByRole('tab', { name: 'Xem xét lại & Câu hỏi' }));
+    expect(await screen.findByText('XL-88776655')).toBeInTheDocument();
+    expect(screen.getByText(/Gia đình đề nghị xem xét lại kết luận/)).toBeInTheDocument();
   });
 });

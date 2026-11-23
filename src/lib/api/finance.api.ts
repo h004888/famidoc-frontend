@@ -92,6 +92,7 @@ export interface FinanceAnalyticsQueryDto {
 }
 
 export interface FinanceAnalyticsDto {
+  settlementFrequency?: 'MONTHLY';
   year: number;
   month: number;
   environment: 'TEST' | 'LIVE';

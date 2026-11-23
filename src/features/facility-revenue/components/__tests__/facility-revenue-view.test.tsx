@@ -38,6 +38,8 @@ describe('FacilityRevenueView', () => {
     expect(await screen.findByText('Tháng 10/2026 · LIVE')).toBeInTheDocument();
     expect(screen.getByText(/850[.,]000/)).toBeInTheDocument();
     expect(screen.getByText(/150[.,]000/)).toBeInTheDocument();
+    expect(screen.getByText(/Đối soát và nhận tiền hàng tháng/)).toBeInTheDocument();
+    expect(screen.getByText(/Khoản 85% trả cho CSYT chưa khấu trừ hoặc nộp thay thuế/)).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Kỳ báo cáo'), { target: { value: '2026-09' } });
     await waitFor(() => expect(financeApi.getAnalytics).toHaveBeenLastCalledWith({ environment: 'LIVE', year: 2026, month: 9 }));
@@ -70,6 +72,10 @@ describe('FacilityRevenueView', () => {
     const table = within(await screen.findByRole('table'));
     fireEvent.click(table.getByRole('button', { name: open }));
     const dialog = within(await screen.findByRole('dialog'));
+    const payment = dialog.getByRole('region', { name: 'Số tiền và kỳ chi trả CSYT' });
+    expect(payment).toHaveTextContent('Tháng 10/2026');
+    expect(payment).toHaveTextContent('850.000');
+    expect(payment).toHaveTextContent('Bảng chi trả này chưa xác nhận bên nhận đã hoàn thành nghĩa vụ thuế.');
     if (action === 'REPORT_DISCREPANCY') {
       fireEvent.change(dialog.getByLabelText('Nội dung sai lệch'), { target: { value: reason } });
     }

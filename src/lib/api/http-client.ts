@@ -1,6 +1,6 @@
-import { ApiError } from '../http/errors';
+import { ApiConnectionError, ApiError } from '../http/errors';
 import { COOKIE_KEYS, getCookie } from '@/lib/auth-storage';
-import { extractErrorMessage } from './error-handler';
+import { extractErrorMessage, isNetworkFailureMessage } from './error-handler';
 
 const LEGACY_TOKEN_KEY = 'famidoc_auth_token';
 
@@ -25,6 +25,20 @@ const BLOB_RETRY_DELAY_MS = 250;
 
 function sleepMs(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeRequestError(error: unknown): ApiError {
+  if (error instanceof ApiError) return error;
+  if (error instanceof SyntaxError) {
+    return new ApiError('Máy chủ trả về dữ liệu không hợp lệ. Vui lòng thử lại sau.');
+  }
+  const rawMessage = error instanceof Error ? error.message : error;
+  if (typeof rawMessage === 'string' && isNetworkFailureMessage(rawMessage)) {
+    return new ApiConnectionError(extractErrorMessage(error));
+  }
+  return new ApiError(
+    extractErrorMessage(error, 'Không xử lý được yêu cầu. Vui lòng thử lại sau.')
+  );
 }
 
 class HttpClient {
@@ -286,8 +300,7 @@ class HttpClient {
 
       return (await res.json()) as T;
     } catch (err) {
-      if (err instanceof ApiError) throw err;
-      throw new ApiError(err instanceof Error ? err.message : 'Lỗi kết nối máy chủ', 500);
+      throw normalizeRequestError(err);
     }
   }
 
@@ -324,11 +337,7 @@ class HttpClient {
           await sleepMs(BLOB_RETRY_DELAY_MS);
           continue;
         }
-        if (networkErr instanceof ApiError) throw networkErr;
-        throw new ApiError(
-          networkErr instanceof Error ? networkErr.message : 'Lỗi kết nối máy chủ',
-          503,
-        );
+        throw normalizeRequestError(networkErr);
       }
 
       if (!res.ok) {
@@ -342,7 +351,8 @@ class HttpClient {
         }
 
         let errorData: unknown = undefined;
-        let detailMessage = `API error (${res.status})`;
+        const fallbackMessage = `API error (${res.status})`;
+        let detailMessage = extractErrorMessage({}, fallbackMessage);
         const contentType =
           typeof res.headers?.get === 'function'
             ? res.headers.get('content-type') || ''
@@ -350,26 +360,30 @@ class HttpClient {
 
         if (contentType.includes('application/json') && typeof res.json === 'function') {
           errorData = await res.json().catch(() => undefined);
-          detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+          detailMessage = extractErrorMessage({ data: errorData }, fallbackMessage);
         } else if (typeof res.text === 'function') {
           const text = await res.text().catch(() => '');
           if (text.trim()) {
             try {
               errorData = JSON.parse(text);
-              detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+              detailMessage = extractErrorMessage({ data: errorData }, fallbackMessage);
             } catch {
-              detailMessage = text.trim();
+              detailMessage = extractErrorMessage(text.trim(), fallbackMessage);
             }
           }
         } else if (typeof res.json === 'function') {
           errorData = await res.json().catch(() => undefined);
-          detailMessage = extractErrorMessage({ data: errorData }, detailMessage);
+          detailMessage = extractErrorMessage({ data: errorData }, fallbackMessage);
         }
 
         throw new ApiError(detailMessage, res.status, errorData);
       }
 
-      return res.blob();
+      try {
+        return await res.blob();
+      } catch (error) {
+        throw normalizeRequestError(error);
+      }
     }
 
     throw new ApiError('Không thể tải tệp từ máy chủ', 503);
@@ -409,26 +423,30 @@ class HttpClient {
     method: 'POST' | 'PUT' = 'POST'
   ): Promise<T> {
     const url = this.buildUrl(path);
-    const res = await this.fetchWithAuthRetry(path, (authHeader) => {
-      const headers: Record<string, string> = {};
-      if (authHeader) {
-        headers['Authorization'] = authHeader;
-      }
-      return fetch(url, {
-        method,
-        headers,
-        body: formData,
+    try {
+      const res = await this.fetchWithAuthRetry(path, (authHeader) => {
+        const headers: Record<string, string> = {};
+        if (authHeader) {
+          headers['Authorization'] = authHeader;
+        }
+        return fetch(url, {
+          method,
+          headers,
+          body: formData,
+        });
       });
-    });
-    if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      const detailMessage = extractErrorMessage(
-        { data: errorData },
-        `Upload failed (${res.status})`
-      );
-      throw new ApiError(detailMessage, res.status, errorData);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const detailMessage = extractErrorMessage(
+          { data: errorData },
+          `API error (${res.status})`
+        );
+        throw new ApiError(detailMessage, res.status, errorData);
+      }
+      return (await res.json()) as T;
+    } catch (error) {
+      throw normalizeRequestError(error);
     }
-    return (await res.json()) as T;
   }
 }
 
