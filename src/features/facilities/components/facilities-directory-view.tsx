@@ -85,13 +85,15 @@ export function FacilitiesDirectoryView() {
               tax_code: typeof f.taxCode === 'string' ? f.taxCode : (typeof f.tax_code === 'string' ? f.tax_code : undefined),
               workingHours: '24/7 (Cấp cứu & Ngoại trú)',
               imageUrl: (typeof f.imageUrl === 'string' && f.imageUrl) ? f.imageUrl : FALLBACK_IMAGES[idx % FALLBACK_IMAGES.length],
-              specialties: ['Nội Tổng Quát', 'Lão Khoa', 'Nhi Khoa', 'Tim Mạch Can Thiệp'],
-              privileges: [
-                'Lối đi ưu tiên FamiDoc Fast-Track',
-                'Liên thông dữ liệu bệnh án điện tử EMR',
-                'Bảo lãnh viện phí trực tiếp',
-              ],
-              bedCount: displayName.toLowerCase().includes('phòng khám') ? 'Lưu viện ngắn hạn' : '500+ giường',
+              specialties: Array.isArray(f.specialties) ? f.specialties : [],
+              privileges: Array.isArray(f.privileges) && f.privileges.length > 0
+                ? f.privileges
+                : [
+                  'Lối đi ưu tiên FamiDoc Fast-Track',
+                  'Liên thông dữ liệu bệnh án điện tử EMR',
+                  'Bảo lãnh viện phí trực tiếp',
+                ],
+              bedCount: f.bedCount || (displayName.toLowerCase().includes('phòng khám') ? 'Phòng khám chuyên khoa' : 'Cơ sở đối tác'),
             };
           });
           setFacilitiesList(mapped);
@@ -162,7 +164,7 @@ export function FacilitiesDirectoryView() {
             </h1>
 
             <p className="text-sm sm:text-base text-blue-100 max-w-2xl mx-auto leading-relaxed">
-              Hơn 18 bệnh viện tuyến trung ương và phòng khám đa khoa hàng đầu, cam kết phân luồng đón tiếp ưu tiên Fast-Track và liên thông dữ liệu hồ sơ sức khỏe cho hội viên FamiDoc.
+              Mạng lưới bệnh viện và phòng khám đa khoa đối tác trên hệ thống FamiDoc, cam kết phân luồng đón tiếp ưu tiên Fast-Track và liên thông dữ liệu hồ sơ sức khỏe cho hội viên.
             </p>
 
             <nav aria-label="Breadcrumb" className="inline-flex items-center justify-center gap-2 text-xs sm:text-sm text-blue-200 font-medium pt-2">

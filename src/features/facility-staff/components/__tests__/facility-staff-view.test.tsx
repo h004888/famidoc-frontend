@@ -302,4 +302,74 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
     ).toBeInTheDocument();
     expect(screen.getByText('Gửi email thất bại')).toBeInTheDocument();
   });
+
+  it('derives dynamic specialty filter options from real doctor list including non-static specialties like Nhi khoa', async () => {
+    vi.mocked(doctorsApi.getFacilityDoctors).mockResolvedValueOnce([
+      {
+        id: 'DOC-NHI',
+        doctorName: 'BS. Lê Nhi Khoa',
+        specialty: 'Nhi khoa',
+        onboardingStatus: 'ACTIVE',
+      },
+      {
+        id: 'DOC-NT',
+        doctorName: 'BS. Trần Nội Tiết',
+        specialty: 'Khoa Nội tiết',
+        onboardingStatus: 'ACTIVE',
+      },
+    ]);
+
+    render(<FacilityStaffView />);
+    await screen.findAllByText('BS. Lê Nhi Khoa');
+
+    const specialtyFilter = screen.getByLabelText('Lọc theo chuyên khoa');
+    const nhiOption = Array.from(specialtyFilter.querySelectorAll('option')).find(
+      (opt) => opt.value === 'Nhi khoa',
+    );
+    expect(nhiOption).toBeTruthy();
+
+    fireEvent.change(specialtyFilter, { target: { value: 'Nhi khoa' } });
+    expect(screen.getAllByText('BS. Lê Nhi Khoa').length).toBeGreaterThan(0);
+    expect(screen.queryByText('BS. Trần Nội Tiết')).not.toBeInTheDocument();
+  });
+
+  it('allows selecting dynamic or custom specialty in create doctor modal', async () => {
+    vi.mocked(doctorsApi.createFacilityDoctor).mockResolvedValueOnce({
+      data: {
+        id: 'DOC-CUSTOM',
+        doctorName: 'BS. Phạm Tim Mạch',
+        email: 'timmach@hospital.vn',
+        phone: '0911222333',
+        specialty: 'Tim mạch can thiệp',
+        mailSent: true,
+      },
+    });
+
+    render(<FacilityStaffView />);
+    await screen.findAllByText('BS.CKII Trần Thanh Mai');
+
+    fireEvent.click(screen.getByRole('button', { name: /Thêm Bác Sĩ Mới/i }));
+    fireEvent.change(screen.getByPlaceholderText(/ThS.BS Phan Văn Minh/i), {
+      target: { value: 'BS. Phạm Tim Mạch' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/minh.phan@ansinhhospital.vn/i), {
+      target: { value: 'timmach@hospital.vn' },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/0988123456/i), {
+      target: { value: '0911222333' },
+    });
+
+    const deptSelect = screen.getByLabelText('Khoa phòng chuyên môn');
+    fireEvent.change(deptSelect, { target: { value: '__CUSTOM__' } });
+    fireEvent.change(screen.getByLabelText('Nhập chuyên khoa'), {
+      target: { value: 'Tim mạch can thiệp' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Khởi tạo Bác sĩ' }));
+
+    await waitFor(() => {
+      expect(doctorsApi.createFacilityDoctor).toHaveBeenCalledWith(
+        expect.objectContaining({ specialty: 'Tim mạch can thiệp' }),
+      );
+    });
+  });
 });

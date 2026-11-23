@@ -18,7 +18,7 @@ function normalizePath(pathname: string | null | undefined): string {
 
 /**
  * Giai đoạn 1: Toàn bộ phân hệ `/facility` và `/facility/*` (ngoại trừ `/facility/legal-profile` và `/facility/login`)
- * bị khóa khi cơ sở y tế chưa được Admin duyệt pháp lý (`ACTIVE`).
+ * bị khóa khi cơ sở y tế chưa được Admin duyệt pháp lý.
  */
 export function isRestrictedFacilityPath(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
@@ -33,7 +33,7 @@ export function isRestrictedFacilityPath(pathname: string | null | undefined): b
 }
 
 /**
- * Giai đoạn 2 (theo sơ đồ Step 8): Khi CSYT đã duyệt pháp lý (`ACTIVE`) nhưng chưa có Hợp đồng B2B `ACTIVE`,
+ * Giai đoạn 2 (theo sơ đồ Step 8): Khi CSYT đã duyệt pháp lý nhưng chưa có Hợp đồng B2B `ACTIVE`,
  * chỉ cho phép `/facility`, `/facility/legal-profile`, `/facility/contracts*`; khóa các phân hệ vận hành
  * (`/facility/doctors*`, `/facility/staff*`, `/facility/coordination*`, `/facility/revenue*`).
  * Nếu CSYT từng có HĐ B2B (`hasHistoricalStaffingContract = true`), vẫn mở `/facility/coordination*` và `/facility/revenue*`

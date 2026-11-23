@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { z } from 'zod';
 import { authApi } from '@/lib/api/auth.api';
+import { usersApi } from '@/lib/api/users.api';
 import { extractErrorMessage } from '@/lib/api';
+import { isFacilityRole } from '@/components/layout/facility-verification-gate';
 import { useAuth } from '@/features/auth/context/auth-context';
 import { profileSettingsSchema, changePasswordSchema } from '../schemas/settings.schema';
 import type { LoginRole } from '@/features/auth/schemas/auth.schema';
@@ -97,6 +99,7 @@ export function AccountSettingsView() {
   const hostPortalRole = mounted ? getSubdomainPortal(getCurrentBrowserHost()) : null;
   const effectiveRole: LoginRole = isAuthenticated ? role : hostPortalRole || role || 'FAMILY';
   const isFamilyAccount = effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT';
+  const isFacilityAccount = isFacilityRole(effectiveRole);
   const roleMeta = ROLE_SETTINGS_META[effectiveRole] || ROLE_SETTINGS_META.FAMILY;
 
   const [profileData, setProfileData] = useState({
@@ -122,6 +125,26 @@ export function AccountSettingsView() {
   }, [user]);
 
   useEffect(() => {
+    if (!isAuthenticated || !isFacilityAccount) return;
+    let isMounted = true;
+    usersApi
+      .getProfile()
+      .then((profile) => {
+        if (!isMounted || !profile) return;
+        setProfileData((prev) => ({
+          ...prev,
+          fullName: profile.fullName || prev.fullName,
+          phone: profile.phone || prev.phone,
+          email: profile.email || prev.email,
+        }));
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, isFacilityAccount]);
+
+  useEffect(() => {
     if (!isFamilyAccount && activeTab === 'insurance') {
       setActiveTab('profile');
     }
@@ -134,6 +157,7 @@ export function AccountSettingsView() {
   });
 
   const [profileError, setProfileError] = useState<string | null>(null);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const [showCurrentPwd, setShowCurrentPwd] = useState(false);
@@ -149,8 +173,9 @@ export function AccountSettingsView() {
       .toUpperCase() ||
     'FD';
 
-  const handleProfileSubmit = (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isUpdatingProfile) return;
     const validation = isFamilyAccount
       ? profileSettingsSchema.safeParse(profileData)
       : nonFamilyProfileSchema.safeParse(profileData);
@@ -161,13 +186,49 @@ export function AccountSettingsView() {
     }
 
     setProfileError(null);
+    const trimmedName = profileData.fullName.trim();
+
+    if (isAuthenticated && isFacilityAccount) {
+      setIsUpdatingProfile(true);
+      try {
+        const updated = await usersApi.updateProfile({ fullName: trimmedName });
+        const savedName = updated.fullName || trimmedName;
+        setProfileData((prev) => ({
+          ...prev,
+          fullName: savedName,
+          email: updated.email || prev.email,
+          phone: updated.phone || prev.phone,
+        }));
+        if (user) {
+          applySession(effectiveRole, {
+            ...user,
+            name: savedName,
+            email: updated.email || user.email,
+            phone: updated.phone || user.phone,
+            avatarText: savedName.slice(0, 2).toUpperCase() || user.avatarText,
+          });
+        }
+        toast.success('Thông tin tài khoản đã được cập nhật thành công!');
+      } catch (err: unknown) {
+        const message = extractErrorMessage(
+          err,
+          'Không thể cập nhật hồ sơ tài khoản. Vui lòng thử lại.',
+        );
+        setProfileError(message);
+        toast.error(message);
+      } finally {
+        setIsUpdatingProfile(false);
+      }
+      return;
+    }
+
     if (user) {
       applySession(effectiveRole, {
         ...user,
-        name: profileData.fullName.trim(),
+        name: trimmedName,
         email: profileData.email.trim() || user.email,
         phone: profileData.phone.trim() || user.phone,
-        avatarText: profileData.fullName.trim().slice(0, 2).toUpperCase() || user.avatarText,
+        avatarText: trimmedName.slice(0, 2).toUpperCase() || user.avatarText,
       });
     }
     toast.success('Thông tin tài khoản đã được cập nhật thành công!');
@@ -427,13 +488,13 @@ export function AccountSettingsView() {
                       <Input
                         id="settings-phone"
                         type="text"
-                        disabled={isFamilyAccount}
+                        disabled={isFamilyAccount || isFacilityAccount}
                         value={profileData.phone}
                         onChange={(e) =>
                           setProfileData({ ...profileData, phone: e.target.value })
                         }
                         className={
-                          isFamilyAccount
+                          isFamilyAccount || isFacilityAccount
                             ? 'rounded-lg bg-slate-100 text-sm text-slate-500 tabular-nums'
                             : 'rounded-lg bg-slate-50/70 text-sm tabular-nums'
                         }
@@ -569,10 +630,11 @@ export function AccountSettingsView() {
                   <div className="flex justify-end pt-4">
                     <Button
                       type="submit"
+                      disabled={isUpdatingProfile}
                       className="cursor-pointer rounded-lg px-6 text-xs font-semibold shadow-xs"
                     >
                       <span className="material-symbols-outlined text-[16px]">save</span>
-                      <span>Lưu thay đổi hồ sơ</span>
+                      <span>{isUpdatingProfile ? 'Đang lưu...' : 'Lưu thay đổi hồ sơ'}</span>
                     </Button>
                   </div>
                 </form>

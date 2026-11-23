@@ -1,10 +1,15 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { financeApi, type FacilitySettlementDto } from '@/lib/api/finance.api';
+import { contractsApi } from '@/lib/api/contracts.api';
 import { FacilityRevenueView } from '../facility-revenue-view';
 
 vi.mock('@/lib/api/finance.api', () => ({
   financeApi: { getAnalytics: vi.fn(), reviewSettlement: vi.fn() },
+}));
+
+vi.mock('@/lib/api/contracts.api', () => ({
+  contractsApi: { getStaffingContracts: vi.fn() },
 }));
 
 const statement: FacilitySettlementDto = {
@@ -17,6 +22,11 @@ const statement: FacilitySettlementDto = {
 };
 
 describe('FacilityRevenueView', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(contractsApi.getStaffingContracts).mockResolvedValue({ data: [], total: 0 });
+  });
+
   it('shows API totals and can reload a selected period', async () => {
     vi.mocked(financeApi.getAnalytics).mockResolvedValue({
       currency: 'VND', environment: 'LIVE', year: 2026, month: 10, invoiceCount: 2,
@@ -71,5 +81,53 @@ describe('FacilityRevenueView', () => {
       ...(action === 'REPORT_DISCREPANCY' ? { reason } : {}),
     }));
     expect(await table.findByText(label)).toBeInTheDocument();
+  });
+
+  it('uses dynamic B2B split labels and falls back cleanly to LIVE when TEST environment is forbidden', async () => {
+    vi.mocked(contractsApi.getStaffingContracts).mockResolvedValueOnce({
+      data: [
+        {
+          id: 'b2b-1',
+          contractNumber: 'B2B-2026-80',
+          facilityId: 'facility-1',
+          facilityName: 'BV Cà Mau',
+          facilitySharePercent: 80,
+          platformSharePercent: 20,
+          validFrom: '2026-01-01',
+          validTo: '2027-01-01',
+          status: 'ACTIVE',
+          facilitySigned: true,
+          adminSigned: true,
+        },
+      ],
+      total: 1,
+    });
+    vi.mocked(financeApi.getAnalytics)
+      .mockResolvedValueOnce({
+        currency: 'VND', environment: 'LIVE', year: 2026, month: 10, invoiceCount: 1,
+        recognitionBasis: 'SERVICE_DAYS', grossVnd: 1000000, vatVnd: 0, netVnd: 1000000,
+        facilityShareVnd: 800000, platformFeeVnd: 200000, settlements: [],
+      })
+      .mockRejectedValueOnce(new Error('Dữ liệu tài chính TEST bị khóa trong môi trường production.'))
+      .mockResolvedValueOnce({
+        currency: 'VND', environment: 'LIVE', year: 2026, month: 10, invoiceCount: 1,
+        recognitionBasis: 'SERVICE_DAYS', grossVnd: 1000000, vatVnd: 0, netVnd: 1000000,
+        facilityShareVnd: 800000, platformFeeVnd: 200000, settlements: [],
+      });
+
+    render(<FacilityRevenueView />);
+
+    expect(await screen.findByText('Phần doanh thu CSYT (80%)')).toBeInTheDocument();
+    expect(screen.getByText('Phí nền tảng (20%)')).toBeInTheDocument();
+    expect(screen.queryByText(/85%/)).not.toBeInTheDocument();
+
+    const envSelect = screen.getByLabelText('Môi trường') as HTMLSelectElement;
+    fireEvent.change(envSelect, { target: { value: 'TEST' } });
+
+    await waitFor(() => {
+      expect(envSelect.value).toBe('LIVE');
+      expect(envSelect).toBeDisabled();
+      expect(envSelect.querySelector('option[value="TEST"]')).toBeNull();
+    });
   });
 });

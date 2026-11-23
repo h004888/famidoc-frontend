@@ -274,14 +274,14 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-700 border border-blue-200">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-            Chờ hậu kiểm pháp lý (Cấp 2)
+            Chờ hậu kiểm pháp lý
           </span>
         );
       case 'ACTIVE':
         return (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-700 border border-emerald-200">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-            Đã kích hoạt chính thức (ACTIVE)
+            Đã kích hoạt chính thức
           </span>
         );
       case 'REJECTED':
@@ -369,7 +369,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
             title={
               isFacilityActive
                 ? 'Khởi tạo dự thảo hợp đồng B2B'
-                : 'Cơ sở Y tế cần được duyệt pháp lý (ACTIVE) trước khi tạo hợp đồng B2B'
+                : 'Cơ sở Y tế cần được duyệt pháp lý trước khi tạo hợp đồng B2B'
             }
             onClick={() => setShowCreateContractModal(true)}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs sm:text-sm font-semibold text-white bg-primary hover:bg-primary/90 rounded-xl shadow-sm transition-colors disabled:bg-slate-300 disabled:cursor-not-allowed"
@@ -416,7 +416,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span className="material-symbols-outlined text-sm">verified</span>
-                  Duyệt Pháp Lý &amp; Kích Hoạt (ACTIVE)
+                  Duyệt Pháp Lý &amp; Kích Hoạt
                 </button>
               </>
             )}
@@ -1184,15 +1184,6 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                   placeholder="Để trống nếu áp dụng nguyên văn 10 Điều khoản chuẩn B2B..."
                   className="w-full text-xs border border-slate-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-primary/20 leading-relaxed"
                 />
-              </div>
-
-              {/* Lưu ý trình tự ký tuần tự */}
-              <div className="p-3 bg-blue-50/70 border border-blue-200 rounded-xl flex items-center gap-2.5 text-xs text-blue-900">
-                <span className="material-symbols-outlined text-base text-blue-600">draw</span>
-                <p className="font-medium">
-                  Hệ thống tự động sinh bản PDF 10 Điều chuẩn B2B trên Documenso: đại diện{' '}
-                  <strong>{facility.email}</strong> ký Bước 1 trước, Quản trị viên FamiDoc ký Bước 2 kích hoạt.
-                </p>
               </div>
             </div>
 

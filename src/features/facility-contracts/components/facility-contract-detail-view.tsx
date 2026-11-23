@@ -381,7 +381,7 @@ export function FacilityContractDetailView({
                   HỢP ĐỒNG NGUYÊN TẮC HỢP TÁC CUNG ỨNG NHÂN LỰC &amp; DỊCH VỤ Y TẾ B2B
                 </p>
                 <p className="text-xs text-[#4a4f63]">
-                  Giữa {contract.platformLegal?.companyName || 'Nền tảng Y tế Gia đình FamiDoc'} và {contract.facilityName}
+                  Giữa {contract.platformLegal?.companyName || 'FamiDoc - Nền tảng quản lý bác sĩ gia đình và chăm sóc sức khỏe'} và {contract.facilityName}
                 </p>
               </div>
 
@@ -398,7 +398,7 @@ export function FacilityContractDetailView({
                 <div className="rounded-lg border border-[#e4e8ed] bg-white p-3.5 text-xs space-y-1">
                   <p className="font-bold text-[#20283d]">
                     BÊN A (NỀN TẢNG CÔNG NGHỆ):{' '}
-                    {contract.platformLegal?.companyName || 'Nền tảng Y tế Gia đình FamiDoc'}
+                    {contract.platformLegal?.companyName || 'FamiDoc - Nền tảng quản lý bác sĩ gia đình và chăm sóc sức khỏe'}
                   </p>
                   <p className="text-[#4a4f63]">
                     MST: {contract.platformLegal?.taxCode || '0109998888'} · Đại diện:{' '}

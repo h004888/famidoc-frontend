@@ -5,6 +5,13 @@ import Link from 'next/link';
 import { toast } from 'sonner';
 import { useAuth } from '@/features/auth/context/auth-context';
 import { getNotificationAction, getNotificationTime, markFamilyNotificationsRead, useFamilyNotificationOwner, useFamilyNotifications } from '@/features/notifications/hooks/use-family-notifications';
+import {
+  getFacilityNotificationAction,
+  getFacilityNotificationTime,
+  markFacilityNotificationsRead,
+  useFacilityNotificationOwner,
+  useFacilityNotifications,
+} from '@/features/notifications/hooks/use-facility-notifications';
 
 export interface TopbarNotificationItem {
   id: string;
@@ -69,6 +76,8 @@ export function DashboardTopbarNotifications() {
   const { role } = useAuth();
   const familyOwner = useFamilyNotificationOwner();
   const familyNotifications = useFamilyNotifications(familyOwner, 1, 8);
+  const facilityOwner = useFacilityNotificationOwner();
+  const facilityNotifications = useFacilityNotifications(facilityOwner, 1, 8);
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<TopbarNotificationItem[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -120,19 +129,46 @@ export function DashboardTopbarNotifications() {
           badgeClass: 'bg-teal-50 text-teal-800 border-teal-200',
         };
       })
-    : notifications;
+    : facilityOwner
+      ? (facilityNotifications.data?.items ?? []).map((item): TopbarNotificationItem => {
+          const action = getFacilityNotificationAction(item);
+          return {
+            id: item.id,
+            type: 'GENERAL',
+            typeLabel: action.type,
+            title: item.title,
+            message: item.content,
+            timestamp: getFacilityNotificationTime(item),
+            isRead: item.isRead,
+            actionHref: action.href,
+            actionLabel: action.label,
+            icon: action.icon,
+            badgeClass: 'bg-blue-50 text-primary border-blue-200',
+          };
+        })
+      : notifications;
   const unreadCount = familyOwner
     ? familyNotifications.data?.unreadCount ?? 0
-    : notifications.filter((n) => !n.isRead).length;
+    : facilityOwner
+      ? facilityNotifications.data?.unreadCount ?? 0
+      : notifications.filter((n) => !n.isRead).length;
   const hasVisibleUnread = visibleNotifications.some((item) => !item.isRead);
 
   function markFamilyRead(ids: string[]) {
     void markFamilyNotificationsRead(ids).catch((error: Error) => toast.error(error.message));
   }
 
+  function markFacilityRead(ids: string[]) {
+    void markFacilityNotificationsRead(ids).catch((error: Error) => toast.error(error.message));
+  }
+
   const markAllAsRead = () => {
     if (familyOwner) {
       markFamilyRead(visibleNotifications.filter((item) => !item.isRead).map((item) => item.id));
+      return;
+    }
+    if (facilityOwner) {
+      markFacilityRead(visibleNotifications.filter((item) => !item.isRead).map((item) => item.id));
       return;
     }
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
@@ -141,6 +177,10 @@ export function DashboardTopbarNotifications() {
   const markItemAsRead = (id: string) => {
     if (familyOwner) {
       if (visibleNotifications.some((item) => item.id === id && !item.isRead)) markFamilyRead([id]);
+      return;
+    }
+    if (facilityOwner) {
+      if (visibleNotifications.some((item) => item.id === id && !item.isRead)) markFacilityRead([id]);
       return;
     }
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
@@ -152,6 +192,7 @@ export function DashboardTopbarNotifications() {
         type="button"
         onClick={() => {
           if (familyOwner && !isOpen) familyNotifications.reload();
+          if (facilityOwner && !isOpen) facilityNotifications.reload();
           setIsOpen(!isOpen);
         }}
         aria-label={
@@ -188,7 +229,11 @@ export function DashboardTopbarNotifications() {
                 {isAdmin ? 'admin_panel_settings' : 'notifications'}
               </span>
               <span className="text-xs sm:text-sm font-bold text-slate-900">
-                {isAdmin ? 'Thông báo Quản trị viên' : 'Thông báo hệ thống'}
+                {isAdmin
+                  ? 'Thông báo Quản trị viên'
+                  : facilityOwner
+                    ? 'Thông báo Cơ sở Y tế'
+                    : 'Thông báo hệ thống'}
               </span>
               {unreadCount > 0 && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 tabular-nums">
@@ -203,7 +248,7 @@ export function DashboardTopbarNotifications() {
                 onClick={markAllAsRead}
                 className="text-[11px] font-semibold text-slate-500 hover:text-[#0046c0] transition-colors cursor-pointer"
               >
-                {familyOwner ? 'Đọc các tin này' : 'Đọc tất cả'}
+                {familyOwner || facilityOwner ? 'Đọc các tin này' : 'Đọc tất cả'}
               </button>
             )}
           </div>
@@ -223,7 +268,11 @@ export function DashboardTopbarNotifications() {
                   ? familyNotifications.error
                   : familyOwner && !familyNotifications.data
                     ? 'Đang tải thông báo…'
-                    : 'Không có thông báo mới.'}
+                    : facilityOwner && facilityNotifications.error
+                      ? facilityNotifications.error
+                      : facilityOwner && !facilityNotifications.data
+                        ? 'Đang tải thông báo…'
+                        : 'Không có thông báo mới.'}
               </div>
             ) : (
               visibleNotifications.map((item) => (
