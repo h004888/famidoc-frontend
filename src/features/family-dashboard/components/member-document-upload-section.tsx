@@ -425,6 +425,19 @@ export function MemberDocumentUploadSection({
               ? 'Bạn có thể chụp ảnh đơn thuốc giấy, phiếu xét nghiệm hoặc chọn tệp PDF từ máy để lưu trữ lâu dài tại đây.'
               : 'Thử chọn tab Tất cả hoặc xóa từ khóa tìm kiếm để xem các tài liệu khác.'}
           </p>
+          {documents.length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setActiveCategory('ALL');
+                setSearchQuery('');
+              }}
+            >
+              Xóa bộ lọc
+            </Button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

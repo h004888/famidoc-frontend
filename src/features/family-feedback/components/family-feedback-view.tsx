@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { reviewsApi } from '@/lib/api';
+import { encountersApi, reviewsApi } from '@/lib/api';
 
 export interface DoctorEncounterReview {
   id: string;
@@ -103,8 +103,32 @@ const INITIAL_DISPUTES: FamilyDisputeTicket[] = [
 
 export function FamilyFeedbackView() {
   const [activeTab, setActiveTab] = useState<'reviews' | 'disputes'>('reviews');
-  const [encounters, setEncounters] = useState<DoctorEncounterReview[]>(INITIAL_ENCOUNTERS);
-  const [disputes, setDisputes] = useState<FamilyDisputeTicket[]>(INITIAL_DISPUTES);
+  const [encounters, setEncounters] = useState<DoctorEncounterReview[]>([]);
+  const [disputes, setDisputes] = useState<FamilyDisputeTicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    encountersApi
+      .getFamilyTimetable({ pageSize: 50 })
+      .then((res) => {
+        const list = Array.isArray(res?.data) ? res.data : [];
+        const completed = list.filter((e) => e.encounterStatus === 'COMPLETED');
+        setEncounters(
+          completed.map((e) => ({
+            id: e.id,
+            encounterDate: e.scheduledDate ? e.scheduledDate.slice(0, 10) : '',
+            encounterType: e.encounterType === 'TELEHEALTH' ? 'telehealth' : 'home_visit',
+            doctorName: e.doctor?.doctorName || 'Bác sĩ phụ trách',
+            doctorAvatar: '',
+            hospital: e.doctor?.facility?.facilityName || 'Cơ sở y tế đối tác',
+            memberTreated: e.patient?.fullName || 'Thành viên gia đình',
+            status: 'pending',
+          }))
+        );
+      })
+      .catch(() => setEncounters([]))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   // Modal Review State
   const [selectedEncounterForReview, setSelectedEncounterForReview] = useState<DoctorEncounterReview | null>(null);

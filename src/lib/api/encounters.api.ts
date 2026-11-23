@@ -7,6 +7,8 @@ export type EncounterStatus =
   | 'REQUESTED'
   | 'PROPOSED'
   | 'CONFIRMED'
+  | 'ON_THE_WAY'
+  | 'ARRIVED'
   | 'IN_PROGRESS'
   | 'COMPLETED'
   | 'CANCELLED'
@@ -51,6 +53,7 @@ export interface EncounterContract {
     address?: string;
     homeAddress?: string;
     representativeUser?: {
+      fullName?: string;
       name?: string;
       phone?: string;
     };
@@ -80,7 +83,11 @@ export interface EncounterItem {
   encounterType: EncounterType | string;
   category: EncounterCategory | string;
   encounterStatus: EncounterStatus | string;
+  onTheWayAt?: string | null;
+  arrivedAt?: string | null;
+  familyConfirmedArrivalAt?: string | null;
   subjectiveNote?: string | null;
+  cancelReason?: string | null;
   objectiveExam?: string | null;
   assessment?: string | null;
   plan?: string | null;
@@ -252,6 +259,21 @@ export const encountersApi = {
   confirmEncounter: async (id: string, confirmed = true): Promise<any> => {
     const raw = await httpClient.patch(`/api/v1/encounters/${id}/confirm`, { confirmed });
     return unwrapApiEnvelope(raw);
+  },
+
+  markOnTheWay: async (id: string): Promise<EncounterItem> => {
+    const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/on-the-way`, {});
+    return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  markArrived: async (id: string): Promise<EncounterItem> => {
+    const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/arrive`, {});
+    return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  confirmArrival: async (id: string): Promise<EncounterItem> => {
+    const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/confirm-arrival`, {});
+    return unwrapApiEnvelope(raw) as EncounterItem;
   },
 
   requestReschedule: async (id: string, payload: RequestRescheduleDto): Promise<any> => {

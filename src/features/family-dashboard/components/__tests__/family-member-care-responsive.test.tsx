@@ -345,18 +345,21 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
   it('renders cleanly without nested <main> and preserves .md:hidden mobile layout', async () => {
     const { container } = render(<FamilyMemberCareView memberId="mem-real-1" />);
 
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: /Chỉ số sinh hiệu/i })).toBeInTheDocument();
+    });
     expect(container.querySelector('main')).toBeNull();
+    const vitalsTab = screen.getByRole('tab', { name: /Chỉ số sinh hiệu/i });
+    fireEvent.mouseDown(vitalsTab);
+    fireEvent.click(vitalsTab);
     expect(container.querySelector('.md\\:hidden')).not.toBeNull();
 
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Lê Hoàng Minh' })).toBeInTheDocument();
     });
-
-    expect(container.querySelector('main')).toBeNull();
-    expect(container.querySelector('.md\\:hidden')).not.toBeNull();
   });
 
-  it('renders real profile details and switcher links without legacy mocks or removed sections', async () => {
+  it('renders real profile details without quick member switcher or removed legacy sections', async () => {
     render(<FamilyMemberCareView memberId="mem-real-1" />);
 
     await waitFor(() => {
@@ -371,8 +374,8 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     expect(screen.getByText('Aspirin')).toBeInTheDocument();
     expect(screen.getByText('Mức độ trung bình')).toBeInTheDocument();
 
-    const otherMemberLink = screen.getByRole('link', { name: /Phạm Thu Hà/i });
-    expect(otherMemberLink).toHaveAttribute('href', '/family/members/mem-real-2');
+    expect(screen.queryByRole('navigation', { name: 'Chuyển nhanh thành viên' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Phạm Thu Hà/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Thành viên Đã Tách/i })).not.toBeInTheDocument();
 
     expect(screen.queryByText('Lịch khám sắp tới')).not.toBeInTheDocument();
@@ -411,12 +414,8 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
     fireEvent.change(screen.getByLabelText(/Tên dị nguyên/i), {
       target: { value: 'Đậu phộng' },
     });
-    fireEvent.change(screen.getByLabelText(/Nhóm dị nguyên/i), {
-      target: { value: 'FOOD' },
-    });
-    fireEvent.change(screen.getByLabelText(/Mức độ nghiêm trọng/i), {
-      target: { value: 'LIFE_THREATENING_ANAPHYLAXIS' },
-    });
+    fireEvent.click(screen.getByRole('radio', { name: 'Thực phẩm' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Nguy kịch / Sốc phản vệ' }));
     fireEvent.change(screen.getByLabelText(/Biểu hiện lâm sàng/i), {
       target: { value: 'Phù môi' },
     });
@@ -444,6 +443,13 @@ describe('FamilyMemberCareView Integration & Responsive Layout', () => {
 
   it('displays today latest vitals, alert badge, multi-day range filters, and vital CRUD', async () => {
     render(<FamilyMemberCareView memberId="mem-real-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('tab', { name: /Chỉ số sinh hiệu/i })).toBeInTheDocument();
+    });
+    const vitalsTab = screen.getByRole('tab', { name: /Chỉ số sinh hiệu/i });
+    fireEvent.mouseDown(vitalsTab);
+    fireEvent.click(vitalsTab);
 
     await waitFor(() => {
       expect(screen.getByText('Cảnh báo chỉ số bất thường')).toBeInTheDocument();

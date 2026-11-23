@@ -45,6 +45,8 @@ export function isFacilityB2bOperationalPath(pathname: string | null | undefined
   return (
     normalized === '/facility/doctors' ||
     normalized.startsWith('/facility/doctors/') ||
+    normalized === '/facility/schedules' ||
+    normalized.startsWith('/facility/schedules/') ||
     normalized === '/facility/staff' ||
     normalized.startsWith('/facility/staff/') ||
     normalized === '/facility/coordination' ||

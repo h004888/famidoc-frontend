@@ -181,4 +181,19 @@ describe('DashboardSidebar Navigation', () => {
     expect(label).not.toHaveClass('truncate');
     expect(label.parentElement).not.toHaveClass('truncate');
   });
+
+  it('groups FAMILY sidebar into 3 sections with updated labels and feedback route', () => {
+    mockPathname = '/family';
+    mockRole = 'FAMILY';
+    render(<DashboardSidebar initialRole="FAMILY" />);
+
+    const aside = within(screen.getByRole('complementary'));
+    expect(aside.getByText('Sức khỏe hằng ngày')).toBeInTheDocument();
+    expect(aside.getByText('Khám & Điều trị')).toBeInTheDocument();
+    expect(aside.getByText('Gói dịch vụ & Hỗ trợ')).toBeInTheDocument();
+    expect(aside.getByRole('link', { name: 'Tổng quan sức khỏe' })).toHaveAttribute('href', '/family');
+    expect(aside.getByRole('link', { name: /Lịch khám bác sĩ/i })).toHaveAttribute('href', '/family/appointments');
+    expect(aside.getByRole('link', { name: /Đánh giá & Phản ánh/i })).toHaveAttribute('href', '/family/feedback');
+    expect(aside.queryByRole('link', { name: 'Hợp đồng điện tử' })).not.toBeInTheDocument();
+  });
 });

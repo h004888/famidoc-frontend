@@ -24,6 +24,7 @@ describe('DashboardTopbarNotifications - Nút thông báo tiếp nhận 2 loại
 
     const bellBtn = screen.getByRole('button', { name: /Thông báo hệ thống/i });
     expect(bellBtn).toBeInTheDocument();
+    expect(screen.getByTestId('notification-unread-badge')).toHaveTextContent('2');
 
     // Menu initially closed
     expect(screen.queryByRole('menu')).not.toBeInTheDocument();
