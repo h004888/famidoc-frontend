@@ -12,13 +12,9 @@ import {
   ExternalLink,
   FileText,
   HeartPulse,
-  Link as LinkIcon,
-  Phone,
   RefreshCw,
   Search,
-  ShieldCheck,
   Stethoscope,
-  User,
   Users,
   Video,
   VideoOff,
@@ -53,15 +49,28 @@ import {
   type EncounterStatus,
 } from '@/lib/api/telehealth.api';
 import { cn } from '@/lib/utils';
+import { extractEncounterTimeHm, formatEncounterDateVi } from '@/lib/utils/encounter-format';
 
 type TelehealthFilterStatus = 'ALL' | EncounterStatus;
 
+const encounterTypeLabels: Record<TelehealthEncounterItem['encounterType'], string> = {
+  TELEHEALTH: 'Online',
+  TELEMEDICINE: 'Online',
+  HOME_VISIT: 'Tại nhà',
+  FACILITY_VISIT: 'Tại CSYT',
+};
+
 function formatDateTimeVN(dateStr?: string, timeStr?: string): string {
-  if (!dateStr) return 'Chưa định ngày';
-  const cleanDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
-  const parts = cleanDate.split('-');
-  const dateFormatted = parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : cleanDate;
-  return timeStr ? `${timeStr} • ${dateFormatted}` : dateFormatted;
+  const date = formatEncounterDateVi(dateStr);
+  const time = extractEncounterTimeHm(timeStr);
+  return time ? date + ' lúc ' + time : date;
+}
+
+function getPatientNames(encounter: TelehealthEncounterItem): string {
+  return encounter.participants
+    ?.map(({ patient }) => patient?.fullName)
+    .filter(Boolean)
+    .join(', ') || encounter.patient?.fullName || '';
 }
 
 function StatusBadge({ status }: { status: EncounterStatus }) {
@@ -76,7 +85,7 @@ function StatusBadge({ status }: { status: EncounterStatus }) {
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-600" />
           </span>
-          <span>Đang khám (LIVE)</span>
+          <span>Đang khám</span>
         </Badge>
       );
     case 'CONFIRMED':
@@ -119,15 +128,22 @@ function StatusBadge({ status }: { status: EncounterStatus }) {
           <span>Đã hủy</span>
         </Badge>
       );
+    case 'ON_THE_WAY':
+    case 'ARRIVED':
+      return (
+        <Badge variant="outline" className="rounded-full border-sky-200 bg-sky-50 text-sky-800">
+          {status === 'ON_THE_WAY' ? 'Bác sĩ đang đến' : 'Bác sĩ đã đến'}
+        </Badge>
+      );
+    case 'REQUESTED':
     case 'PROPOSED':
-    default:
       return (
         <Badge
           variant="outline"
           className="gap-1.5 rounded-full border-purple-200 bg-purple-50 px-2.5 py-0.5 text-xs font-semibold text-purple-800"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-purple-500" aria-hidden="true" />
-          <span>Đang đề xuất</span>
+          <span>{status === 'REQUESTED' ? 'Chờ xác nhận' : 'Đang đề xuất'}</span>
         </Badge>
       );
   }
@@ -141,22 +157,31 @@ export function AdminTelehealthView() {
   // Filters & Search
   const [statusFilter, setStatusFilter] = useState<TelehealthFilterStatus>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState<'ALL' | 'PERIODIC' | 'AD_HOC'>('ALL');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
   // Selected encounter for detail modal
   const [selectedEncounter, setSelectedEncounter] = useState<TelehealthEncounterItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const meetingLink = selectedEncounter?.encounterType === 'TELEHEALTH' ||
+    selectedEncounter?.encounterType === 'TELEMEDICINE'
+    ? selectedEncounter.telehealthRoomUrl
+    : null;
 
   const fetchEncounters = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await telehealthApi.getEncounters();
-      setEncounters(res.data);
-    } catch (err: any) {
-      setError(err?.message || 'Không thể tải danh sách lịch khám trực tuyến.');
+      const pageSize = 100;
+      const first = await telehealthApi.getEncounters({ page: 1, pageSize });
+      const items = [...first.data];
+      for (let page = 2; page <= first.pagination.totalPages; page += 1) {
+        const response = await telehealthApi.getEncounters({ page, pageSize });
+        items.push(...response.data);
+      }
+      setEncounters(items);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Không thể tải danh sách lịch khám.');
     } finally {
       setIsLoading(false);
     }
@@ -187,18 +212,14 @@ export function AdminTelehealthView() {
       if (statusFilter !== 'ALL' && item.encounterStatus !== statusFilter) {
         return false;
       }
-      // Category filter
-      if (categoryFilter !== 'ALL' && item.category !== categoryFilter) {
-        return false;
-      }
       // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const docName = item.doctor?.user?.fullName?.toLowerCase() || '';
+        const docName = (item.doctor?.doctorName || item.doctor?.user?.fullName || '').toLowerCase();
         const docSpec = item.doctor?.specialty?.toLowerCase() || '';
-        const facName = item.contract?.facility?.facilityName?.toLowerCase() || '';
+        const facName = (item.contract?.facility?.facilityName || item.doctor?.facility?.facilityName || '').toLowerCase();
         const famRep = item.contract?.familyUnit?.representativeUser?.fullName?.toLowerCase() || '';
-        const patName = item.patient?.fullName?.toLowerCase() || '';
+        const patName = getPatientNames(item).toLowerCase();
         const code = item.id.toLowerCase();
         const contractNo = item.contract?.contractNumber?.toLowerCase() || '';
 
@@ -214,7 +235,7 @@ export function AdminTelehealthView() {
       }
       return true;
     });
-  }, [encounters, statusFilter, categoryFilter, searchQuery]);
+  }, [encounters, statusFilter, searchQuery]);
 
   // Pagination
   const totalPages = Math.max(1, Math.ceil(filteredEncounters.length / itemsPerPage));
@@ -248,7 +269,7 @@ export function AdminTelehealthView() {
     { key: 'ALL', label: 'Tất cả ca khám', count: encounters.length },
     {
       key: 'IN_PROGRESS',
-      label: 'Đang diễn ra (LIVE)',
+      label: 'Đang diễn ra',
       count: encounters.filter((e) => e.encounterStatus === 'IN_PROGRESS').length,
     },
     {
@@ -280,9 +301,9 @@ export function AdminTelehealthView() {
         <PageHeader
           breadcrumbs={[
             { label: 'Quản trị hệ thống', href: '/admin' },
-            { label: 'Lịch khám trực tuyến' },
+            { label: 'Lịch khám' },
           ]}
-          title="Giám sát Lịch khám Trực tuyến"
+          title="Giám sát lịch khám"
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -321,11 +342,8 @@ export function AdminTelehealthView() {
           >
             <div className="flex items-center justify-between gap-2">
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-primary transition-transform group-hover:scale-105">
-                <Video className="h-5 w-5" aria-hidden="true" />
+                <Calendar className="h-5 w-5" aria-hidden="true" />
               </span>
-              <Badge variant="outline" className="rounded-full bg-blue-50/80 px-2 py-0.5 text-[11px] font-bold text-primary">
-                Telehealth HD
-              </Badge>
             </div>
             <div className="mt-3 flex items-baseline justify-between">
               <span className="text-2xl font-bold tracking-tight text-slate-900 tabular-nums">
@@ -335,7 +353,7 @@ export function AdminTelehealthView() {
                 Xem tất cả →
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">Tổng số ca khám trực tuyến hệ thống</p>
+            <p className="mt-1 text-xs text-slate-500">Tổng số ca khám</p>
           </button>
 
           {/* Card 2: Đang diễn ra LIVE */}
@@ -356,9 +374,6 @@ export function AdminTelehealthView() {
               <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600 transition-transform group-hover:scale-105">
                 <Activity className="h-5 w-5 animate-pulse" aria-hidden="true" />
               </span>
-              <Badge variant="outline" className="rounded-full border-emerald-300 bg-emerald-50 px-2 py-0.5 text-[11px] font-bold text-emerald-700">
-                WebRTC Live Room
-              </Badge>
             </div>
             <div className="mt-3 flex items-baseline justify-between">
               <span className="text-2xl font-bold tracking-tight text-emerald-700 tabular-nums">
@@ -368,7 +383,7 @@ export function AdminTelehealthView() {
                 Giám sát ngay →
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">Ca khám đang kết nối trực tuyến</p>
+            <p className="mt-1 text-xs text-slate-500">Ca khám đang diễn ra</p>
           </button>
 
           {/* Card 3: Sắp diễn ra hôm nay */}
@@ -401,7 +416,7 @@ export function AdminTelehealthView() {
                 Xem lịch →
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500">Ca khám trực tuyến lịch hẹn hôm nay</p>
+            <p className="mt-1 text-xs text-slate-500">Ca khám theo lịch hôm nay</p>
           </button>
 
           {/* Card 4: Yêu cầu dời lịch */}
@@ -488,7 +503,7 @@ export function AdminTelehealthView() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                aria-label="Tìm kiếm lịch khám trực tuyến"
+                aria-label="Tìm kiếm lịch khám"
                 placeholder="Tìm tên bác sĩ, CSYT, gia đình, mã ca..."
                 className="h-9 rounded-xl bg-slate-50/70 pl-9 pr-8 text-xs focus-visible:bg-white"
               />
@@ -531,17 +546,17 @@ export function AdminTelehealthView() {
           <Card className="rounded-2xl border-slate-200/90 shadow-xs">
             <CardContent className="flex flex-col items-center justify-center gap-3 py-16 text-slate-500">
               <div className="h-7 w-7 animate-spin rounded-full border-3 border-primary/20 border-t-primary" />
-              <span className="text-xs sm:text-sm font-medium">Đang tải dữ liệu ca khám trực tuyến...</span>
+              <span className="text-xs sm:text-sm font-medium">Đang tải dữ liệu ca khám...</span>
             </CardContent>
           </Card>
         ) : paginatedEncounters.length === 0 ? (
-          <EmptyState
-            icon="videocam"
-            title="Không tìm thấy lịch khám online phù hợp"
+          !error && <EmptyState
+            icon="calendar_month"
+            title="Không tìm thấy lịch khám phù hợp"
             description={
               searchQuery || statusFilter !== 'ALL'
                 ? 'Không có ca khám nào khớp với bộ lọc hoặc từ khóa tìm kiếm.'
-                : 'Chưa có lịch khám trực tuyến nào trong hệ thống.'
+                : 'Chưa có lịch khám nào trong hệ thống.'
             }
             action={
               (searchQuery || statusFilter !== 'ALL') && (
@@ -563,185 +578,54 @@ export function AdminTelehealthView() {
           />
         ) : (
           <Card className="overflow-hidden rounded-2xl border-slate-200/90 py-0 gap-0 shadow-xs">
-            {/* Desktop Table */}
-            <div className="hidden md:block">
-              <Table className="text-xs sm:text-sm">
-                <TableHeader>
-                  <TableRow className="border-b border-slate-200 bg-slate-50/90 text-[11px] font-semibold tracking-wider text-slate-600 uppercase hover:bg-slate-50/90">
-                    <TableHead className="px-4 py-3.5 text-slate-600">Thời gian &amp; Phân loại</TableHead>
-                    <TableHead className="px-4 py-3.5 text-slate-600">Bác sĩ phụ trách &amp; CSYT</TableHead>
-                    <TableHead className="px-4 py-3.5 text-slate-600">Hộ gia đình &amp; Bệnh nhân</TableHead>
-                    <TableHead className="px-4 py-3.5 text-slate-600">Trạng thái ca khám</TableHead>
-                    <TableHead className="px-4 py-3.5 text-slate-600">Phòng WebRTC</TableHead>
-                    <TableHead className="px-4 py-3.5 text-right text-slate-600">Thao tác</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody className="divide-y divide-slate-100 text-slate-700">
-                  {paginatedEncounters.map((item) => (
-                    <TableRow key={item.id} className="hover:bg-slate-50/70 transition-colors">
-                      {/* Cột 1: Thời gian */}
-                      <TableCell className="px-4 py-3.5 whitespace-nowrap">
-                        <div className="font-bold text-slate-900 text-xs sm:text-sm tabular-nums">
-                          {formatDateTimeVN(item.scheduledDate, item.scheduledTime)}
+            <Table aria-label="Danh sách ca khám" className="min-w-[640px] table-fixed text-sm">
+              <TableHeader>
+                <TableRow className="bg-slate-50 text-slate-700 hover:bg-slate-50">
+                  <TableHead scope="col" className="w-[17%] px-4 py-3">Ngày và giờ</TableHead>
+                  <TableHead scope="col" className="w-[26%] px-4 py-3">Bác sĩ phụ trách &amp; CSYT</TableHead>
+                  <TableHead scope="col" className="w-[23%] px-4 py-3">Đại diện gia đình</TableHead>
+                  <TableHead scope="col" className="w-[21%] px-4 py-3">Trạng thái ca khám</TableHead>
+                  <TableHead scope="col" className="w-[13%] px-4 py-3">Hình thức</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginatedEncounters.map((item) => {
+                  const familyRepresentative = item.contract?.familyUnit?.representativeUser?.fullName;
+                  const typeLabel = encounterTypeLabels[item.encounterType];
+                  return (
+                    <TableRow key={item.id} className="hover:bg-blue-50/30">
+                      <TableCell className="px-4 py-3">
+                        <button
+                          type="button"
+                          aria-label={'Xem chi tiết ca khám ' + formatDateTimeVN(item.scheduledDate, item.scheduledTime) +
+                            (familyRepresentative ? ' của gia đình ' + familyRepresentative : '')}
+                          onClick={() => handleOpenDetail(item)}
+                          className="cursor-pointer rounded-sm text-left tabular-nums text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        >
+                          <span className="block font-semibold">{formatEncounterDateVi(item.scheduledDate)}</span>
+                          <span className="block text-xs text-slate-600">{extractEncounterTimeHm(item.scheduledTime) || '—'}</span>
+                        </button>
+                      </TableCell>
+                      <TableCell className="wrap-break-word px-4 py-3">
+                        <div className="font-semibold text-slate-900">
+                          {item.doctor?.doctorName || item.doctor?.user?.fullName || 'Chưa phân công'}
                         </div>
-                        <div className="mt-1 flex items-center gap-1.5 text-[11px]">
-                          <Badge
-                            variant="secondary"
-                            className={cn(
-                              'px-1.5 py-0 text-[10px] font-semibold',
-                              item.category === 'PERIODIC'
-                                ? 'bg-blue-50 text-blue-700'
-                                : 'bg-purple-50 text-purple-700'
-                            )}
-                          >
-                            {item.category === 'PERIODIC' ? 'Định kỳ theo gói' : 'Khám đột xuất'}
-                          </Badge>
-                          <span className="text-slate-400">•</span>
-                          <span className="text-slate-500 tabular-nums">{item.durationMinutes} phút</span>
-                        </div>
-                        <div className="mt-1 text-[10px] text-slate-400 tabular-nums">
-                          Mã: {item.id}
+                        <div className="mt-0.5 text-xs text-slate-600">
+                          {item.contract?.facility?.facilityName || item.doctor?.facility?.facilityName || '—'}
                         </div>
                       </TableCell>
-
-                      {/* Cột 2: Bác sĩ */}
-                      <TableCell className="max-w-[260px] px-4 py-3.5 whitespace-normal">
-                        <div className="font-bold text-slate-900 text-xs sm:text-sm truncate">
-                          {item.doctor?.user?.fullName || 'Chưa phân công'}
-                        </div>
-                        <div className="text-[11px] text-slate-600 truncate">
-                          {item.doctor?.specialty || 'Bác sĩ gia đình'}
-                        </div>
-                        <div className="mt-0.5 text-[11px] text-slate-500 truncate" title={item.contract?.facility?.facilityName}>
-                          {item.contract?.facility?.facilityName || 'Cơ sở Y tế'}
-                        </div>
+                      <TableCell className="wrap-break-word px-4 py-3 font-medium text-slate-900">
+                        {familyRepresentative || '—'}
                       </TableCell>
-
-                      {/* Cột 3: Gia đình & Bệnh nhân */}
-                      <TableCell className="max-w-[260px] px-4 py-3.5 whitespace-normal">
-                        <div className="font-semibold text-slate-800 text-xs sm:text-sm truncate">
-                          Bệnh nhân: <span className="text-primary font-bold">{item.patient?.fullName || 'Bệnh nhân'}</span>
-                        </div>
-                        <div className="mt-0.5 text-[11px] text-slate-500 truncate">
-                          Đại diện hộ: {item.contract?.familyUnit?.representativeUser?.fullName || 'Chủ hộ'}
-                          {item.contract?.familyUnit?.representativeUser?.phone && (
-                            <span className="tabular-nums"> ({item.contract.familyUnit.representativeUser.phone})</span>
-                          )}
-                        </div>
-                        <div className="mt-1 text-[10px] text-slate-400 tabular-nums truncate">
-                          HĐ: {item.contract?.contractNumber || item.contractId}
-                        </div>
-                      </TableCell>
-
-                      {/* Cột 4: Trạng thái */}
-                      <TableCell className="px-4 py-3.5 whitespace-nowrap">
+                      <TableCell className="px-4 py-3">
                         <StatusBadge status={item.encounterStatus} />
                       </TableCell>
-
-                      {/* Cột 5: Kênh WebRTC */}
-                      <TableCell className="px-4 py-3.5 whitespace-nowrap">
-                        {item.telehealthRoomUrl ? (
-                          <div className="flex items-center gap-1.5">
-                            <a
-                              href={item.telehealthRoomUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50/80 px-2 py-1 text-xs font-semibold text-primary transition-colors hover:bg-blue-100"
-                            >
-                              <Video className="h-3 w-3 shrink-0" aria-hidden="true" />
-                              <span>Vào phòng</span>
-                              <ExternalLink className="h-3 w-3 shrink-0" aria-hidden="true" />
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyMeetingLink(item.telehealthRoomUrl)}
-                              title="Sao chép liên kết"
-                              className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 cursor-pointer"
-                            >
-                              <LinkIcon className="h-3.5 w-3.5" aria-hidden="true" />
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-slate-400 italic">Chưa tạo phòng</span>
-                        )}
-                      </TableCell>
-
-                      {/* Cột 6: Thao tác */}
-                      <TableCell className="px-4 py-3.5 text-right whitespace-nowrap">
-                        <Button
-                          type="button"
-                          size="xs"
-                          variant="secondary"
-                          onClick={() => handleOpenDetail(item)}
-                          className="h-8 cursor-pointer rounded-lg border border-blue-200/80 bg-blue-50 px-3 text-xs font-semibold text-primary hover:bg-blue-100"
-                        >
-                          Xem chi tiết
-                        </Button>
-                      </TableCell>
+                      <TableCell className="px-4 py-3 text-slate-700">{typeLabel || '—'}</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            {/* Mobile View Cards */}
-            <div className="divide-y divide-slate-100 md:hidden">
-              {paginatedEncounters.map((item) => (
-                <div key={item.id} className="space-y-3 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="font-bold text-slate-900 text-sm tabular-nums">
-                        {formatDateTimeVN(item.scheduledDate, item.scheduledTime)}
-                      </div>
-                      <div className="text-xs text-slate-500 tabular-nums mt-0.5">Mã: {item.id}</div>
-                    </div>
-                    <StatusBadge status={item.encounterStatus} />
-                  </div>
-
-                  <div className="space-y-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-600">
-                    <div>
-                      <span className="font-semibold text-slate-700">Bác sĩ:</span>{' '}
-                      <span className="font-bold text-slate-900">{item.doctor?.user?.fullName || 'Chưa phân công'}</span>{' '}
-                      ({item.doctor?.specialty || 'Y học gia đình'})
-                    </div>
-                    <div>
-                      <span className="font-semibold text-slate-700">Bệnh nhân:</span>{' '}
-                      <span className="font-bold text-primary">{item.patient?.fullName || 'Người bệnh'}</span> (Đại diện:{' '}
-                      {item.contract?.familyUnit?.representativeUser?.fullName || 'Chủ hộ'})
-                    </div>
-                    <div>
-                      <span className="font-semibold text-slate-700">CSYT:</span>{' '}
-                      {item.contract?.facility?.facilityName || 'Cơ sở Y tế'}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 pt-1">
-                    {item.telehealthRoomUrl ? (
-                      <a
-                        href={item.telehealthRoomUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-semibold text-primary"
-                      >
-                        <Video className="h-3.5 w-3.5" aria-hidden="true" />
-                        <span>Phòng WebRTC</span>
-                      </a>
-                    ) : (
-                      <span className="text-xs text-slate-400 italic">Chưa mở phòng</span>
-                    )}
-
-                    <Button
-                      type="button"
-                      size="sm"
-                      onClick={() => handleOpenDetail(item)}
-                      className="h-8 rounded-lg px-3 text-xs font-semibold"
-                    >
-                      Chi tiết
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </TableBody>
+            </Table>
 
             {/* Pagination */}
             {totalPages > 1 && (
@@ -761,31 +645,32 @@ export function AdminTelehealthView() {
           </Card>
         )}
 
-        {/* Modal Xem chi tiết cuộc hẹn khám Online */}
+        {/* Chi tiết ca khám */}
         <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
           <DialogContent className="max-h-[90vh] gap-0 overflow-hidden rounded-3xl border-slate-200 p-0 sm:max-w-2xl [&>[data-slot=dialog-close]]:top-4 [&>[data-slot=dialog-close]]:right-4 [&>[data-slot=dialog-close]]:rounded-full [&>[data-slot=dialog-close]]:bg-white/15 [&>[data-slot=dialog-close]]:p-1.5 [&>[data-slot=dialog-close]]:text-white [&>[data-slot=dialog-close]]:opacity-90 [&>[data-slot=dialog-close]]:hover:bg-white/25">
             {selectedEncounter && (
               <>
                 <DialogHeader className="bg-gradient-to-r from-[#09253b] to-[#0037c1] p-5 text-left text-white sm:p-6">
                   <div className="flex flex-wrap items-center gap-2 pr-8 text-xs font-medium text-blue-100">
-                    <span>Hồ Sơ Ca Khám Trực Tuyến</span>
+                    <span>Hồ sơ ca khám</span>
                     <span aria-hidden="true">•</span>
                     <span className="rounded bg-white/15 px-1.5 py-0.5 tabular-nums text-[11px] text-white">
                       {selectedEncounter.id}
                     </span>
                   </div>
                   <DialogTitle className="mt-1 text-lg font-bold leading-snug text-white sm:text-xl">
-                    Lịch Khám Online:{' '}
-                    {(selectedEncounter as any).participants?.length > 0
-                      ? (selectedEncounter as any).participants
-                          .map((p: any) => p.patient?.fullName)
-                          .filter(Boolean)
-                          .join(', ')
-                      : selectedEncounter.patient?.fullName || 'Gia đình'}
+                    {getPatientNames(selectedEncounter) ||
+                      selectedEncounter.contract?.familyUnit?.representativeUser?.fullName ||
+                      'Chi tiết ca khám'}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-blue-100/90">
-                    {formatDateTimeVN(selectedEncounter.scheduledDate, selectedEncounter.scheduledTime)} •{' '}
-                    {selectedEncounter.category === 'PERIODIC' ? 'Khám định kỳ theo gói' : 'Khám đột xuất'} ({selectedEncounter.durationMinutes} phút)
+                    {formatDateTimeVN(selectedEncounter.scheduledDate, selectedEncounter.scheduledTime)} ·{' '}
+                    {encounterTypeLabels[selectedEncounter.encounterType]}
+                    {' · '}
+                    {selectedEncounter.category === 'PERIODIC' || selectedEncounter.category === 'PERIODIC_ROUTINE'
+                      ? 'Khám định kỳ theo gói'
+                      : 'Khám đột xuất'}
+                    {selectedEncounter.durationMinutes ? ` (${selectedEncounter.durationMinutes} phút)` : ''}
                   </DialogDescription>
                 </DialogHeader>
 
@@ -797,10 +682,10 @@ export function AdminTelehealthView() {
                       <StatusBadge status={selectedEncounter.encounterStatus} />
                     </div>
 
-                    {selectedEncounter.telehealthRoomUrl && (
+                    {meetingLink && (
                       <div className="flex items-center gap-2">
                         <a
-                          href={selectedEncounter.telehealthRoomUrl}
+                          href={meetingLink}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-white shadow-xs hover:bg-primary/90"
@@ -813,7 +698,7 @@ export function AdminTelehealthView() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          onClick={() => handleCopyMeetingLink(selectedEncounter.telehealthRoomUrl)}
+                          onClick={() => handleCopyMeetingLink(meetingLink)}
                           className="rounded-xl text-xs font-semibold"
                         >
                           Sao chép link
@@ -850,7 +735,7 @@ export function AdminTelehealthView() {
                       <div>
                         <span className="block text-xs text-slate-500">Họ và tên bác sĩ:</span>
                         <span className="font-bold text-slate-900">
-                          {selectedEncounter.doctor?.user?.fullName || 'Chưa phân công'}
+                          {selectedEncounter.doctor?.doctorName || selectedEncounter.doctor?.user?.fullName || 'Chưa phân công'}
                         </span>
                       </div>
                       <div>
@@ -884,12 +769,7 @@ export function AdminTelehealthView() {
                       <div>
                         <span className="block text-xs text-slate-500">Bệnh nhân:</span>
                         <span className="font-bold text-primary">
-                          {(selectedEncounter as any).participants?.length > 0
-                            ? (selectedEncounter as any).participants
-                                .map((p: any) => p.patient?.fullName)
-                                .filter(Boolean)
-                                .join(', ')
-                            : selectedEncounter.patient?.fullName || '—'}
+                          {getPatientNames(selectedEncounter) || '—'}
                         </span>
                       </div>
                       <div>
@@ -919,7 +799,8 @@ export function AdminTelehealthView() {
                       <div className="sm:col-span-2">
                         <span className="block text-xs text-slate-500">Gói dịch vụ &amp; Mã hợp đồng:</span>
                         <span className="font-semibold text-slate-900">
-                          {selectedEncounter.contract?.servicePackage?.name || 'Gói Bác sĩ gia đình'}
+                          {selectedEncounter.contract?.servicePackage?.packageName ||
+                            selectedEncounter.contract?.servicePackage?.name || '—'}
                         </span>{' '}
                         <span className="text-slate-500 tabular-nums">
                           ({selectedEncounter.contract?.contractNumber || selectedEncounter.contractId})
@@ -1002,9 +883,9 @@ export function AdminTelehealthView() {
                     Đóng cửa sổ
                   </Button>
 
-                  {selectedEncounter.telehealthRoomUrl && (
+                  {meetingLink && (
                     <a
-                      href={selectedEncounter.telehealthRoomUrl}
+                      href={meetingLink}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-primary/90"

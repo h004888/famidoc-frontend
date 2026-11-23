@@ -470,37 +470,37 @@ export function FacilityFourPartyDetailView({
 
                 {members.length > 0 ? (
                   <div className="overflow-x-auto rounded-lg border border-[#e4e8ed]">
-                    <Table className="text-xs sm:text-sm">
+                    <Table className="border-collapse text-xs sm:text-sm">
                       <TableHeader>
-                        <TableRow className="border-b border-[#e4e8ed] bg-[#f6f7f9] hover:bg-[#f6f7f9]">
-                          <TableHead className="px-3 py-2.5 text-xs font-semibold text-[#4a4f63]">
+                        <TableRow className="border-b border-slate-200 bg-slate-50/90 hover:bg-slate-50/90">
+                          <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                             Họ và tên
                           </TableHead>
-                          <TableHead className="px-3 py-2.5 text-xs font-semibold text-[#4a4f63]">
+                          <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                             Quan hệ
                           </TableHead>
-                          <TableHead className="px-3 py-2.5 text-xs font-semibold text-[#4a4f63]">
+                          <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                             Tuổi / Giới tính
                           </TableHead>
-                          <TableHead className="px-3 py-2.5 text-xs font-semibold text-[#4a4f63]">
+                          <TableHead className="px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                             Dị ứng
                           </TableHead>
                         </TableRow>
                       </TableHeader>
-                      <TableBody className="divide-y divide-[#e4e8ed]">
+                      <TableBody className="divide-y divide-slate-200">
                         {members.map((m) => (
                           <TableRow key={m.id}>
-                            <TableCell className="px-3 py-2.5 font-semibold text-[#20283d]">
+                            <TableCell className="border-r border-slate-200 px-4 py-3 text-left font-semibold text-[#20283d]">
                               {m.fullName}
                             </TableCell>
-                            <TableCell className="px-3 py-2.5 text-[#4a4f63]">
+                            <TableCell className="border-r border-slate-200 px-4 py-3 text-left text-[#4a4f63]">
                               {m.relationship}
                             </TableCell>
-                            <TableCell className="px-3 py-2.5 text-[#4a4f63] tabular-nums">
+                            <TableCell className="border-r border-slate-200 px-4 py-3 text-left text-[#4a4f63] tabular-nums">
                               {m.age !== null ? `${m.age} tuổi` : '—'} ·{' '}
                               {m.gender}
                             </TableCell>
-                            <TableCell className="px-3 py-2.5 text-[#4a4f63]">
+                            <TableCell className="px-4 py-3 text-left text-[#4a4f63]">
                               {m.allergiesText}
                             </TableCell>
                           </TableRow>

@@ -1,5 +1,6 @@
 'use client';
 
+import { ArrowDownLeft, ArrowUpRight, UsersRound, Wallet } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { Card, CardAction, CardContent, CardDescription, CardHeader } from '@/components/ui/card';
 import { ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/components/ui/chart';
@@ -12,6 +13,7 @@ const chartConfig = {
   paidVnd: { label: 'Chi trả CSYT', color: '#b45309' },
 } satisfies ChartConfig;
 const compactAmount = new Intl.NumberFormat('vi-VN', { notation: 'compact', maximumFractionDigits: 1 });
+const familyCount = new Intl.NumberFormat('vi-VN');
 
 type AdminFinanceReportCardProps = {
   year: number;
@@ -49,20 +51,43 @@ export function AdminFinanceReportCard({ year, currentYear, onYearChange, report
         {loading && <p role="status" className="text-sm text-muted-foreground">Đang tải báo cáo tài chính…</p>}
         {error && <p role="alert" className="text-sm text-destructive">Không tải được báo cáo tài chính. Vui lòng thử lại.</p>}
         {report && <>
-          <dl className="grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-teal-100 bg-teal-50 px-3 py-2.5">
-              <dt className="text-sm text-teal-800">Tổng tiền thu</dt>
-              <dd className="wrap-anywhere text-lg font-bold tabular-nums text-teal-900">{formatCurrencyVND(report.totals.receivedVnd)}</dd>
+          <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="min-w-0 space-y-1 rounded-xl border border-slate-200 bg-slate-50 p-3.5">
+              <dt className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                <UsersRound aria-hidden="true" className="size-4 shrink-0 text-slate-500" />
+                Gia đình đã mua gói
+              </dt>
+              <dd className="wrap-anywhere text-xl font-bold tabular-nums text-slate-900">
+                {report.totals.purchasingFamilies === undefined ? '—' : familyCount.format(report.totals.purchasingFamilies)}
+              </dd>
             </div>
-            <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
-              <dt className="text-sm text-amber-800">Tổng chi trả CSYT</dt>
-              <dd className="wrap-anywhere text-lg font-bold tabular-nums text-amber-900">{formatCurrencyVND(report.totals.paidVnd)}</dd>
+            <div className="min-w-0 space-y-1 rounded-xl border border-teal-100 bg-teal-50 p-3.5">
+              <dt className="flex items-center gap-2 text-sm font-medium text-teal-800">
+                <ArrowDownLeft aria-hidden="true" className="size-4 shrink-0" />
+                Tổng tiền đã thu
+              </dt>
+              <dd className="wrap-anywhere text-xl font-bold tabular-nums text-teal-950">{formatCurrencyVND(report.totals.receivedVnd)}</dd>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <dt className="text-sm text-slate-600">Chênh lệch thu chi</dt>
-              <dd className="wrap-anywhere text-lg font-bold tabular-nums text-slate-900">{formatCurrencyVND(report.totals.netVnd)}</dd>
+            <div className="min-w-0 space-y-1 rounded-xl border border-amber-100 bg-amber-50 p-3.5">
+              <dt className="flex items-center gap-2 text-sm font-medium text-amber-800">
+                <ArrowUpRight aria-hidden="true" className="size-4 shrink-0" />
+                Đã chi trả CSYT
+              </dt>
+              <dd className="wrap-anywhere text-xl font-bold tabular-nums text-amber-950">{formatCurrencyVND(report.totals.paidVnd)}</dd>
+            </div>
+            <div className="min-w-0 space-y-1 rounded-xl border border-primary/15 bg-primary/5 p-3.5">
+              <dt className="flex items-center gap-2 text-sm font-medium text-primary">
+                <Wallet aria-hidden="true" className="size-4 shrink-0" />
+                Còn lại sau chi trả
+              </dt>
+              <dd className="wrap-anywhere text-xl font-bold tabular-nums text-primary">{formatCurrencyVND(report.totals.netVnd)}</dd>
             </div>
           </dl>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            Mỗi gia đình có hóa đơn mua gói đã thanh toán được tính một lần trong năm.
+            Số tiền còn lại bằng tiền đã thu trừ khoản đã chuyển cho CSYT.
+            Dữ liệu hiện tại chưa ghi nhận khoản chi riêng cho bác sĩ.
+          </p>
           {hasMovements ? (
             <div className="overflow-x-auto">
               <ChartContainer config={chartConfig} className="aspect-auto h-64 min-w-[520px]">

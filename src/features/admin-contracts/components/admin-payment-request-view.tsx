@@ -1,6 +1,15 @@
 'use client';
 
 import { useCallback, useState, type FormEvent } from 'react';
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Copy,
+  ExternalLink,
+  QrCode,
+  Search,
+  ShieldAlert,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -26,23 +35,12 @@ const UUID_V4_REGEX =
 const TRANSFER_DESCRIPTION_REGEX = /^[A-Z0-9][A-Z0-9 ]*$/;
 
 function getMissingContractSigners(contract: FourPartyContract): string[] {
-  // Dùng để nhắc trên giao diện. Backend sẽ kiểm tra lại chữ ký hợp lệ.
   const sigs = contract.signatures ?? {};
   const missing: string[] = [];
   if (!sigs.family) missing.push('Gia đình');
   if (!sigs.platform) missing.push('Nền tảng');
   if (!sigs.facility) missing.push('Cơ sở y tế');
   if (!sigs.doctor) missing.push('Bác sĩ');
-  return missing;
-}
-
-function getMissingAddendumSigners(signedRoles?: string[]): string[] {
-  const roles = new Set(signedRoles ?? []);
-  const missing: string[] = [];
-  if (!roles.has('FAMILY_REP')) missing.push('Gia đình');
-  if (!roles.has('ADMIN')) missing.push('Nền tảng');
-  if (!roles.has('HEALTHCARE_FACILITY')) missing.push('Cơ sở y tế');
-  if (!roles.has('ASSIGNED_DOCTOR')) missing.push('Bác sĩ');
   return missing;
 }
 
@@ -67,10 +65,23 @@ export function AdminPaymentRequestView() {
   const contracts = useAdminQuery(
     useCallback(() => contractsApi.getMedicalContracts({ all: true }), []),
   );
+  // Chỉ giữ các hợp đồng thực sự có khoản chờ thu (chờ thanh toán hoặc đang hiệu lực nhưng có phụ lục chờ thu).
   const selectable =
-    contracts.data?.filter((contract) =>
-      ['PENDING_PAYMENT', 'ACTIVE'].includes(contract.status),
-    ) ?? [];
+    contracts.data?.filter((contract) => {
+      if (contract.status === 'PENDING_PAYMENT') return true;
+      if (contract.status === 'ACTIVE') {
+        return (contract.addenda ?? []).some(
+          (item) => item.status === 'PENDING_PAYMENT' && !item.hasPaidInvoice,
+        );
+      }
+      return false;
+    }) ?? [];
+  const pendingMainContracts = selectable.filter(
+    (contract) => contract.status === 'PENDING_PAYMENT',
+  );
+  const activeWithPendingAddenda = selectable.filter(
+    (contract) => contract.status === 'ACTIVE',
+  );
   const normalizedContractId = contractId.trim().toLowerCase();
   const normalizedAddendumId = addendumId.trim().toLowerCase();
   const listedContract = selectable.find((contract) => contract.id === normalizedContractId);
@@ -80,7 +91,6 @@ export function AdminPaymentRequestView() {
     (contractId !== '' && !listedContract);
   const selected = useManualContract ? lookedUpContract : listedContract;
 
-  // Chỉ cho chọn phụ lục đang chờ thu và chưa có hóa đơn đã thanh toán.
   const pendingAddenda =
     selected?.status === 'ACTIVE'
       ? (selected.addenda ?? []).filter(
@@ -90,17 +100,20 @@ export function AdminPaymentRequestView() {
   const selectedAddendum = selected?.addenda?.find(
     (item) => item.id === normalizedAddendumId,
   );
-  const useManualAddendum =
-    manualAddendum ||
-    pendingAddenda.length === 0;
-  const checkMainContract = selected?.status === 'PENDING_PAYMENT' && !selected.hasPaidContractInvoice;
-  const checkAddendum = selected?.status === 'ACTIVE' && UUID_V4_REGEX.test(normalizedAddendumId);
+  const useManualAddendum = manualAddendum || pendingAddenda.length === 0;
+  const checkMainContract =
+    selected?.status === 'PENDING_PAYMENT' && !selected.hasPaidContractInvoice;
+  const checkAddendum =
+    selected?.status === 'ACTIVE' && UUID_V4_REGEX.test(normalizedAddendumId);
   const checkContractId = checkMainContract || checkAddendum ? normalizedContractId : '';
-  const checkAddendumId = selected?.status === 'ACTIVE' ? normalizedAddendumId : undefined;
-  const eligibility = useAdminQuery(useCallback(async () => {
-    if (!checkContractId) return null;
-    return paymentsApi.getAdminPaymentEligibility(checkContractId, checkAddendumId);
-  }, [checkContractId, checkAddendumId]));
+  const checkAddendumId =
+    selected?.status === 'ACTIVE' ? normalizedAddendumId : undefined;
+  const eligibility = useAdminQuery(
+    useCallback(async () => {
+      if (!checkContractId) return null;
+      return paymentsApi.getAdminPaymentEligibility(checkContractId, checkAddendumId);
+    }, [checkContractId, checkAddendumId]),
+  );
 
   function clearResult() {
     setError('');
@@ -110,7 +123,6 @@ export function AdminPaymentRequestView() {
   }
 
   function handleSelectContract(nextId: string) {
-    // Đổi hợp đồng thì bỏ mã thu tiền và phụ lục đã chọn trước đó.
     setContractId(nextId);
     setLookedUpContract(null);
     setLookupError('');
@@ -137,7 +149,6 @@ export function AdminPaymentRequestView() {
       (item) => item.status === 'PENDING_PAYMENT' && !item.hasPaidInvoice,
     );
     if (nextPendingAddenda.length === 1) {
-      // Có đúng một phụ lục thì chọn sẵn, số tiền vẫn cho admin sửa.
       const only = nextPendingAddenda[0];
       setAddendumId(only.id);
       setAmount(
@@ -162,13 +173,11 @@ export function AdminPaymentRequestView() {
     setLookedUpContract(null);
     fillContract();
     try {
-      // Lấy chi tiết theo UUID, kể cả hợp đồng chưa xuất hiện trong danh sách.
       const contract = await contractsApi.getMedicalContractById(normalizedContractId);
       setLookedUpContract(contract);
       fillContract(contract);
       eligibility.refresh();
     } catch (cause) {
-      // Lỗi kết nối chỉ đổi nhãn nút để người dùng thử lại.
       if (cause instanceof ApiConnectionError) {
         setRetryLookup(true);
       } else {
@@ -181,26 +190,27 @@ export function AdminPaymentRequestView() {
   }
 
   function handleSelectAddendum(nextAddendumId: string) {
-    // Bỏ QR và số tiền cũ khi người dùng chuyển sang khoản khác.
     clearResult();
     setAddendumId(nextAddendumId);
-    const found = pendingAddenda.find((item) => item.id === nextAddendumId.trim().toLowerCase());
-    setAmount(found && found.additionalAmount > 0 ? String(Math.round(found.additionalAmount)) : '');
+    const found = pendingAddenda.find(
+      (item) => item.id === nextAddendumId.trim().toLowerCase(),
+    );
+    setAmount(
+      found && found.additionalAmount > 0
+        ? String(Math.round(found.additionalAmount))
+        : '',
+    );
   }
 
   const localWarnings: string[] = [];
   if (selected) {
     if (selected.status === 'PENDING_PAYMENT') {
       if (selected.hasPaidContractInvoice) {
-        localWarnings.push(
-          'Hợp đồng này đã có hóa đơn thanh toán thành công (PAID), backend sẽ không cho cấp thêm mã mới.',
-        );
+        localWarnings.push('Hợp đồng này đã thanh toán (PAID), không thể cấp thêm mã.');
       }
     } else if (selected.status === 'ACTIVE') {
       if (pendingAddenda.length === 0) {
-        localWarnings.push(
-          'Hợp đồng đang hiệu lực chưa có phụ lục nào ở trạng thái chờ thanh toán. Chỉ tạo được mã thu tiền khi có ID phụ lục chờ thanh toán.',
-        );
+        localWarnings.push('Chưa có phụ lục chờ thanh toán. Nhập ID phụ lục để tiếp tục.');
       }
     } else {
       localWarnings.push('Hợp đồng hiện không ở trạng thái cho phép tạo mã thu tiền.');
@@ -225,7 +235,9 @@ export function AdminPaymentRequestView() {
     }
 
     if (!selected) {
-      if (!lookupError && !retryLookup) setError('Vui lòng tra cứu hợp đồng trước khi tạo mã.');
+      if (!lookupError && !retryLookup) {
+        setError('Vui lòng tra cứu hợp đồng trước khi tạo mã.');
+      }
       return;
     }
     if (selected.status !== 'ACTIVE' && selected.status !== 'PENDING_PAYMENT') {
@@ -233,7 +245,6 @@ export function AdminPaymentRequestView() {
       return;
     }
     const trimmedAddendumId = normalizedAddendumId;
-    // Hợp đồng đang dùng rồi thì chỉ thu thêm qua phụ lục.
     if (selected?.status === 'ACTIVE' && !trimmedAddendumId) {
       setError(
         'Hợp đồng đang hiệu lực chỉ tạo được mã thu tiền cho phụ lục. Vui lòng chọn hoặc nhập ID phụ lục chờ thanh toán.',
@@ -307,8 +318,13 @@ export function AdminPaymentRequestView() {
 
     if (checkContractId && !eligibility.data?.eligible) {
       if (eligibility.error) return;
-      setError(eligibility.data?.message ?? 'Đang kiểm tra điều kiện tạo mã. Vui lòng thử lại sau khi có kết quả.');
-      setBlockingReasons(describeBlockingReasons(eligibility.data?.blockingReasons ?? []));
+      setError(
+        eligibility.data?.message ??
+          'Đang kiểm tra điều kiện tạo mã. Vui lòng thử lại sau khi có kết quả.',
+      );
+      setBlockingReasons(
+        describeBlockingReasons(eligibility.data?.blockingReasons ?? []),
+      );
       return;
     }
 
@@ -329,7 +345,6 @@ export function AdminPaymentRequestView() {
         return;
       }
       setError(extractErrorMessage(cause, 'Không thể cấp mã thu tiền.'));
-      // Hiện từng lý do để admin biết cần bổ sung chữ ký hay thông tin nào.
       setBlockingReasons(
         describeBlockingReasons(readBlockingReasonsFromError(cause)),
       );
@@ -350,433 +365,519 @@ export function AdminPaymentRequestView() {
     }
   }
 
+  const parsedPreviewAmount =
+    amount.trim() && Number.isFinite(Number(amount)) && Number(amount) > 0
+      ? Number(amount)
+      : null;
+  const previewDescription = description.trim().replace(/\s+/g, ' ').toUpperCase();
+
   return (
-    <section className="space-y-4">
-      <header className="space-y-1">
-        <h2 className="text-xl font-semibold text-slate-900">
-          Tạo mã thu tiền
-        </h2>
-        <p className="text-sm text-slate-600">
-          Tạo hoặc điều chỉnh mã VietQR để hộ gia đình chuyển khoản thanh toán
-          hợp đồng 4 bên đang chờ thanh toán hoặc phụ lục của hợp đồng đang hiệu
-          lực.
-        </p>
-      </header>
-      <div
-        className={
-          issued
-            ? 'grid min-w-0 items-start gap-4 xl:grid-cols-2'
-            : 'max-w-2xl'
-        }
-      >
-        <Card className="min-w-0 border-slate-200 py-0">
-          <CardContent className="min-w-0 p-4 sm:p-5">
-            <form noValidate className="min-w-0 space-y-5" onSubmit={issue}>
-              <fieldset className="min-w-0 space-y-3">
-                <legend className="mb-3 font-semibold text-slate-900">
-                  Khoản cần thu
-                </legend>
-                {useManualContract ? (
-                  <Label className="grid min-w-0 gap-2">
-                    ID hợp đồng
-                    <Input
-                      required
-                      disabled={busy || lookingUp}
-                      value={contractId}
-                      onChange={(event) => {
-                        setManualContract(true);
-                        setContractId(event.target.value);
-                        setLookedUpContract(null);
-                        setLookupError('');
-                        setRetryLookup(false);
-                        fillContract();
-                        clearResult();
-                      }}
-                      placeholder="Ví dụ: 3fa85f64-5717-4562-b3fc-2c963f66afa6"
-                    />
-                  </Label>
-                ) : (
-                  <Label className="grid min-w-0 gap-2">
-                    Hợp đồng cần thu
-                    <select
-                      className="h-9 w-full min-w-0 max-w-full truncate rounded-md border border-input bg-background px-3 font-normal"
-                      value={contractId}
-                      onChange={(event) =>
-                        handleSelectContract(event.target.value)
+    <section className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-12">
+      {/* Cột trái: Form tối giản, nhìn phát biết nhập ngay */}
+      <Card className="min-w-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-2xs lg:col-span-7">
+        <CardContent className="min-w-0 p-5 sm:p-6">
+          <form noValidate className="min-w-0 space-y-5" onSubmit={issue}>
+            {/* 1. Chọn hợp đồng / tra cứu UUID */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="text-base font-bold text-slate-900">Tạo mã thu tiền</h2>
+                {selectable.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs"
+                    disabled={busy || lookingUp}
+                    onClick={() => {
+                      if (useManualContract) {
+                        handleSelectContract(listedContract?.id ?? '');
+                      } else {
+                        setLookedUpContract(listedContract ?? null);
                       }
-                      disabled={busy}
-                      required
+                      setManualContract(!useManualContract);
+                    }}
+                  >
+                    {useManualContract ? 'Chọn từ danh sách' : 'Nhập ID hợp đồng'}
+                  </Button>
+                )}
+              </div>
+
+              {useManualContract ? (
+                <div className="space-y-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                    <Label className="grid min-w-0 flex-1 gap-1.5 text-xs font-semibold text-slate-700">
+                      ID hợp đồng
+                      <Input
+                        required
+                        disabled={busy || lookingUp}
+                        value={contractId}
+                        onChange={(event) => {
+                          setManualContract(true);
+                          setContractId(event.target.value);
+                          setLookedUpContract(null);
+                          setLookupError('');
+                          setRetryLookup(false);
+                          fillContract();
+                          clearResult();
+                        }}
+                        placeholder="Nhập UUID hợp đồng..."
+                        className="h-10 bg-white text-sm font-normal"
+                      />
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-10 shrink-0"
+                      onClick={() => void lookupContract()}
+                      disabled={busy || lookingUp || !normalizedContractId}
                     >
-                      <option value="">Chọn hợp đồng khách hàng</option>
-                      {selectable.map((item) => {
-                        const pendingCount = (item.addenda ?? []).filter(
-                          (a) =>
-                            a.status === 'PENDING_PAYMENT' && !a.hasPaidInvoice,
-                        ).length;
-                        const statusLabel =
-                          item.status === 'ACTIVE'
-                            ? pendingCount > 0
-                              ? `Đang hiệu lực (${pendingCount} phụ lục chờ thu)`
-                              : 'Đang hiệu lực (chỉ thu phụ lục)'
-                            : `Chờ thanh toán · ${formatCurrencyVND(item.packagePrice)}`;
-                        return (
+                      <Search aria-hidden="true" className="mr-1.5 size-4" />
+                      {lookingUp
+                        ? 'Đang tra cứu…'
+                        : retryLookup
+                          ? 'Thử tra cứu lại'
+                          : 'Tra cứu hợp đồng'}
+                    </Button>
+                  </div>
+                  {lookupError && (
+                    <p
+                      role="alert"
+                      className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"
+                    >
+                      {lookupError}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <Label className="grid min-w-0 gap-1.5 text-xs font-semibold text-slate-700">
+                  Hợp đồng cần thu
+                  <select
+                    className="h-10 w-full min-w-0 max-w-full truncate rounded-md border border-slate-300 bg-white px-3 text-sm font-normal text-slate-900"
+                    value={contractId}
+                    onChange={(event) => handleSelectContract(event.target.value)}
+                    disabled={busy}
+                    required
+                  >
+                    <option value="">Chọn hợp đồng cần thu</option>
+                    {pendingMainContracts.length > 0 && (
+                      <optgroup label="Hợp đồng chờ thanh toán">
+                        {pendingMainContracts.map((item) => (
                           <option key={item.id} value={item.id}>
-                            {item.contractNumber} ·{' '}
-                            {item.familyRepresentativeName} · {statusLabel}
+                            {item.contractNumber} · {item.familyRepresentativeName}
                           </option>
-                        );
-                      })}
-                    </select>
-                  </Label>
-                )}
-
-                {(useManualContract || selectable.length > 0) && (
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-3">
-                      {useManualContract && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => void lookupContract()}
-                          disabled={busy || lookingUp || !normalizedContractId}
-                        >
-                          {lookingUp ? 'Đang tra cứu…' : retryLookup ? 'Thử tra cứu lại' : 'Tra cứu hợp đồng'}
-                        </Button>
-                      )}
-
-                      {selectable.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="h-auto px-0"
-                          disabled={busy || lookingUp}
-                          onClick={() => {
-                            if (useManualContract) {
-                              handleSelectContract(listedContract?.id ?? '');
-                            } else {
-                              setLookedUpContract(listedContract ?? null);
-                            }
-                            setManualContract(!useManualContract);
-                          }}
-                        >
-                          {useManualContract
-                            ? 'Chọn từ danh sách'
-                            : 'Nhập ID hợp đồng'}
-                        </Button>
-                      )}
-                    </div>
-                    {useManualContract && lookupError && (
-                      <p role="alert" className="text-sm text-red-700">
-                        {lookupError}
-                      </p>
+                        ))}
+                      </optgroup>
                     )}
-                  </div>
-                )}
-
-                {selected && (
-                  <div className="min-w-0 space-y-2 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-xs text-slate-700">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="min-w-0 break-words font-semibold text-slate-900">
-                        {selected.contractNumber} ·{' '}
-                        {selected.familyRepresentativeName}
-                      </span>
-                      <Badge variant="outline">
-                        {selected.status === 'ACTIVE'
-                          ? 'Đang hiệu lực · Thu phụ lục'
-                          : selected.status === 'PENDING_PAYMENT'
-                            ? 'Chờ thanh toán · Hợp đồng chính'
-                            : 'Chưa thể thu tiền'}
-                      </Badge>
-                    </div>
-                    <div className="grid gap-1 sm:grid-cols-2">
-                      <p className="min-w-0 break-words">
-                        Gói dịch vụ:{' '}
-                        <strong className="text-slate-900">
-                          {selected.packageName}
-                        </strong>
-                      </p>
-                      <p className="tabular-nums">
-                        Giá gốc hợp đồng:{' '}
-                        <strong className="text-slate-900">
-                          {formatCurrencyVND(selected.packagePrice)}
-                        </strong>
-                      </p>
-                      <p className="min-w-0 break-words">
-                        Bác sĩ phụ trách:{' '}
-                        <strong className="text-slate-900">
-                          {selected.assignedDoctorName ||
-                            selected.doctorName ||
-                            'Chưa phân công'}
-                        </strong>
-                      </p>
-                      <p className="tabular-nums">
-                        Chữ ký đã ghi nhận:{' '}
-                        <strong className="text-slate-900">
-                          {4 - getMissingContractSigners(selected).length}/4 bên
-                        </strong>
-                      </p>
-                    </div>
-                    {selectedAddendum && (
-                      <p className="break-words border-t border-slate-200 pt-2 tabular-nums">
-                        Phụ lục đang chọn:{' '}
-                        <strong className="text-slate-900">
-                          {selectedAddendum.addendumNumber}
-                        </strong>{' '}
-                        (
-                        {ADDENDUM_TYPE_LABELS[selectedAddendum.addendumType] ??
-                          selectedAddendum.addendumType}
-                        ) · Giá gốc phụ lục:{' '}
-                        <strong className="text-slate-900">
-                          {formatCurrencyVND(selectedAddendum.additionalAmount)}
-                        </strong>
-                      </p>
-                    )}
-                    {localWarnings.length > 0 && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-amber-900">
-                        <p className="font-semibold">Lưu ý:</p>
-                        <ul className="mt-1 list-disc space-y-0.5 pl-4">
-                          {localWarnings.map((warning) => (
-                            <li key={warning}>{warning}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {selected?.status === 'ACTIVE' && (
-                  <div className="min-w-0 space-y-2">
-                    {!useManualAddendum && selected?.status === 'ACTIVE' ? (
-                      <Label className="grid min-w-0 gap-2">
-                        Phụ lục cần thu *
-                        <select
-                          className="h-9 w-full min-w-0 max-w-full truncate rounded-md border border-input bg-background px-3 font-normal"
-                          value={addendumId}
-                          onChange={(event) =>
-                            handleSelectAddendum(event.target.value)
-                          }
-                          disabled={busy}
-                          required
-                        >
-                          <option value="">
-                            Chọn phụ lục chờ thanh toán
-                          </option>
-                          {pendingAddenda.map((item) => (
+                    {activeWithPendingAddenda.length > 0 && (
+                      <optgroup label="Phụ lục chờ thu">
+                        {activeWithPendingAddenda.map((item) => {
+                          const pendingCount = (item.addenda ?? []).filter(
+                            (a) =>
+                              a.status === 'PENDING_PAYMENT' && !a.hasPaidInvoice,
+                          ).length;
+                          return (
                             <option key={item.id} value={item.id}>
-                              {item.addendumNumber} ·{' '}
-                              {ADDENDUM_TYPE_LABELS[item.addendumType] ??
-                                item.addendumType}{' '}
-                              · {formatCurrencyVND(item.additionalAmount)} (
-                              {4 -
-                                getMissingAddendumSigners(item.signedRoles)
-                                  .length}
-                              /4 chữ ký)
+                              {item.contractNumber} · {item.familyRepresentativeName} (
+                              {pendingCount} phụ lục)
                             </option>
-                          ))}
-                        </select>
-                      </Label>
-                    ) : (
-                      <Label className="grid min-w-0 gap-2">
-                        {selected?.status === 'ACTIVE'
-                          ? 'ID phụ lục * (bắt buộc với hợp đồng đang hiệu lực)'
-                          : 'ID phụ lục (bắt buộc nếu hợp đồng đang hiệu lực)'}
-                        <Input
-                          required={selected?.status === 'ACTIVE'}
-                          disabled={busy}
-                          value={addendumId}
-                          onChange={(event) => handleSelectAddendum(event.target.value)}
-                          placeholder="Định dạng UUID (ví dụ: 3fa85f64-5717-4562-b3fc-2c963f66afa6)"
-                        />
-                      </Label>
+                          );
+                        })}
+                      </optgroup>
                     )}
+                  </select>
+                </Label>
+              )}
 
-                    {selected?.status === 'ACTIVE' &&
-                      pendingAddenda.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="link"
-                          className="h-auto px-0"
-                          disabled={busy}
-                          onClick={() => {
-                            if (manualAddendum && !pendingAddenda.some((item) => item.id === normalizedAddendumId)) {
-                              handleSelectAddendum('');
-                            }
-                            setManualAddendum(!manualAddendum);
-                          }}
-                        >
-                          {manualAddendum
-                            ? 'Chọn phụ lục từ danh sách'
-                            : 'Nhập ID phụ lục thủ công'}
-                        </Button>
-                      )}
+              {/* Tóm tắt gọn 1 khối khi đã chọn hợp đồng */}
+              {selected && (
+                <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-xs">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-semibold text-slate-900">
+                      {selected.contractNumber} · {selected.familyRepresentativeName}
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={
+                        selected.status === 'ACTIVE'
+                          ? 'border-blue-200 bg-blue-50 text-blue-800'
+                          : selected.status === 'PENDING_PAYMENT'
+                            ? 'border-amber-200 bg-amber-50 text-amber-800'
+                            : 'border-slate-200 bg-slate-100 text-slate-700'
+                      }
+                    >
+                      {selected.status === 'ACTIVE'
+                        ? 'Thu phụ lục'
+                        : selected.status === 'PENDING_PAYMENT'
+                          ? 'Chờ thanh toán'
+                          : 'Không thể thu'}
+                    </Badge>
                   </div>
-                )}
-                {checkContractId && (
-                  <div className="space-y-1 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm" aria-live="polite">
-                    <p className="font-semibold">Điều kiện tạo mã</p>
-                    {eligibility.loading && <p>Đang kiểm tra điều kiện tạo mã…</p>}
-                    {eligibility.error && !(eligibility.cause instanceof ApiConnectionError) && (
-                      <p className="text-red-700">Chưa kiểm tra được điều kiện tạo mã. {eligibility.error}</p>
-                    )}
-                    {eligibility.data?.eligible && <p className="text-emerald-800">Đủ điều kiện tạo mã cho khoản này.</p>}
-                    {eligibility.data && !eligibility.data.eligible && (
-                      <>
-                        <p className="text-amber-900">{eligibility.data.message}</p>
-                        {eligibility.data.blockingReasons.length > 0 && (
-                          <ul className="list-disc pl-5 text-amber-900">
-                            {describeBlockingReasons(eligibility.data.blockingReasons).map((message) => <li key={message}>{message}</li>)}
-                          </ul>
-                        )}
-                      </>
-                    )}
-                    {!eligibility.loading && (eligibility.error || eligibility.data?.eligible === false) && (
-                      <Button type="button" variant="link" size="sm" onClick={eligibility.refresh} disabled={busy} className="h-auto px-0">Kiểm tra lại</Button>
-                    )}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-slate-600 tabular-nums">
+                    <span>{selected.packageName}</span>
+                    <span>Giá gốc: {formatCurrencyVND(selected.packagePrice)}</span>
+                    <span>
+                      BS: {selected.assignedDoctorName || selected.doctorName || 'Chưa phân công'}
+                    </span>
+                    <span>Chữ ký: {4 - getMissingContractSigners(selected).length}/4</span>
                   </div>
-                )}
-              </fieldset>
-
-              <fieldset className="min-w-0 space-y-3">
-                <legend className="mb-3 font-semibold text-slate-900">
-                  Thông tin chuyển khoản
-                </legend>
-                <Label className="grid gap-2">
-                  Số tiền cần thu (VNĐ)
-                  <Input
-                    type="number"
-                    required
-                    min={1}
-                    max={9999999999}
-                    step={1}
-                    disabled={busy}
-                    value={amount}
-                    onChange={(event) => {
-                      setIssued(null);
-                      setRetryIssue(false);
-                      setAmount(event.target.value);
-                    }}
-                  />
-                </Label>
-                <Label className="grid gap-2">
-                  Nội dung chuyển khoản
-                  <Input
-                    required
-                    maxLength={85}
-                    disabled={busy}
-                    value={description}
-                    onChange={(event) => {
-                      setIssued(null);
-                      setRetryIssue(false);
-                      setDescription(event.target.value);
-                    }}
-                    placeholder="VD: THANH TOAN HOP DONG GIA DINH"
-                  />
-                </Label>
-                <p className="text-xs text-slate-600">
-                  Dùng chữ không dấu (A-Z), số (0-9) và dấu cách (tối đa 85 ký
-                  tự). Không nhập sẵn mã hóa đơn FD — hệ thống sẽ tự gắn mã mới
-                  để đối soát SePay.
-                </p>
-                <Label className="grid gap-2">
-                  Lý do tạo hoặc đổi mã
-                  <Textarea
-                    required
-                    minLength={5}
-                    maxLength={500}
-                    disabled={busy}
-                    value={reason}
-                    onChange={(event) => setReason(event.target.value)}
-                  />
-                </Label>
-                <p className="text-[11px] text-slate-500 tabular-nums">
-                  {reason.trim().length}/500 ký tự (tối thiểu 5 ký tự)
-                </p>
-              </fieldset>
-
-              {error && (
-                <div
-                  role="alert"
-                  className="space-y-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-destructive"
-                >
-                  <p className="font-medium">{error}</p>
-                  {blockingReasons.length > 0 && (
-                    <ul className="list-disc space-y-0.5 pl-4 text-xs text-red-900">
-                      {blockingReasons.map((item) => (
-                        <li key={item}>{item}</li>
+                  {selectedAddendum && (
+                    <p className="text-blue-900 tabular-nums">
+                      Phụ lục: <strong>{selectedAddendum.addendumNumber}</strong> (
+                      {ADDENDUM_TYPE_LABELS[selectedAddendum.addendumType] ??
+                        selectedAddendum.addendumType}
+                      ) · {formatCurrencyVND(selectedAddendum.additionalAmount)}
+                    </p>
+                  )}
+                  {localWarnings.length > 0 && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+                      {localWarnings.map((warning) => (
+                        <p key={warning}>{warning}</p>
                       ))}
-                    </ul>
+                    </div>
                   )}
                 </div>
               )}
 
-              <div className="space-y-3 border-t border-slate-200 pt-4">
-                <p className="text-sm text-slate-600">
-                  Nếu đổi số tiền hoặc nội dung, mã cũ sẽ tự đóng và người dùng
-                  cần mở lại trang thanh toán để lấy mã mới.
-                </p>
-                <Button type="submit" disabled={busy || lookingUp} className="w-full sm:w-auto">
-                  {busy ? 'Đang tạo mã…' : retryIssue ? 'Thử tạo mã lại' : 'Tạo mã thu tiền'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
+              {/* Phụ lục cho hợp đồng ACTIVE */}
+              {selected?.status === 'ACTIVE' && (
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-semibold text-slate-700">
+                      {!useManualAddendum ? 'Phụ lục cần thu *' : 'ID phụ lục *'}
+                    </span>
+                    {pendingAddenda.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        className="h-auto p-0 text-xs"
+                        disabled={busy}
+                        onClick={() => {
+                          if (
+                            manualAddendum &&
+                            !pendingAddenda.some(
+                              (item) => item.id === normalizedAddendumId,
+                            )
+                          ) {
+                            handleSelectAddendum('');
+                          }
+                          setManualAddendum(!manualAddendum);
+                        }}
+                      >
+                        {manualAddendum ? 'Chọn từ danh sách' : 'Nhập ID phụ lục'}
+                      </Button>
+                    )}
+                  </div>
 
-        {issued && (
-          <Card aria-label="Mã thu tiền đã tạo" className="min-w-0 border-slate-200">
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="font-semibold tabular-nums">
+                  {!useManualAddendum ? (
+                    <select
+                      aria-label="Phụ lục cần thu *"
+                      className="h-10 w-full min-w-0 max-w-full truncate rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900"
+                      value={addendumId}
+                      onChange={(event) => handleSelectAddendum(event.target.value)}
+                      disabled={busy}
+                      required
+                    >
+                      <option value="">Chọn phụ lục chờ thanh toán</option>
+                      {pendingAddenda.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.addendumNumber} · {formatCurrencyVND(item.additionalAmount)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Input
+                      aria-label="ID phụ lục * (bắt buộc với hợp đồng đang hiệu lực)"
+                      required
+                      disabled={busy}
+                      value={addendumId}
+                      onChange={(event) => handleSelectAddendum(event.target.value)}
+                      placeholder="Nhập UUID phụ lục..."
+                      className="h-10 bg-white text-sm"
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Trạng thái đủ điều kiện (1 dòng gọn) */}
+              {checkContractId && (
+                <div
+                  className={`rounded-xl border px-3.5 py-2.5 text-xs sm:text-sm ${
+                    eligibility.data?.eligible
+                      ? 'border-emerald-200 bg-emerald-50/70 text-emerald-900'
+                      : eligibility.error
+                        ? 'border-red-200 bg-red-50/70 text-red-900'
+                        : eligibility.data?.eligible === false
+                          ? 'border-amber-200 bg-amber-50/70 text-amber-950'
+                          : 'border-slate-200 bg-slate-50 text-slate-700'
+                  }`}
+                  aria-live="polite"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 font-medium">
+                      {eligibility.data?.eligible && (
+                        <>
+                          <CheckCircle2 aria-hidden="true" className="size-4 text-emerald-700" />
+                          <span>Đủ điều kiện tạo mã cho khoản này.</span>
+                        </>
+                      )}
+                      {eligibility.loading && <span>Đang kiểm tra điều kiện…</span>}
+                      {eligibility.error &&
+                        !(eligibility.cause instanceof ApiConnectionError) && (
+                          <span className="text-red-700">
+                            Chưa kiểm tra được điều kiện tạo mã. {eligibility.error}
+                          </span>
+                        )}
+                      {eligibility.data && !eligibility.data.eligible && (
+                        <>
+                          <AlertTriangle aria-hidden="true" className="size-4 text-amber-700" />
+                          <span>{eligibility.data.message}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {!eligibility.loading &&
+                      (eligibility.error || eligibility.data?.eligible === false) && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="sm"
+                          onClick={eligibility.refresh}
+                          disabled={busy}
+                          className="h-auto p-0 text-xs"
+                        >
+                          Kiểm tra lại
+                        </Button>
+                      )}
+                  </div>
+
+                  {eligibility.data &&
+                    !eligibility.data.eligible &&
+                    eligibility.data.blockingReasons.length > 0 && (
+                      <ul className="mt-1.5 list-disc space-y-0.5 pl-5 text-xs text-amber-900">
+                        {describeBlockingReasons(eligibility.data.blockingReasons).map(
+                          (message) => (
+                            <li key={message}>{message}</li>
+                          ),
+                        )}
+                      </ul>
+                    )}
+                </div>
+              )}
+            </div>
+
+            {/* 2. Số tiền & Nội dung chuyển khoản */}
+            <div className="grid grid-cols-1 gap-4 border-t border-slate-100 pt-5 sm:grid-cols-2">
+              <Label className="grid gap-1.5 text-xs font-semibold text-slate-700">
+                Số tiền cần thu (VNĐ)
+                <Input
+                  type="number"
+                  required
+                  min={1}
+                  max={9999999999}
+                  step={1}
+                  disabled={busy}
+                  value={amount}
+                  onChange={(event) => {
+                    setIssued(null);
+                    setRetryIssue(false);
+                    setAmount(event.target.value);
+                  }}
+                  placeholder="1500000"
+                  className="h-10 bg-white text-sm font-normal tabular-nums"
+                />
+              </Label>
+
+              <Label className="grid gap-1.5 text-xs font-semibold text-slate-700">
+                Nội dung chuyển khoản
+                <Input
+                  required
+                  maxLength={85}
+                  disabled={busy}
+                  value={description}
+                  onChange={(event) => {
+                    setIssued(null);
+                    setRetryIssue(false);
+                    setDescription(event.target.value);
+                  }}
+                  placeholder="THANH TOAN HOP DONG"
+                  className="h-10 bg-white text-sm font-normal"
+                />
+              </Label>
+            </div>
+
+            {/* 3. Lý do */}
+            <Label className="grid gap-1.5 text-xs font-semibold text-slate-700">
+              Lý do tạo hoặc đổi mã
+              <Textarea
+                required
+                rows={2}
+                minLength={5}
+                maxLength={500}
+                disabled={busy}
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                placeholder="Nhập lý do cấp mới hoặc điều chỉnh mã..."
+                className="bg-white text-sm font-normal"
+              />
+            </Label>
+
+            {error && (
+              <div
+                role="alert"
+                className="space-y-1.5 rounded-xl border border-red-200 bg-red-50 px-3.5 py-2.5 text-sm text-destructive"
+              >
+                <p className="flex items-center gap-1.5 font-semibold">
+                  <ShieldAlert aria-hidden="true" className="size-4 shrink-0" />
+                  <span>{error}</span>
+                </p>
+                {blockingReasons.length > 0 && (
+                  <ul className="list-disc space-y-0.5 pl-5 text-xs text-red-900">
+                    {blockingReasons.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end pt-1">
+              <Button
+                type="submit"
+                disabled={busy || lookingUp}
+                className="h-10 w-full px-6 sm:w-auto"
+              >
+                <QrCode aria-hidden="true" className="mr-1.5 size-4" />
+                {busy
+                  ? 'Đang tạo mã…'
+                  : retryIssue
+                    ? 'Thử tạo mã lại'
+                    : 'Tạo mã thu tiền'}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* Cột phải: Khung QR sạch thoáng — Chưa tạo (ô QR giữ chỗ) -> Đã tạo (ảnh QR thật) */}
+      <div className="min-w-0 lg:sticky lg:top-4 lg:col-span-5">
+        {issued ? (
+          <Card
+            aria-label="Mã thu tiền đã tạo"
+            className="min-w-0 overflow-hidden rounded-2xl border-primary/30 py-0 shadow-xs"
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-primary/15 bg-primary/5 px-5 py-3.5">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 aria-hidden="true" className="size-4 text-emerald-700" />
+                <h3 className="text-sm font-bold text-slate-900 tabular-nums">
                   {issued.paymentCode}
                 </h3>
-                <Badge variant="outline">
-                  {issued.environment === 'LIVE' ? 'Tiền thật' : 'Dữ liệu thử'}
-                </Badge>
               </div>
-              <p className="text-2xl font-semibold tabular-nums">
+              <Badge
+                variant="outline"
+                className={
+                  issued.environment === 'LIVE'
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                    : 'border-amber-200 bg-amber-50 text-amber-800'
+                }
+              >
+                {issued.environment === 'LIVE' ? 'Tiền thật' : 'Dữ liệu thử'}
+              </Badge>
+            </div>
+
+            <CardContent className="space-y-4 p-5">
+              {issued.qrUrl && (
+                <div className="flex justify-center">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-2xs">
+                    <img
+                      src={issued.qrUrl}
+                      alt={`Mã VietQR ${issued.paymentCode}`}
+                      className="size-48 object-contain"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <p className="text-center text-2xl font-bold text-primary tabular-nums">
                 {formatCurrencyVND(issued.amountVnd)}
               </p>
-              <dl className="space-y-2 text-sm">
-                <div>
-                  <dt className="text-muted-foreground">Tài khoản nhận</dt>
-                  <dd className="tabular-nums">
+
+              <dl className="divide-y divide-slate-100 text-sm">
+                <div className="flex items-center justify-between gap-4 py-2">
+                  <dt className="shrink-0 text-slate-500">Tài khoản nhận</dt>
+                  <dd className="text-right font-semibold text-slate-900 tabular-nums">
                     {issued.expectedGateway} · {issued.expectedAccountNumber}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-muted-foreground">
-                    Nội dung chuyển khoản
-                  </dt>
-                  <dd className="break-words tabular-nums">
+                <div className="flex items-center justify-between gap-4 py-2">
+                  <dt className="shrink-0 text-slate-500">Nội dung CK</dt>
+                  <dd className="break-words text-right font-semibold text-slate-900 tabular-nums">
                     {issued.transferContent ?? issued.paymentCode}
                   </dd>
                 </div>
-                <div>
-                  <dt className="text-muted-foreground">Có hiệu lực đến</dt>
-                  <dd className="tabular-nums">
+                <div className="flex items-center justify-between gap-4 py-2">
+                  <dt className="shrink-0 text-slate-500">Hiệu lực đến</dt>
+                  <dd className="text-right font-medium text-slate-800 tabular-nums">
                     {new Date(issued.expiresAt).toLocaleString('vi-VN', {
                       timeZone: 'Asia/Ho_Chi_Minh',
                     })}
                   </dd>
                 </div>
               </dl>
-              <div className="flex flex-wrap gap-2">
+
+              <div className="flex flex-wrap gap-2 pt-1">
                 <Button
+                  type="button"
                   variant="outline"
+                  className="flex-1"
                   onClick={() =>
                     void copyMemo(issued.transferContent ?? issued.paymentCode)
                   }
                 >
+                  <Copy aria-hidden="true" className="mr-1.5 size-3.5" />
                   Sao chép nội dung
                 </Button>
                 {issued.qrUrl && (
-                  <Button asChild>
+                  <Button asChild className="flex-1">
                     <a href={issued.qrUrl} target="_blank" rel="noreferrer">
+                      <ExternalLink aria-hidden="true" className="mr-1.5 size-3.5" />
                       Mở mã QR thu tiền
                     </a>
                   </Button>
                 )}
               </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="min-w-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-2xs">
+            <CardContent className="space-y-5 p-6">
+              <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/70 py-8 text-slate-400">
+                <QrCode aria-hidden="true" className="size-16 stroke-[1.5]" />
+                <span className="mt-2 text-xs font-medium text-slate-500">
+                  Mã VietQR
+                </span>
+              </div>
+
+              <dl className="divide-y divide-slate-100 text-sm">
+                <div className="flex items-center justify-between gap-4 py-2.5 first:pt-0">
+                  <dt className="shrink-0 text-slate-500">Hợp đồng</dt>
+                  <dd className="truncate text-right font-medium text-slate-900 tabular-nums">
+                    {selected ? selected.contractNumber : '—'}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4 py-2.5">
+                  <dt className="shrink-0 text-slate-500">Số tiền</dt>
+                  <dd className="text-right font-bold text-primary tabular-nums">
+                    {parsedPreviewAmount ? formatCurrencyVND(parsedPreviewAmount) : '—'}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4 py-2.5 last:pb-0">
+                  <dt className="shrink-0 text-slate-500">Nội dung CK</dt>
+                  <dd className="truncate text-right font-medium text-slate-800">
+                    {previewDescription || '—'}
+                  </dd>
+                </div>
+              </dl>
             </CardContent>
           </Card>
         )}

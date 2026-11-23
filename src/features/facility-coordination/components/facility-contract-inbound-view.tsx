@@ -524,37 +524,37 @@ export function FacilityContractInboundView({
         >
           {/* Desktop Table */}
           <div data-testid="desktop-view" className="hidden overflow-x-auto md:block">
-            <Table className="text-sm">
+            <Table className="border-collapse text-sm">
               <TableHeader>
-                <TableRow className="border-b border-[#e4e8ed] bg-[#f6f7f9] hover:bg-[#f6f7f9]">
-                  <TableHead className="px-4 py-3.5 text-left text-xs font-semibold text-[#4a4f63]">
+                <TableRow className="border-b border-slate-200 bg-slate-50/90 hover:bg-slate-50/90">
+                  <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                     Mã HĐ
                   </TableHead>
-                  <TableHead className="px-4 py-3.5 text-left text-xs font-semibold text-[#4a4f63]">
+                  <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                     Đại diện Gia đình
                   </TableHead>
-                  <TableHead className="px-4 py-3.5 text-left text-xs font-semibold text-[#4a4f63]">
+                  <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                     Gói dịch vụ
                   </TableHead>
-                  <TableHead className="px-4 py-3.5 text-left text-xs font-semibold text-[#4a4f63]">
+                  <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                     Bác sĩ gia đình đã chọn
                   </TableHead>
-                  <TableHead className="px-4 py-3.5 text-left text-xs font-semibold text-[#4a4f63]">
+                  <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                     Tiến độ 4 chữ ký
                   </TableHead>
-                  <TableHead className="px-4 py-3.5 text-right text-xs font-semibold text-[#4a4f63]">
+                  <TableHead className="px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                     Thao tác
                   </TableHead>
                 </TableRow>
               </TableHeader>
-              <TableBody className="divide-y divide-[#e4e8ed]">
+              <TableBody className="divide-y divide-slate-200">
                 {isLoading ? (
                   <TableRow>
                     <TableCell
                       colSpan={6}
                       role="status"
                       aria-live="polite"
-                      className="py-10 text-center text-sm text-[#4a4f63]"
+                      className="px-4 py-10 text-left text-sm text-slate-600"
                     >
                       Đang tải danh sách hợp đồng y tế 4 bên...
                     </TableCell>
@@ -563,16 +563,16 @@ export function FacilityContractInboundView({
                   <TableRow>
                     <TableCell
                       colSpan={6}
-                      className="py-12 text-center text-sm text-[#4a4f63]"
+                      className="px-4 py-12 text-left text-sm text-slate-600"
                     >
                       Chưa tiếp nhận hợp đồng y tế 4 bên nào.
                     </TableCell>
                   </TableRow>
                 ) : filteredContracts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-12 text-center">
+                    <TableCell colSpan={6} className="px-4 py-12 text-left">
                       <div className="space-y-3">
-                        <p className="text-sm text-[#4a4f63]">
+                        <p className="text-sm text-slate-600">
                           Không tìm thấy hợp đồng nào phù hợp với bộ lọc hiện
                           tại.
                         </p>
@@ -595,9 +595,9 @@ export function FacilityContractInboundView({
                     return (
                       <TableRow
                         key={contract.id}
-                        className="hover:bg-[#f6f7f9]/60"
+                        className="hover:bg-slate-50/70"
                       >
-                        <TableCell className="px-4 py-3.5 text-left">
+                        <TableCell className="border-r border-slate-200 px-4 py-3 text-left">
                           <div className="font-bold text-[#00258b] tabular-nums">
                             {contract.contractNumber}
                           </div>
@@ -606,7 +606,7 @@ export function FacilityContractInboundView({
                           </div>
                         </TableCell>
 
-                        <TableCell className="px-4 py-3.5 text-left">
+                        <TableCell className="border-r border-slate-200 px-4 py-3 text-left">
                           <div className="font-semibold text-[#20283d]">
                             {contract.familyRepresentativeName}
                           </div>
@@ -624,7 +624,7 @@ export function FacilityContractInboundView({
                           )}
                         </TableCell>
 
-                        <TableCell className="px-4 py-3.5 text-left">
+                        <TableCell className="border-r border-slate-200 px-4 py-3 text-left">
                           <div className="font-semibold text-[#20283d]">
                             {contract.packageName}
                           </div>
@@ -634,7 +634,7 @@ export function FacilityContractInboundView({
                           </div>
                         </TableCell>
 
-                        <TableCell className="px-4 py-3.5 text-left">
+                        <TableCell className="border-r border-slate-200 px-4 py-3 text-left">
                           {contract.doctorName ? (
                             <div className="space-y-1">
                               <div className="font-semibold text-[#20283d]">
@@ -651,7 +651,7 @@ export function FacilityContractInboundView({
                           )}
                         </TableCell>
 
-                        <TableCell className="px-4 py-3.5 text-left">
+                        <TableCell className="border-r border-slate-200 px-4 py-3 text-left">
                           <div
                             className="flex items-center gap-1.5"
                             aria-label={`Tiến độ 4 chữ ký: ${progress.caption}`}
@@ -686,7 +686,7 @@ export function FacilityContractInboundView({
                           </div>
                         </TableCell>
 
-                        <TableCell className="px-4 py-3.5 text-right">
+                        <TableCell className="px-4 py-3 text-left">
                           <Button
                             asChild
                             size="sm"

@@ -627,20 +627,20 @@ export function FacilityCoordinationView() {
             </div>
 
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] border-collapse text-xs">
+              <table className="w-full min-w-[820px] border-collapse text-left text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50/40">
-                    <th className="w-44 px-3 py-2.5 text-left font-semibold text-slate-600 uppercase tracking-wider">
+                  <tr className="border-b border-slate-200 bg-slate-50/90">
+                    <th className="w-44 border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                       Bác sĩ
                     </th>
                     {weekDays.map((day) => (
                       <th
                         key={day.iso}
-                        className={`px-2 py-2.5 text-center font-semibold border-l border-slate-100 ${
+                        className={`border-r border-slate-200 px-3 py-2.5 text-left font-semibold last:border-r-0 ${
                           day.iso === todayIso ? 'bg-primary/5 text-primary' : 'text-slate-700'
                         }`}
                       >
-                        <span className="block text-[11px] uppercase">{day.dayLabel}</span>
+                        <span className="block text-[11px]">{day.dayLabel}</span>
                         <span className="block text-xs font-bold tabular-nums">{day.shortDate}</span>
                       </th>
                     ))}
@@ -648,8 +648,8 @@ export function FacilityCoordinationView() {
                 </thead>
                 <tbody>
                   {weeklyDoctors.map((docName) => (
-                    <tr key={docName} className="border-b border-slate-100 last:border-b-0">
-                      <td className="px-3 py-3 align-top font-semibold text-slate-900 bg-slate-50/30">
+                    <tr key={docName} className="border-b border-slate-200 last:border-b-0">
+                      <td className="border-r border-slate-200 bg-slate-50/30 px-4 py-3 text-left align-top font-semibold text-slate-900">
                         <div className="flex items-center gap-2">
                           <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-[11px] font-bold">
                             {getInitials(docName)}
@@ -664,7 +664,7 @@ export function FacilityCoordinationView() {
                         return (
                           <td
                             key={day.iso}
-                            className={`p-1.5 align-top border-l border-slate-100 min-h-[76px] ${
+                            className={`border-r border-slate-200 p-2 text-left align-top last:border-r-0 min-h-[76px] ${
                               day.iso === todayIso ? 'bg-primary/[0.02]' : ''
                             }`}
                           >

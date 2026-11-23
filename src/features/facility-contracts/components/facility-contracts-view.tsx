@@ -631,55 +631,55 @@ export function FacilityContractsView() {
                   data-testid="desktop-view"
                   className="hidden overflow-x-auto md:block"
                 >
-                  <Table className="text-sm">
+                  <Table className="border-collapse text-sm">
                     <TableHeader>
-                      <TableRow className="border-b border-[#e4e8ed] bg-[#f6f7f9] hover:bg-[#f6f7f9]">
-                        <TableHead className="px-5 py-3 text-xs font-semibold text-[#4a4f63]">
+                      <TableRow className="border-b border-slate-200 bg-slate-50/90 hover:bg-slate-50/90">
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                           Mã hợp đồng
                         </TableHead>
-                        <TableHead className="px-5 py-3 text-xs font-semibold text-[#4a4f63]">
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                           Phân chia doanh thu
                         </TableHead>
-                        <TableHead className="px-5 py-3 text-xs font-semibold text-[#4a4f63]">
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                           Ngày đối soát
                         </TableHead>
-                        <TableHead className="px-5 py-3 text-xs font-semibold text-[#4a4f63]">
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                           Thời hạn hiệu lực
                         </TableHead>
-                        <TableHead className="px-5 py-3 text-xs font-semibold text-[#4a4f63]">
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                           Trạng thái ký 2 bên
                         </TableHead>
-                        <TableHead className="px-5 py-3 text-right text-xs font-semibold text-[#4a4f63]">
+                        <TableHead className="px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
                           Thao tác
                         </TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody className="divide-y divide-[#e4e8ed]">
+                    <TableBody className="divide-y divide-slate-200">
                       {staffingList.map((item) => (
                         <TableRow
                           key={item.id}
-                          className="hover:bg-[#f6f7f9]/60"
+                          className="hover:bg-slate-50/70"
                         >
-                          <TableCell className="px-5 py-3.5 font-bold text-[#00258b] tabular-nums">
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left font-bold text-[#00258b] tabular-nums">
                             {item.contractNumber}
                           </TableCell>
-                          <TableCell className="px-5 py-3.5 text-[#2f364a] tabular-nums">
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left text-[#2f364a] tabular-nums">
                             <span className="font-semibold text-[#20283d]">
                               {item.facilitySharePercent}% CSYT
                             </span>{' '}
                             / {item.platformSharePercent}% FamiDoc
                           </TableCell>
-                          <TableCell className="px-5 py-3.5 text-[#4a4f63] tabular-nums">
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left text-[#4a4f63] tabular-nums">
                             Ngày 05 hằng tháng
                           </TableCell>
-                          <TableCell className="px-5 py-3.5 text-[#4a4f63] tabular-nums">
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left text-[#4a4f63] tabular-nums">
                             {formatDateVi(item.validFrom)} –{' '}
                             {formatDateVi(item.validTo)}
                           </TableCell>
-                          <TableCell className="px-5 py-3.5">
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left">
                             {getB2bStatusBadge(item)}
                           </TableCell>
-                          <TableCell className="px-5 py-3.5 text-right">
+                          <TableCell className="px-4 py-3 text-left">
                             <Button
                               asChild
                               size="sm"

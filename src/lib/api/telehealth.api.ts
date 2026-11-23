@@ -1,25 +1,20 @@
 import { unwrapApiEnvelope } from './envelope';
 import { httpClient } from './http-client';
 
-export type EncounterStatus =
-  | 'PROPOSED'
-  | 'CONFIRMED'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'RESCHEDULE_REQUESTED'
-  | 'CANCELLED';
+import type { EncounterParticipant, EncounterStatus as ScheduleEncounterStatus } from './encounters.api';
 
-export type EncounterCategory = 'PERIODIC' | 'AD_HOC';
+export type EncounterStatus = ScheduleEncounterStatus;
+export type EncounterCategory = 'PERIODIC' | 'AD_HOC' | 'PERIODIC_ROUTINE' | 'AD_HOC_ON_DEMAND';
 
 export interface TelehealthEncounterItem {
   id: string;
   contractId: string;
-  patientId: string;
+  patientId?: string;
   doctorId: string;
   scheduledDate: string;
   scheduledTime: string;
-  durationMinutes: number;
-  encounterType: 'TELEHEALTH' | 'HOME_VISIT';
+  durationMinutes?: number;
+  encounterType: 'TELEHEALTH' | 'HOME_VISIT' | 'FACILITY_VISIT' | 'TELEMEDICINE';
   category: EncounterCategory;
   encounterStatus: EncounterStatus;
   telehealthRoomUrl?: string | null;
@@ -45,6 +40,7 @@ export interface TelehealthEncounterItem {
       homeAddress?: string;
     };
     servicePackage?: {
+      packageName?: string;
       name?: string;
       code?: string;
     };
@@ -52,6 +48,7 @@ export interface TelehealthEncounterItem {
       facilityName?: string;
     };
   };
+  participants?: EncounterParticipant[];
   patient?: {
     id: string;
     fullName: string;
@@ -61,6 +58,7 @@ export interface TelehealthEncounterItem {
   };
   doctor?: {
     id: string;
+    doctorName?: string;
     licenseNumber?: string;
     specialty?: string;
     user?: {
@@ -369,60 +367,19 @@ export const telehealthApi = {
     fromDate?: string;
     toDate?: string;
   }): Promise<TelehealthListResponse> => {
-    try {
-      const response = await httpClient.get<any>(
-        '/api/v1/encounters/timetable/family',
-        {
-          encounterType: 'TELEHEALTH',
-          page: params?.page ?? 1,
-          pageSize: params?.pageSize ?? 20,
-          status: params?.status && params.status !== 'ALL' ? params.status : undefined,
-          category: params?.category && params.category !== 'ALL' ? params.category : undefined,
-          fromDate: params?.fromDate,
-          toDate: params?.toDate,
-        },
-        { cache: 'no-store' }
-      );
-
-      const unwrapped = unwrapApiEnvelope<any>(response);
-
-      // Handle backend pagination structure
-      if (unwrapped && Array.isArray(unwrapped.data)) {
-        if (unwrapped.data.length > 0) {
-          return {
-            data: unwrapped.data,
-            pagination: unwrapped.pagination ?? {
-              page: params?.page ?? 1,
-              pageSize: params?.pageSize ?? 20,
-              totalItems: unwrapped.data.length,
-              totalPages: 1,
-            },
-          };
-        }
-      }
-    } catch (err) {
-      // In development or when backend has empty DB, fallback to high-fidelity mock
-      console.warn('Telehealth API call failed or returned empty; using fallback clinical dataset.', err);
-    }
-
-    // High fidelity fallback filter
-    let list = [...MOCK_TELEHEALTH_ENCOUNTERS];
-    if (params?.status && params.status !== 'ALL') {
-      list = list.filter((item) => item.encounterStatus === params.status);
-    }
-    if (params?.category && params.category !== 'ALL') {
-      list = list.filter((item) => item.category === params.category);
-    }
-
-    return {
-      data: list,
-      pagination: {
+    const response = await httpClient.get<TelehealthListResponse>(
+      '/api/v1/encounters/timetable/family',
+      {
         page: params?.page ?? 1,
         pageSize: params?.pageSize ?? 20,
-        totalItems: list.length,
-        totalPages: 1,
+        status: params?.status === 'ALL' ? undefined : params?.status,
+        category: params?.category === 'ALL' ? undefined : params?.category,
+        fromDate: params?.fromDate,
+        toDate: params?.toDate,
       },
-    };
+      { cache: 'no-store' },
+    );
+    return unwrapApiEnvelope<TelehealthListResponse>(response);
   },
 
   getEncounterDetail: async (id: string): Promise<TelehealthEncounterItem> => {

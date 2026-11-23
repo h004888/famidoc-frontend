@@ -12,7 +12,6 @@ import { AdminQuotaProposalsPanel } from '@/features/admin-doctors/components/ad
 import { AdminMatchingQueuePanel } from '@/features/admin-doctors/components/admin-matching-queue-panel';
 import { adminApi, complaintStatusLabel, type AdminComplaint } from '@/lib/api/admin.api';
 import { useAdminQuery } from '@/hooks/use-admin-query';
-import { formatCurrencyVND } from '@/lib/utils';
 import { AdminFinanceReportCard } from './admin-finance-report-card';
 
 const number = new Intl.NumberFormat('vi-VN');
@@ -45,8 +44,7 @@ export function AdminDashboardView() {
       {loading && <p role="status" className="text-sm text-muted-foreground">Đang tải thống kê…</p>}
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {data && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <KpiStatCard title="Tiền đã thu từ đầu năm" value={formatCurrencyVND(data.gmvVnd)} icon="payments" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <KpiStatCard title="Hợp đồng hiệu lực" value={number.format(data.activeContracts)} icon="family_restroom" />
           <KpiStatCard title="Bác sĩ / CSYT đang hoạt động" value={`${data.doctors} / ${data.facilities}`} icon="medical_services" />
           <KpiStatCard title="Khiếu nại đang mở" value={number.format(data.openComplaints)} icon="gavel" />

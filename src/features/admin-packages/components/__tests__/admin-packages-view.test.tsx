@@ -10,16 +10,14 @@ vi.mock('@/lib/api/admin-packages.api', () => ({
   adminPackagesApi: {
     listPackages: vi.fn(),
     createPackage: vi.fn(),
-    publishPackage: vi.fn(),
     reopenPackage: vi.fn(),
     updatePackage: vi.fn(),
-    createVersion: vi.fn(),
   },
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn() } }));
 
-const draftItem: AdminCarePackageItem = {
-  id: 'draft-id', code: 'VISITS', version: 1, status: 'DRAFT', name: 'Gói theo dõi',
+const packageItem: AdminCarePackageItem = {
+  id: 'package-id', code: 'VISITS', version: 1, status: 'ACTIVE', name: 'Gói theo dõi',
   description: 'Theo dõi sức khỏe định kỳ tại nhà.', durationMonths: 3, priceVnd: 990000, includedMembers: 1,
   maxMembers: 2, additionalMemberMonthlyPriceVnd: 75000, quotaPeriod: 'PER_TERM',
   quotas: { homeVisits: 2, videoConsultations: 3, facilityVisits: 0 },
@@ -27,7 +25,7 @@ const draftItem: AdminCarePackageItem = {
 
 it('renders page header as Quản lý gói dịch vụ, layout with 3 packages per row (lg:grid-cols-3), and replaces Khám tại CSYT with Bác sĩ phụ trách', async () => {
   vi.mocked(adminPackagesApi.listPackages).mockResolvedValue({
-    items: [draftItem], page: 1, limit: 6, total: 1,
+    items: [packageItem], page: 1, limit: 6, total: 1,
   });
 
   const { container } = render(<AdminPackagesView />);
@@ -50,7 +48,7 @@ it('renders page header as Quản lý gói dịch vụ, layout with 3 packages p
 
 it('opens package detail dialog when clicking "Xem" button, showing all inner details', async () => {
   const activeItem: AdminCarePackageItem = {
-    ...draftItem,
+    ...packageItem,
     id: 'active-item-view',
     status: 'ACTIVE',
     name: 'Gói Chăm Sóc Tiêu Chuẩn',
@@ -80,54 +78,69 @@ it('opens package detail dialog when clicking "Xem" button, showing all inner de
   expect(screen.getAllByText(/2 người trong giá/i).length).toBeGreaterThan(0);
   expect(screen.getByText(/80\.000/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Sửa gói này' })).toBeInTheDocument();
+  expect(screen.queryByText(/^Áp dụng:/)).not.toBeInTheDocument();
 
   // Close dialog
   fireEvent.click(screen.getByRole('button', { name: 'Đóng' }));
   expect(screen.queryByRole('button', { name: 'Sửa gói này' })).not.toBeInTheDocument();
 });
 
-it('shows "Sửa" button instead of "Tạo phiên bản mới", and edits package directly without creating a new version', async () => {
-  const activeItem: AdminCarePackageItem = {
-    ...draftItem,
+it('updates the same package and keeps old versions out of the active list after saving', async () => {
+  vi.clearAllMocks();
+  let activeItem: AdminCarePackageItem = {
+    ...packageItem,
     id: 'active-item-1',
     status: 'ACTIVE',
+    version: 2,
+    quotaPeriod: 'PER_MONTH',
     name: 'Gói Chăm Sóc Toàn Diện',
   };
-
-  vi.mocked(adminPackagesApi.listPackages).mockResolvedValue({
-    items: [activeItem], page: 1, limit: 6, total: 1,
-  });
-  vi.mocked(adminPackagesApi.updatePackage).mockResolvedValue({
+  const retiredItem: AdminCarePackageItem = {
     ...activeItem,
-    name: 'Gói Chăm Sóc Toàn Diện (Đã sửa)',
+    id: 'retired-item-1',
+    status: 'DEPRECATED',
+    version: 1,
+    name: 'Gói Chăm Sóc Toàn Diện (bản cũ)',
+  };
+  vi.mocked(adminPackagesApi.listPackages).mockImplementation(async ({ status } = {}) => {
+    const items = [activeItem, retiredItem].filter((item) => !status || item.status === status);
+    return { items, page: 1, limit: 6, total: items.length };
+  });
+  vi.mocked(adminPackagesApi.updatePackage).mockImplementationOnce(async (_, terms) => {
+    activeItem = { ...activeItem, ...terms };
+    return activeItem;
   });
 
   render(<AdminPackagesView />);
-
-  // Should have "Sửa" button and NOT "Tạo phiên bản mới" (Requirement 3)
   expect(screen.queryByRole('button', { name: /Tạo phiên bản mới/i })).not.toBeInTheDocument();
-  const editBtn = await screen.findByRole('button', { name: 'Sửa' });
-  expect(editBtn).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', { name: 'Sửa' }));
+  const dialog = within(screen.getByRole('dialog', { name: 'Sửa gói dịch vụ' }));
+  expect(dialog.queryByLabelText('Áp dụng hạn mức')).not.toBeInTheDocument();
+  const nameField = dialog.getByLabelText(/Tên gói/i);
+  expect(nameField).toHaveValue(activeItem.name);
+  const editedName = 'Gói Chăm Sóc Toàn Diện (đã sửa)';
+  fireEvent.change(nameField, { target: { value: editedName } });
+  fireEvent.click(dialog.getByRole('button', { name: 'Lưu thay đổi' }));
 
-  // Click "Sửa" opens edit dialog directly (Requirement 4)
-  fireEvent.click(editBtn);
-  expect(screen.getByRole('heading', { name: 'Sửa gói dịch vụ' })).toBeInTheDocument();
-  expect(screen.getByLabelText(/Tên gói/i)).toHaveValue('Gói Chăm Sóc Toàn Diện');
+  expect(await screen.findByText(editedName)).toBeInTheDocument();
+  expect(adminPackagesApi.updatePackage).toHaveBeenCalledExactlyOnceWith(
+    activeItem.id,
+    expect.objectContaining({ name: editedName, priceVnd: 990000 }),
+  );
+  expect(vi.mocked(adminPackagesApi.updatePackage).mock.calls[0][1]).not.toHaveProperty('quotaPeriod');
+  expect(activeItem.quotaPeriod).toBe('PER_MONTH');
+  expect(adminPackagesApi.createPackage).not.toHaveBeenCalled();
+  expect(adminPackagesApi.reopenPackage).not.toHaveBeenCalled();
+  expect(adminPackagesApi.listPackages).toHaveBeenLastCalledWith({ page: 1, limit: 6, status: 'ACTIVE' });
+  expect(screen.getByRole('button', { name: 'Đang bán' })).toHaveAttribute('aria-pressed', 'true');
+  expect(screen.queryByText(retiredItem.name)).not.toBeInTheDocument();
 
-  // Submit edits
-  const saveBtn = screen.getByRole('button', { name: 'Lưu thay đổi' });
-  fireEvent.click(saveBtn);
-
-  await waitFor(() => {
-    // Should call updatePackage on existing id directly without createVersion
-    expect(adminPackagesApi.updatePackage).toHaveBeenCalledWith('active-item-1', expect.objectContaining({ priceVnd: 990000 }));
-    expect(adminPackagesApi.createVersion).not.toHaveBeenCalled();
-    expect(toast.success).toHaveBeenCalledWith('Đã lưu thay đổi gói dịch vụ.');
-  });
+  fireEvent.click(screen.getByRole('button', { name: 'Tất cả' }));
+  expect(await screen.findByText(retiredItem.name)).toBeInTheDocument();
 });
 
 it('reopens a retired package after confirmation and refreshes the catalog', async () => {
-  const retiredItem: AdminCarePackageItem = { ...draftItem, status: 'DEPRECATED' };
+  const retiredItem: AdminCarePackageItem = { ...packageItem, status: 'DEPRECATED' };
   let reopened = false;
   vi.mocked(adminPackagesApi.listPackages).mockImplementation(async ({ status } = {}) => ({
     items: status === 'DEPRECATED' && reopened ? [] : [{ ...retiredItem, status: reopened ? 'ACTIVE' : 'DEPRECATED' }],
@@ -152,7 +165,7 @@ it('reopens a retired package after confirmation and refreshes the catalog', asy
 });
 
 it('shows a reopening error and keeps the retired package available to retry', async () => {
-  vi.mocked(adminPackagesApi.listPackages).mockResolvedValue({ items: [{ ...draftItem, status: 'DEPRECATED' }], page: 1, limit: 6, total: 1 });
+  vi.mocked(adminPackagesApi.listPackages).mockResolvedValue({ items: [{ ...packageItem, status: 'DEPRECATED' }], page: 1, limit: 6, total: 1 });
   vi.mocked(adminPackagesApi.reopenPackage).mockRejectedValue(new Error('Gói đã có phiên bản mới hơn. Vui lòng mở bán phiên bản mới nhất.'));
   render(<AdminPackagesView />);
   fireEvent.click(await screen.findByRole('button', { name: 'Mở bán' }));
@@ -171,13 +184,15 @@ async function openCreatePackage() {
   const dialog = within(screen.getByRole('dialog', { name: 'Tạo gói dịch vụ' }));
   const change = (label: string | RegExp, value: string) =>
     fireEvent.change(dialog.getByLabelText(label), { target: { value } });
-  return { dialog, change, save: () => fireEvent.click(dialog.getByRole('button', { name: 'Tạo và mở bán' })) };
+  return { dialog, change, save: () => fireEvent.click(dialog.getByRole('button', { name: 'Lưu gói' })) };
 }
 
 it('normalizes leading zeros and saves the calculated term price with both quotas as numbers', async () => {
-  vi.mocked(adminPackagesApi.createPackage).mockResolvedValue({ ...draftItem, status: 'ACTIVE' });
+  vi.mocked(adminPackagesApi.createPackage).mockResolvedValue({ ...packageItem, status: 'ACTIVE' });
+  vi.clearAllMocks();
   const { dialog, change, save } = await openCreatePackage();
   expect(dialog.getByText('Gói sẽ được mở bán ngay sau khi tạo thành công.')).toBeInTheDocument();
+  expect(dialog.queryByLabelText('Áp dụng hạn mức')).not.toBeInTheDocument();
   change('Mã gói', '  3-gói Cơ bản  ');
   change('Tên gói', '  Gói 3 tuần  ');
   change('Mô tả', '  Khám tại nhà 2 lượt.  ');
@@ -202,11 +217,14 @@ it('normalizes leading zeros and saves the calculated term price with both quota
   save();
   await waitFor(() => expect(adminPackagesApi.createPackage).toHaveBeenCalledWith(expect.objectContaining({
     code: '3-gói Cơ bản', name: 'Gói 3 tuần', description: 'Khám tại nhà 2 lượt.',
-    durationMonths: 3, priceVnd: 750000, homeVisitUnitPriceVnd: 250000, maxMembers: 4,
+    durationMonths: 3, priceVnd: 750000, homeVisitUnitPriceVnd: 250000, maxMembers: 4, quotaPeriod: 'PER_TERM',
     quotas: { homeVisits: 3, videoConsultations: 4, facilityVisits: 0 },
   })));
-  expect(adminPackagesApi.publishPackage).not.toHaveBeenCalled();
+  expect(adminPackagesApi.createPackage).toHaveBeenCalledTimes(1);
+  expect(adminPackagesApi.reopenPackage).not.toHaveBeenCalled();
+  expect(adminPackagesApi.updatePackage).not.toHaveBeenCalled();
   expect(toast.success).toHaveBeenCalledWith('Đã tạo và mở bán gói dịch vụ.');
+  expect(screen.getByRole('button', { name: 'Đang bán' })).toHaveAttribute('aria-pressed', 'true');
 });
 
 it('rejects wrong text, invalid numeric input, and inconsistent terms with Vietnamese field errors', async () => {
@@ -231,7 +249,7 @@ it('rejects wrong text, invalid numeric input, and inconsistent terms with Vietn
 
   change('Mã gói', 'GOI_TEST');
   change('Tên gói', 'Gói gia đình');
-  change('Mô tả', draftItem.description);
+  change('Mô tả', packageItem.description);
   change('Số người tối đa', '0003');
   change(/Phụ phí/, '1000');
   change(/Đơn giá lượt khám tại nhà/, '9999999999');
@@ -246,11 +264,11 @@ it('rejects wrong text, invalid numeric input, and inconsistent terms with Vietn
 });
 
 it('keeps an annual contract video quota out of the calculation and preserves manual pricing without a unit price', async () => {
-  vi.mocked(adminPackagesApi.createPackage).mockResolvedValue(draftItem);
+  vi.mocked(adminPackagesApi.createPackage).mockResolvedValue(packageItem);
   const { dialog, change, save } = await openCreatePackage();
   change('Mã gói', 'GOI_NAM');
   change('Tên gói', 'Gói gia đình cả năm');
-  change('Mô tả', draftItem.description);
+  change('Mô tả', packageItem.description);
   change('Kỳ hạn', '12');
   change('Lượt tư vấn video', '24');
   change('Hạn mức video', 'CONTRACT');
@@ -275,7 +293,7 @@ it('translates duplicate codes and structured API validation errors', async () =
   const { dialog, change, save } = await openCreatePackage();
   change('Mã gói', 'GOI_TRUNG');
   change('Tên gói', 'Gói gia đình');
-  change('Mô tả', draftItem.description);
+  change('Mô tả', packageItem.description);
   change('Lượt khám tại nhà', '1');
   change(/Đơn giá lượt khám tại nhà/, '250000');
   save();
@@ -287,25 +305,34 @@ it('translates duplicate codes and structured API validation errors', async () =
   expect(error).toHaveTextContent('Chọn kỳ hạn 1, 3, 6 hoặc 12 tháng.');
 });
 
-it('keeps a draft unpublished and shows the backend error if publishing fails', async () => {
-  vi.mocked(adminPackagesApi.listPackages).mockImplementation(async ({ status } = {}) => ({
-    items: status ? [] : [draftItem], page: 1, limit: 6, total: status ? 0 : 1,
-  }));
-  vi.mocked(adminPackagesApi.publishPackage).mockRejectedValue(new Error('Phiên bản đã thay đổi'));
+it('excludes drafts from all packages and only shows reopening for retired packages', async () => {
+  const retired = { ...packageItem, id: 'retired-package', status: 'DEPRECATED' as const, name: 'Gói đã ngừng bán' };
+  const legacyDraft = { ...packageItem, id: 'legacy-draft', status: 'DRAFT' as const, name: 'Gói nháp cũ' };
+  vi.mocked(adminPackagesApi.listPackages).mockImplementation(async ({ status, excludeDrafts } = {}) => {
+    const items = [packageItem, retired, legacyDraft].filter((item) =>
+      status ? item.status === status : !excludeDrafts || item.status !== 'DRAFT',
+    );
+    return { items, total: items.length, page: 1, limit: 6 };
+  });
   render(<AdminPackagesView />);
-  fireEvent.click(within(screen.getByRole('group', { name: 'Trạng thái gói' })).getByRole('button', { name: 'Tất cả' }));
-  fireEvent.click(await screen.findByRole('button', { name: 'Mở bán' }));
-  expect(adminPackagesApi.publishPackage).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole('button', { name: 'Xác nhận' }));
-  expect(await screen.findByRole('alert')).toHaveTextContent('Phiên bản đã thay đổi');
-  expect(adminPackagesApi.publishPackage).toHaveBeenCalledWith('draft-id');
-  expect(toast.success).not.toHaveBeenCalled();
-  expect(screen.getByText('Chưa mở bán', { selector: '[data-slot="badge"]' })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Tất cả' }));
+
+  const openButton = await screen.findByRole('button', { name: 'Mở bán' });
+  expect(screen.getByText('2 kết quả')).toBeInTheDocument();
+  expect(screen.queryByText(legacyDraft.name)).not.toBeInTheDocument();
+  expect(screen.getAllByRole('button', { name: 'Sửa' })).toHaveLength(1);
+
+  const retiredCard = openButton.closest('[data-slot="card"]') as HTMLElement;
+  fireEvent.click(within(retiredCard).getByRole('button', { name: 'Xem' }));
+  const detail = within(screen.getByRole('dialog'));
+  expect(detail.queryByRole('button', { name: 'Sửa gói này' })).not.toBeInTheDocument();
+  fireEvent.click(detail.getByRole('button', { name: 'Mở bán' }));
+  expect(screen.getByRole('dialog', { name: 'Mở bán' })).toBeInTheDocument();
 });
 
 it('starts with active packages, loads six per page, and returns to page one when the status changes', async () => {
   const activeItems = Array.from({ length: 7 }, (_, index): AdminCarePackageItem => ({
-    ...draftItem, id: `active-${index}`, name: `Gói ${index + 1}`, status: 'ACTIVE', priceVnd: 100000 * (index + 1),
+    ...packageItem, id: `active-${index}`, name: `Gói ${index + 1}`, status: 'ACTIVE', priceVnd: 100000 * (index + 1),
   }));
   vi.mocked(adminPackagesApi.listPackages).mockClear().mockImplementation(async ({ page = 1, limit = 20, status } = {}) => {
     const catalog = status === 'DEPRECATED' ? [] : activeItems;
@@ -329,5 +356,5 @@ it('starts with active packages, loads six per page, and returns to page one whe
 
   fireEvent.click(await screen.findByRole('button', { name: 'Xem tất cả gói' }));
   expect(within(filters).getByRole('button', { name: 'Tất cả' })).toHaveAttribute('aria-pressed', 'true');
-  await waitFor(() => expect(adminPackagesApi.listPackages).toHaveBeenLastCalledWith({ page: 1, limit: 6, status: undefined }));
+  await waitFor(() => expect(adminPackagesApi.listPackages).toHaveBeenLastCalledWith({ page: 1, limit: 6, excludeDrafts: true }));
 });

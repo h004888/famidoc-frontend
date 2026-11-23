@@ -18,7 +18,7 @@ export const packageNumberFields = {
 };
 
 export type PackageNumberField = keyof typeof packageNumberFields;
-type PackageFormSettings = Pick<PackageTerms, 'name' | 'description' | 'durationMonths' | 'quotaPeriod'> & {
+type PackageFormSettings = Pick<PackageTerms, 'name' | 'description' | 'durationMonths'> & {
   code: string;
   videoQuotaPolicy: NonNullable<PackageTerms['videoQuotaPolicy']>;
 };
@@ -32,7 +32,6 @@ export function createPackageForm(item: AdminCarePackageItem | null): PackageFor
     name: item?.name ?? '',
     description: item?.description ?? '',
     durationMonths: item?.durationMonths ?? 1,
-    quotaPeriod: item?.quotaPeriod ?? 'PER_TERM',
     videoQuotaPolicy: item?.videoQuotaPolicy ?? 'FIXED',
     amounts: {
       includedMembers: String(item?.includedMembers ?? 1),
@@ -71,7 +70,6 @@ const codeRequiredError = 'Vui lòng nhập mã gói.';
 const codeError = 'Vui lòng nhập mã gói có tối đa 40 ký tự.';
 const nameError = 'Tên gói phải có từ 10 đến 120 ký tự, trong đó có ít nhất một chữ cái.';
 const descriptionError = 'Mô tả phải có từ 20 đến 2.000 ký tự, trong đó có ít nhất một chữ cái.';
-const quotaError = 'Chọn Toàn kỳ hoặc Mỗi tháng.';
 const videoPolicyError = 'Chỉ gói 12 tháng được chốt lượt tư vấn video theo hợp đồng.';
 const durationError = 'Chọn kỳ hạn 1, 3, 6 hoặc 12 tháng.';
 const minimumBenefitsError = 'Gói phải có ít nhất một lượt khám tại nhà hoặc một lượt tư vấn video.';
@@ -90,7 +88,6 @@ export function validatePackageForm(form: PackageForm, item: AdminCarePackageIte
   if (nameLength < 10 || nameLength > 120 || !/\p{L}/u.test(name)) errors.name = nameError;
   if (descriptionLength < 20 || descriptionLength > 2000 || !/\p{L}/u.test(description)) errors.description = descriptionError;
   if (!packageDurations.includes(form.durationMonths)) errors.durationMonths = durationError;
-  if (form.quotaPeriod !== 'PER_TERM' && form.quotaPeriod !== 'PER_MONTH') errors.quotaPeriod = quotaError;
   if (form.videoQuotaPolicy !== 'FIXED' && !contractVideo) errors.videoQuotaPolicy = videoPolicyError;
 
   const fields = Object.keys(packageNumberFields) as PackageNumberField[];
@@ -119,13 +116,12 @@ export function validatePackageForm(form: PackageForm, item: AdminCarePackageIte
   return errors;
 }
 
-export function toPackageTerms(form: PackageForm, requiresUnitPrice: boolean): PackageTerms {
+export function toPackageTerms(form: PackageForm, requiresUnitPrice: boolean): Omit<PackageTerms, 'quotaPeriod'> {
   const { amounts } = form;
   return {
     name: form.name.trim(),
     description: form.description.trim(),
     durationMonths: form.durationMonths,
-    quotaPeriod: form.quotaPeriod,
     videoQuotaPolicy: form.videoQuotaPolicy,
     homeVisitUnitPriceVnd: amounts.homeVisitUnitPriceVnd ? Number(amounts.homeVisitUnitPriceVnd) : undefined,
     priceVnd: Number(getPackagePrice(form, requiresUnitPrice)),
@@ -164,7 +160,7 @@ const apiFieldMessages: Record<string, string> = {
   name: nameError,
   description: descriptionError,
   durationMonths: durationError,
-  quotaPeriod: quotaError,
+  quotaPeriod: 'Cách tính hạn mức của gói không hợp lệ.',
   videoQuotaPolicy: videoPolicyError,
   quotas: 'Vui lòng kiểm tra hạn mức khám và tư vấn.',
   'quotas.facilityVisits': 'Hạn mức khám tại cơ sở y tế phải bằng 0.',
