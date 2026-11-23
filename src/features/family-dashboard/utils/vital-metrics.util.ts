@@ -20,7 +20,7 @@ export interface MetricDeltaState {
 }
 
 export const VITAL_REFERENCE_LABELS: Record<VitalMetricKey, string> = {
-  bp: 'An toàn: 90–139 / 60–89',
+  bp: 'An toàn: 90–139 mmHg',
   heartRate: 'An toàn: 50–110 bpm',
   spo2: 'An toàn: >= 95%',
   temperature: 'An toàn: 35.5–37.9 °C',
@@ -55,9 +55,9 @@ export function getVitalMetricAlerts(
   const diaLow = isFiniteNum(vital.diastolicBp) && vital.diastolicBp < 60;
 
   if (sysHigh || diaHigh) {
-    safe.bp = { abnormal: true, message: 'Huyết áp cao (>= 140/90)' };
+    safe.bp = { abnormal: true, message: 'Huyết áp cao (>= 140 mmHg)' };
   } else if (sysLow || diaLow) {
-    safe.bp = { abnormal: true, message: 'Huyết áp thấp (< 90/60)' };
+    safe.bp = { abnormal: true, message: 'Huyết áp thấp (< 90 mmHg)' };
   }
 
   if (isFiniteNum(vital.heartRate)) {
@@ -168,7 +168,7 @@ export function computeVitalMetricDeltas(
   previous: VitalSignDto | null | undefined
 ): Record<VitalMetricKey, MetricDeltaState> {
   return {
-    bp: buildDelta(current?.systolicBp, previous?.systolicBp, 'mmHg tâm thu', 0),
+    bp: buildDelta(current?.systolicBp, previous?.systolicBp, 'mmHg', 0),
     heartRate: buildDelta(current?.heartRate, previous?.heartRate, 'bpm', 0),
     spo2: buildDelta(current?.spo2, previous?.spo2, '%', 0),
     temperature: buildDelta(current?.temperature, previous?.temperature, '°C', 1),

@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { contractsApi } from '@/lib/api/contracts.api';
 import {
   ContractDocumentSheet,
   type FourPartyContract,
@@ -65,13 +67,81 @@ const DEFAULT_OFFICIAL_CONTRACT: FourPartyContract = {
 };
 
 export function OfficialContractViewer({
-  contract = DEFAULT_OFFICIAL_CONTRACT,
+  contract: propContract,
   onPrint,
   onDownloadPdf,
   onBack,
 }: OfficialContractViewerProps) {
   const router = useRouter();
   const [zoomScale, setZoomScale] = useState(100);
+  const [fetchedContract, setFetchedContract] = useState<FourPartyContract | null>(null);
+  const [isLoading, setIsLoading] = useState(!propContract);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (propContract) {
+      setIsLoading(false);
+      return;
+    }
+    let mounted = true;
+    contractsApi
+      .getMedicalContracts()
+      .then((list) => {
+        if (!mounted) return;
+        const arr = Array.isArray(list) ? list : [];
+        const active = arr.find((c: any) => c.contractStatus === 'ACTIVE') || arr[0];
+        if (!active?.id) {
+          setFetchedContract(null);
+          return;
+        }
+        return contractsApi.getMedicalContractDetail(active.id).then((detail) => {
+          if (mounted) setFetchedContract(detail as unknown as FourPartyContract);
+        });
+      })
+      .catch(() => {
+        if (mounted) setLoadError('Không thể tải văn bản hợp đồng điện tử.');
+      })
+      .finally(() => {
+        if (mounted) setIsLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [propContract]);
+
+  const contract = propContract ?? fetchedContract;
+
+  if (isLoading) {
+    return (
+      <div role="status" className="mx-auto max-w-5xl px-4 py-12 space-y-4">
+        <div className="h-14 rounded-xl bg-slate-200/70 animate-pulse" />
+        <div className="h-96 rounded-xl bg-slate-200/70 animate-pulse" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-12 text-center space-y-3">
+        <p role="alert" className="text-sm font-medium text-rose-700">{loadError}</p>
+        <Button asChild variant="outline">
+          <Link href="/family/subscription">Quay lại Gói &amp; Hợp đồng</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (!contract) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-12 text-center space-y-3">
+        <h1 className="text-lg font-bold text-slate-900">Chưa có hợp đồng điện tử hiệu lực</h1>
+        <p className="text-sm text-slate-600">Hợp đồng sẽ hiển thị tại đây sau khi gia đình hoàn tất ký kết.</p>
+        <Button asChild>
+          <Link href="/family/subscription">Xem gói chăm sóc</Link>
+        </Button>
+      </div>
+    );
+  }
 
   const verifyUrl = `https://verify.famidoc.vn/contract/${contract.contractNumber}`;
   const familyHash = contract.signatures?.family?.sha256Hash || 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
@@ -186,8 +256,8 @@ export function OfficialContractViewer({
               onClick={handleDownload}
               className="rounded-lg text-xs font-semibold gap-1.5"
             >
-              <span className="material-symbols-outlined text-[18px]">download</span>
-              <span>Tải file PDF</span>
+              <span className="material-symbols-outlined text-[18px]">print</span>
+              <span>In / Lưu PDF</span>
             </Button>
           </div>
         </div>

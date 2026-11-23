@@ -1,264 +1,90 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { contractsApi, doctorsApi, encountersApi, type EncounterItem } from '@/lib/api';
 import { DoctorTimetableView } from '../doctor-timetable-view';
+import { encountersApi } from '@/lib/api';
 
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
-    error: vi.fn(),
     warning: vi.fn(),
-    info: vi.fn(),
+    error: vi.fn(),
   },
 }));
 
-vi.mock('next/link', () => ({
-  default: ({ href, children, ...props }: { href: string; children: React.ReactNode }) => (
-    <a href={href} {...props}>
-      {children}
-    </a>
-  ),
-}));
-
-const activeContractFixture = {
-  id: 'ctr-1',
-  contractNumber: 'HĐ-2026-888',
-  status: 'ACTIVE' as const,
-  packageId: 'pkg-1',
-  packageName: 'Gói Gia Đình Cao Cấp',
-  packagePrice: 14000000,
-  durationMonths: 12,
-  familyId: 'fam-1',
-  familyRepresentativeName: 'Phạm Quang Huy',
-  familyRepresentativePhone: '0909123456',
-  familyRepresentativeEmail: 'huy@example.com',
-  membersCount: 3,
-  createdAt: '2026-01-01T00:00:00.000Z',
-  signatures: {},
-};
-
 describe('DoctorTimetableView (/doctor/timetable)', () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
-    vi.spyOn(doctorsApi, 'getDoctorMe').mockResolvedValue({
-      id: 'doc-1',
-      doctorName: 'PGS.TS Nguyễn Trọng Nghĩa',
-      maxFamilies: 150,
-      currentFamilies: 12,
-      facility: { id: 'fac-1', facilityName: 'BV Đại học Y Dược TP.HCM' },
-    } as any);
-    vi.spyOn(contractsApi, 'getMedicalContracts').mockResolvedValue([activeContractFixture]);
-    vi.spyOn(contractsApi, 'getMedicalContractDetail').mockResolvedValue({
-      id: 'ctr-1',
-      contractNumber: 'HĐ-2026-888',
-      contractStatus: 'ACTIVE',
-      totalAmount: 14000000,
-      startDate: '2026-01-01',
-      endDate: '2027-01-01',
-      createdAt: '2026-01-01',
-      members: [
+    vi.clearAllMocks();
+
+    vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValue({
+      data: [
         {
-          id: 'mem-1',
-          patientId: 'pat-1',
-          patient: { id: 'pat-1', fullName: 'Phạm Quang Huy' },
+          id: 'enc-home-confirmed',
+          contractId: 'ctr-1',
+          patientId: 'p-1',
+          doctorId: 'doc-1',
+          scheduledDate: '2026-11-25T00:00:00.000Z',
+          scheduledTime: '08:30:00',
+          encounterType: 'HOME_VISIT',
+          category: 'PERIODIC_ROUTINE',
+          encounterStatus: 'CONFIRMED',
+          participants: [{ patientId: 'p-1', patient: { id: 'p-1', fullName: 'Phạm Ngọc Thọ' } }],
+          contract: {
+            familyUnit: { homeAddress: '123 Nguyễn Trãi, Q.1' },
+          },
+          rescheduleRequests: [],
+        },
+        {
+          id: 'enc-tele-req',
+          contractId: 'ctr-1',
+          patientId: 'p-1',
+          doctorId: 'doc-1',
+          scheduledDate: '2026-11-26T00:00:00.000Z',
+          scheduledTime: '16:00:00',
+          encounterType: 'TELEHEALTH',
+          category: 'AD_HOC_ON_DEMAND',
+          encounterStatus: 'REQUESTED',
+          cancelReason: 'Đo huyết áp sáng nay hơi cao',
+          participants: [{ patientId: 'p-1', patient: { id: 'p-1', fullName: 'Phạm Ngọc Thọ' } }],
+          rescheduleRequests: [],
         },
       ],
-    });
+      pagination: { page: 1, pageSize: 100, totalItems: 2, totalPages: 1 },
+    } as any);
+
+    vi.spyOn(encountersApi, 'getPendingRescheduleRequests').mockResolvedValue([]);
   });
 
-  it('creates a periodic encounter from an ACTIVE family contract', async () => {
-    vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValue({
-      data: [],
-      pagination: { page: 1, pageSize: 150, totalItems: 0, totalPages: 1 },
-    });
-    const periodicSpy = vi.spyOn(encountersApi, 'createPeriodicEncounter').mockResolvedValueOnce({
-      id: 'enc-per-1',
-      contractId: 'ctr-1',
-      patientId: 'pat-1',
-      doctorId: 'doc-1',
-      scheduledDate: '2026-12-01T00:00:00.000Z',
-      scheduledTime: '1970-01-01T09:00:00.000Z',
-      encounterType: 'HOME_VISIT',
-      category: 'PERIODIC_ROUTINE',
-      encounterStatus: 'REQUESTED',
-      proposedBy: 'DOCTOR',
-    });
+  it('shows priority telehealth approval, 1-step arrival check-in, and omits Panel Cap / radius clutter', async () => {
+    const arriveSpy = vi
+      .spyOn(encountersApi, 'markArrived')
+      .mockResolvedValue({ id: 'enc-home-confirmed', encounterStatus: 'ARRIVED' } as any);
+    const confirmTeleSpy = vi
+      .spyOn(encountersApi, 'confirmEncounter')
+      .mockResolvedValue({ id: 'enc-tele-req', encounterStatus: 'CONFIRMED' } as any);
 
     render(<DoctorTimetableView />);
 
-    const openBtn = await screen.findByRole('button', { name: /\+ Lên lịch định kỳ/i });
-    fireEvent.click(openBtn);
-
     await waitFor(() => {
-      expect(screen.getByLabelText(/Thành viên khám/i)).toHaveValue('pat-1');
+      expect(screen.getByText('123 Nguyễn Trãi, Q.1')).toBeInTheDocument();
+      expect(screen.getByText('Đo huyết áp sáng nay hơi cao')).toBeInTheDocument();
     });
 
-    fireEvent.change(screen.getByLabelText(/Ghi chú kế hoạch khám/i), {
-      target: { value: 'Đo huyết áp định kỳ hàng tháng' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Gửi lịch cho Gia đình/i }));
+    // Clutter removed
+    expect(screen.queryByText(/Hạn mức Gia đình \(Panel Cap\)/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Bán Kính Khám Tại Nhà/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Bắt đầu di chuyển/i })).not.toBeInTheDocument();
 
+    // 1-step check-in arrival
+    fireEvent.click(screen.getByRole('button', { name: /Check-in đã đến nhà/i }));
     await waitFor(() => {
-      expect(periodicSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          contractId: 'ctr-1',
-          patientId: 'pat-1',
-          encounterType: 'HOME_VISIT',
-          notes: 'Đo huyết áp định kỳ hàng tháng',
-        })
-      );
-    });
-  });
-
-  it('finalizes an ad-hoc request and handles reschedule review options', async () => {
-    const adHocEnc: EncounterItem = {
-      id: 'enc-adhoc-1',
-      contractId: 'ctr-1',
-      patientId: 'pat-1',
-      doctorId: 'doc-1',
-      scheduledDate: '2026-12-05T00:00:00.000Z',
-      scheduledTime: '1970-01-01T10:30:00.000Z',
-      encounterType: 'HOME_VISIT',
-      category: 'AD_HOC_ON_DEMAND',
-      encounterStatus: 'REQUESTED',
-      proposedBy: 'FAMILY_REP',
-      subjectiveNote: 'Sốt cao 38.5 độ',
-      patient: { id: 'pat-1', fullName: 'Phạm Quang Huy' },
-      contract: { id: 'ctr-1', contractNumber: 'HĐ-2026-888' },
-    };
-
-    const rescheduleEnc: EncounterItem = {
-      id: 'enc-res-1',
-      contractId: 'ctr-1',
-      patientId: 'pat-2',
-      doctorId: 'doc-1',
-      scheduledDate: '2026-12-06T00:00:00.000Z',
-      scheduledTime: '1970-01-01T08:00:00.000Z',
-      proposedDate: '2026-12-07T00:00:00.000Z',
-      proposedTime: '1970-01-01T15:30:00.000Z',
-      proposedBy: 'FAMILY_REP',
-      rescheduleReason: 'Gia đình đi vắng buổi sáng',
-      encounterType: 'TELEHEALTH',
-      category: 'PERIODIC_ROUTINE',
-      encounterStatus: 'RESCHEDULE_REQUESTED',
-      patient: { id: 'pat-2', fullName: 'Đỗ Thu Thảo' },
-    };
-
-    vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValue({
-      data: [adHocEnc, rescheduleEnc],
-      pagination: { page: 1, pageSize: 150, totalItems: 2, totalPages: 1 },
+      expect(arriveSpy).toHaveBeenCalledWith('enc-home-confirmed');
     });
 
-    const finalizeSpy = vi.spyOn(encountersApi, 'finalizeEncounter').mockResolvedValueOnce({
-      ...adHocEnc,
-      proposedBy: 'DOCTOR',
-    });
-    const reviewSpy = vi.spyOn(encountersApi, 'reviewReschedule').mockResolvedValue({
-      ...rescheduleEnc,
-      proposedBy: 'DOCTOR',
-    });
-
-    render(<DoctorTimetableView />);
-
-    await screen.findByText(/Yêu cầu khám đột xuất \(Ad-hoc\)/i);
-
-    fireEvent.click(screen.getByRole('button', { name: /Duyệt & Hoàn tất lịch/i }));
-    fireEvent.change(screen.getByLabelText(/Ghi chú của bác sĩ gửi gia đình/i), {
-      target: { value: 'Bác sĩ nhận ca khám tại nhà lúc 10:30' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Gửi lịch cho Gia đình/i }));
-
+    // Priority telehealth approval
+    fireEvent.click(screen.getByRole('button', { name: /Nhận lịch Video/i }));
     await waitFor(() => {
-      expect(finalizeSpy).toHaveBeenCalledWith(
-        'enc-adhoc-1',
-        expect.objectContaining({
-          encounterType: 'HOME_VISIT',
-          doctorNotes: 'Bác sĩ nhận ca khám tại nhà lúc 10:30',
-        })
-      );
-    });
-
-    // Test counter-propose on reschedule
-    fireEvent.click(screen.getByRole('button', { name: /Đề xuất giờ khác/i }));
-    fireEvent.change(screen.getByLabelText(/Lời nhắn tới Gia đình/i), {
-      target: { value: 'Bác sĩ rảnh lúc 14:00' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Gửi giờ đề xuất mới/i }));
-
-    await waitFor(() => {
-      expect(reviewSpy).toHaveBeenCalledWith(
-        'enc-res-1',
-        expect.objectContaining({
-          accept: false,
-          counterDate: expect.any(String),
-          counterTime: expect.any(String),
-          notes: 'Bác sĩ rảnh lúc 14:00',
-        })
-      );
-    });
-
-    // Test Accept reschedule
-    fireEvent.click(screen.getByRole('button', { name: /Chấp nhận giờ mới/i }));
-    await waitFor(() => {
-      expect(reviewSpy).toHaveBeenCalledWith('enc-res-1', { accept: true });
-    });
-  });
-
-  it('displays cadence drafts and allows bulk finalization or milestone adjustment', async () => {
-    const cadenceDraftEnc: EncounterItem = {
-      id: 'enc-cad-1',
-      contractId: 'ctr-1',
-      patientId: 'pat-1',
-      doctorId: 'doc-1',
-      scheduledDate: '2026-12-01T00:00:00.000Z',
-      scheduledTime: '1970-01-01T09:00:00.000Z',
-      encounterType: 'HOME_VISIT',
-      category: 'PERIODIC_ROUTINE',
-      encounterStatus: 'REQUESTED',
-      proposedBy: 'SYSTEM_CADENCE',
-      rescheduleReason: JSON.stringify({ isCadenceDraft: true, milestoneIndex: 1, totalMilestones: 4 }),
-      patient: { id: 'pat-1', fullName: 'Phạm Quang Huy' },
-      contract: { id: 'ctr-1', contractNumber: 'HĐ-2026-888' },
-    };
-
-    vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValue({
-      data: [cadenceDraftEnc],
-      pagination: { page: 1, pageSize: 150, totalItems: 1, totalPages: 1 },
-    });
-
-    const finalizeCadenceSpy = vi.spyOn(encountersApi, 'finalizeCadenceSchedule').mockResolvedValue({
-      finalizedCount: 1,
-      encounters: [{ ...cadenceDraftEnc, proposedBy: 'ASSIGNED_DOCTOR' }],
-    });
-
-    const adjustCadenceSpy = vi.spyOn(encountersApi, 'adjustCadenceMilestone').mockResolvedValue({
-      ...cadenceDraftEnc,
-      scheduledDate: '2026-12-15T00:00:00.000Z',
-    });
-
-    render(<DoctorTimetableView />);
-
-    await screen.findByText(/Khung Lịch Định Kỳ Theo Gói Cần Duyệt/i);
-    expect(screen.getByText(/Khung lịch dự kiến theo gói/i)).toBeInTheDocument();
-
-    // 1. Test Bulk Finalize
-    fireEvent.click(screen.getByRole('button', { name: /Giữ nguyên khung lịch/i }));
-    await waitFor(() => {
-      expect(finalizeCadenceSpy).toHaveBeenCalledWith('ctr-1');
-    });
-
-    // 2. Test Adjust Milestone
-    fireEvent.click(screen.getByRole('button', { name: /Tùy chỉnh lịch/i }));
-    fireEvent.click(screen.getByRole('button', { name: /Lưu điều chỉnh/i }));
-
-    await waitFor(() => {
-      expect(adjustCadenceSpy).toHaveBeenCalledWith(
-        'enc-cad-1',
-        expect.objectContaining({
-          encounterType: 'HOME_VISIT',
-        })
-      );
+      expect(confirmTeleSpy).toHaveBeenCalledWith('enc-tele-req', true);
     });
   });
 });

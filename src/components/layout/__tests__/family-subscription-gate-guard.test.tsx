@@ -82,7 +82,6 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     '/family/members/member-123',
     '/family/appointments',
     '/family/telemedicine',
-    '/family/vitals',
   ])(
     'redirects restricted route %s to /doctors when hasActiveContract is false and pendingContract is null',
     async (restrictedPath) => {

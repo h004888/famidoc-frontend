@@ -118,7 +118,7 @@ describe('Màn 9: OfficialContractViewer (Xem & Tải bản sao Hợp đồng đ
     );
 
     const printBtn = screen.getByRole('button', { name: /In văn bản/i });
-    const downloadBtn = screen.getByRole('button', { name: /Tải file PDF/i });
+    const downloadBtn = screen.getByRole('button', { name: /In \/ Lưu PDF/i });
 
     fireEvent.click(printBtn);
     expect(handlePrint).toHaveBeenCalledTimes(1);
