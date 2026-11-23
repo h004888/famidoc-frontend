@@ -193,6 +193,17 @@ export function getPackageApiError(cause: unknown, fallback: string): string {
     return [...new Set(messages)].join(' ');
   }
 
+  const rawMessage =
+    cause instanceof Error && cause.message.trim() ? cause.message.trim() : '';
+  const knownRawMessage = rawMessage
+    ? apiMessages[rawMessage.toLowerCase()]
+    : undefined;
+  if (typeof knownRawMessage === 'string') return knownRawMessage;
+  const rawField = /^(?:property )?([\w.]+) (?:must|should)\b/.exec(
+    rawMessage,
+  )?.[1];
+  if (rawField) return translatePackageField(rawField) ?? fallback;
+
   const message = extractErrorMessage(cause, fallback);
   const knownMessage = apiMessages[message.toLowerCase()];
   if (typeof knownMessage === 'string') return knownMessage;

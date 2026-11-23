@@ -565,4 +565,29 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
       expect(screen.queryByText(/Không thể xác minh trạng thái gói gia đình/i)).toBeNull();
     },
   );
+
+  it.each(['/family/billing', '/family/feedback'])(
+    'cho phép mở hồ sơ hỗ trợ trên %s?supportCaseId=case-1 ngay cả khi chưa có hợp đồng ACTIVE',
+    async (supportPath) => {
+      mockPathname = supportPath;
+      mockSearchParams = new URLSearchParams('supportCaseId=case-1');
+      vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+        hasActiveContract: false,
+        activeContract: null,
+        pendingContract: null,
+        patientCount: 0,
+      });
+
+      render(
+        <FamilySubscriptionGateProvider>
+          <FamilySubscriptionGateGuard>
+            <div data-testid="support-case-content">Hồ sơ hỗ trợ</div>
+          </FamilySubscriptionGateGuard>
+        </FamilySubscriptionGateProvider>,
+      );
+
+      expect(await screen.findByTestId('support-case-content')).toBeTruthy();
+      expect(mockReplace).not.toHaveBeenCalled();
+    },
+  );
 });
