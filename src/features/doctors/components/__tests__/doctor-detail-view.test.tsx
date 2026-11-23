@@ -311,7 +311,7 @@ describe('DoctorDetailView (API-only rendering)', () => {
       expect(profileLinks[1]).toHaveAttribute('href', '/doctors/doc-cr-02');
     });
 
-    it('falls back gracefully to network doctors when API returns no matching doctors', async () => {
+    it('renders honest empty state instead of mock doctors when API returns no matching doctors', async () => {
       vi.mocked(publicApi.getDoctors).mockResolvedValueOnce({
         items: [],
         pagination: { page: 1, pageSize: 50, totalRecords: 0, totalPages: 0 },
@@ -319,13 +319,12 @@ describe('DoctorDetailView (API-only rendering)', () => {
 
       render(<DoctorDetailView type="facility" initialFacility={mockFacility} />);
 
-      // Should display mock doctors affiliated with Bệnh viện Chợ Rẫy
       expect(await screen.findByText(/Đội Ngũ Bác Sĩ Trực Thuộc Bệnh viện Chợ Rẫy/i)).toBeInTheDocument();
-
-      await waitFor(() => {
-        expect(screen.getByText('Phạm Minh Đức')).toBeInTheDocument();
-        expect(screen.getByText('Hoàng Minh Tuấn')).toBeInTheDocument();
-      });
+      expect(
+        await screen.findByText('Cơ sở y tế hiện chưa có bác sĩ nào đang hoạt động trên hệ thống.')
+      ).toBeInTheDocument();
+      expect(screen.queryByText('Phạm Minh Đức')).not.toBeInTheDocument();
+      expect(screen.queryByText('Hoàng Minh Tuấn')).not.toBeInTheDocument();
     });
   });
 });
