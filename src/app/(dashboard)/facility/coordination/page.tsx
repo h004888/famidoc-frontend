@@ -1,11 +1,11 @@
-import { FacilityContractInboundView } from '@/features/facility-coordination';
+import { FacilityCoordinationHub } from '@/features/facility-coordination';
 
 export const metadata = {
-  title: 'Hợp đồng Y tế 4 bên | Cơ sở Y tế FamiDoc',
+  title: 'Điều phối & Hợp đồng Y tế | Cơ sở Y tế FamiDoc',
   description:
-    'Rà soát thông tin hộ gia đình, bác sĩ đã chọn và ký số hợp đồng y tế 4 bên trên Documenso dành cho Cơ sở Y tế.',
+    'Rà soát hợp đồng y tế 4 bên, phân ca trực nội viện và giám sát lịch khám ngoại viện của bác sĩ thuộc Cơ sở Y tế.',
 };
 
 export default function FacilityCoordinationPage() {
-  return <FacilityContractInboundView />;
+  return <FacilityCoordinationHub />;
 }

@@ -2,6 +2,8 @@ import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { DoctorTelemedicineView } from '@/features/doctor-telemedicine';
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: 'Phòng Khám Video Trực Tuyến WebRTC Telemedicine | FamiDoc Pro',
   description:

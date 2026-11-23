@@ -9,8 +9,10 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   const isAuthStandalone =
     pathname === '/login' ||
     pathname === '/register' ||
+    pathname === '/forgot-password' ||
     pathname.endsWith('/login') ||
-    pathname.endsWith('/register');
+    pathname.endsWith('/register') ||
+    pathname.endsWith('/forgot-password');
 
   // Ở các trang đăng nhập & đăng ký: Hiển thị toàn màn hình, hỗ trợ cuộn mượt mà trên mọi kích thước màn hình laptop
   if (isAuthStandalone) {

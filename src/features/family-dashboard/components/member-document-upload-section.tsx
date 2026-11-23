@@ -78,6 +78,33 @@ function isImageDocument(doc: PatientDocumentDto): boolean {
   return /\.(png|jpe?g|webp)(\?|$)/i.test(doc.fileUrl);
 }
 
+function getDocumentExtension(doc: PatientDocumentDto): string {
+  const mime = (doc.mimeType || '').toLowerCase();
+  if (mime === 'application/pdf') return 'pdf';
+  if (mime === 'image/png') return 'png';
+  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'jpg';
+  if (mime === 'image/webp') return 'webp';
+
+  const urlMatch = doc.fileUrl.match(/\.(pdf|png|jpe?g|webp)(?:$|\?)/i);
+  if (urlMatch) {
+    const ext = urlMatch[1].toLowerCase();
+    return ext === 'jpeg' ? 'jpg' : ext;
+  }
+  return isImageDocument(doc) ? 'jpg' : 'pdf';
+}
+
+function buildDownloadFilename(doc: PatientDocumentDto): string {
+  const rawName = (doc.documentName || 'tai-lieu-y-te')
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '_')
+    .replace(/[. ]+$/, '');
+  const baseName = rawName || 'tai-lieu-y-te';
+  if (/\.(pdf|png|jpe?g|webp)$/i.test(baseName)) {
+    return baseName;
+  }
+  return `${baseName}.${getDocumentExtension(doc)}`;
+}
+
 function formatDateDisplay(raw?: string | null): string {
   if (!raw) return 'Chưa cập nhật';
   const isoMatch = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -118,9 +145,15 @@ export interface MemberDocumentUploadSectionProps {
   onDocumentDeleted?: (documentId: string) => void;
 }
 
-/**
- * Medical documents & prescriptions gallery with real S3 upload, category filters, lightbox, and delete.
- */
+interface PreviewDocumentState {
+  doc: PatientDocumentDto;
+  kind: 'image' | 'pdf';
+  url: string | null;
+  loading: boolean;
+  error: string | null;
+  usedFallback: boolean;
+}
+
 export function MemberDocumentUploadSection({
   memberId,
   memberName,
@@ -128,7 +161,8 @@ export function MemberDocumentUploadSection({
   onDocumentAdded,
   onDocumentDeleted,
 }: MemberDocumentUploadSectionProps) {
-  const createdBlobUrlsRef = useRef<string[]>([]);
+  const blobCacheRef = useRef<Map<string, string>>(new Map());
+  const previewRequestIdRef = useRef(0);
 
   const [activeCategory, setActiveCategory] = useState<'ALL' | PatientDocumentType>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -142,19 +176,20 @@ export function MemberDocumentUploadSection({
   const [isDragging, setIsDragging] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [lightboxDoc, setLightboxDoc] = useState<{
-    doc: PatientDocumentDto;
-    imageUrl: string;
-  } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<PreviewDocumentState | null>(null);
+  const [failedPreviewKeys, setFailedPreviewKeys] = useState<Record<string, boolean>>({});
+  const [cachedImageUrls, setCachedImageUrls] = useState<Record<string, string>>({});
   const [loadingDocId, setLoadingDocId] = useState<string | null>(null);
 
   const [deletingDoc, setDeletingDoc] = useState<PatientDocumentDto | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [collapsedDocKeys, setCollapsedDocKeys] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    const urls = createdBlobUrlsRef.current;
+    const cache = blobCacheRef.current;
     return () => {
-      urls.forEach((url) => URL.revokeObjectURL(url));
+      cache.forEach((url) => URL.revokeObjectURL(url));
+      cache.clear();
     };
   }, []);
 
@@ -188,6 +223,28 @@ export function MemberDocumentUploadSection({
       return inName || inNotes;
     });
   }, [documents, activeCategory, searchQuery]);
+
+  const toggleDocCollapsed = (docKey: string) => {
+    setCollapsedDocKeys((prev) => ({
+      ...prev,
+      [docKey]: !prev[docKey],
+    }));
+  };
+
+  const allFilteredCollapsed =
+    filteredDocuments.length > 0 &&
+    filteredDocuments.every((doc) => Boolean(collapsedDocKeys[doc.id || doc.fileUrl]));
+
+  const toggleAllFilteredDocs = () => {
+    const nextState = !allFilteredCollapsed;
+    setCollapsedDocKeys((prev) => {
+      const next = { ...prev };
+      for (const doc of filteredDocuments) {
+        next[doc.id || doc.fileUrl] = nextState;
+      }
+      return next;
+    });
+  };
 
   const resetModal = () => {
     setSelectedFile(null);
@@ -248,44 +305,184 @@ export function MemberDocumentUploadSection({
     }
   };
 
-  const resolveDocumentUrl = async (doc: PatientDocumentDto): Promise<string | null> => {
+  const resolveDocumentUrl = async (
+    doc: PatientDocumentDto,
+    forceRefresh = false,
+  ): Promise<string | null> => {
     if (isSafeExternalUrl(doc.fileUrl)) {
       return doc.fileUrl;
     }
     if (!doc.id) return null;
-    const blob = await patientsApi.fetchMemberDocumentBlob(memberId, doc.id);
-    const blobUrl = URL.createObjectURL(blob);
-    createdBlobUrlsRef.current.push(blobUrl);
+
+    if (!forceRefresh) {
+      const cached = blobCacheRef.current.get(doc.id);
+      if (cached) {
+        return cached;
+      }
+    } else {
+      const staleUrl = blobCacheRef.current.get(doc.id);
+      if (staleUrl) {
+        URL.revokeObjectURL(staleUrl);
+        blobCacheRef.current.delete(doc.id);
+      }
+    }
+
+    const rawBlob = await patientsApi.fetchMemberDocumentBlob(memberId, doc.id);
+    const isImg = isImageDocument(doc);
+    const expectedMime =
+      doc.mimeType || (isImg ? 'image/jpeg' : 'application/pdf');
+    const typedBlob =
+      !rawBlob.type || rawBlob.type === 'application/octet-stream'
+        ? new Blob([rawBlob], { type: expectedMime })
+        : rawBlob;
+    const blobUrl = URL.createObjectURL(typedBlob);
+    blobCacheRef.current.set(doc.id, blobUrl);
+    if (isImg) {
+      const docId = doc.id;
+      setCachedImageUrls((prev) => ({ ...prev, [docId]: blobUrl }));
+    }
     return blobUrl;
   };
 
-  const handleOpenDocument = async (doc: PatientDocumentDto) => {
+  const loadBlobIntoPreview = async (
+    doc: PatientDocumentDto,
+    kind: 'image' | 'pdf',
+    forceRefresh = false,
+  ) => {
+    const reqId = ++previewRequestIdRef.current;
     const docKey = doc.id || doc.fileUrl;
+    setPreviewDoc({
+      doc,
+      kind,
+      url: null,
+      loading: true,
+      error: null,
+      usedFallback: true,
+    });
     setLoadingDocId(docKey);
+
     try {
-      if (isImageDocument(doc)) {
-        const imgUrl = doc.previewUrl && isSafeExternalUrl(doc.previewUrl)
-          ? doc.previewUrl
-          : await resolveDocumentUrl(doc);
-        if (!imgUrl) {
-          toast.error('Không tìm thấy tệp ảnh tài liệu.');
-          return;
-        }
-        setLightboxDoc({ doc, imageUrl: imgUrl });
+      const fileUrl = await resolveDocumentUrl(doc, forceRefresh);
+      if (previewRequestIdRef.current !== reqId) return;
+
+      if (!fileUrl) {
+        const msg =
+          kind === 'image'
+            ? 'Không tìm thấy tệp ảnh tài liệu.'
+            : 'Không tìm thấy đường dẫn tài liệu.';
+        setPreviewDoc({
+          doc,
+          kind,
+          url: null,
+          loading: false,
+          error: msg,
+          usedFallback: true,
+        });
         return;
       }
 
-      const fileUrl = await resolveDocumentUrl(doc);
-      if (!fileUrl) {
-        toast.error('Không tìm thấy đường dẫn tài liệu.');
+      setPreviewDoc({
+        doc,
+        kind,
+        url: fileUrl,
+        loading: false,
+        error: null,
+        usedFallback: true,
+      });
+    } catch (err) {
+      if (previewRequestIdRef.current !== reqId) return;
+      const msg = extractErrorMessage(err, 'Không thể tải tài liệu từ kho lưu trữ.');
+      setPreviewDoc({
+        doc,
+        kind,
+        url: null,
+        loading: false,
+        error: msg,
+        usedFallback: true,
+      });
+      toast.error(msg);
+    } finally {
+      if (previewRequestIdRef.current === reqId) {
+        setLoadingDocId(null);
+      }
+    }
+  };
+
+  const handleOpenDocument = async (doc: PatientDocumentDto) => {
+    const isImg = isImageDocument(doc);
+
+    if (!isImg && isSafeExternalUrl(doc.fileUrl)) {
+      window.open(doc.fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (isImg) {
+      const docKey = doc.id || doc.fileUrl;
+      const cachedUrl = doc.id ? blobCacheRef.current.get(doc.id) : undefined;
+      if (cachedUrl) {
+        previewRequestIdRef.current += 1;
+        setPreviewDoc({
+          doc,
+          kind: 'image',
+          url: cachedUrl,
+          loading: false,
+          error: null,
+          usedFallback: false,
+        });
         return;
       }
-      window.open(fileUrl, '_blank', 'noopener,noreferrer');
-    } catch (err) {
-      toast.error(extractErrorMessage(err, 'Không thể mở tệp tài liệu.'));
-    } finally {
-      setLoadingDocId(null);
+
+      if (doc.previewUrl && isSafeExternalUrl(doc.previewUrl) && !failedPreviewKeys[docKey]) {
+        previewRequestIdRef.current += 1;
+        setPreviewDoc({
+          doc,
+          kind: 'image',
+          url: doc.previewUrl,
+          loading: false,
+          error: null,
+          usedFallback: false,
+        });
+        return;
+      }
+
+      if (isSafeExternalUrl(doc.fileUrl)) {
+        previewRequestIdRef.current += 1;
+        setPreviewDoc({
+          doc,
+          kind: 'image',
+          url: doc.fileUrl,
+          loading: false,
+          error: null,
+          usedFallback: true,
+        });
+        return;
+      }
+
+      await loadBlobIntoPreview(doc, 'image');
+      return;
     }
+
+    await loadBlobIntoPreview(doc, 'pdf');
+  };
+
+  const handleLightboxImageError = async (current: PreviewDocumentState) => {
+    const docKey = current.doc.id || current.doc.fileUrl;
+    if (current.usedFallback || !current.doc.id) {
+      setPreviewDoc((prev) =>
+        prev && (prev.doc.id || prev.doc.fileUrl) === docKey
+          ? {
+              ...prev,
+              url: null,
+              loading: false,
+              error: 'Không thể hiển thị ảnh tài liệu. Vui lòng thử lại.',
+            }
+          : prev,
+      );
+      return;
+    }
+
+    setFailedPreviewKeys((prev) => ({ ...prev, [docKey]: true }));
+    await loadBlobIntoPreview(current.doc, 'image', true);
   };
 
   const handleDownloadDocument = async (doc: PatientDocumentDto) => {
@@ -299,12 +496,11 @@ export function MemberDocumentUploadSection({
       }
       const anchor = document.createElement('a');
       anchor.href = url;
-      anchor.download = doc.documentName || 'tai-lieu-y-te';
+      anchor.download = buildDownloadFilename(doc);
       anchor.rel = 'noopener noreferrer';
-      anchor.target = '_blank';
       document.body.appendChild(anchor);
       anchor.click();
-      anchor.remove();
+      setTimeout(() => anchor.remove(), 1_000);
     } catch (err) {
       toast.error(extractErrorMessage(err, 'Không thể tải xuống tài liệu.'));
     } finally {
@@ -314,10 +510,22 @@ export function MemberDocumentUploadSection({
 
   const confirmDeleteDocument = async () => {
     if (!deletingDoc?.id) return;
+    const targetId = deletingDoc.id;
     setIsDeleting(true);
     try {
-      await patientsApi.deleteMemberDocument(memberId, deletingDoc.id);
-      onDocumentDeleted?.(deletingDoc.id);
+      await patientsApi.deleteMemberDocument(memberId, targetId);
+      const cachedUrl = blobCacheRef.current.get(targetId);
+      if (cachedUrl) {
+        URL.revokeObjectURL(cachedUrl);
+        blobCacheRef.current.delete(targetId);
+      }
+      setCachedImageUrls((prev) => {
+        if (!(targetId in prev)) return prev;
+        const next = { ...prev };
+        delete next[targetId];
+        return next;
+      });
+      onDocumentDeleted?.(targetId);
       toast.success('Đã xóa tài liệu y tế.');
       setDeletingDoc(null);
     } catch (err) {
@@ -329,19 +537,23 @@ export function MemberDocumentUploadSection({
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-            <span className="material-symbols-outlined text-[22px] text-[#2E37A4]">
-              folder_shared
-            </span>
-            <span>Hồ sơ bệnh án, Đơn thuốc &amp; Tài liệu y tế ({documents.length})</span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Lưu trữ ảnh đơn thuốc, phiếu xét nghiệm, kết quả chẩn đoán hình ảnh và giấy ra viện cho{' '}
-            {memberName}.
-          </p>
+      {/* Notion-like Workspace Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-4 border-b border-slate-100">
+        <div className="flex items-start gap-3">
+          <div className="size-9 rounded-xl bg-[#2E37A4]/10 text-[#2E37A4] flex items-center justify-center shrink-0 mt-0.5">
+            <span className="material-symbols-outlined text-[20px]">folder_shared</span>
+          </div>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 flex flex-wrap items-center gap-2">
+              <span>Hồ sơ bệnh án, Đơn thuốc &amp; Tài liệu y tế</span>
+              <span className="inline-flex items-center justify-center rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700 tabular-nums">
+                {documents.length}
+              </span>
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Ghi chú y khoa, đơn thuốc, phiếu xét nghiệm và chẩn đoán hình ảnh cho {memberName}.
+            </p>
+          </div>
         </div>
 
         <Button
@@ -357,7 +569,7 @@ export function MemberDocumentUploadSection({
         </Button>
       </div>
 
-      {/* Category Tabs + Search */}
+      {/* Filter Pills + Search + Collapse/Expand Toggle */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Lọc loại tài liệu y tế">
           <button
@@ -365,10 +577,10 @@ export function MemberDocumentUploadSection({
             role="tab"
             aria-selected={activeCategory === 'ALL'}
             onClick={() => setActiveCategory('ALL')}
-            className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors cursor-pointer ${
+            className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
               activeCategory === 'ALL'
                 ? 'bg-[#2E37A4] border-[#2E37A4] text-white'
-                : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                : 'bg-slate-50/80 border-slate-200 text-slate-700 hover:bg-slate-100'
             }`}
           >
             Tất cả ({documents.length})
@@ -383,10 +595,10 @@ export function MemberDocumentUploadSection({
                 role="tab"
                 aria-selected={active}
                 onClick={() => setActiveCategory(typeKey)}
-                className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition-colors cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
                   active
                     ? 'bg-[#2E37A4] border-[#2E37A4] text-white'
-                    : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                    : 'bg-slate-50/80 border-slate-200 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 {meta.label} ({countsByType[typeKey]})
@@ -395,21 +607,39 @@ export function MemberDocumentUploadSection({
           })}
         </div>
 
-        <div className="relative w-full lg:w-72">
-          <span className="material-symbols-outlined text-[18px] text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-            search
-          </span>
-          <Input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Tìm theo tên hoặc ghi chú..."
-            aria-label="Tìm kiếm tài liệu y tế"
-            className="pl-9 text-xs sm:text-sm"
-          />
+        <div className="flex items-center gap-2 w-full lg:w-auto">
+          <div className="relative flex-1 lg:w-64">
+            <span className="material-symbols-outlined text-[18px] text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+              search
+            </span>
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Tìm theo tên hoặc ghi chú..."
+              aria-label="Tìm kiếm tài liệu y tế"
+              className="pl-9 h-9 bg-slate-50/70 focus:bg-white text-xs sm:text-sm"
+            />
+          </div>
+          {filteredDocuments.length > 1 && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={toggleAllFilteredDocs}
+              className="h-9 px-2.5 text-xs text-slate-600 hover:text-slate-900 shrink-0"
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                {allFilteredCollapsed ? 'unfold_more' : 'unfold_less'}
+              </span>
+              <span className="hidden sm:inline">
+                {allFilteredCollapsed ? 'Mở rộng' : 'Thu gọn'}
+              </span>
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Document Gallery */}
+      {/* Note / Notion-Style Collapsible List */}
       {filteredDocuments.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center space-y-2">
           <span className="material-symbols-outlined text-[30px] text-slate-400">
@@ -440,107 +670,167 @@ export function MemberDocumentUploadSection({
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white overflow-hidden">
           {filteredDocuments.map((doc) => {
             const meta = DOCUMENT_TYPE_META[doc.documentType] ?? DOCUMENT_TYPE_META.OTHER;
             const isImg = isImageDocument(doc);
             const docKey = doc.id || doc.fileUrl;
             const isBusy = loadingDocId === docKey;
+            const isCollapsed = Boolean(collapsedDocKeys[docKey]);
+
+            const cachedUrl = doc.id ? cachedImageUrls[doc.id] : undefined;
+            const proxyUrl =
+              doc.previewUrl &&
+              isSafeExternalUrl(doc.previewUrl) &&
+              !failedPreviewKeys[docKey]
+                ? doc.previewUrl
+                : undefined;
+            const thumbSrc = cachedUrl || proxyUrl;
 
             return (
               <article
                 key={docKey}
-                className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 flex flex-col justify-between gap-3 hover:border-slate-300 transition-colors"
+                className="transition-colors hover:bg-slate-50/60"
               >
-                <div className="flex items-start gap-3">
-                  {isImg && doc.previewUrl && isSafeExternalUrl(doc.previewUrl) ? (
+                {/* Compact Note Toggle Header Row */}
+                <div className="px-3.5 sm:px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                  <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
                     <button
                       type="button"
-                      onClick={() => void handleOpenDocument(doc)}
-                      className="size-16 rounded-xl overflow-hidden border border-slate-200 bg-white shrink-0 cursor-pointer"
-                      title={`Xem ảnh ${doc.documentName}`}
+                      onClick={() => toggleDocCollapsed(docKey)}
+                      aria-expanded={!isCollapsed}
+                      aria-label={
+                        isCollapsed
+                          ? `Mở rộng nội dung ${doc.documentName}`
+                          : `Thu gọn nội dung ${doc.documentName}`
+                      }
+                      className="size-6 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center shrink-0 mt-0.5 sm:mt-0 cursor-pointer transition-colors"
                     >
-                      <img
-                        src={doc.previewUrl}
-                        alt={doc.documentName}
-                        className="w-full h-full object-cover"
-                      />
+                      <span
+                        className={`material-symbols-outlined text-[18px] transition-transform ${
+                          isCollapsed ? '' : 'rotate-90'
+                        }`}
+                      >
+                        chevron_right
+                      </span>
                     </button>
-                  ) : (
-                    <div
-                      className={`size-12 rounded-xl border flex items-center justify-center shrink-0 ${meta.badgeClass}`}
+
+                    <span
+                      className={`size-7 rounded-lg border flex items-center justify-center shrink-0 ${meta.badgeClass}`}
+                      aria-hidden="true"
                     >
-                      <span className="material-symbols-outlined text-[22px]">
+                      <span className="material-symbols-outlined text-[16px]">
                         {isImg ? 'image' : meta.icon}
                       </span>
-                    </div>
-                  )}
-
-                  <div className="min-w-0 flex-1 space-y-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <Badge variant="outline" className={`text-[11px] font-semibold ${meta.badgeClass}`}>
-                        {meta.label}
-                      </Badge>
-                      <span className="text-[11px] text-slate-500 tabular-nums">
-                        {formatDateDisplay(doc.recordedDate)}
-                      </span>
-                    </div>
-
-                    <h3 className="text-sm font-bold text-slate-900 line-clamp-2">
-                      {doc.documentName}
-                    </h3>
-
-                    {doc.notes && (
-                      <p className="text-xs text-slate-600 line-clamp-2">{doc.notes}</p>
-                    )}
-
-                    <p className="text-[11px] text-slate-500 tabular-nums">
-                      {isImg ? 'Hình ảnh' : 'Tệp PDF'} • {formatFileSize(doc.fileSizeKb)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-200/70">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isBusy}
-                    onClick={() => void handleOpenDocument(doc)}
-                    className="h-8 text-xs"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">
-                      {isImg ? 'zoom_in' : 'visibility'}
                     </span>
-                    <span>{isBusy ? 'Đang mở...' : isImg ? 'Xem ảnh' : 'Xem tệp'}</span>
-                  </Button>
 
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={isBusy}
-                    onClick={() => void handleDownloadDocument(doc)}
-                    className="h-8 text-xs"
-                  >
-                    <span className="material-symbols-outlined text-[15px]">download</span>
-                    <span>Tải về</span>
-                  </Button>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleDocCollapsed(docKey)}
+                          className="text-left text-sm font-semibold text-slate-900 hover:text-[#2E37A4] truncate max-w-full cursor-pointer"
+                        >
+                          {doc.documentName}
+                        </button>
+                        <Badge
+                          variant="outline"
+                          className={`text-[11px] font-medium px-2 py-0 ${meta.badgeClass}`}
+                        >
+                          {meta.label}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-slate-500 tabular-nums mt-0.5">
+                        {formatDateDisplay(doc.recordedDate)} • {isImg ? 'Hình ảnh' : 'Tệp PDF'} •{' '}
+                        {formatFileSize(doc.fileSizeKb)}
+                      </p>
+                    </div>
+                  </div>
 
-                  {doc.id && (
+                  {/* Quick Inline Actions */}
+                  <div className="flex flex-wrap items-center gap-1.5 pl-8 sm:pl-0 shrink-0">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isBusy}
+                      onClick={() => void handleOpenDocument(doc)}
+                      className="h-7 px-2.5 text-xs bg-white"
+                    >
+                      <span className="material-symbols-outlined text-[14px]">
+                        {isImg ? 'zoom_in' : 'visibility'}
+                      </span>
+                      <span>{isBusy ? 'Đang mở...' : isImg ? 'Xem ảnh' : 'Xem tệp'}</span>
+                    </Button>
+
                     <Button
                       type="button"
                       size="sm"
                       variant="ghost"
-                      onClick={() => setDeletingDoc(doc)}
-                      aria-label={`Xóa tài liệu ${doc.documentName}`}
-                      className="h-8 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                      disabled={isBusy}
+                      onClick={() => void handleDownloadDocument(doc)}
+                      className="h-7 px-2 text-xs text-slate-600 hover:text-slate-900"
                     >
-                      <span className="material-symbols-outlined text-[15px]">delete</span>
-                      <span>Xóa</span>
+                      <span className="material-symbols-outlined text-[14px]">download</span>
+                      <span>Tải về</span>
                     </Button>
-                  )}
+
+                    {doc.id && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setDeletingDoc(doc)}
+                        aria-label={`Xóa tài liệu ${doc.documentName}`}
+                        className="h-7 px-2 text-xs text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                      >
+                        <span className="material-symbols-outlined text-[14px]">delete</span>
+                        <span>Xóa</span>
+                      </Button>
+                    )}
+                  </div>
                 </div>
+
+                {/* Collapsible Notion-style Note Body */}
+                {!isCollapsed && (
+                  <div className="ml-6 sm:ml-7 mr-4 mb-3.5 pl-3.5 border-l-2 border-slate-200 space-y-2.5">
+                    {doc.notes ? (
+                      <p className="text-xs sm:text-[13px] leading-relaxed text-slate-700 whitespace-pre-line">
+                        {doc.notes}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-slate-400 italic">
+                        Chưa có ghi chú thêm cho tài liệu này.
+                      </p>
+                    )}
+
+                    {isImg && thumbSrc && (
+                      <button
+                        type="button"
+                        onClick={() => void handleOpenDocument(doc)}
+                        className="inline-flex items-center gap-2.5 rounded-lg border border-slate-200 bg-slate-50/70 p-1.5 pr-3 hover:border-[#2E37A4]/40 transition-colors cursor-pointer"
+                        title={`Xem ảnh ${doc.documentName}`}
+                      >
+                        <img
+                          src={thumbSrc}
+                          alt={doc.documentName}
+                          onError={() => {
+                            if (proxyUrl && thumbSrc === proxyUrl) {
+                              setFailedPreviewKeys((prev) => ({
+                                ...prev,
+                                [docKey]: true,
+                              }));
+                            }
+                          }}
+                          className="h-12 w-16 rounded object-cover border border-slate-200 bg-white"
+                        />
+                        <span className="text-xs font-medium text-slate-600">
+                          Bấm để phóng to ảnh
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </article>
             );
           })}
@@ -689,53 +979,111 @@ export function MemberDocumentUploadSection({
         </DialogContent>
       </Dialog>
 
-      {/* Image Lightbox Modal */}
+      {/* Image Lightbox & PDF Preview Modal */}
       <Dialog
-        open={Boolean(lightboxDoc)}
+        open={Boolean(previewDoc)}
         onOpenChange={(open) => {
-          if (!open) setLightboxDoc(null);
+          if (!open) {
+            previewRequestIdRef.current += 1;
+            setLoadingDocId(null);
+            setPreviewDoc(null);
+          }
         }}
       >
-        <DialogContent className="sm:max-w-3xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{lightboxDoc?.doc.documentName}</DialogTitle>
+            <DialogTitle>{previewDoc?.doc.documentName}</DialogTitle>
             <DialogDescription>
-              {lightboxDoc
+              {previewDoc
                 ? `${
                     (
-                      DOCUMENT_TYPE_META[lightboxDoc.doc.documentType] ??
+                      DOCUMENT_TYPE_META[previewDoc.doc.documentType] ??
                       DOCUMENT_TYPE_META.OTHER
                     ).label
-                  } • Ngày ${formatDateDisplay(lightboxDoc.doc.recordedDate)}`
+                  } • Ngày ${formatDateDisplay(previewDoc.doc.recordedDate)}`
                 : ''}
             </DialogDescription>
           </DialogHeader>
-          {lightboxDoc && (
+          {previewDoc && (
             <div className="space-y-3">
-              <div className="max-h-[65vh] overflow-auto rounded-xl border border-slate-200 bg-slate-950/5 flex items-center justify-center p-2">
-                <img
-                  src={lightboxDoc.imageUrl}
-                  alt={lightboxDoc.doc.documentName}
-                  className="max-h-[60vh] w-auto object-contain rounded-lg"
-                />
-              </div>
-              {lightboxDoc.doc.notes && (
-                <p className="text-xs text-slate-600">{lightboxDoc.doc.notes}</p>
+              {previewDoc.loading ? (
+                <div
+                  role="status"
+                  aria-label="Đang tải tệp tài liệu"
+                  className="h-[45vh] rounded-xl border border-slate-200 bg-slate-50 flex flex-col items-center justify-center gap-3 p-6 text-center"
+                >
+                  <div className="size-8 rounded-full border-2 border-[#2E37A4]/25 border-t-[#2E37A4] animate-spin" />
+                  <p className="text-sm font-medium text-slate-700">
+                    Đang tải dữ liệu tài liệu từ kho lưu trữ...
+                  </p>
+                </div>
+              ) : previewDoc.error ? (
+                <div
+                  role="alert"
+                  className="h-[40vh] rounded-xl border border-rose-200 bg-rose-50/70 flex flex-col items-center justify-center gap-3 p-6 text-center"
+                >
+                  <p className="text-sm font-semibold text-rose-800">{previewDoc.error}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      void loadBlobIntoPreview(previewDoc.doc, previewDoc.kind, true)
+                    }
+                  >
+                    Thử lại
+                  </Button>
+                </div>
+              ) : previewDoc.url && previewDoc.kind === 'image' ? (
+                <div className="max-h-[65vh] overflow-auto rounded-xl border border-slate-200 bg-slate-950/5 flex items-center justify-center p-2">
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.doc.documentName}
+                    onError={() => void handleLightboxImageError(previewDoc)}
+                    className="max-h-[60vh] w-auto object-contain rounded-lg"
+                  />
+                </div>
+              ) : previewDoc.url ? (
+                <div className="rounded-xl border border-slate-200 bg-slate-100 overflow-hidden">
+                  <iframe
+                    src={previewDoc.url}
+                    title={previewDoc.doc.documentName}
+                    className="w-full h-[65vh] bg-white"
+                  />
+                </div>
+              ) : null}
+              {previewDoc.doc.notes && (
+                <p className="text-xs text-slate-600">{previewDoc.doc.notes}</p>
               )}
             </div>
           )}
           <DialogFooter>
-            {lightboxDoc && (
+            {previewDoc && previewDoc.kind === 'pdf' && previewDoc.url && (
+              <Button type="button" variant="outline" asChild>
+                <a href={previewDoc.url} target="_blank" rel="noopener noreferrer">
+                  <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                  <span>Mở tab mới</span>
+                </a>
+              </Button>
+            )}
+            {previewDoc && (
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => void handleDownloadDocument(lightboxDoc.doc)}
+                disabled={previewDoc.loading}
+                onClick={() => void handleDownloadDocument(previewDoc.doc)}
               >
                 <span className="material-symbols-outlined text-[16px]">download</span>
-                <span>Tải ảnh gốc</span>
+                <span>{previewDoc.kind === 'image' ? 'Tải ảnh gốc' : 'Tải PDF về'}</span>
               </Button>
             )}
-            <Button type="button" onClick={() => setLightboxDoc(null)}>
+            <Button
+              type="button"
+              onClick={() => {
+                previewRequestIdRef.current += 1;
+                setLoadingDocId(null);
+                setPreviewDoc(null);
+              }}
+            >
               Đóng
             </Button>
           </DialogFooter>
