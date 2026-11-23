@@ -158,7 +158,7 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
   });
 
-  it('points SiteHeader "Trang chủ" and the sidebar gate notice to /onboarding for a locked family account', async () => {
+  it('omits "Trang chủ" and points SiteHeader "Hộ gia đình" plus the sidebar gate notice to /onboarding for a locked family account', async () => {
     mockRole = 'FAMILY';
     mockPathname = '/settings';
     mockGateStatus = {
@@ -179,13 +179,13 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
     const onboardingLink = within(notice).getByRole('link', { name: /Chọn bác sĩ & gói ngay/i });
     expect(onboardingLink).toHaveAttribute('href', '/onboarding');
 
-    // Breadcrumb "Trang chủ" in SiteHeader must not loop back into /family
+    // Family breadcrumb starts from "Hộ gia đình" (no "Trang chủ") and must not loop back into /family when locked
     const header = container.querySelector('header');
     expect(header).toBeTruthy();
-    const breadcrumbHome = within(header as HTMLElement)
-      .getAllByRole('link')
-      .find((el) => el.textContent === 'Trang chủ');
-    expect(breadcrumbHome).toHaveAttribute('href', '/onboarding');
+    const headerLinks = within(header as HTMLElement).getAllByRole('link');
+    expect(headerLinks.find((el) => el.textContent === 'Trang chủ')).toBeUndefined();
+    const breadcrumbFamilyRoot = headerLinks.find((el) => el.textContent === 'Hộ gia đình');
+    expect(breadcrumbFamilyRoot).toHaveAttribute('href', '/onboarding');
   });
 
   it('keeps the sidebar gate notice on the pending /booking step while offering the onboarding hub', async () => {
@@ -290,5 +290,49 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
 
     await user.click(logoutItem);
     expect(mockLogout).toHaveBeenCalledTimes(1);
+  });
+
+  it('hides Breadcrumb on /family hub while keeping it on /family/* spoke pages', () => {
+    mockRole = 'FAMILY';
+    mockPathname = '/family';
+    const hubRender = renderShell();
+
+    const hubHeader = hubRender.container.querySelector('header')!;
+    expect(within(hubHeader).queryByRole('navigation', { name: 'breadcrumb' })).not.toBeInTheDocument();
+    expect(within(hubHeader).getByRole('button', { name: 'Bật hoặc tắt thanh điều hướng' })).toBeInTheDocument();
+    hubRender.unmount();
+
+    mockPathname = '/family/members';
+    const spokeRender = renderShell();
+    const spokeHeader = spokeRender.container.querySelector('header')!;
+    const breadcrumbNav = within(spokeHeader).getByRole('navigation', { name: 'breadcrumb' });
+    expect(breadcrumbNav).toBeInTheDocument();
+    expect(within(breadcrumbNav).queryByText('Trang chủ')).not.toBeInTheDocument();
+    expect(within(breadcrumbNav).getByRole('link', { name: 'Hộ gia đình' })).toHaveAttribute('href', '/family');
+    expect(within(spokeHeader).getByText('Quản lý Thành viên')).toBeInTheDocument();
+  });
+
+  it('renders Quản lý Thành viên as a clickable parent breadcrumb link and only highlights member name on detail page', () => {
+    mockRole = 'FAMILY';
+    mockPathname = '/family/members/59bcb6b0-7b97-400c-860e-a9a9461c8bc4';
+    window.localStorage.setItem('member_name_59bcb6b0-7b97-400c-860e-a9a9461c8bc4', 'Phạm Ngọc Thọ');
+
+    try {
+      const detailRender = renderShell();
+      const detailHeader = detailRender.container.querySelector('header')!;
+      const breadcrumbNav = within(detailHeader).getByRole('navigation', { name: 'breadcrumb' });
+
+      const membersLink = within(breadcrumbNav).getByRole('link', { name: 'Quản lý Thành viên' });
+      expect(membersLink).toHaveAttribute('href', '/family/members');
+      expect(membersLink).toHaveClass('text-slate-500');
+      expect(membersLink).not.toHaveClass('text-primary');
+
+      const currentPage = within(breadcrumbNav).getByText('Phạm Ngọc Thọ');
+      expect(currentPage).toHaveAttribute('aria-current', 'page');
+      expect(currentPage).toHaveClass('font-semibold', 'text-primary');
+      expect(within(breadcrumbNav).queryByText(/Quản lý Thành viên\s*›/)).not.toBeInTheDocument();
+    } finally {
+      window.localStorage.removeItem('member_name_59bcb6b0-7b97-400c-860e-a9a9461c8bc4');
+    }
   });
 });

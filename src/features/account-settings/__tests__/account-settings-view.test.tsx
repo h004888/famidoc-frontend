@@ -66,7 +66,7 @@ describe('AccountSettingsView - thích ứng theo vai trò', () => {
 
     render(<AccountSettingsView />);
 
-    expect(screen.getByText(/Đã Định Danh BYT/i)).toBeInTheDocument();
+    expect(screen.getByText(/Tài khoản Hộ gia đình/i)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /Bảo hiểm Y tế & Ký quỹ/i }),
     ).toBeInTheDocument();

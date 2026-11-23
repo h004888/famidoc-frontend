@@ -154,7 +154,11 @@ export function DashboardTopbarNotifications() {
           if (familyOwner && !isOpen) familyNotifications.reload();
           setIsOpen(!isOpen);
         }}
-        aria-label="Thông báo hệ thống"
+        aria-label={
+          mounted && unreadCount > 0
+            ? `Thông báo hệ thống (${unreadCount} chưa đọc)`
+            : 'Thông báo hệ thống'
+        }
         title="Thông báo hệ thống"
         aria-haspopup="menu"
         aria-expanded={isOpen}
@@ -162,7 +166,12 @@ export function DashboardTopbarNotifications() {
       >
         <span className="material-symbols-outlined text-[20px]">notifications</span>
         {mounted && unreadCount > 0 && (
-          <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" />
+          <span
+            data-testid="notification-unread-badge"
+            className="absolute -top-1 -right-1 inline-flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white tabular-nums"
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </span>
         )}
       </button>
 

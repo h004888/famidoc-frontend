@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@documenso/embed-react": "^0.8.0",
+    "@healthicons/react": "^2.0.0",
     "@livekit/components-react": "^2.9.26",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

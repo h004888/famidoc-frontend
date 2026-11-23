@@ -45,6 +45,30 @@ export interface UploadMemberDocumentInput {
   file: File;
 }
 
+export type ChronicClinicalStatus = 'ACTIVE' | 'CONTROLLED' | 'REMISSION';
+
+export interface PatientChronicConditionDto {
+  id?: string;
+  patientId?: string;
+  conditionName: string;
+  icd10Code?: string | null;
+  clinicalStatus?: ChronicClinicalStatus;
+  diagnosedAt?: string | null;
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreateChronicConditionDto {
+  conditionName: string;
+  icd10Code?: string;
+  clinicalStatus?: ChronicClinicalStatus;
+  diagnosedAt?: string;
+  notes?: string;
+}
+
+export type UpdateChronicConditionDto = Partial<CreateChronicConditionDto>;
+
 export interface PatientDto {
   id: string;
   familyId: string;
@@ -53,7 +77,10 @@ export interface PatientDto {
   gender: PatientGender;
   relationshipToHead: PatientRelationship | string;
   bloodType?: string | null;
+  heightCm?: number | null;
+  weightKg?: number | null;
   chronicDiseases?: string | null;
+  chronicConditions?: PatientChronicConditionDto[];
   status?: PatientStatus;
   allergies?: PatientAllergyDto[];
   documents?: PatientDocumentDto[];
@@ -68,13 +95,19 @@ export interface CreatePatientDto {
   relationshipToRepresentative?: PatientRelationship | string;
   relationshipToHead?: PatientRelationship | string;
   bloodType?: string;
+  heightCm?: number | null;
+  weightKg?: number | null;
   chronicDiseases?: string;
+  chronicConditions?: CreateChronicConditionDto[];
   familyId?: string;
 }
 
 export type UpdatePatientDto = Partial<CreatePatientDto> & {
   status?: PatientStatus;
 };
+
+export type GlucoseContext = 'FASTING' | 'BEFORE_MEAL' | 'AFTER_MEAL' | 'RANDOM';
+export type MeasurementState = 'RESTING' | 'AFTER_EXERCISE' | 'AFTER_MEDICATION' | 'UNWELL';
 
 export interface VitalSignDto {
   id: string;
@@ -87,6 +120,9 @@ export interface VitalSignDto {
   spo2?: number | null;
   respiratoryRate?: number | null;
   bloodGlucose?: number | null;
+  glucoseContext?: GlucoseContext | null;
+  measurementState?: MeasurementState | null;
+  notes?: string | null;
   isAbnormalAlert: boolean;
   recordedAt: string;
 }
@@ -99,6 +135,9 @@ export interface CreateVitalSignDto {
   spo2?: number;
   respiratoryRate?: number;
   bloodGlucose?: number;
+  glucoseContext?: GlucoseContext;
+  measurementState?: MeasurementState;
+  notes?: string;
   recordedAt?: string;
 }
 
@@ -140,6 +179,48 @@ export const patientsApi = {
       `/api/v1/patients/${patientId}/allergies/${allergyId}`
     );
     return unwrapApiEnvelope<PatientAllergyDto>(payload);
+  },
+
+  listMemberChronicConditions: async (
+    patientId: string
+  ): Promise<PatientChronicConditionDto[]> => {
+    const payload = await httpClient.get<unknown>(
+      `/api/v1/patients/${patientId}/chronic-conditions`
+    );
+    return unwrapApiEnvelope<PatientChronicConditionDto[]>(payload);
+  },
+
+  addMemberChronicCondition: async (
+    patientId: string,
+    dto: CreateChronicConditionDto
+  ): Promise<PatientChronicConditionDto> => {
+    const payload = await httpClient.post<unknown>(
+      `/api/v1/patients/${patientId}/chronic-conditions`,
+      dto
+    );
+    return unwrapApiEnvelope<PatientChronicConditionDto>(payload);
+  },
+
+  updateMemberChronicCondition: async (
+    patientId: string,
+    conditionId: string,
+    dto: UpdateChronicConditionDto
+  ): Promise<PatientChronicConditionDto> => {
+    const payload = await httpClient.put<unknown>(
+      `/api/v1/patients/${patientId}/chronic-conditions/${conditionId}`,
+      dto
+    );
+    return unwrapApiEnvelope<PatientChronicConditionDto>(payload);
+  },
+
+  deleteMemberChronicCondition: async (
+    patientId: string,
+    conditionId: string
+  ): Promise<PatientChronicConditionDto> => {
+    const payload = await httpClient.delete<unknown>(
+      `/api/v1/patients/${patientId}/chronic-conditions/${conditionId}`
+    );
+    return unwrapApiEnvelope<PatientChronicConditionDto>(payload);
   },
 
   addMemberDocument: async (patientId: string, dto: PatientDocumentDto): Promise<PatientDocumentDto> => {

@@ -93,9 +93,7 @@ describe('FamiDoc Typography Foundation Specification', () => {
     expect(designMd).not.toContain('fontFamily: Inter');
     expect(designMd).not.toContain('fontFamily: Poppins');
     expect(designMd).toContain('fontFamily: Be Vietnam Pro');
-    expect(designMd).toContain(
-      'Be Vietnam Pro serves as the single universal typeface across all functional surfaces',
-    );
+    expect(designMd).toContain('Fonts: Be Vietnam Pro');
   });
 
   it('enforces universal FamiDoc typography across all .tsx files in src/app, src/components, and src/features', () => {

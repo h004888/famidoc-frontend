@@ -204,7 +204,7 @@ export function MedicalBookView({
       className="bg-[#f3f6f5]"
       containerClassName="max-w-[1500px]"
     >
-      <header className="relative overflow-hidden rounded-2xl bg-[#143b38] px-5 py-6 text-white sm:px-8 sm:py-8">
+      <header className={`relative overflow-hidden rounded-2xl px-5 py-6 text-white sm:px-8 sm:py-8 ${doctor ? 'bg-[#143b38]' : 'bg-primary'}`}>
         <BookOpen
           aria-hidden="true"
           className="pointer-events-none absolute -right-3 -top-7 size-40 rotate-12 text-white/10 sm:right-9 sm:size-48"
@@ -324,7 +324,8 @@ function FamilyBook({
   setPending: (value: boolean) => void;
 }) {
   const [patientId, setPatientId] = useState(initialPatientId ?? '');
-  const member = family.members.find((item) => item.id === patientId);
+  const effectivePatientId = patientId || (!doctor ? family.members[0]?.id ?? '' : '');
+  const member = family.members.find((item) => item.id === effectivePatientId);
   return (
     <div className="min-w-0 space-y-4">
       <section

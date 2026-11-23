@@ -114,7 +114,7 @@ describe('vital-metrics.util', () => {
     expect(deltas.bp).toEqual({
       delta: 10,
       direction: 'up',
-      label: '+10 mmHg tâm thu so với lần trước',
+      label: '+10 mmHg so với lần trước',
     });
     expect(deltas.heartRate).toEqual({
       delta: -6,

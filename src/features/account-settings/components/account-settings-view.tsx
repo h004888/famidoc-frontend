@@ -103,12 +103,12 @@ export function AccountSettingsView() {
     fullName: '',
     phone: '',
     email: '',
-    birthDate: '1985-05-15',
+    birthDate: '',
     gender: 'MALE' as 'MALE' | 'FEMALE' | 'OTHER',
-    address: 'Số 123 Phố Huế, Q. Hai Bà Trưng, Hà Nội',
-    insuranceCardNumber: 'GD4010123456789',
-    bloodType: 'O+',
-    allergies: 'Không có tiền sử dị ứng đã ghi nhận',
+    address: '',
+    insuranceCardNumber: '',
+    bloodType: '',
+    allergies: '',
   });
 
   useEffect(() => {
@@ -230,16 +230,12 @@ export function AccountSettingsView() {
                   </h2>
                   <Badge
                     variant="outline"
-                    className={
-                      isFamilyAccount
-                        ? 'gap-1 rounded-full border-[#b7eb8f] bg-[#f6ffed] px-2.5 py-0.5 text-xs font-semibold text-[#03864b]'
-                        : 'gap-1 rounded-full border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-primary'
-                    }
+                    className="gap-1 rounded-full border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-primary"
                   >
                     <span className="material-symbols-outlined text-[14px]">
                       {roleMeta.badgeIcon}
                     </span>
-                    {roleMeta.badgeLabel}
+                    {isFamilyAccount ? 'Tài khoản Hộ gia đình' : roleMeta.badgeLabel}
                   </Badge>
                 </div>
                 <p className="mt-0.5 text-xs text-slate-500" suppressHydrationWarning>
