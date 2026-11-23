@@ -28,15 +28,13 @@ export type CarePackageAdminDto = AdminCarePackageItem;
 
 const base = '/api/v1/admin/care-packages';
 export const adminPackagesApi = {
-  listPackages: async (params?: { page?: number; limit?: number; status?: PackageStatus }): Promise<AdminPage<AdminCarePackageItem>> =>
+  listPackages: async (params?: { page?: number; limit?: number; status?: PackageStatus; excludeDrafts?: boolean }): Promise<AdminPage<AdminCarePackageItem>> =>
     unwrapApiEnvelope(await httpClient.get(base, params, { cache: 'no-store' })),
   getPackageById: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.get(`${base}/${id}`)),
   createPackage: async (payload: PackageTerms & { code: string }): Promise<AdminCarePackageItem> =>
     unwrapApiEnvelope(await httpClient.post(base, payload)),
   updatePackage: async (id: string, payload: Partial<PackageTerms>): Promise<AdminCarePackageItem> =>
     unwrapApiEnvelope(await httpClient.patch(`${base}/${id}`, payload)),
-  createVersion: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/versions`)),
-  publishPackage: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/publish`)),
   reopenPackage: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/reopen`)),
   retirePackage: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/retire`)),
 };

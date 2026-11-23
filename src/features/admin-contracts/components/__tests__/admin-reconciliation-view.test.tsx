@@ -55,11 +55,20 @@ describe('AdminReconciliationView', () => {
     render(<AdminReconciliationView />);
     const desktop = within(await screen.findByTestId('desktop-view'));
     const mobile = within(screen.getByTestId('mobile-view'));
-    expect(desktop.getByText('Thông báo SePay')).toBeInTheDocument();
     expect(desktop.getByText('789012')).toBeInTheDocument();
-    expect(desktop.getByText('FMD000001')).toBeInTheDocument();
-    expect(mobile.getByText('Thông báo SePay')).toBeInTheDocument();
+    expect(desktop.getByText(/FMD000001/)).toBeInTheDocument();
     expect(mobile.getByText('789012')).toBeInTheDocument();
+    expect(desktop.queryByText(/Thông báo SePay/)).not.toBeInTheDocument();
+
+    // Xem chi tiết sâu trong hộp thoại (Nguồn tiếp nhận, Số TK, Ngân hàng, Mã tham chiếu)
+    fireEvent.click(desktop.getByRole('button', { name: /Xem chi tiết/ }));
+    const dialog = within(await screen.findByRole('dialog'));
+    expect(dialog.getByText('Chi tiết giao dịch ngân hàng')).toBeInTheDocument();
+    expect(dialog.getByText('Thông báo SePay')).toBeInTheDocument();
+    expect(dialog.getByText('123456789')).toBeInTheDocument();
+    expect(dialog.getByText('MB')).toBeInTheDocument();
+    expect(dialog.getByText('REF123')).toBeInTheDocument();
+    fireEvent.click(dialog.getByRole('button', { name: 'Đóng' }));
 
     vi.mocked(paymentsApi.listTransactions).mockResolvedValueOnce({ items: [], total: 0, page: 1, limit: 20 });
     fireEvent.click(screen.getByRole('button', { name: 'Làm mới' }));
@@ -87,7 +96,7 @@ describe('AdminReconciliationView', () => {
       startedAt: '2026-11-16T10:00:02Z',
     });
     render(<AdminReconciliationView />);
-    fireEvent.click(screen.getByText('Đồng bộ giao dịch từ SePay', { selector: 'summary' }));
+    fireEvent.click(screen.getByRole('tab', { name: /Đồng bộ giao dịch từ SePay/ }));
     fireEvent.change(screen.getByLabelText('Loại dữ liệu đồng bộ'), { target: { value: 'TEST' } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Đồng bộ ngay' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Đồng bộ ngay' }));

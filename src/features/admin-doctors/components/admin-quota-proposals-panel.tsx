@@ -90,8 +90,8 @@ export function AdminQuotaProposalsPanel() {
       data-testid="admin-quota-proposals-panel"
       className="rounded-2xl border-slate-200/80 bg-white shadow-xs"
     >
-      <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3">
-        <div>
+      <CardHeader className="flex flex-col gap-3 pb-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
           <CardTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
             <span className="material-symbols-outlined text-[20px] text-[#0037c1]">
               tune
@@ -103,13 +103,13 @@ export function AdminQuotaProposalsPanel() {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+        <div className="flex min-w-0 max-w-full flex-nowrap items-center gap-1 overflow-x-auto text-[11px] sm:text-xs lg:shrink-0">
           {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map((st) => (
             <button
               key={st}
               type="button"
               onClick={() => setStatusFilter(st)}
-              className={`px-2.5 py-1 rounded-lg font-semibold transition-colors cursor-pointer ${
+              className={`shrink-0 whitespace-nowrap rounded-lg px-1.5 py-1 font-semibold transition-colors cursor-pointer ${
                 statusFilter === st
                   ? 'bg-[#0037c1] text-white'
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'

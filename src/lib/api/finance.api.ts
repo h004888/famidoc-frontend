@@ -91,6 +91,63 @@ export interface FinanceAnalyticsQueryDto {
   facilityId?: string;
 }
 
+export interface PackageSalesTotals {
+  packagesSold: number;
+  grossVnd: number;
+  platformFeeVnd: number;
+  facilityShareVnd: number;
+}
+
+export interface ParticipatingDoctorSummaryDto {
+  id: string;
+  doctorName: string;
+  specialty: string;
+  isPrimary: boolean;
+  encounterCount: number;
+}
+
+export interface FacilityFamilyPackageItemDto {
+  invoiceId: string;
+  invoiceCode: string;
+  contractId: string;
+  contractNumber: string;
+  contractStatus: string;
+  familyId: string;
+  familyName: string;
+  memberCount: number;
+  packageCode: string;
+  packageName: string;
+  durationMonths: number;
+  paidAt: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  purchasedInPeriod: boolean;
+  primaryDoctor: { id: string; doctorName: string; specialty: string } | null;
+  participatingDoctors: ParticipatingDoctorSummaryDto[];
+  packagePriceVnd: number;
+  platformFeePercent: number;
+  platformFeeVnd: number;
+  facilitySharePercent: number;
+  facilityShareVnd: number;
+  periodRecognition?: {
+    grossVnd: number;
+    platformFeeVnd: number;
+    facilityShareVnd: number;
+    serviceFrom: string;
+    serviceUntil: string;
+  };
+}
+
+export interface FacilityBusinessDto {
+  activeHouseholds: number;
+  doctors: { id: string; doctorName: string; specialty: string; households: number }[];
+  familyPackages?: FacilityFamilyPackageItemDto[];
+  purchases: PackageSalesTotals & {
+    purchasingHouseholds: number;
+    byPackage: (PackageSalesTotals & { packageCode: string; packageName: string })[];
+  };
+}
+
 export interface FinanceAnalyticsDto {
   settlementFrequency?: 'MONTHLY';
   year: number;
@@ -105,6 +162,7 @@ export interface FinanceAnalyticsDto {
   netVnd: number;
   platformFeeVnd: number;
   facilityShareVnd: number;
+  facilityBusiness?: FacilityBusinessDto;
   taxTreatment?: string;
   unmatchedTransactionsCount?: number;
   unreconciledInvoiceCount?: number;

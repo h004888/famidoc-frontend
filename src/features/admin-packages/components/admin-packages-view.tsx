@@ -56,7 +56,7 @@ const statusFilters: { value: CatalogStatusFilter; label: string }[] = [
   { value: 'ACTIVE', label: statuses.ACTIVE },
   { value: 'DEPRECATED', label: statuses.DEPRECATED },
 ];
-const actionLabel = { publish: 'Mở bán', retire: 'Ngừng bán', reopen: 'Mở bán' };
+const actionLabel = { retire: 'Ngừng bán', reopen: 'Mở bán' };
 type PackageAction = keyof typeof actionLabel;
 const pageSize = 6;
 const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-normal focus-visible:outline-2 focus-visible:outline-ring';
@@ -70,7 +70,12 @@ export function AdminPackagesView() {
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState('');
   const { data, loading, error, refresh } = useAdminQuery(useCallback(
-    () => adminPackagesApi.listPackages({ page, limit: pageSize, status: status || undefined }), [page, status],
+    () => adminPackagesApi.listPackages({
+      page,
+      limit: pageSize,
+      ...(status ? { status } : { excludeDrafts: true }),
+    }),
+    [page, status],
   ));
 
   async function runDecision() {
@@ -79,9 +84,7 @@ export function AdminPackagesView() {
     setActing(true);
     setActionError('');
     try {
-      if (action === 'publish') {
-        await adminPackagesApi.publishPackage(item.id);
-      } else if (action === 'reopen') {
+      if (action === 'reopen') {
         await adminPackagesApi.reopenPackage(item.id);
       } else {
         await adminPackagesApi.retirePackage(item.id);
@@ -131,7 +134,8 @@ export function AdminPackagesView() {
               ))}
             </div>
             <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600">
-              <ArrowDownWideNarrow aria-hidden="true" className="size-4" /> Giá thấp đến cao
+              <ArrowDownWideNarrow aria-hidden="true" className="size-4" />
+              {status ? 'Giá thấp đến cao' : 'Giá thấp đến cao trong từng nhóm'}
             </span>
           </div>
         </div>
@@ -177,6 +181,11 @@ export function AdminPackagesView() {
             setEditing(viewing);
             setViewing(null);
           }}
+          onReopen={() => {
+            setViewing(null);
+            setActionError('');
+            setDecision({ item: viewing, action: 'reopen' });
+          }}
         />
       )}
 
@@ -186,8 +195,8 @@ export function AdminPackagesView() {
           item={editing}
           close={() => setEditing(undefined)}
           onSaved={() => {
-            if (status) {
-              setStatus('');
+            if (editing === null) {
+              setStatus('ACTIVE');
               setPage(1);
             }
             refresh();
@@ -264,18 +273,15 @@ function PackageCard({ item, onView, onEdit, onAction }: {
         <Button type="button" size="sm" variant="outline" onClick={onView}>
           <Eye aria-hidden="true" className="size-4" />Xem
         </Button>
-        <Button type="button" size="sm" variant="outline" onClick={onEdit}>
-          <Pencil aria-hidden="true" className="size-4" />Sửa
-        </Button>
-        {item.status === 'DRAFT' && (
-          <Button type="button" size="sm" onClick={() => onAction('publish')}>
-            <PackageCheck aria-hidden="true" className="size-4" />{actionLabel.publish}
-          </Button>
-        )}
         {item.status === 'ACTIVE' && (
-          <Button type="button" size="sm" variant="ghost" className="text-destructive hover:bg-red-50 hover:text-destructive" onClick={() => onAction('retire')}>
-            {actionLabel.retire}
-          </Button>
+          <>
+            <Button type="button" size="sm" variant="outline" onClick={onEdit}>
+              <Pencil aria-hidden="true" className="size-4" />Sửa
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="text-destructive hover:bg-red-50 hover:text-destructive" onClick={() => onAction('retire')}>
+              {actionLabel.retire}
+            </Button>
+          </>
         )}
         {item.status === 'DEPRECATED' && (
           <Button type="button" size="sm" onClick={() => onAction('reopen')}>
@@ -291,10 +297,12 @@ function PackageDetailDialog({
   item,
   close,
   onEdit,
+  onReopen,
 }: {
   item: AdminCarePackageItem;
   close: () => void;
   onEdit: () => void;
+  onReopen: () => void;
 }) {
   return (
     <Dialog open onOpenChange={(open) => { if (!open) close(); }}>
@@ -355,14 +363,9 @@ function PackageDetailDialog({
 
           {/* Quyền lợi & Hạn mức chi tiết */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Hạn mức &amp; Quyền lợi chăm sóc
-              </h4>
-              <span className="text-xs font-medium text-slate-500">
-                Áp dụng: {item.quotaPeriod === 'PER_MONTH' ? 'Mỗi tháng' : 'Toàn kỳ'}
-              </span>
-            </div>
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Hạn mức {item.quotaPeriod === 'PER_MONTH' ? 'mỗi tháng' : 'toàn kỳ'} &amp; Quyền lợi chăm sóc
+            </h4>
 
             <div className="rounded-xl border border-slate-200 divide-y divide-slate-100 text-sm overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-white">
@@ -434,10 +437,18 @@ function PackageDetailDialog({
           <Button type="button" variant="outline" onClick={close}>
             Đóng
           </Button>
-          <Button type="button" onClick={onEdit}>
-            <Pencil aria-hidden="true" className="size-4" />
-            Sửa gói này
-          </Button>
+          {item.status === 'ACTIVE' && (
+            <Button type="button" onClick={onEdit}>
+              <Pencil aria-hidden="true" className="size-4" />
+              Sửa gói này
+            </Button>
+          )}
+          {item.status === 'DEPRECATED' && (
+            <Button type="button" onClick={onReopen}>
+              <PackageCheck aria-hidden="true" className="size-4" />
+              Mở bán
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
@@ -472,9 +483,6 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
   const calculatesPrice = requiresUnitPrice || form.amounts.homeVisitUnitPriceVnd !== '';
   const contractVideo = usesContractVideoQuota(form);
   const price = getPackagePrice(form, requiresUnitPrice);
-  const quotaHelp = form.quotaPeriod === 'PER_TERM'
-    ? `Số lượt áp dụng cho cả kỳ ${form.durationMonths} tháng.`
-    : 'Số lượt áp dụng cho từng tháng trong kỳ.';
   const errors = submitted ? validatePackageForm(form, item) : {};
   const inputErrors = { ...invalidNumbers };
   if (calculatesPrice) delete inputErrors.priceVnd;
@@ -552,7 +560,7 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
         await adminPackagesApi.updatePackage(item.id, terms);
         toast.success('Đã lưu thay đổi gói dịch vụ.');
       } else {
-        await adminPackagesApi.createPackage({ ...terms, code: form.code.trim() });
+        await adminPackagesApi.createPackage({ ...terms, code: form.code.trim(), quotaPeriod: 'PER_TERM' });
         toast.success('Đã tạo và mở bán gói dịch vụ.');
       }
       onSaved();
@@ -607,11 +615,6 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
             <fieldset disabled={busy} className="min-w-0">
               <legend className="mb-3 text-sm font-semibold text-slate-900">Hạn mức khám, tư vấn và giá gói</legend>
               <div className="grid gap-3 sm:grid-cols-2">
-                <PackageFormField field="quotaPeriod" label="Áp dụng hạn mức" help={quotaHelp} error={errors.quotaPeriod}>
-                  <select {...fieldProps('quotaPeriod', quotaHelp)} className={selectClass} value={form.quotaPeriod} onChange={(event) => set('quotaPeriod', event.target.value as PackageForm['quotaPeriod'])}>
-                    <option value="PER_TERM">Toàn kỳ</option><option value="PER_MONTH">Mỗi tháng</option>
-                  </select>
-                </PackageFormField>
                 {numberField('homeVisitUnitPriceVnd', { help: requiresUnitPrice ? undefined : 'Có thể để trống để nhập giá gói thủ công.' })}
                 {form.durationMonths === 12 && (
                   <PackageFormField field="videoQuotaPolicy" label="Hạn mức video" error={errors.videoQuotaPolicy} className="sm:col-span-2">
@@ -639,7 +642,7 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <DialogFooter className="min-[340px]:flex-row min-[340px]:justify-end">
               <Button type="button" variant="outline" disabled={busy} onClick={close}>Hủy</Button>
-              <Button type="submit" disabled={busy}>{busy ? 'Đang lưu…' : item ? 'Lưu thay đổi' : 'Tạo và mở bán'}</Button>
+              <Button type="submit" disabled={busy}>{busy ? 'Đang lưu…' : item ? 'Lưu thay đổi' : 'Lưu gói'}</Button>
             </DialogFooter>
           </div>
         </form>
