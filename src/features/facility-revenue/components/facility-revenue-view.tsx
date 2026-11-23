@@ -17,6 +17,7 @@ import {
   type FacilitySettlementDto,
   type ReviewSettlementPayload,
 } from '@/lib/api/finance.api';
+import { contractsApi } from '@/lib/api/contracts.api';
 import { extractErrorMessage } from '@/lib/api/error-handler';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -68,6 +69,10 @@ const reviewBadgeStyles = {
 
 export function FacilityRevenueView() {
   const [analytics, setAnalytics] = useState<FinanceAnalyticsDto | null>(null);
+  const [b2bSplit, setB2bSplit] = useState<{ facility: number; platform: number } | null>(null);
+  const [isTestEnvBlocked, setIsTestEnvBlocked] = useState(
+    process.env.NEXT_PUBLIC_APP_ENV === 'production',
+  );
   const [period, setPeriod] = useState('');
   const [environment, setEnvironment] = useState<'LIVE' | 'TEST'>('LIVE');
   const [refresh, setRefresh] = useState(0);
@@ -83,6 +88,27 @@ export function FacilityRevenueView() {
 
   useEffect(() => {
     let active = true;
+    const req = contractsApi?.getStaffingContracts?.();
+    if (!req || typeof req.then !== 'function') return;
+    void req
+      .then((res) => {
+        if (!active || !res || !Array.isArray(res.data)) return;
+        const activeContract = res.data.find((c) => c.status === 'ACTIVE');
+        if (activeContract) {
+          setB2bSplit({
+            facility: activeContract.facilitySharePercent,
+            platform: activeContract.platformSharePercent,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     const [year, month] = period.split('-').map(Number);
     void financeApi
       .getAnalytics({ environment, ...(period ? { year, month } : {}) })
@@ -90,10 +116,30 @@ export function FacilityRevenueView() {
         if (active) setAnalytics(data);
       })
       .catch((cause: unknown) => {
-        if (active) {
-          setAnalytics(null);
-          setError(extractErrorMessage(cause, 'Không tải được báo cáo doanh thu.'));
+        if (!active) return;
+        const rawMsg =
+          cause instanceof Error
+            ? cause.message
+            : 'Không tải được báo cáo doanh thu.';
+        const status =
+          typeof (cause as { status?: unknown })?.status === 'number'
+            ? (cause as { status: number }).status
+            : undefined;
+        if (
+          environment === 'TEST' &&
+          (status === 403 || /TEST bị khóa|production|Forbidden/i.test(rawMsg))
+        ) {
+          setIsTestEnvBlocked(true);
+          setEnvironment('LIVE');
+          toast.info(
+            'Dữ liệu tài chính TEST bị khóa trong môi trường hiện tại. Đã chuyển về LIVE.',
+          );
+          return;
         }
+        setAnalytics(null);
+        setError(
+          extractErrorMessage(cause, 'Không tải được báo cáo doanh thu.'),
+        );
       })
       .finally(() => {
         if (active) setIsLoading(false);
@@ -103,6 +149,16 @@ export function FacilityRevenueView() {
     };
   }, [environment, period, refresh]);
 
+  const resolvedSplit = (() => {
+    if (b2bSplit) return b2bSplit;
+    if (analytics && analytics.netVnd > 0) {
+      const facility = Math.round(
+        (analytics.facilityShareVnd / analytics.netVnd) * 100,
+      );
+      return { facility, platform: Math.max(0, 100 - facility) };
+    }
+    return { facility: 85, platform: 15 };
+  })();
   const openReview = (item: FacilitySettlementDto, action: ReviewSettlementPayload['action']) => {
     setReason('');
     setReviewError('');
@@ -251,8 +307,10 @@ export function FacilityRevenueView() {
             <label className="min-w-0 flex-1 space-y-1 text-xs font-semibold text-slate-700 sm:flex-none">
               <span className="block">Môi trường</span>
               <select
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm font-normal text-slate-900 sm:w-auto"
-                value={environment}
+                aria-label="Môi trường"
+                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm font-normal text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                value={isTestEnvBlocked ? 'LIVE' : environment}
+                disabled={isTestEnvBlocked}
                 onChange={(event) => {
                   setError('');
                   setIsLoading(true);
@@ -260,7 +318,7 @@ export function FacilityRevenueView() {
                 }}
               >
                 <option value="LIVE">LIVE</option>
-                <option value="TEST">TEST</option>
+                {!isTestEnvBlocked && <option value="TEST">TEST</option>}
               </select>
             </label>
             <Button
@@ -300,7 +358,7 @@ export function FacilityRevenueView() {
               </span>
             </p>
             <span className="text-xs text-slate-500">
-              Tỷ lệ phân bổ cố định: 85% CSYT nhận · 15% Phí nền tảng
+              Tỷ lệ phân bổ theo hợp đồng B2B: {resolvedSplit.facility}% CSYT nhận · {resolvedSplit.platform}% Phí nền tảng
             </span>
           </div>
 
@@ -324,7 +382,9 @@ export function FacilityRevenueView() {
             <Card className="border-2 border-primary/30 bg-gradient-to-br from-blue-50/80 via-white to-white py-4 shadow-2xs">
               <CardContent className="space-y-1.5 px-5">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-blue-950">Phần doanh thu CSYT (85%)</p>
+                  <p className="text-sm font-semibold text-blue-950">
+                    Phần doanh thu CSYT ({resolvedSplit.facility}%)
+                  </p>
                   <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
                     <BanknoteArrowDown aria-hidden="true" className="size-4" />
                   </span>
@@ -341,7 +401,9 @@ export function FacilityRevenueView() {
             <Card className="border-slate-200 py-4 shadow-2xs">
               <CardContent className="space-y-1.5 px-5">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-slate-600">Phí nền tảng (15%)</p>
+                  <p className="text-sm font-medium text-slate-600">
+                    Phí nền tảng ({resolvedSplit.platform}%)
+                  </p>
                   <span className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
                     <Percent aria-hidden="true" className="size-4" />
                   </span>
@@ -370,7 +432,11 @@ export function FacilityRevenueView() {
           </div>
 
           {/* Chính sách chi trả hàng tháng & Tuyên bố không hỗ trợ đóng thuế cho CSYT và bác sĩ */}
-          <MonthlyPayoutPolicyBanner role="facility" />
+          <MonthlyPayoutPolicyBanner
+            role="facility"
+            facilityPercent={resolvedSplit.facility}
+            platformPercent={resolvedSplit.platform}
+          />
 
           {/* Bảng quyết toán của kỳ */}
           <Card className="gap-0 overflow-hidden border-slate-200 py-0 shadow-2xs">
@@ -392,9 +458,9 @@ export function FacilityRevenueView() {
                   <TableRow className="bg-slate-50/90">
                     <TableHead>Mã quyết toán</TableHead>
                     <TableHead className="hidden lg:table-cell text-right">
-                      Phân bổ tháng (100% / −15%)
+                      Phân bổ tháng (100% / −{resolvedSplit.platform}%)
                     </TableHead>
-                    <TableHead>Số tiền nhận CSYT (85%)</TableHead>
+                    <TableHead>Số tiền nhận CSYT ({resolvedSplit.facility}%)</TableHead>
                     <TableHead>Trạng thái</TableHead>
                     <TableHead>Mã chuyển khoản</TableHead>
                     <TableHead>Đối soát CSYT</TableHead>
@@ -416,7 +482,7 @@ export function FacilityRevenueView() {
                           {amount.format(item.totalRealizedRevenue)}
                         </p>
                         <p className="mt-0.5 text-slate-500">
-                          Phí 15%: −{amount.format(item.platformFeeAmount)}
+                          Phí {resolvedSplit.platform}%: −{amount.format(item.platformFeeAmount)}
                         </p>
                       </TableCell>
                       <TableCell>
@@ -493,7 +559,9 @@ export function FacilityRevenueView() {
                       <span className="font-bold text-primary tabular-nums">
                         {amount.format(item.facilityPayoutAmount)}
                       </span>
-                      <p className="text-[11px] text-slate-500">85% · Chưa trừ thuế</p>
+                      <p className="text-[11px] text-slate-500">
+                        {resolvedSplit.facility}% · Chưa trừ thuế
+                      </p>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">

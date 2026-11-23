@@ -20,7 +20,7 @@ export interface MetricDeltaState {
 }
 
 export const VITAL_REFERENCE_LABELS: Record<VitalMetricKey, string> = {
-  bp: 'An toàn: 90–139 / 60–89',
+  bp: 'An toàn: 90–139 mmHg',
   heartRate: 'An toàn: 50–110 bpm',
   spo2: 'An toàn: >= 95%',
   temperature: 'An toàn: 35.5–37.9 °C',
@@ -55,9 +55,9 @@ export function getVitalMetricAlerts(
   const diaLow = isFiniteNum(vital.diastolicBp) && vital.diastolicBp < 60;
 
   if (sysHigh || diaHigh) {
-    safe.bp = { abnormal: true, message: 'Huyết áp cao (>= 140/90)' };
+    safe.bp = { abnormal: true, message: 'Huyết áp cao (>= 140 mmHg)' };
   } else if (sysLow || diaLow) {
-    safe.bp = { abnormal: true, message: 'Huyết áp thấp (< 90/60)' };
+    safe.bp = { abnormal: true, message: 'Huyết áp thấp (< 90 mmHg)' };
   }
 
   if (isFiniteNum(vital.heartRate)) {
@@ -168,7 +168,7 @@ export function computeVitalMetricDeltas(
   previous: VitalSignDto | null | undefined
 ): Record<VitalMetricKey, MetricDeltaState> {
   return {
-    bp: buildDelta(current?.systolicBp, previous?.systolicBp, 'mmHg tâm thu', 0),
+    bp: buildDelta(current?.systolicBp, previous?.systolicBp, 'mmHg', 0),
     heartRate: buildDelta(current?.heartRate, previous?.heartRate, 'bpm', 0),
     spo2: buildDelta(current?.spo2, previous?.spo2, '%', 0),
     temperature: buildDelta(current?.temperature, previous?.temperature, '°C', 1),
@@ -188,4 +188,80 @@ export function isSameLocalCalendarDay(iso: string, referenceDate = new Date()):
     date.getMonth() === referenceDate.getMonth() &&
     date.getDate() === referenceDate.getDate()
   );
+}
+
+export interface BloodPressureParseResult {
+  systolicBp?: number;
+  diastolicBp?: number;
+  error?: string;
+}
+
+/**
+ * Parses a combined blood pressure string like "120/80" (allowing optional whitespace around "/").
+ */
+export function parseBloodPressureInput(raw: string): BloodPressureParseResult {
+  const trimmed = raw.trim();
+  if (!trimmed) {
+    return {};
+  }
+
+  const match = /^(\d{1,3})\s*\/\s*(\d{1,3})$/.exec(trimmed);
+  if (!match) {
+    return {
+      error: 'Vui lòng nhập huyết áp đúng định dạng Tâm thu/Tâm trương (ví dụ: 120/80).',
+    };
+  }
+
+  const systolicBp = Number.parseInt(match[1], 10);
+  const diastolicBp = Number.parseInt(match[2], 10);
+
+  if (systolicBp < 40 || systolicBp > 300) {
+    return { error: 'Huyết áp tâm thu phải trong khoảng 40–300 mmHg.' };
+  }
+  if (diastolicBp < 30 || diastolicBp > 200) {
+    return { error: 'Huyết áp tâm trương phải trong khoảng 30–200 mmHg.' };
+  }
+  if (systolicBp <= diastolicBp) {
+    return {
+      error: 'Huyết áp tâm thu phải lớn hơn huyết áp tâm trương (ví dụ: 120/80).',
+    };
+  }
+
+  return { systolicBp, diastolicBp };
+}
+
+/**
+ * Formats a vital sign blood pressure pair for pre-filling the combined "120/80" input.
+ */
+export function formatBloodPressureInput(
+  vital: Pick<VitalSignDto, 'systolicBp' | 'diastolicBp'> | null | undefined
+): string {
+  if (isFiniteNum(vital?.systolicBp) && isFiniteNum(vital?.diastolicBp)) {
+    return `${vital.systolicBp}/${vital.diastolicBp}`;
+  }
+  return '';
+}
+
+const NO_CHRONIC_MARKERS = new Set([
+  'không',
+  'khong',
+  'không có',
+  'khong co',
+  'không bệnh nền',
+  'khong benh nen',
+  'bình thường',
+  'binh thuong',
+  'none',
+  'n/a',
+  '-',
+  '--',
+]);
+
+/**
+ * Determines whether a family member has a recorded chronic condition warranting daily vital prompts.
+ */
+export function hasTrackedChronicCondition(chronicDiseases: string | null | undefined): boolean {
+  const normalized = (chronicDiseases ?? '').trim().toLowerCase();
+  if (!normalized) return false;
+  return !NO_CHRONIC_MARKERS.has(normalized);
 }

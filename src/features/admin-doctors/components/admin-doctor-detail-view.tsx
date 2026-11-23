@@ -200,7 +200,7 @@ export function AdminDoctorDetailView({ doctorId }: AdminDoctorDetailViewProps) 
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs sm:text-sm font-semibold shadow-md transition-colors disabled:opacity-50"
               >
                 <span className="material-symbols-outlined text-sm">verified_user</span>
-                Phê duyệt Platform (Kích hoạt ACTIVE)
+                Phê duyệt Platform
               </button>
             </div>
           )}

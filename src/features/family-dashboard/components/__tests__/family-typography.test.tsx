@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { FamilyDashboardView } from '../family-dashboard-view';
 import { contractsApi, patientsApi } from '@/lib/api';
@@ -13,8 +13,44 @@ vi.mock('next/navigation', () => ({
 }));
 
 describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard', () => {
-  it('renders FamilyDashboardView vitals with font-bold tabular-nums and without tracking-wide, font-black, or font-extrabold', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValue([
+      {
+        id: 'pat-default-1',
+        familyId: 'fam-1',
+        fullName: 'Trần Văn An',
+        dateOfBirth: '1965-01-01',
+        gender: 'MALE',
+        relationshipToHead: 'PARENT',
+        status: 'ACTIVE',
+        createdAt: '2026-11-01T00:00:00.000Z',
+        updatedAt: '2026-11-18T00:00:00.000Z',
+      },
+    ]);
+    vi.spyOn(patientsApi, 'getMemberVitalSigns').mockResolvedValue([
+      {
+        id: 'vs-default-1',
+        emrId: null,
+        patientId: 'pat-default-1',
+        systolicBp: 135,
+        diastolicBp: 85,
+        heartRate: 76,
+        temperature: 36.7,
+        spo2: 98,
+        respiratoryRate: 18,
+        bloodGlucose: 6.8,
+        isAbnormalAlert: false,
+        recordedAt: new Date().toISOString(),
+      },
+    ]);
+  });
+
+  it('renders FamilyDashboardView vitals with font-bold tabular-nums and without tracking-wide, font-black, or font-extrabold', async () => {
     const { container } = render(<FamilyDashboardView />);
+    await waitFor(() => {
+      expect(screen.getByText('135/85')).toBeInTheDocument();
+    });
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
     expect(screen.getByText('135/85')).toHaveClass('font-bold', 'tabular-nums');
     expect(screen.getByText('98%')).toHaveClass('font-bold', 'tabular-nums');
@@ -25,7 +61,6 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
   it('ensures all Family Portal & ContractSigningWizard source files contain no tracking-wide, font-black, or font-extrabold', () => {
     const familyFiles = [
       '../family-dashboard-view.tsx',
-      '../family-vitals-view.tsx',
       '../member-vital-signs-section.tsx',
       '../../../family-members/components/family-members-view.tsx',
       '../../../appointments/components/family-appointments-view.tsx',
@@ -44,10 +79,14 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
     }
   });
 
-  it('renders the health warning and links to shared prescriptions', () => {
+  it('renders the actionable inbox and links to shared prescriptions', async () => {
     render(<FamilyDashboardView />);
-    expect(screen.getByRole('alert')).toHaveTextContent('Lưu ý sức khỏe hôm nay: Bác Nguyễn Văn Phúc (Huyết áp 135/85 mmHg)');
-    expect(screen.getByRole('link', { name: /Đơn thuốc/i })).toHaveAttribute('href', '/family/prescriptions');
+    await waitFor(() => {
+      expect(screen.getByText(/Cần làm hôm nay/i)).toBeInTheDocument();
+    });
+    const rxLinks = screen.getAllByRole('link', { name: /Đơn thuốc/i });
+    expect(rxLinks.length).toBeGreaterThan(0);
+    expect(rxLinks[0]).toHaveAttribute('href', '/family/prescriptions');
   });
 
   it('renders FamilyDashboardView without nested <main> landmark', () => {
@@ -93,12 +132,13 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
     render(<FamilyDashboardView />);
 
     await waitFor(() => {
-      expect(screen.getAllByText(/MC-175418-ANTAM/).length).toBeGreaterThan(0);
+      expect(screen.getByText(/BS\. CKI Lê Quang Minh/)).toBeInTheDocument();
     });
+    expect(screen.queryByText(/MC-175418-ANTAM/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Thanh Toán VietQR Để Kích Hoạt/i)).not.toBeInTheDocument();
   });
 
-  it('syncs FamilyDashboardView alert banner and member cards with real abnormal vital-signs', async () => {
+  it('syncs FamilyDashboardView inbox and member cards with real abnormal vital-signs', async () => {
     vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([
       {
         id: 'pat-alert-1',
@@ -132,10 +172,9 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
     const { container } = render(<FamilyDashboardView />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Lưu ý sức khỏe hôm nay: Trần Văn Bình \(Huyết áp 148\/92 mmHg\)/)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Cần chú ý: Trần Văn Bình/)).toBeInTheDocument();
     });
+    expect(screen.getByText(/Huyết áp 148\/92 mmHg/)).toBeInTheDocument();
 
     expect(screen.getByText('148/92')).toHaveClass('font-bold', 'tabular-nums');
     expect(screen.getByText('97%')).toHaveClass('font-bold', 'tabular-nums');
@@ -144,7 +183,7 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
     expect(container.textContent).not.toMatch(/Nguyễn Văn Phúc/i);
   });
 
-  it('displays honest -- empty metrics and stable banner when real member has no vital-signs', async () => {
+  it('displays honest -- empty metrics and unmeasured status when real member has no vital-signs', async () => {
     vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([
       {
         id: 'pat-empty-1',
@@ -163,9 +202,7 @@ describe('Medsev Typography Standard on Family Portal & Contract Signing Wizard'
     render(<FamilyDashboardView />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Sức khỏe gia đình hôm nay: Chưa ghi nhận cảnh báo chỉ số bất thường')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Chưa đo')).toBeInTheDocument();
     });
 
     expect(screen.getAllByText('--').length).toBeGreaterThanOrEqual(4);

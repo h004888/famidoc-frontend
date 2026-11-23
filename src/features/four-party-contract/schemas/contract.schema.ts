@@ -77,6 +77,7 @@ export const contractSchema = z.object({
   doctorId: z.string().optional(),
   doctorName: z.string().optional(),
   doctorTitle: z.string().optional(),
+  doctorAvatarUrl: z.string().nullable().optional(),
   assignedDoctorId: z.string().optional(),
   assignedDoctorName: z.string().optional(),
   createdAt: z.string().min(1, 'Ngày tạo hợp đồng không được để trống'),

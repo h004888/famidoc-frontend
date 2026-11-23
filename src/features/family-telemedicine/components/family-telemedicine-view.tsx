@@ -24,6 +24,7 @@ export function FamilyTelemedicineView() {
   const [vitals, setVitals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadNonce, setReloadNonce] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +68,7 @@ export function FamilyTelemedicineView() {
     return () => {
       cancelled = true;
     };
-  }, [encounterIdParam]);
+  }, [encounterIdParam, reloadNonce]);
 
   const activeEncounterId = encounter?.id ?? null;
   const isJoinable =
@@ -95,7 +96,26 @@ export function FamilyTelemedicineView() {
     );
   }
 
-  if (loadError || !encounter) {
+  if (loadError) {
+    return (
+      <Card className="mx-auto mt-8 max-w-lg border-rose-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base text-rose-700">
+            <VideoOff className="h-5 w-5" />
+            Không thể tải phòng khám trực tuyến
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <p role="alert">{loadError}</p>
+          <Button type="button" variant="outline" onClick={() => setReloadNonce((n) => n + 1)}>
+            Thử tải lại
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!encounter) {
     return (
       <Card className="mx-auto mt-8 max-w-lg">
         <CardHeader>
@@ -106,15 +126,16 @@ export function FamilyTelemedicineView() {
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
           <p>
-            {loadError ??
-              'Hiện tại gia đình chưa có buổi khám trực tuyến nào đang diễn ra hoặc đã xác nhận.'}
+            Hiện tại gia đình chưa có buổi khám trực tuyến nào đang diễn ra hoặc đã xác nhận.
           </p>
-          <Button asChild>
-            <Link href="/family/appointments">
-              <Calendar className="mr-2 h-4 w-4" />
-              Quay lại lịch hẹn
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link href="/family/appointments">
+                <Calendar className="mr-2 h-4 w-4" />
+                Đặt lịch tư vấn Video
+              </Link>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     );
@@ -180,18 +201,17 @@ export function FamilyTelemedicineView() {
                   <>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Huyết áp:</span>
-                      <span className="font-medium">
-                        {latestVital.bloodPressureSystolic ?? '--'}/
-                        {latestVital.bloodPressureDiastolic ?? '--'} mmHg
+                      <span className="font-medium tabular-nums">
+                        {latestVital.systolicBp ?? '--'}/{latestVital.diastolicBp ?? '--'} mmHg
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Nhịp tim:</span>
-                      <span className="font-medium">{latestVital.heartRate ?? '--'} bpm</span>
+                      <span className="font-medium tabular-nums">{latestVital.heartRate ?? '--'} bpm</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">SpO2:</span>
-                      <span className="font-medium">{latestVital.spO2 ?? '--'} %</span>
+                      <span className="font-medium tabular-nums">{latestVital.spo2 ?? '--'} %</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Nhiệt độ:</span>

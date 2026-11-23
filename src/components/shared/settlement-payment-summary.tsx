@@ -9,7 +9,15 @@ import {
 import type { FacilitySettlementDto } from '@/lib/api/finance.api';
 import { formatCurrencyVND } from '@/lib/utils';
 
-export function SettlementTaxNotice({ compact = false }: { compact?: boolean }) {
+export function SettlementTaxNotice({
+  compact = false,
+  facilityPercent = 85,
+  platformPercent = 15,
+}: {
+  compact?: boolean;
+  facilityPercent?: number;
+  platformPercent?: number;
+}) {
   return (
     <div
       className={`rounded-xl border border-amber-300/90 bg-amber-50/90 text-amber-950 ${
@@ -28,14 +36,14 @@ export function SettlementTaxNotice({ compact = false }: { compact?: boolean }) 
       <ul className="list-disc space-y-1.5 pl-5 text-amber-950/95">
         <li>
           <strong>Nền tảng không hỗ trợ khấu trừ, kê khai hay nộp thuế thay cho CSYT và bác sĩ.</strong>{' '}
-          Khoản 85% trả cho CSYT chưa khấu trừ hoặc nộp thay thuế thuộc nghĩa vụ của CSYT và bác sĩ.
+          Khoản {facilityPercent}% trả cho CSYT chưa khấu trừ hoặc nộp thay thuế thuộc nghĩa vụ của CSYT và bác sĩ.
           CSYT và bác sĩ tự xác định, kê khai và nộp các khoản thuế phát sinh theo hoạt động, hợp đồng và quy định áp dụng.
         </li>
         <li>
           VAT áp dụng theo từng dịch vụ. Dịch vụ khám bệnh, chữa bệnh thuộc đối tượng không chịu VAT theo quy định.
           Bảng chi trả này chưa xác nhận bên nhận đã hoàn thành nghĩa vụ thuế.
         </li>
-        <li>Phí nền tảng 15% đã bao gồm thuế của phí nền tảng nếu phát sinh.</li>
+        <li>Phí nền tảng {platformPercent}% đã bao gồm thuế của phí nền tảng nếu phát sinh.</li>
       </ul>
     </div>
   );
@@ -43,8 +51,12 @@ export function SettlementTaxNotice({ compact = false }: { compact?: boolean }) 
 
 export function MonthlyPayoutPolicyBanner({
   role,
+  facilityPercent = 85,
+  platformPercent = 15,
 }: {
   role: 'admin' | 'facility';
+  facilityPercent?: number;
+  platformPercent?: number;
 }) {
   const isFacility = role === 'facility';
 
@@ -69,7 +81,7 @@ export function MonthlyPayoutPolicyBanner({
             Nền tảng FamiDoc KHÔNG hỗ trợ kê khai, khấu trừ hay nộp thuế thay cho Cơ sở y tế (CSYT) và Bác sĩ.
           </p>
           <p className="mt-1 text-xs text-amber-900">
-            Khoản 85% trả cho CSYT chưa khấu trừ hoặc nộp thay thuế thuộc nghĩa vụ của CSYT và bác sĩ.
+            Khoản {facilityPercent}% trả cho CSYT chưa khấu trừ hoặc nộp thay thuế thuộc nghĩa vụ của CSYT và bác sĩ.
             CSYT và bác sĩ tự xác định, kê khai và nộp các khoản thuế phát sinh (TNDN, TNCN bác sĩ, hóa đơn dịch vụ...) theo hoạt động, hợp đồng và quy định áp dụng.
           </p>
         </div>
@@ -85,7 +97,7 @@ export function MonthlyPayoutPolicyBanner({
           <li className="flex items-start gap-2">
             <Landmark aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-amber-700" />
             <span>
-              Phí nền tảng 15% đã bao gồm thuế của phí nền tảng nếu phát sinh (FamiDoc tự chịu trách nhiệm thuế trên phần 15% này).
+              Phí nền tảng {platformPercent}% đã bao gồm thuế của phí nền tảng nếu phát sinh (FamiDoc tự chịu trách nhiệm thuế trên phần {platformPercent}% này).
             </span>
           </li>
         </ul>
@@ -95,7 +107,7 @@ export function MonthlyPayoutPolicyBanner({
         <div className="flex items-center gap-2 border-t border-amber-200/80 pt-2.5 text-xs font-medium text-amber-900">
           <Building2 aria-hidden="true" className="size-3.5 shrink-0 text-amber-700" />
           <span>
-            CSYT tự hạch toán 85% doanh thu nhận về và thực hiện nghĩa vụ thuế với bác sĩ, cơ quan thuế.
+            CSYT tự hạch toán {facilityPercent}% doanh thu nhận về và thực hiện nghĩa vụ thuế với bác sĩ, cơ quan thuế.
           </span>
         </div>
       )}
@@ -130,7 +142,7 @@ export function SettlementPaymentSummary({ item }: { item: FacilitySettlementDto
             </dd>
           </div>
           <div className="rounded-lg bg-white p-2.5 ring-1 ring-slate-200/70">
-            <dt className="text-xs text-slate-600">Phí nền tảng (15%)</dt>
+            <dt className="text-xs text-slate-600">Phí nền tảng ({feePct}%)</dt>
             <dd className="mt-0.5 font-semibold text-slate-700 tabular-nums">
               − {formatCurrencyVND(item.platformFeeAmount)}
             </dd>
@@ -138,7 +150,7 @@ export function SettlementPaymentSummary({ item }: { item: FacilitySettlementDto
           <div className="rounded-lg border border-blue-200 bg-blue-50/60 p-3 sm:col-span-2">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <dt className="text-xs font-semibold text-blue-950 sm:text-sm">
-                {settled ? 'Số tiền đã chi trả CSYT (85%)' : 'Số tiền phải chuyển CSYT (85%)'}
+                {settled ? `Số tiền đã chi trả CSYT (${payoutPct}%)` : `Số tiền phải chuyển CSYT (${payoutPct}%)`}
               </dt>
               <dd className="wrap-anywhere text-lg font-bold text-primary tabular-nums sm:text-xl">
                 {formatCurrencyVND(item.facilityPayoutAmount)}
@@ -168,7 +180,11 @@ export function SettlementPaymentSummary({ item }: { item: FacilitySettlementDto
           </div>
         </dl>
       </div>
-      <SettlementTaxNotice compact />
+      <SettlementTaxNotice
+        compact
+        facilityPercent={payoutPct}
+        platformPercent={feePct}
+      />
     </section>
   );
 }

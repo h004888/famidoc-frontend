@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { contractsApi, extractErrorMessage, patientsApi } from '@/lib/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -209,7 +210,115 @@ export function ChronicCareView() {
   const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('7d');
   const [membersVitals, setMembersVitals] =
     useState<Record<string, MemberVitalProfile>>(INITIAL_MEMBER_VITALS);
+  const [contractLabel, setContractLabel] = useState<string>('Hộ gia đình FamiDoc');
   const [showAddModal, setShowAddModal] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRealFamilyVitals() {
+      const [membersRes, gateRes] = await Promise.allSettled([
+        patientsApi.getFamilyMembers(),
+        contractsApi.getFamilyGateStatus(),
+      ]);
+      if (cancelled) return;
+
+      if (gateRes.status === 'fulfilled' && gateRes.value?.activeContract?.contractNumber) {
+        setContractLabel(`HĐ #${gateRes.value.activeContract.contractNumber}`);
+      }
+
+      if (membersRes.status === 'fulfilled' && Array.isArray(membersRes.value) && membersRes.value.length > 0) {
+        const members = membersRes.value;
+        const vitalsResults = await Promise.allSettled(
+          members.map((m) => patientsApi.getMemberVitalSigns(m.id, 30))
+        );
+        if (cancelled) return;
+
+        const nextMap: Record<string, MemberVitalProfile> = {};
+        const doctorName =
+          gateRes.status === 'fulfilled' && gateRes.value?.activeContract?.doctor?.fullName
+            ? gateRes.value.activeContract.doctor.fullName
+            : 'Bác sĩ gia đình';
+
+        members.forEach((m, idx) => {
+          const vRes = vitalsResults[idx];
+          const vitals = vRes?.status === 'fulfilled' && Array.isArray(vRes.value) ? vRes.value : [];
+          const records: VitalRecord[] = vitals.map((v) => {
+            const sys = v.systolicBp ?? 120;
+            const dia = v.diastolicBp ?? 80;
+            const glu = v.bloodGlucose ?? 5.5;
+            let status: 'normal' | 'warning' | 'critical' = 'normal';
+            if (sys >= 135 || dia >= 85 || glu >= 7.0) status = 'warning';
+            if (sys >= 160 || dia >= 100 || glu >= 11.0 || v.isAbnormalAlert) status = 'critical';
+            return {
+              id: v.id,
+              timestamp: new Date(v.recordedAt).toLocaleString('vi-VN'),
+              bpSystolic: sys,
+              bpDiastolic: dia,
+              glucose: glu,
+              heartRate: v.heartRate ?? 75,
+              spo2: v.spo2 ?? 98,
+              device: 'Gia đình & Phòng khám',
+              notes: v.isAbnormalAlert ? 'Có cảnh báo bất thường' : 'Chỉ số ổn định',
+              status,
+            };
+          });
+          const chartVitals = [...vitals].slice(0, 7).reverse();
+          nextMap[m.id] = {
+            id: m.id,
+            name: m.fullName,
+            relation: m.relationshipToHead,
+            age: m.dateOfBirth
+              ? Math.max(0, new Date().getFullYear() - new Date(m.dateOfBirth).getFullYear())
+              : 0,
+            doctorName,
+            alertType: records[0]?.status === 'critical' || records[0]?.status === 'warning' ? 'warning' : 'good',
+            alertTitle:
+              records[0]?.status === 'warning' || records[0]?.status === 'critical'
+                ? 'Cần theo dõi chỉ số'
+                : 'Chỉ số ổn định',
+            bpTarget: '< 130/80 mmHg',
+            glucoseTarget: '4.0 - 7.0 mmol/L',
+            alertMessage:
+              records[0]?.status === 'warning' || records[0]?.status === 'critical'
+                ? 'Có chỉ số cần theo dõi'
+                : 'Các chỉ số trong ngưỡng an toàn',
+            chartSys:
+              chartVitals.length > 0
+                ? chartVitals.map((v) => v.systolicBp ?? 120)
+                : [120, 120, 120, 120, 120, 120, 120],
+            chartDia:
+              chartVitals.length > 0
+                ? chartVitals.map((v) => v.diastolicBp ?? 80)
+                : [80, 80, 80, 80, 80, 80, 80],
+            records:
+              records.length > 0
+                ? records
+                : [
+                    {
+                      id: `empty-${m.id}`,
+                      timestamp: 'Chưa có dữ liệu đo',
+                      bpSystolic: 0,
+                      bpDiastolic: 0,
+                      glucose: 0,
+                      heartRate: 0,
+                      spo2: 0,
+                      device: '--',
+                      notes: 'Bấm "Ghi số đo mới" để bắt đầu theo dõi',
+                      status: 'normal',
+                    },
+                  ],
+          };
+        });
+
+        setMembersVitals(nextMap);
+        setSelectedMemberId(members[0].id);
+      }
+    }
+    void loadRealFamilyVitals();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // State cho Form Ghi nhận số đo mới
   const [newBpSys, setNewBpSys] = useState('120');
@@ -230,46 +339,62 @@ export function ChronicCareView() {
       .join('')
       .toUpperCase();
 
-  const handleAddRecord = (e: React.FormEvent) => {
+  const handleAddRecord = async (e: React.FormEvent) => {
     e.preventDefault();
     const sys = parseInt(newBpSys, 10) || 120;
     const dia = parseInt(newBpDia, 10) || 80;
     const glu = parseFloat(newGlucose) || 5.6;
+    const hr = parseInt(newHeartRate, 10) || 75;
+    const spo2Val = parseInt(newSpo2, 10) || 98;
 
-    let status: 'normal' | 'warning' | 'critical' = 'normal';
-    if (sys >= 135 || dia >= 85 || glu >= 7.0) status = 'warning';
-    if (sys >= 160 || dia >= 100 || glu >= 11.0) status = 'critical';
+    try {
+      const saved = await patientsApi.addMemberVitalSign(selectedMemberId, {
+        systolicBp: sys,
+        diastolicBp: dia,
+        heartRate: hr,
+        spo2: spo2Val,
+        bloodGlucose: glu,
+        recordedAt: new Date().toISOString(),
+      });
 
-    const newRec: VitalRecord = {
-      id: `v-${Date.now()}`,
-      timestamp: 'Hôm nay · Vừa xong',
-      bpSystolic: sys,
-      bpDiastolic: dia,
-      glucose: glu,
-      heartRate: parseInt(newHeartRate, 10) || 75,
-      spo2: parseInt(newSpo2, 10) || 98,
-      device: 'Gia đình tự đo & nhập',
-      notes: newNotes.trim() || 'Đo kiểm tra tại nhà',
-      status,
-    };
+      let status: 'normal' | 'warning' | 'critical' = 'normal';
+      if (sys >= 135 || dia >= 85 || glu >= 7.0) status = 'warning';
+      if (sys >= 160 || dia >= 100 || glu >= 11.0 || saved.isAbnormalAlert) status = 'critical';
 
-    setMembersVitals((prev) => {
-      const member = prev[selectedMemberId];
-      return {
-        ...prev,
-        [selectedMemberId]: {
-          ...member,
-          chartSys: [...member.chartSys.slice(1), sys],
-          chartDia: [...member.chartDia.slice(1), dia],
-          records: [newRec, ...member.records],
-        },
+      const newRec: VitalRecord = {
+        id: saved.id,
+        timestamp: 'Hôm nay · Vừa xong',
+        bpSystolic: sys,
+        bpDiastolic: dia,
+        glucose: glu,
+        heartRate: hr,
+        spo2: spo2Val,
+        device: 'Gia đình tự đo & nhập',
+        notes: newNotes.trim() || 'Đo kiểm tra tại nhà',
+        status,
       };
-    });
 
-    setShowAddModal(false);
-    toast.success(
-      `Đã lưu số đo mới cho ${currentProfile.name} (${sys}/${dia} mmHg). Bác sĩ ${currentProfile.doctorName} đã nhận được cập nhật.`
-    );
+      setMembersVitals((prev) => {
+        const member = prev[selectedMemberId];
+        if (!member) return prev;
+        return {
+          ...prev,
+          [selectedMemberId]: {
+            ...member,
+            chartSys: [...member.chartSys.slice(1), sys],
+            chartDia: [...member.chartDia.slice(1), dia],
+            records: [newRec, ...member.records.filter((r) => !r.id.startsWith('empty-'))],
+          },
+        };
+      });
+
+      setShowAddModal(false);
+      toast.success(
+        `Đã lưu số đo mới cho ${currentProfile.name} (${sys}/${dia} mmHg). Bác sĩ ${currentProfile.doctorName} đã nhận được cập nhật.`
+      );
+    } catch (err) {
+      toast.error(extractErrorMessage(err, 'Không thể lưu số đo sinh hiệu.'));
+    }
   };
 
   // Tính tọa độ SVG cho biểu đồ

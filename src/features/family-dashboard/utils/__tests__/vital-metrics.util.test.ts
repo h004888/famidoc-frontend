@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { VitalSignDto } from '@/lib/api';
 import {
   computeVitalMetricDeltas,
+  formatBloodPressureInput,
   getAbnormalMetricSummaries,
   getVitalMetricAlerts,
+  hasTrackedChronicCondition,
   isSameLocalCalendarDay,
+  parseBloodPressureInput,
 } from '../vital-metrics.util';
 
 function makeVital(overrides: Partial<VitalSignDto> = {}): VitalSignDto {
@@ -114,7 +117,7 @@ describe('vital-metrics.util', () => {
     expect(deltas.bp).toEqual({
       delta: 10,
       direction: 'up',
-      label: '+10 mmHg tâm thu so với lần trước',
+      label: '+10 mmHg so với lần trước',
     });
     expect(deltas.heartRate).toEqual({
       delta: -6,
@@ -133,5 +136,45 @@ describe('vital-metrics.util', () => {
     expect(isSameLocalCalendarDay(sameDay, ref)).toBe(true);
     expect(isSameLocalCalendarDay(prevDay, ref)).toBe(false);
     expect(isSameLocalCalendarDay('invalid-date', ref)).toBe(false);
+  });
+
+  it('parses valid combined blood pressure values and rejects invalid or inverted inputs', () => {
+    expect(parseBloodPressureInput('')).toEqual({});
+    expect(parseBloodPressureInput('   ')).toEqual({});
+    expect(parseBloodPressureInput('120/80')).toEqual({ systolicBp: 120, diastolicBp: 80 });
+    expect(parseBloodPressureInput(' 135 / 85 ')).toEqual({ systolicBp: 135, diastolicBp: 85 });
+
+    expect(parseBloodPressureInput('120').error).toMatch(/120\/80/);
+    expect(parseBloodPressureInput('120/').error).toMatch(/120\/80/);
+    expect(parseBloodPressureInput('abc/80').error).toMatch(/120\/80/);
+    expect(parseBloodPressureInput('35/25').error).toMatch(/40–300/);
+    expect(parseBloodPressureInput('310/90').error).toMatch(/40–300/);
+    expect(parseBloodPressureInput('120/25').error).toMatch(/30–200/);
+    expect(parseBloodPressureInput('220/210').error).toMatch(/30–200/);
+    expect(parseBloodPressureInput('80/120').error).toMatch(/lớn hơn/);
+    expect(parseBloodPressureInput('100/100').error).toMatch(/lớn hơn/);
+  });
+
+  it('formats combined blood pressure input cleanly', () => {
+    expect(formatBloodPressureInput(makeVital({ systolicBp: 128, diastolicBp: 82 }))).toBe(
+      '128/82'
+    );
+    expect(formatBloodPressureInput(makeVital({ systolicBp: null, diastolicBp: 80 }))).toBe('');
+    expect(formatBloodPressureInput(null)).toBe('');
+  });
+
+  it('detects tracked chronic conditions vs healthy/empty markers', () => {
+    expect(hasTrackedChronicCondition(null)).toBe(false);
+    expect(hasTrackedChronicCondition(undefined)).toBe(false);
+    expect(hasTrackedChronicCondition('')).toBe(false);
+    expect(hasTrackedChronicCondition('   ')).toBe(false);
+    expect(hasTrackedChronicCondition('Không')).toBe(false);
+    expect(hasTrackedChronicCondition('Không có')).toBe(false);
+    expect(hasTrackedChronicCondition('None')).toBe(false);
+    expect(hasTrackedChronicCondition('N/A')).toBe(false);
+    expect(hasTrackedChronicCondition('--')).toBe(false);
+
+    expect(hasTrackedChronicCondition('Tăng huyết áp')).toBe(true);
+    expect(hasTrackedChronicCondition('Đái tháo đường type 2')).toBe(true);
   });
 });

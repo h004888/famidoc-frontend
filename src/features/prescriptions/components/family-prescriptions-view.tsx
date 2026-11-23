@@ -5,6 +5,7 @@ import { PrescriptionContextSummary } from './prescription-context-summary';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, ArrowRight, ClipboardList, Pill } from 'lucide-react';
+import { patientsApi, type PatientDto } from '@/lib/api/patients.api';
 import { DashboardPageShell } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -45,6 +46,8 @@ function PrescriptionStatus({ record }: { record: FamilyPrescription }) {
 }
 
 export function FamilyPrescriptionsView({ patientId }: { patientId?: string }) {
+  const [selectedPatientId, setSelectedPatientId] = useState<string | undefined>(patientId);
+  const [members, setMembers] = useState<PatientDto[]>([]);
   const [page, setPage] = useState(1);
   const [reload, setReload] = useState(0);
   const [records, setRecords] =
@@ -52,8 +55,14 @@ export function FamilyPrescriptionsView({ patientId }: { patientId?: string }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    patientsApi.getFamilyMembers().then((res) => {
+      if (Array.isArray(res)) setMembers(res);
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
-    prescriptionsApi.listForFamily(page, patientId, controller.signal).then(
+    prescriptionsApi.listForFamily(page, selectedPatientId, controller.signal).then(
       (data) => {
         if (!controller.signal.aborted) setRecords(data);
       },
@@ -65,7 +74,7 @@ export function FamilyPrescriptionsView({ patientId }: { patientId?: string }) {
       },
     );
     return () => controller.abort();
-  }, [page, patientId, reload]);
+  }, [page, selectedPatientId, reload]);
 
   function changePage(next: number) {
     setRecords(null);
@@ -98,6 +107,36 @@ export function FamilyPrescriptionsView({ patientId }: { patientId?: string }) {
         )}
       </header>
 
+      {members.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Lọc đơn thuốc theo thành viên">
+          <Button
+            type="button"
+            size="sm"
+            variant={!selectedPatientId ? 'default' : 'outline'}
+            onClick={() => {
+              setSelectedPatientId(undefined);
+              changePage(1);
+            }}
+          >
+            Tất cả
+          </Button>
+          {members.map((m) => (
+            <Button
+              key={m.id}
+              type="button"
+              size="sm"
+              variant={selectedPatientId === m.id ? 'default' : 'outline'}
+              onClick={() => {
+                setSelectedPatientId(m.id);
+                changePage(1);
+              }}
+            >
+              {m.fullName}
+            </Button>
+          ))}
+        </div>
+      )}
+
       {error && (
         <Card className="items-start gap-3 p-5">
           <p role="alert" className="text-sm text-red-700">
@@ -113,9 +152,10 @@ export function FamilyPrescriptionsView({ patientId }: { patientId?: string }) {
         </Card>
       )}
       {!records && !error && (
-        <Card role="status" className="p-5 text-sm text-slate-600">
-          Đang tải danh sách đơn thuốc…
-        </Card>
+        <div role="status" aria-label="Đang tải danh sách đơn thuốc" className="space-y-3">
+          <div className="h-24 rounded-xl bg-slate-100 animate-pulse" />
+          <div className="h-24 rounded-xl bg-slate-100 animate-pulse" />
+        </div>
       )}
       {records && records.items.length === 0 && (
         <Card className="items-center gap-3 p-8 text-center">

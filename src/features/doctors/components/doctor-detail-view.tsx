@@ -477,19 +477,7 @@ function FacilityDetailViewInner({
   initialFacility,
   onBack,
 }: DoctorDetailViewProps) {
-  const facility: Facility = initialFacility || {
-    id: id || 'fac-01',
-    name: 'Bệnh viện Chợ Rẫy',
-    type: 'Bệnh viện Tuyến Trung Ương',
-    address: '201B Nguyễn Chí Thanh, Phường 12, Quận 5, TP. Hồ Chí Minh',
-    city: 'TP. Hồ Chí Minh',
-    phone: '1900 1234',
-    workingHours: '07:00 - 16:30',
-    imageUrl: '/images/facilities/cho-ray.jpg',
-    specialties: ['Nội tổng quát', 'Tim mạch', 'Cơ xương khớp'],
-    privileges: ['Ưu tiên Fast-Track', 'Bảo lãnh viện phí'],
-    bedCount: '1000+ giường',
-  };
+  const facilityId = initialFacility?.id ?? id;
 
   const [facilityDoctors, setFacilityDoctors] = useState<Array<{
     id: string;
@@ -497,14 +485,32 @@ function FacilityDetailViewInner({
     title: string;
     specialty: string;
     avatarUrl: string;
-  }>>([]);
-  const [isLoadingDoctors, setIsLoadingDoctors] = useState(true);
+  }>>(() =>
+    initialFacility?.featuredDoctors && initialFacility.featuredDoctors.length > 0
+      ? initialFacility.featuredDoctors.map((d: any) => ({
+          id: d.id,
+          name: d.doctorName || d.fullName || d.name || 'Bác sĩ',
+          title: d.academicTitle || d.title || 'BS',
+          specialty: d.specialty || 'Chuyên khoa',
+          avatarUrl: d.avatarUrl || '/images/doctor-placeholder.jpg',
+        }))
+      : [],
+  );
+  const [isLoadingDoctors, setIsLoadingDoctors] = useState(
+    () => !(initialFacility?.featuredDoctors && initialFacility.featuredDoctors.length > 0),
+  );
 
   useEffect(() => {
     let isMounted = true;
-    if (facility?.featuredDoctors && facility.featuredDoctors.length > 0) {
+    if (!initialFacility) {
+      setFacilityDoctors([]);
+      setIsLoadingDoctors(false);
+      return;
+    }
+
+    if (initialFacility.featuredDoctors && initialFacility.featuredDoctors.length > 0) {
       setFacilityDoctors(
-        facility.featuredDoctors.map((d: any) => ({
+        initialFacility.featuredDoctors.map((d: any) => ({
           id: d.id,
           name: d.doctorName || d.fullName || d.name || 'Bác sĩ',
           title: d.academicTitle || d.title || 'BS',
@@ -517,59 +523,25 @@ function FacilityDetailViewInner({
     }
 
     try {
-      const req = publicApi.getDoctors?.({ facilityId: facility.id });
+      const req = publicApi.getDoctors?.({ facilityId });
       if (req && typeof req.then === 'function') {
         req
           .then((res) => {
             if (!isMounted) return;
             const items = res?.items || [];
-            if (items.length > 0) {
-              setFacilityDoctors(
-                items.map((doc: any) => ({
-                  id: doc.id,
-                  name: doc.doctorName || doc.fullName || 'Bác sĩ',
-                  title: doc.academicTitle || 'BS',
-                  specialty: doc.specialty || 'Đa khoa',
-                  avatarUrl: doc.avatarUrl || '/images/doctor-placeholder.jpg',
-                }))
-              );
-            } else {
-              setFacilityDoctors([
-                {
-                  id: 'doc-cr-01',
-                  name: 'Phạm Minh Đức',
-                  title: 'TS. Bác sĩ',
-                  specialty: 'Tim Mạch & Huyết Áp',
-                  avatarUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-                },
-                {
-                  id: 'doc-cr-02',
-                  name: 'Hoàng Minh Tuấn',
-                  title: 'BS. CKII',
-                  specialty: 'Cơ Xương Khớp',
-                  avatarUrl: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=200&auto=format&fit=crop',
-                },
-              ]);
-            }
+            setFacilityDoctors(
+              items.map((doc: any) => ({
+                id: doc.id,
+                name: doc.doctorName || doc.fullName || 'Bác sĩ',
+                title: doc.academicTitle || 'BS',
+                specialty: doc.specialty || 'Đa khoa',
+                avatarUrl: doc.avatarUrl || '/images/doctor-placeholder.jpg',
+              }))
+            );
           })
           .catch(() => {
             if (!isMounted) return;
-            setFacilityDoctors([
-              {
-                id: 'doc-cr-01',
-                name: 'Phạm Minh Đức',
-                title: 'TS. Bác sĩ',
-                specialty: 'Tim Mạch & Huyết Áp',
-                avatarUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-              },
-              {
-                id: 'doc-cr-02',
-                name: 'Hoàng Minh Tuấn',
-                title: 'BS. CKII',
-                specialty: 'Cơ Xương Khớp',
-                avatarUrl: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?q=80&w=200&auto=format&fit=crop',
-              },
-            ]);
+            setFacilityDoctors([]);
           })
           .finally(() => {
             if (isMounted) setIsLoadingDoctors(false);
@@ -584,8 +556,33 @@ function FacilityDetailViewInner({
     return () => {
       isMounted = false;
     };
-  }, [facility.id]);
+  }, [facilityId, initialFacility]);
 
+  if (!initialFacility) {
+    return (
+      <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased flex flex-col justify-between">
+        <LandingHeader />
+        <main className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3 shadow-xs">
+            <span className="material-symbols-outlined text-4xl text-slate-400">local_hospital</span>
+            <h1 className="text-lg font-bold text-slate-900">Không tìm thấy thông tin cơ sở y tế</h1>
+            <p className="text-xs text-slate-500">
+              Cơ sở y tế này chưa được kích hoạt hoặc không tồn tại trên hệ thống.
+            </p>
+            <Link
+              href="/facilities"
+              className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#0046c0] text-white text-xs font-semibold hover:bg-[#003899]"
+            >
+              Quay lại danh sách cơ sở y tế
+            </Link>
+          </div>
+        </main>
+        <LandingFooter />
+      </div>
+    );
+  }
+
+  const facility = initialFacility;
   const hotline = facility.hotline || facility.phone || '1900 6868';
 
   return (
@@ -681,11 +678,11 @@ function FacilityDetailViewInner({
                 <div className="grid grid-cols-3 gap-2 pt-4 mt-4 border-t border-slate-100 text-center text-xs">
                   <div className="p-2 rounded bg-slate-50">
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">Quy mô</span>
-                    <strong className="text-slate-900">{facility.bedCount || '1.000+'}</strong>
+                    <strong className="text-slate-900">{facility.bedCount || 'Đang cập nhật'}</strong>
                   </div>
                   <div className="p-2 rounded bg-slate-50">
-                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Đánh giá</span>
-                    <strong className="text-slate-900">4.95 ★</strong>
+                    <span className="text-slate-400 block text-[10px] uppercase font-bold">Bác sĩ liên kết</span>
+                    <strong className="text-slate-900 tabular-nums">{facilityDoctors.length} bác sĩ</strong>
                   </div>
                   <div className="p-2 rounded bg-slate-50">
                     <span className="text-slate-400 block text-[10px] uppercase font-bold">Trực cấp cứu</span>
@@ -716,6 +713,10 @@ function FacilityDetailViewInner({
                     {[1, 2].map((i) => (
                       <div key={i} className="p-3 rounded-lg border border-slate-200 bg-slate-50 animate-pulse h-20" />
                     ))}
+                  </div>
+                ) : facilityDoctors.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50/70 p-6 text-center text-xs text-slate-500">
+                    Cơ sở y tế hiện chưa có bác sĩ nào đang hoạt động trên hệ thống.
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">

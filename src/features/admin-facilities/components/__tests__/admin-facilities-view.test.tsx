@@ -102,7 +102,7 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
     expect(facilityNames.length).toBeGreaterThan(0);
   });
 
-  it('opens detail modal when clicking "Chi tiết & Thẩm định" without raw sentinel text', async () => {
+  it('links "Chi tiết & Thẩm định" directly to the facility detail page without opening a modal', async () => {
     vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
       data: [mockFacility],
       total: 1,
@@ -112,13 +112,12 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
 
     await screen.findAllByText('Bệnh viện Kiểm Thử FamiDoc');
 
-    const detailButtons = screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i });
-    fireEvent.click(detailButtons[0]);
-
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
-    expect(screen.getByText(/Hồ Sơ Chi Tiết Cơ Sở Y Tế/i)).toBeInTheDocument();
-    expect(screen.getByText(/Thông Tin Tài Khoản & Đại Diện Cơ Sở Y Tế/i)).toBeInTheDocument();
-    expect(screen.queryByText('CHƯA_CẬP_NHẬT')).not.toBeInTheDocument();
+    const detailLinks = screen.getAllByRole('link', { name: /Chi tiết & Thẩm định/i });
+    expect(detailLinks.length).toBeGreaterThan(0);
+    detailLinks.forEach((link) => {
+      expect(link).toHaveAttribute('href', `/admin/facilities/${mockFacility.id}`);
+    });
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
   it('allows ADMIN to create a new facility account via "Tạo Cơ sở Y tế mới" dialog', async () => {
@@ -163,26 +162,6 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
     });
   });
 
-  it('opens legal document via authenticated blob fetch when Admin previews uploaded scan', async () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
-    vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
-      data: [mockLegalSubmittedFacility],
-      total: 1,
-    });
-
-    render(<AdminFacilitiesView />);
-    await screen.findAllByText('Bệnh viện Chờ Thẩm Định');
-
-    fireEvent.click(screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i })[0]);
-    fireEvent.click(screen.getByRole('button', { name: /Xem \/ Tải GPHĐ KBCB/i }));
-
-    await waitFor(() => {
-      expect(facilitiesApi.fetchLegalDocumentBlobUrl).toHaveBeenCalledWith('FAC-TEST-004', 'operating');
-      expect(openSpy).toHaveBeenCalledWith('blob:mock-doc', '_blank', 'noopener,noreferrer');
-    });
-    openSpy.mockRestore();
-  });
-
   it('renders standard header, breadcrumbs, and responsive container layout', async () => {
     vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
       data: [mockFacility],
@@ -198,7 +177,7 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
     });
   });
 
-  it('displays contact details in the table and in the detail modal', async () => {
+  it('displays contact details in the table and links directly to facility detail page', async () => {
     vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
       data: [mockFacility],
       total: 1,
@@ -209,14 +188,12 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
     await screen.findAllByText('Bệnh viện Kiểm Thử FamiDoc');
 
     expect(screen.getByText(/Đại diện & Liên hệ/i)).toBeInTheDocument();
-
-    const detailButtons = screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i });
-    fireEvent.click(detailButtons[0]);
-
-    expect(screen.getByText(/Đại diện pháp luật:/i)).toBeInTheDocument();
     expect(screen.getAllByText('TS. Nguyễn Văn A').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/0912345678/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/test@hospital.vn/i).length).toBeGreaterThanOrEqual(1);
+
+    const detailLinks = screen.getAllByRole('link', { name: /Chi tiết & Thẩm định/i });
+    expect(detailLinks[0]).toHaveAttribute('href', `/admin/facilities/${mockFacility.id}`);
   });
 
   it('filters facilities via status filter pills and clears empty search state', async () => {
@@ -259,36 +236,6 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
 
     const facilityNames = await screen.findAllByText('Bệnh viện Kiểm Thử FamiDoc');
     expect(facilityNames.length).toBeGreaterThan(0);
-  });
-
-  it('executes facility rejection via verifyLegal with approved=false and rejectionReason', async () => {
-    vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
-      data: [mockLegalSubmittedFacility],
-      total: 1,
-    });
-    vi.mocked(facilitiesApi.verifyLegal).mockResolvedValue({ statusCode: 200 });
-
-    render(<AdminFacilitiesView />);
-
-    await screen.findAllByText('Bệnh viện Chờ Thẩm Định');
-    fireEvent.click(screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i })[0]);
-    fireEvent.click(screen.getByRole('button', { name: /Yêu cầu bổ sung \/ Từ chối/i }));
-
-    const submitRejectBtn = screen.getByRole('button', { name: /Gửi yêu cầu/i });
-    expect(submitRejectBtn).toBeDisabled();
-
-    const reasonInput = screen.getByLabelText(/Lý do yêu cầu sửa đổi hoặc từ chối/i);
-    fireEvent.change(reasonInput, { target: { value: 'Thiếu dấu giáp lai trên GPHĐ' } });
-    expect(submitRejectBtn).toBeEnabled();
-
-    fireEvent.click(submitRejectBtn);
-
-    await waitFor(() => {
-      expect(facilitiesApi.verifyLegal).toHaveBeenCalledWith('FAC-TEST-004', {
-        approved: false,
-        rejectionReason: 'Thiếu dấu giáp lai trên GPHĐ',
-      });
-    });
   });
 
   it('switches to Doctor CCHN tab, shows PENDING_FACILITY_REVIEW, and confirms before Tier-2 approval', async () => {
@@ -367,51 +314,6 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
         approved: true,
       });
     });
-  });
-
-  it('requires both hasOperatingLicense and hasBusinessLicense to enable ACTIVE approval and displays bankBin/bankCode + VietQR in quick review modal', async () => {
-    vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
-      data: [
-        {
-          ...mockLegalSubmittedFacility,
-          hasOperatingLicense: true,
-          hasBusinessLicense: false,
-          bankBin: '970436',
-          bankCode: 'VCB',
-        },
-        {
-          ...mockLegalSubmittedFacility,
-          id: 'FAC-TEST-005',
-          facilityName: 'Bệnh viện Đủ 2 Scan',
-          hasOperatingLicense: true,
-          hasBusinessLicense: true,
-          bankBin: '970436',
-          bankCode: 'VCB',
-        },
-      ],
-      total: 2,
-    });
-
-    render(<AdminFacilitiesView />);
-    await screen.findAllByText('Bệnh viện Chờ Thẩm Định');
-
-    const detailButtons = screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i });
-    // Facility 1: thiếu ĐKKD
-    fireEvent.click(detailButtons[0]);
-    expect(screen.getByText(/Mã NH: VCB/i)).toBeInTheDocument();
-    expect(screen.getByText(/BIN: 970436/i)).toBeInTheDocument();
-    expect(screen.getByText(/Đối soát nhanh tài khoản thụ hưởng VietQR/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/Thiếu bản scan bắt buộc: Giấy chứng nhận Đăng ký doanh nghiệp \(ĐKKD\)/i)
-    ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Duyệt Cấp 2: Kích Hoạt ACTIVE/i })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole('button', { name: /^Đóng$/i }));
-
-    // Facility 2: đủ cả 2 bản scan
-    const refreshedButtons = screen.getAllByRole('button', { name: /Chi tiết & Thẩm định|Thẩm định/i });
-    fireEvent.click(refreshedButtons[1]);
-    expect(screen.getByRole('button', { name: /Duyệt Cấp 2: Kích Hoạt ACTIVE/i })).toBeEnabled();
   });
 
   it('validates Admin Create Facility form client-side and normalizes +84 phone', async () => {

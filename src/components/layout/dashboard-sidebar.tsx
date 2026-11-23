@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Fragment } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth, getDefaultPathForRole } from '@/features/auth/context/auth-context';
@@ -44,6 +44,7 @@ export interface NavItem {
   label: string;
   shortLabel?: string;
   icon: string;
+  group?: string;
   exact?: boolean;
   badge?: string;
   badgeColor?: string;
@@ -134,6 +135,12 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       },
       { href: '/facility/doctors', label: 'Quản lý Bác sĩ & CCHN', shortLabel: 'Bác sĩ', icon: 'badge' },
       {
+        href: '/facility/schedules',
+        label: 'Điều phối Lịch khám',
+        shortLabel: 'Lịch khám',
+        icon: 'calendar_month',
+      },
+      {
         href: '/facility/coordination',
         label: 'Hợp đồng Y tế 4 bên',
         shortLabel: 'HĐ 4 bên',
@@ -180,26 +187,27 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badge: 'Hộ Gia đình',
     badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200/80',
     items: [
-      { href: '/family', label: 'Bảng Sức khỏe Gia đình', shortLabel: 'Gia đình', icon: 'family_restroom', exact: true },
-      { href: '/family/members', label: 'Quản lý Thành viên', shortLabel: 'Thành viên', icon: 'group' },
+      { group: 'Sức khỏe hằng ngày', href: '/family', label: 'Tổng quan sức khỏe', shortLabel: 'Tổng quan', icon: 'family_restroom', exact: true },
+      { group: 'Sức khỏe hằng ngày', href: '/family/members', label: 'Quản lý Thành viên', shortLabel: 'Thành viên', icon: 'group' },
       {
+        group: 'Khám & Điều trị',
         href: '/family/appointments',
-        label: 'Đặt lịch Home & Tele',
+        label: 'Lịch khám bác sĩ',
         shortLabel: 'Lịch hẹn',
         icon: 'event_available',
       },
       {
+        group: 'Khám & Điều trị',
         href: '/family/telemedicine',
         label: 'Phòng khám Video 24/7',
         shortLabel: 'Telemed',
         icon: 'videocam',
       },
-      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo sức khỏe', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
-      { href: '/family/medical-book', label: 'Sổ khám', icon: 'clinical_notes' },
-      { href: '/family/prescriptions', label: 'Đơn thuốc', icon: 'medication' },
-      { href: '/family/subscription', label: 'Gói Chăm sóc & Tiến trình ký', shortLabel: 'Gói & HĐ', icon: 'history_edu', exact: true },
-      { href: '/family/subscription/contract', label: 'Hợp đồng điện tử', shortLabel: 'HĐ điện tử', icon: 'description' },
-      { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
+      { group: 'Khám & Điều trị', href: '/family/medical-book', label: 'Sổ khám', icon: 'clinical_notes' },
+      { group: 'Khám & Điều trị', href: '/family/prescriptions', label: 'Đơn thuốc', icon: 'medication' },
+      { group: 'Gói dịch vụ & Hỗ trợ', href: '/family/subscription', label: 'Gói Chăm sóc & Hợp đồng', shortLabel: 'Gói & HĐ', icon: 'history_edu' },
+      { group: 'Gói dịch vụ & Hỗ trợ', href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
+      { group: 'Gói dịch vụ & Hỗ trợ', href: '/family/feedback', label: 'Đánh giá & Phản ánh', shortLabel: 'Phản ánh', icon: 'rate_review' },
     ],
   },
   PATIENT: {
@@ -208,26 +216,27 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
     badge: 'Hộ Gia đình',
     badgeColor: 'bg-amber-50 text-amber-800 border border-amber-200/80',
     items: [
-      { href: '/family', label: 'Bảng Sức khỏe Gia đình', shortLabel: 'Gia đình', icon: 'family_restroom', exact: true },
-      { href: '/family/members', label: 'Quản lý Thành viên', shortLabel: 'Thành viên', icon: 'group' },
+      { group: 'Sức khỏe hằng ngày', href: '/family', label: 'Tổng quan sức khỏe', shortLabel: 'Tổng quan', icon: 'family_restroom', exact: true },
+      { group: 'Sức khỏe hằng ngày', href: '/family/members', label: 'Quản lý Thành viên', shortLabel: 'Thành viên', icon: 'group' },
       {
+        group: 'Khám & Điều trị',
         href: '/family/appointments',
-        label: 'Đặt lịch Home & Tele',
+        label: 'Lịch khám bác sĩ',
         shortLabel: 'Lịch hẹn',
         icon: 'event_available',
       },
       {
+        group: 'Khám & Điều trị',
         href: '/family/telemedicine',
         label: 'Phòng khám Video 24/7',
         shortLabel: 'Telemed',
         icon: 'videocam',
       },
-      { href: '/family/vitals', label: 'Chỉ số & Cảnh báo sức khỏe', shortLabel: 'Chỉ số', icon: 'ecg_heart' },
-      { href: '/family/medical-book', label: 'Sổ khám', icon: 'clinical_notes' },
-      { href: '/family/prescriptions', label: 'Đơn thuốc', icon: 'medication' },
-      { href: '/family/subscription', label: 'Gói Chăm sóc & Tiến trình ký', shortLabel: 'Gói & HĐ', icon: 'history_edu', exact: true },
-      { href: '/family/subscription/contract', label: 'Hợp đồng điện tử', shortLabel: 'HĐ điện tử', icon: 'description' },
-      { href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
+      { group: 'Khám & Điều trị', href: '/family/medical-book', label: 'Sổ khám', icon: 'clinical_notes' },
+      { group: 'Khám & Điều trị', href: '/family/prescriptions', label: 'Đơn thuốc', icon: 'medication' },
+      { group: 'Gói dịch vụ & Hỗ trợ', href: '/family/subscription', label: 'Gói Chăm sóc & Hợp đồng', shortLabel: 'Gói & HĐ', icon: 'history_edu' },
+      { group: 'Gói dịch vụ & Hỗ trợ', href: '/family/billing', label: 'Thanh toán VietQR & Biên lai', shortLabel: 'Thanh toán', icon: 'receipt_long' },
+      { group: 'Gói dịch vụ & Hỗ trợ', href: '/family/feedback', label: 'Đánh giá & Phản ánh', shortLabel: 'Phản ánh', icon: 'rate_review' },
     ],
   },
 };
@@ -272,13 +281,6 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const effectiveRole: LoginRole =
     pathRole || hostPortalRole || initialRole || (isAuthenticated ? role : mounted ? role : 'FAMILY');
   const currentMenu = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
-  const isFamilyAccount = effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT';
-  const isAdminSidebar = effectiveRole === 'ADMIN';
-  const settingsLabel = isAdminSidebar
-    ? 'Cài đặt'
-    : isFamilyAccount
-      ? 'Cài đặt & Hồ sơ BHYT'
-      : 'Cài đặt tài khoản';
 
   const getFacilityItemLock = (href: string) =>
     effectiveRole === 'FACILITY'
@@ -344,7 +346,9 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
       {/* Nav Items List */}
       <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
         <div className="space-y-1">
-          {currentMenu.items.map((item) => {
+          {currentMenu.items.map((item, idx) => {
+            const prevGroup = idx > 0 ? currentMenu.items[idx - 1]?.group : undefined;
+            const showGroupHeader = Boolean(item.group && item.group !== prevGroup);
             const facilityLock = getFacilityItemLock(item.href);
             const doctorItemLocked = isDoctorRestricted(item.href);
             const isItemLocked =
@@ -402,13 +406,28 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
                 </button>
               );
 
-              return isCollapsedState ? (
+              const renderedLocked = isCollapsedState ? (
                 <Tooltip key={item.href}>
                   <TooltipTrigger asChild>{lockedButton}</TooltipTrigger>
                   <TooltipContent side="right">{item.label} (Đã khóa)</TooltipContent>
                 </Tooltip>
               ) : (
                 lockedButton
+              );
+
+              return (
+                <Fragment key={item.href}>
+                  {showGroupHeader && (
+                    isCollapsedState ? (
+                      <div className="my-2 border-t border-slate-200/80" />
+                    ) : (
+                      <div className={cn('px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400', idx > 0 && 'pt-3')}>
+                        {item.group}
+                      </div>
+                    )
+                  )}
+                  {renderedLocked}
+                </Fragment>
               );
             }
 
@@ -455,13 +474,28 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
               </Link>
             );
 
-            return isCollapsedState ? (
+            const renderedLink = isCollapsedState ? (
               <Tooltip key={item.href}>
                 <TooltipTrigger asChild>{linkEl}</TooltipTrigger>
                 <TooltipContent side="right">{item.label}</TooltipContent>
               </Tooltip>
             ) : (
               linkEl
+            );
+
+            return (
+              <Fragment key={item.href}>
+                {showGroupHeader && (
+                  isCollapsedState ? (
+                    <div className="my-2 border-t border-slate-200/80" />
+                  ) : (
+                    <div className={cn('px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400', idx > 0 && 'pt-3')}>
+                      {item.group}
+                    </div>
+                  )
+                )}
+                {renderedLink}
+              </Fragment>
             );
           })}
         </div>
@@ -498,45 +532,8 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
           </div>
         )}
 
-        {/* Global Settings & Utilities */}
+        {/* Global Settings */}
         <div className="space-y-1 border-t border-slate-100 pt-2">
-          {(() => {
-            const settingsEl = (
-              <Link
-                href="/settings"
-                onClick={() => setMobileMenuOpen(false)}
-                title={isCollapsedState ? settingsLabel : undefined}
-                aria-label={settingsLabel}
-                className={cn(
-                  'group flex items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-colors outline-hidden sm:text-sm',
-                  pathname === '/settings'
-                    ? 'bg-primary font-semibold text-primary-foreground'
-                    : 'text-slate-700 hover:bg-accent hover:text-primary',
-                  isCollapsedState && 'justify-center px-2'
-                )}
-              >
-                <span
-                  className={cn(
-                    'material-symbols-outlined shrink-0 text-[20px] transition-colors',
-                    pathname === '/settings' ? 'text-primary-foreground' : 'text-slate-600 group-hover:text-primary'
-                  )}
-                >
-                  settings
-                </span>
-                {!isCollapsedState && <span>{settingsLabel}</span>}
-              </Link>
-            );
-
-            return isCollapsedState ? (
-              <Tooltip>
-                <TooltipTrigger asChild>{settingsEl}</TooltipTrigger>
-                <TooltipContent side="right">{settingsLabel}</TooltipContent>
-              </Tooltip>
-            ) : (
-              settingsEl
-            );
-          })()}
-
           {(() => {
             const logoutEl = (
               <button

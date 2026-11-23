@@ -469,5 +469,56 @@ describe('Task 3: Typed API Client Services (Patients, Contracts, Auth)', () => 
       (httpClient as any).setUnauthorizedHandler(null);
       fetchSpy.mockRestore();
     });
+
+    it('refreshes token and retries on 401 for getBlob and upload', async () => {
+      httpClient.setToken('expired-at');
+      httpClient.setRefreshToken('valid-rt');
+
+      let fileCalls = 0;
+      let uploadCalls = 0;
+      const expectedBlob = new Blob(['%PDF-1.4'], { type: 'application/pdf' });
+
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input) => {
+        const url = String(input);
+        if (url.endsWith('/api/v1/auth/refresh')) {
+          return {
+            ok: true,
+            status: 200,
+            json: async () => ({
+              data: { accessToken: 'fresh-at', refreshToken: 'fresh-rt', expiresInSeconds: 3600 },
+            }),
+          } as Response;
+        }
+        if (url.includes('/documents/doc-1/file')) {
+          fileCalls += 1;
+          return {
+            ok: fileCalls > 1,
+            status: fileCalls > 1 ? 200 : 401,
+            blob: async () => expectedBlob,
+            headers: new Headers({ 'content-type': 'application/pdf' }),
+          } as Response;
+        }
+        uploadCalls += 1;
+        return {
+          ok: uploadCalls > 1,
+          status: uploadCalls > 1 ? 201 : 401,
+          json: async () => ({ id: 'doc-uploaded' }),
+        } as Response;
+      });
+
+      const blob = await httpClient.getBlob('/api/v1/patients/p-1/documents/doc-1/file');
+      expect(blob).toBe(expectedBlob);
+      expect(fileCalls).toBe(2);
+
+      httpClient.setToken('expired-at-2');
+      httpClient.setRefreshToken('valid-rt-2');
+      const formData = new FormData();
+      const uploaded = await httpClient.upload<{ id: string }>('/api/v1/patients/p-1/documents', formData);
+      expect(uploaded.id).toBe('doc-uploaded');
+      expect(uploadCalls).toBe(2);
+
+      httpClient.clearToken();
+      fetchSpy.mockRestore();
+    });
   });
 });

@@ -19,12 +19,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BookingPaymentStep } from '@/features/booking';
 import {
+  contractsApi,
   getSupportCaseStatusLabel,
   isOpenSupportCaseStatus,
   paymentsApi,
   SUPPORT_CASE_STATUS_STYLES,
   supportCasesApi,
   type FamilyPaymentRequestItem,
+  type FourPartyContract,
   type SupportCaseSummary,
 } from '@/lib/api';
 import { extractErrorMessage } from '@/lib/api/error-handler';
@@ -76,6 +78,37 @@ export function FamilyBillingView() {
     search.get('contractId')?.trim() ||
     (!requestedCaseId && pending?.contractStatus === 'PENDING_PAYMENT' ? pending.id : undefined);
   const addendumId = search.get('addendumId')?.trim() || undefined;
+  const [receipts, setReceipts] = useState<FourPartyContract[]>([]);
+  const [loadingReceipts, setLoadingReceipts] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const req = contractsApi?.getMedicalContracts?.();
+    if (!req || typeof req.then !== 'function') {
+      setLoadingReceipts(false);
+      return;
+    }
+    req
+      .then((res) => {
+        if (!active) return;
+        const list = Array.isArray(res) ? res : [];
+        setReceipts(
+          list.filter((c) => {
+            const st = String(c.status);
+            return st === 'ACTIVE' || st === 'COMPLETED' || st === 'EXPIRED';
+          })
+        );
+      })
+      .catch(() => {
+        if (active) setReceipts([]);
+      })
+      .finally(() => {
+        if (active) setLoadingReceipts(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const [requests, setRequests] = useState<FamilyPaymentRequestItem[]>([]);
   const [supportCases, setSupportCases] = useState<SupportCaseSummary[]>([]);
@@ -210,7 +243,6 @@ export function FamilyBillingView() {
           )}
         </section>
       )}
-
       {/* Lịch sử yêu cầu thanh toán & Báo lỗi chuyển khoản */}
       <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
@@ -455,6 +487,48 @@ export function FamilyBillingView() {
                   </div>
                 ))}
             </div>
+          </div>
+        )}
+      </section>
+
+      {/* Lịch sử thanh toán & Biên lai hợp đồng đã kích hoạt */}
+      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs">
+        <h2 className="text-base font-bold text-slate-900">
+          Lịch sử thanh toán &amp; Biên lai
+        </h2>
+        {loadingReceipts ? (
+          <p role="status" className="text-sm text-slate-500">
+            Đang tải lịch sử biên lai…
+          </p>
+        ) : receipts.length === 0 ? (
+          <p className="text-sm text-slate-600">
+            Chưa có biên lai thanh toán nào được ghi nhận.
+          </p>
+        ) : (
+          <div className="divide-y divide-slate-100 text-sm">
+            {receipts.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-wrap items-center justify-between gap-2 py-3"
+              >
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {item.packageName || 'Gói chăm sóc gia đình'}
+                  </p>
+                  <p className="text-xs text-slate-500 tabular-nums">
+                    HĐ #{item.contractNumber}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="font-bold tabular-nums text-slate-900">
+                    {(item.packagePrice ?? 0).toLocaleString('vi-VN')} đ
+                  </p>
+                  <span className="text-xs font-medium text-emerald-700">
+                    Đã thanh toán
+                  </span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>

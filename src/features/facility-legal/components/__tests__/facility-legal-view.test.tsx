@@ -169,7 +169,7 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
     ).toBeInTheDocument();
   });
 
-  it('Khi Admin mở màn hình quản trị, hồ sơ CSYT nộp xuất hiện ở Tab "Chờ Pháp Lý Cấp 2" kèm nút duyệt ACTIVE', async () => {
+  it('Khi Admin mở màn hình quản trị, hồ sơ CSYT nộp xuất hiện ở Tab "Chờ Pháp Lý Cấp 2" kèm liên kết vào trang chi tiết & thẩm định', async () => {
     vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
       data: [
         {
@@ -205,18 +205,10 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
     const tabPendingLegal = screen.getByRole('button', { name: /Chờ Pháp Lý Cấp 2/i });
     fireEvent.click(tabPendingLegal);
 
-    // Mở modal Chi tiết & Thẩm định của An Sinh Hub
-    const detailButtons = screen.getAllByRole('button', { name: /Chi tiết & Thẩm định/i });
-    fireEvent.click(detailButtons[detailButtons.length - 1]);
-
-    // Kiểm tra thông tin đã nộp hiển thị đầy đủ trong modal
-    expect(screen.getByText('09988/BYT-GPHĐ')).toBeInTheDocument();
-    expect(screen.getByText('0315999888')).toBeInTheDocument();
-    expect(screen.getByText(/Hồ sơ sẵn sàng thẩm định/i)).toBeInTheDocument();
-
-    // Nút Duyệt Cấp 2: Kích Hoạt ACTIVE phải được kích hoạt (không bị disabled)
-    const approveL2Btn = screen.getByRole('button', { name: /Duyệt Cấp 2: Kích Hoạt ACTIVE/i });
-    expect(approveL2Btn).not.toBeDisabled();
+    // Nút "Chi tiết & Thẩm định" dẫn thẳng sang trang hồ sơ chi tiết để duyệt
+    const detailLinks = screen.getAllByRole('link', { name: /Chi tiết & Thẩm định/i });
+    expect(detailLinks.length).toBeGreaterThan(0);
+    expect(detailLinks[0]).toHaveAttribute('href', '/admin/facilities/FAC-2026-004');
   });
 
   it('Hiển thị lỗi validation và không render ảnh VietQR preview khi số tài khoản chỉ gồm số 0', async () => {

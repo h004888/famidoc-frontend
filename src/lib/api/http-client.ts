@@ -20,6 +20,13 @@ const SKIP_AUTH_REFRESH_PATHS = [
   '/api/v1/auth/reset-password',
 ];
 
+const TRANSIENT_BLOB_STATUSES = new Set([502, 503, 504]);
+const BLOB_RETRY_DELAY_MS = 250;
+
+function sleepMs(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function normalizeRequestError(error: unknown): ApiError {
   if (error instanceof ApiError) return error;
   if (error instanceof SyntaxError) {
@@ -303,22 +310,46 @@ class HttpClient {
 
   async getBlob(path: string, options: RequestInit = {}): Promise<Blob> {
     const url = this.buildUrl(path);
-    const headers: Record<string, string> = {
+    const baseHeaders: Record<string, string> = {
       ...((options.headers as Record<string, string>) || {}),
     };
-    const token = this.getToken();
-    if (token && !headers['Authorization']) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
 
-    try {
-      const res = await fetch(url, {
-        ...options,
-        method: 'GET',
-        headers,
-      });
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      let res: Response;
+      try {
+        res = await this.fetchWithAuthRetry(
+          path,
+          (authHeader) => {
+            const headers = { ...baseHeaders };
+            if (authHeader) {
+              headers['Authorization'] = authHeader;
+            }
+            return fetch(url, {
+              ...options,
+              method: 'GET',
+              headers,
+            });
+          },
+          baseHeaders['Authorization'],
+        );
+      } catch (networkErr) {
+        if (attempt === 0 && !options.signal?.aborted) {
+          await sleepMs(BLOB_RETRY_DELAY_MS);
+          continue;
+        }
+        throw normalizeRequestError(networkErr);
+      }
 
       if (!res.ok) {
+        if (
+          attempt === 0 &&
+          TRANSIENT_BLOB_STATUSES.has(res.status) &&
+          !options.signal?.aborted
+        ) {
+          await sleepMs(BLOB_RETRY_DELAY_MS);
+          continue;
+        }
+
         let errorData: unknown = undefined;
         const fallbackMessage = `API error (${res.status})`;
         let detailMessage = extractErrorMessage({}, fallbackMessage);
@@ -348,10 +379,14 @@ class HttpClient {
         throw new ApiError(detailMessage, res.status, errorData);
       }
 
-      return await res.blob();
-    } catch (error) {
-      throw normalizeRequestError(error);
+      try {
+        return await res.blob();
+      } catch (error) {
+        throw normalizeRequestError(error);
+      }
     }
+
+    throw new ApiError('Không thể tải tệp từ máy chủ', 503);
   }
 
   post<T>(path: string, body?: unknown, options?: RequestInit): Promise<T> {
@@ -388,16 +423,17 @@ class HttpClient {
     method: 'POST' | 'PUT' = 'POST'
   ): Promise<T> {
     const url = this.buildUrl(path);
-    const headers: Record<string, string> = {};
-    const token = this.getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
     try {
-      const res = await fetch(url, {
-        method,
-        headers,
-        body: formData,
+      const res = await this.fetchWithAuthRetry(path, (authHeader) => {
+        const headers: Record<string, string> = {};
+        if (authHeader) {
+          headers['Authorization'] = authHeader;
+        }
+        return fetch(url, {
+          method,
+          headers,
+          body: formData,
+        });
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));

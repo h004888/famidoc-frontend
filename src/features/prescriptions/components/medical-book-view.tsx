@@ -224,10 +224,22 @@ export function MedicalBookView({
       className="bg-[#f4f7f6]"
       containerClassName="w-full max-w-full px-2 sm:px-4 lg:px-6"
     >
-      {/* Header lâm sàng tinh gọn & hiện đại - Tối ưu chiều dọc cho bác sĩ */}
-      <header className="relative flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-[#0d3430] via-[#14423d] to-[#1d5750] px-5 py-4 text-white shadow-sm sm:px-6 sm:py-5">
+      {/* Header lâm sàng tinh gọn & hiện đại - Tối ưu chiều dọc cho bác sĩ và gia đình */}
+      <header
+        className={`relative flex flex-wrap items-center justify-between gap-4 rounded-2xl px-5 py-4 text-white shadow-sm sm:px-6 sm:py-5 ${
+          doctor
+            ? 'bg-gradient-to-r from-[#0d3430] via-[#14423d] to-[#1d5750]'
+            : 'bg-primary'
+        }`}
+      >
         <div className="flex items-center gap-3.5 min-w-0">
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-teal-500/20 text-teal-200 border border-teal-400/30">
+          <div
+            className={`flex size-11 shrink-0 items-center justify-center rounded-xl border ${
+              doctor
+                ? 'bg-teal-500/20 text-teal-200 border-teal-400/30'
+                : 'bg-white/15 text-white border-white/20'
+            }`}
+          >
             <BookOpen size={22} aria-hidden="true" />
           </div>
           <div className="min-w-0">
@@ -242,7 +254,7 @@ export function MedicalBookView({
                 </span>
               )}
             </div>
-            <p className="mt-0.5 text-xs text-teal-100/90 truncate sm:text-sm">
+            <p className="mt-0.5 text-xs text-teal-50/90 truncate sm:text-sm">
               {doctor
                 ? 'Ghi sổ khám, kê đơn từng người và tổng hợp đơn theo gia đình.'
                 : 'Theo dõi lịch sử khám bệnh, đơn thuốc điện tử và tài liệu y khoa từng thành viên.'}
@@ -426,7 +438,9 @@ function FamilyBook({
   const [mode, setMode] = useState<'book' | 'family-prescription'>('book');
   const [familyPanelOpened, setFamilyPanelOpened] = useState(false);
   const [membersOpen, setMembersOpen] = useState(true);
-  const member = family.members.find((item) => item.id === patientId);
+  const effectivePatientId =
+    patientId || (!doctor ? (family.members[0]?.id ?? '') : '');
+  const member = family.members.find((item) => item.id === effectivePatientId);
   return (
     <div className="min-w-0 space-y-4">
       {doctor && (

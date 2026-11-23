@@ -9,7 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/features/auth/context/auth-context';
 import { FamilyNotificationsView } from './family-notifications-view';
+import { FacilityNotificationsView } from './facility-notifications-view';
 import { useFamilyNotificationOwner } from '../hooks/use-family-notifications';
+import { useFacilityNotificationOwner } from '../hooks/use-facility-notifications';
 
 export type NotificationCategory =
   | 'vitals'
@@ -158,7 +160,9 @@ const ADMIN_NOTIFICATIONS: NotificationItem[] = [
 
 export function NotificationsView() {
   const owner = useFamilyNotificationOwner();
+  const facilityOwner = useFacilityNotificationOwner();
   if (owner) return <FamilyNotificationsView key={owner} userId={owner} />;
+  if (facilityOwner) return <FacilityNotificationsView key={facilityOwner} userId={facilityOwner} />;
   return <ExistingNotificationsView />;
 }
 

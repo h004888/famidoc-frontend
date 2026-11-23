@@ -35,6 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
   contractsApi,
+  encountersApi,
   getSupportCaseStatusLabel,
   isOpenSupportCaseStatus,
   isValidSupportAttachmentFile,
@@ -75,56 +76,6 @@ export interface DoctorEncounterReview {
   reviewComment?: string;
   reviewedAt?: string;
 }
-
-const INITIAL_ENCOUNTERS: DoctorEncounterReview[] = [
-  {
-    id: 'enc-01',
-    encounterDate: '24/10/2026',
-    encounterType: 'home_visit',
-    doctorName: 'PGS.TS Nguyễn Trọng Nghĩa',
-    doctorAvatar:
-      'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-    hospital: 'BV Đại học Y Dược TP.HCM',
-    memberTreated: 'Nguyễn Văn Phúc (Ông nội)',
-    status: 'pending',
-  },
-  {
-    id: 'enc-02',
-    encounterDate: '18/10/2026',
-    encounterType: 'telehealth',
-    doctorName: 'PGS.TS Nguyễn Trọng Nghĩa',
-    doctorAvatar:
-      'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-    hospital: 'BV Đại học Y Dược TP.HCM',
-    memberTreated: 'Bé Nguyễn Minh An (Con trai)',
-    status: 'reviewed',
-    overallRating: 5,
-    expertiseRating: 5,
-    mannerRating: 5,
-    punctualityRating: 5,
-    reviewComment:
-      'Bác sĩ giải thích rất kỹ về liều lượng siro hạ sốt và hướng dẫn rửa mũi cho bé rất tận tình.',
-    reviewedAt: '18/10/2026 15:45',
-  },
-  {
-    id: 'enc-03',
-    encounterDate: '10/10/2026',
-    encounterType: 'home_visit',
-    doctorName: 'PGS.TS Nguyễn Trọng Nghĩa',
-    doctorAvatar:
-      'https://images.unsplash.com/photo-1622253692010-333f2da6031d?q=80&w=200&auto=format&fit=crop',
-    hospital: 'BV Đại học Y Dược TP.HCM',
-    memberTreated: 'Trần Thu Hà (Vợ)',
-    status: 'reviewed',
-    overallRating: 5,
-    expertiseRating: 5,
-    mannerRating: 5,
-    punctualityRating: 5,
-    reviewComment:
-      'Đo điện tim và lấy mẫu xét nghiệm tại nhà nhanh chóng, nhẹ nhàng, bác sĩ lịch sự và đúng giờ.',
-    reviewedAt: '10/10/2026 11:20',
-  },
-];
 
 const STATUS_STYLES: Record<ComplaintStatus, string> = {
   SUBMITTED: 'border-amber-300 bg-amber-50 text-amber-900',
@@ -177,8 +128,46 @@ function isWithinAppealWindow(resolvedAt?: string | null): boolean {
 export function FamilyFeedbackView() {
   const requestedCaseId = useSearchParams()?.get('supportCaseId')?.trim();
   const [activeTab, setActiveTab] = useState<'reviews' | 'disputes'>('reviews');
-  const [encounters, setEncounters] =
-    useState<DoctorEncounterReview[]>(INITIAL_ENCOUNTERS);
+  const [encounters, setEncounters] = useState<DoctorEncounterReview[]>([]);
+  const [encountersLoading, setEncountersLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const req = encountersApi?.getFamilyTimetable?.({ pageSize: 50 });
+    if (!req || typeof req.then !== 'function') {
+      setEncountersLoading(false);
+      return;
+    }
+    req
+      .then((res) => {
+        if (!active) return;
+        const list = Array.isArray(res?.data) ? res.data : [];
+        const completed = list.filter((e) => e.encounterStatus === 'COMPLETED');
+        setEncounters(
+          completed.map((e) => ({
+            id: e.id,
+            encounterDate: e.scheduledDate ? e.scheduledDate.slice(0, 10) : '',
+            encounterType:
+              e.encounterType === 'TELEHEALTH' ? 'telehealth' : 'home_visit',
+            doctorName: e.doctor?.doctorName || 'Bác sĩ phụ trách',
+            doctorAvatar: '',
+            hospital:
+              e.doctor?.facility?.facilityName || 'Cơ sở y tế đối tác',
+            memberTreated: e.patient?.fullName || 'Thành viên gia đình',
+            status: 'pending',
+          })),
+        );
+      })
+      .catch(() => {
+        if (active) setEncounters([]);
+      })
+      .finally(() => {
+        if (active) setEncountersLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Dữ liệu thật cho Hợp đồng & Khiếu nại của gia đình
   const [contracts, setContracts] = useState<FourPartyContract[]>([]);
@@ -710,17 +699,47 @@ export function FamilyFeedbackView() {
               </h2>
 
               <div className="space-y-3">
-                {encounters.map((enc) => (
+                {encountersLoading ? (
+                  <div
+                    role="status"
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-600"
+                  >
+                    <RefreshCw
+                      className="size-4 animate-spin text-primary"
+                      aria-hidden="true"
+                    />
+                    <span>Đang tải lịch sử ca khám của gia đình…</span>
+                  </div>
+                ) : encounters.length === 0 ? (
+                  <div className="rounded-2xl border border-slate-200/80 bg-white p-10 text-center space-y-1.5">
+                    <div className="text-sm font-semibold text-slate-800">
+                      Chưa có ca khám hoàn tất nào để đánh giá.
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Sau khi bác sĩ hoàn thành buổi khám tại nhà hoặc tư vấn
+                      video, ca khám sẽ xuất hiện tại đây để gia đình đánh giá.
+                    </p>
+                  </div>
+                ) : (
+                encounters.map((enc) => (
                   <div
                     key={enc.id}
                     className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-slate-300 transition-all shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
                   >
                     <div className="flex items-start gap-4 min-w-0">
-                      <img
-                        src={enc.doctorAvatar}
-                        alt={enc.doctorName}
-                        className="w-12 h-12 rounded-xl object-cover ring-1 ring-slate-200 shrink-0"
-                      />
+                      {enc.doctorAvatar ? (
+                        <img
+                          src={enc.doctorAvatar}
+                          alt={enc.doctorName}
+                          className="w-12 h-12 rounded-xl object-cover ring-1 ring-slate-200 shrink-0"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-blue-50 text-[#2E37A4] ring-1 ring-blue-200/70 flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-2xl">
+                            stethoscope
+                          </span>
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-slate-900 text-sm sm:text-base">
@@ -808,7 +827,8 @@ export function FamilyFeedbackView() {
                       )}
                     </div>
                   </div>
-                ))}
+                ))
+                )}
               </div>
             </div>
           </div>

@@ -15,6 +15,10 @@ vi.mock('next/headers', () => ({
   headers: async () => new Headers({ host: 'famidoc.online' }),
 }));
 
+vi.mock('next/server', () => ({
+  connection: async () => undefined,
+}));
+
 describe('readServerAuthSession - JWT exp check', () => {
   beforeEach(() => {
     vi.clearAllMocks();

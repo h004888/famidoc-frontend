@@ -180,10 +180,7 @@ export function SubscriptionContractView() {
     showToast('Webhook Payment Gateway ghi nhận thanh toán thành công! Hợp đồng đã kích hoạt ACTIVE.');
   };
 
-  const handleResetDemo = () => {
-    resetContractWorkflow();
-    showToast('Đã reset dữ liệu hợp đồng về trạng thái mẫu!');
-  };
+  const handleResetDemo = undefined;
 
   const fourPartiesList = [
     {
@@ -277,14 +274,14 @@ export function SubscriptionContractView() {
               </Button>
 
               <Button
-                type="button"
+                asChild
                 variant="outline"
-                onClick={handleResetDemo}
-                className="min-h-11 rounded-xl text-xs font-semibold gap-1.5"
-                title="Đặt lại trạng thái mẫu để test lại toàn bộ luồng 4 bên từ đầu"
+                className="min-h-11 rounded-xl text-sm font-medium gap-2"
               >
-                <span className="material-symbols-outlined text-[17px] text-slate-500">restart_alt</span>
-                <span>Reset Demo</span>
+                <Link href="/family/subscription/contract">
+                  <span className="material-symbols-outlined text-[19px] text-primary">description</span>
+                  <span>Xem hợp đồng điện tử</span>
+                </Link>
               </Button>
 
               <Button
@@ -363,28 +360,19 @@ export function SubscriptionContractView() {
               </div>
               <div>
                 <h3 className="font-bold text-sm sm:text-base text-slate-900">
-                  Cả 4 Bên Đã Hoàn Tất Ký Số Điện Tử! Chờ Thanh Toán VietQR (SCR-36)
+                  Cả 4 Bên Đã Hoàn Tất Ký Số Điện Tử! Chờ Thanh Toán VietQR
                 </h3>
                 <p className="text-xs text-amber-800 mt-0.5">
-                  Đại diện Gia đình, Admin Nền tảng, Bệnh viện ĐHYD và Bác sĩ {workflow.assignedDoctorName} đã ký hợp lệ.
+                  Hợp đồng đã được các bên xác nhận. Vui lòng hoàn tất thanh toán để kích hoạt quyền lợi.
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5 shrink-0">
-              <Button
-                type="button"
-                onClick={handleSimulatePaymentWebhook}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold gap-1.5"
-                title="Giả lập nhận Webhook từ cổng thanh toán tự động kích hoạt hợp đồng"
-              >
-                <span className="material-symbols-outlined text-[16px]">bolt</span>
-                <span>Giả Lập Webhook VietQR (Kích hoạt ngay)</span>
-              </Button>
               <Button asChild className="rounded-xl text-xs font-bold gap-1.5">
                 <Link href="/family/billing">
                   <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
-                  <span>Xem Mã VietQR</span>
+                  <span>Thanh toán VietQR</span>
                 </Link>
               </Button>
             </div>
@@ -392,50 +380,29 @@ export function SubscriptionContractView() {
         )}
 
         {workflow?.step === 'PENDING_ADMIN_SIGN' && (
-          <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-primary">pending</span>
-              <span>
-                <strong>Hợp đồng đang chờ Quản trị viên FamiDoc ký số (Bên B):</strong> Đăng nhập email <code className="font-sans font-semibold">admin.super@famidoc.pro</code> tại trang <code className="font-sans font-semibold">/admin/contracts</code> để phê duyệt.
-              </span>
-            </div>
-            <Button asChild size="xs" className="rounded-lg font-bold shrink-0">
-              <Link href="/admin/contracts">Sang Admin Ký Duyệt →</Link>
-            </Button>
+          <div className="p-4 rounded-2xl bg-primary/10 border border-primary/20 text-slate-800 flex items-center gap-2.5 text-xs">
+            <span className="material-symbols-outlined text-[20px] text-primary">pending</span>
+            <span>
+              <strong>Hợp đồng đang chờ Nền tảng FamiDoc phê duyệt (Bên D).</strong>
+            </span>
           </div>
         )}
 
         {workflow?.step === 'PENDING_FACILITY_SIGN' && (
-          <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-indigo-600">local_hospital</span>
-              <span>
-                <strong>Hợp đồng đang chờ Cơ sở y tế phân công Bác sĩ (Bên C - SCR-22):</strong> Đăng nhập email <code className="font-sans font-semibold">cooperation@umc.edu.vn</code> để phân công bác sĩ.
-              </span>
-            </div>
-            <Link
-              href="/facility/contracts"
-              className="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-lg shrink-0 hover:bg-indigo-700"
-            >
-              Sang Bệnh Viện Gán BS (SCR-22) →
-            </Link>
+          <div className="p-4 rounded-2xl bg-indigo-50 border border-indigo-200 text-indigo-900 flex items-center gap-2.5 text-xs">
+            <span className="material-symbols-outlined text-[20px] text-indigo-600">local_hospital</span>
+            <span>
+              <strong>Hợp đồng đang chờ Cơ sở y tế bảo trợ phân công Bác sĩ (Bên B).</strong>
+            </span>
           </div>
         )}
 
         {workflow?.step === 'PENDING_DOCTOR_SIGN' && (
-          <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2.5">
-              <span className="material-symbols-outlined text-[20px] text-teal-700">stethoscope</span>
-              <span>
-                <strong>Hợp đồng đang chờ Bác sĩ xác nhận cam kết chuyên môn (Bên D - SCR-16):</strong> Đăng nhập email <code className="font-sans font-semibold">mai.tt@famidoc.pro</code> để ký cam kết.
-              </span>
-            </div>
-            <Link
-              href="/doctor/contracts"
-              className="px-3 py-1.5 bg-teal-700 text-white font-bold rounded-lg shrink-0 hover:bg-teal-800"
-            >
-              Sang Bác Sĩ Ký (SCR-16) →
-            </Link>
+          <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 flex items-center gap-2.5 text-xs">
+            <span className="material-symbols-outlined text-[20px] text-teal-700">stethoscope</span>
+            <span>
+              <strong>Hợp đồng đang chờ Bác sĩ chuyên môn xác nhận cam kết (Bên C).</strong>
+            </span>
           </div>
         )}
 

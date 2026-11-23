@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { DoctorVerificationView } from '@/features/doctor-verification';
 
+export const instant = false;
+
 export const metadata: Metadata = {
   title: 'Hồ Sơ Y Khoa & Xác Thực Chứng Chỉ Hành Nghề (CCHN) | FamiDoc Pro',
   description:

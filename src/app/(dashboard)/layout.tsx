@@ -53,30 +53,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       {/* Footer phong cách Preclinic */}
                       <footer className="flex flex-col items-center justify-between gap-2 border-t border-slate-200/90 bg-white px-4 py-3 text-center text-xs text-slate-600 sm:px-6 sm:text-left lg:px-8 xl:flex-row">
                         <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
-                          <span className="font-semibold text-slate-800">FamiDoc Preclinic Architecture</span>
+                          <span className="font-semibold text-slate-800">FamiDoc</span>
                           <span className="text-slate-600" aria-hidden="true">
-                            ·
+                            -
                           </span>
-                          <span>© 2026 FamiDoc Healthcare Platform · Chuẩn Bộ Y Tế &amp; HIPAA</span>
+                          <span>Family Doctor Management and Healthcare Platform</span>
                         </div>
                         <div className="flex flex-wrap items-center justify-center gap-1 font-medium text-slate-600 sm:gap-2">
                           <Link
                             href="/contact"
                             className="inline-flex min-h-8 items-center whitespace-nowrap rounded-lg px-2.5 text-slate-600 transition-colors hover:bg-accent hover:text-primary outline-hidden"
                           >
-                            Trung tâm Hỗ trợ 24/7
+                            Hỗ trợ &amp; Liên hệ
                           </Link>
                           <Link
-                            href="/settings"
+                            href="/privacy"
                             className="inline-flex min-h-8 items-center whitespace-nowrap rounded-lg px-2.5 text-slate-600 transition-colors hover:bg-accent hover:text-primary outline-hidden"
                           >
-                            Bảo mật EMR
+                            Chính sách bảo mật
                           </Link>
                           <Link
-                            href="/packages"
+                            href="/terms"
                             className="inline-flex min-h-8 items-center whitespace-nowrap rounded-lg px-2.5 text-slate-600 transition-colors hover:bg-accent hover:text-primary outline-hidden"
                           >
-                            Bảng giá Gói
+                            Điều khoản sử dụng
                           </Link>
                         </div>
                       </footer>

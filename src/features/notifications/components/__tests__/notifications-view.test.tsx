@@ -1,12 +1,24 @@
 import React from 'react';
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { NotificationsView } from '../notifications-view';
 import * as authContext from '@/features/auth/context/auth-context';
 import { isRestrictedFamilyPath } from '@/components/layout/family-subscription-gate';
 import { getNotificationAction } from '../../hooks/use-family-notifications';
+import { httpClient } from '@/lib/api/http-client';
+
+vi.mock('@/lib/api/http-client', () => ({
+  httpClient: {
+    get: vi.fn(),
+    patch: vi.fn(),
+  },
+}));
 
 describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it.each([
     ['SUPPORT_CASE_PAYMENT', '/family/billing'],
     ['SUPPORT_CASE_COMPLAINT', '/family/feedback'],
@@ -24,7 +36,6 @@ describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
     expect(isRestrictedFamilyPath(action?.href)).toBe(false);
     expect(isRestrictedFamilyPath('/family/appointments')).toBe(true);
   });
-
   it('renders heading and notification items correctly', () => {
     render(<NotificationsView />);
 
@@ -103,5 +114,75 @@ describe('UT-NOTIF: Multi-Channel Notification Hub', () => {
     expect(screen.getByText(/Đơn khiếu nại tranh chấp buổi khám - Hộ FAM-042 & BS.CKII Trần Mai Phương/i)).toBeInTheDocument();
     const disputeLink = screen.getByRole('link', { name: /Thụ lý giải quyết khiếu nại/i });
     expect(disputeLink).toHaveAttribute('href', '/admin/disputes');
+  });
+
+  it('loads real facility notifications, maps /facility/* links, and marks all unread as read for FACILITY', async () => {
+    vi.spyOn(authContext, 'useAuth').mockReturnValue({
+      role: 'FACILITY',
+      user: {
+        id: 'FAC-USER-1',
+        name: 'Bệnh viện Cà Mau',
+        phone: '02903888999',
+        role: 'FACILITY',
+        avatarText: 'CM',
+      },
+      isAuthenticated: true,
+      isLoading: false,
+      applySession: vi.fn(),
+      login: vi.fn(),
+      logout: vi.fn(),
+      getDefaultPathForRole: () => '/facility',
+    });
+
+    vi.mocked(httpClient.get).mockResolvedValue({
+      items: [
+        {
+          id: 'fac-n-1',
+          title: 'Đồng bộ lịch khám mới',
+          content: 'Buổi khám Telehealth đã được gia đình xác nhận.',
+          type: 'ENCOUNTER_SYNC_FACILITY',
+          referenceId: 'enc-1',
+          isRead: false,
+          createdAt: '2026-11-22T09:00:00.000Z',
+        },
+        {
+          id: 'fac-n-2',
+          title: 'Hợp đồng B2B đã có hiệu lực',
+          content: 'Hợp đồng B2B-CAMAU-2026 đã được ký hoàn tất.',
+          type: 'STAFFING_CONTRACT_ACTIVE',
+          referenceId: 'b2b-1',
+          isRead: false,
+          createdAt: '2026-11-21T09:00:00.000Z',
+        },
+      ],
+      total: 2,
+      unreadCount: 2,
+    });
+    vi.mocked(httpClient.patch).mockResolvedValue({ isRead: true });
+
+    render(<NotificationsView />);
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /Thông báo Cơ sở Y tế/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Đồng bộ lịch khám mới')).toBeInTheDocument();
+    expect(screen.getByText('Hợp đồng B2B đã có hiệu lực')).toBeInTheDocument();
+    expect(screen.queryByText(/Huyết áp của Ông Nguyễn Văn Phúc hơi cao/i)).not.toBeInTheDocument();
+
+    expect(screen.getByRole('link', { name: 'Xem điều phối' })).toHaveAttribute(
+      'href',
+      '/facility/coordination',
+    );
+    expect(screen.getByRole('link', { name: 'Xem hợp đồng' })).toHaveAttribute(
+      'href',
+      '/facility/contracts',
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Đọc tất cả trên trang' }));
+
+    await waitFor(() => {
+      expect(httpClient.patch).toHaveBeenCalledWith('/api/v1/notifications/fac-n-1/read');
+      expect(httpClient.patch).toHaveBeenCalledWith('/api/v1/notifications/fac-n-2/read');
+    });
   });
 });

@@ -13,4 +13,5 @@ export * from './encounters.api';
 export * from './files.api';
 export * from './matching.api';
 export * from './support-cases.api';
+export * from './users.api';
 export * from './error-handler';

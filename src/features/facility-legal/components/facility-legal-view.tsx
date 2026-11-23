@@ -261,33 +261,33 @@ export function FacilityLegalView() {
 
       const updatedFacility: AdminFacilityItem = hasNormalizedFacility
         ? {
-            ...existing,
-            ...updatedRes,
-          }
+          ...existing,
+          ...updatedRes,
+        }
         : {
-            id: existing?.id || updatedRes?.id || 'fac-me',
-            facilityName: submittedData.facilityName || existing?.facilityName || 'Cơ sở Y tế Đối tác',
-            representativeName: existing?.representativeName || 'Đại diện cơ sở y tế',
-            email: existing?.email || '',
-            createdAt: existing?.createdAt || new Date().toISOString(),
-            phone: submittedData.hotline,
-            address: submittedData.address,
-            onboardingStatus: 'LEGAL_SUBMITTED',
-            status: 'PENDING',
-            legalRejectionReason: null,
-            hasLegalDocument: true,
-            hasOperatingLicense: true,
-            hasBusinessLicense: true,
-            taxCode: submittedData.taxCode,
-            operatingLicense: submittedData.licenseNumber,
-            licenseIssuer: submittedData.licenseIssuer,
-            licenseDate: submittedData.licenseDate,
-            bankName: submittedData.bankName,
-            bankBin: submittedData.bankBin,
-            bankCode: submittedData.bankCode,
-            bankAccount: submittedData.bankAccountNumber,
-            bankAccountHolder: submittedData.bankAccountHolder,
-          };
+          id: existing?.id || updatedRes?.id || 'fac-me',
+          facilityName: submittedData.facilityName || existing?.facilityName || 'Cơ sở Y tế Đối tác',
+          representativeName: existing?.representativeName || 'Đại diện cơ sở y tế',
+          email: existing?.email || '',
+          createdAt: existing?.createdAt || new Date().toISOString(),
+          phone: submittedData.hotline,
+          address: submittedData.address,
+          onboardingStatus: 'LEGAL_SUBMITTED',
+          status: 'PENDING',
+          legalRejectionReason: null,
+          hasLegalDocument: true,
+          hasOperatingLicense: true,
+          hasBusinessLicense: true,
+          taxCode: submittedData.taxCode,
+          operatingLicense: submittedData.licenseNumber,
+          licenseIssuer: submittedData.licenseIssuer,
+          licenseDate: submittedData.licenseDate,
+          bankName: submittedData.bankName,
+          bankBin: submittedData.bankBin,
+          bankCode: submittedData.bankCode,
+          bankAccount: submittedData.bankAccountNumber,
+          bankAccountHolder: submittedData.bankAccountHolder,
+        };
 
       setFacility(updatedFacility);
       setBankAccountNumber(cleanBankAccount);
@@ -413,12 +413,12 @@ export function FacilityLegalView() {
                 </span>
               ) : (
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200">
-                  Chờ nộp hồ sơ pháp lý (Duyệt Lần 2)
+                  Chờ nộp hồ sơ pháp lý
                 </span>
               )}
             </div>
             <p className="text-xs sm:text-sm text-slate-500">
-              Cơ sở Y tế: <span className="font-semibold text-slate-800">{facility?.facilityName}</span> • Mã định danh: <span className="tracking-wide text-slate-700 font-semibold">{facility?.id}</span>
+              Cơ sở Y tế: <span className="font-semibold text-slate-800">{facility?.facilityName}</span>
             </p>
           </div>
 
@@ -508,9 +508,8 @@ export function FacilityLegalView() {
                   disabled={isVerifiedActive}
                   value={licenseNumber}
                   onChange={(e) => setLicenseNumber(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                    errors.licenseNumber ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.licenseNumber ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                    }`}
                   placeholder="Ví dụ: 08921/BYT-GPHĐ hoặc 01293/SYT-GPHĐ"
                 />
                 {errors.licenseNumber && <p className="text-xs text-rose-600 font-medium">{errors.licenseNumber}</p>}
@@ -525,9 +524,8 @@ export function FacilityLegalView() {
                   disabled={isVerifiedActive}
                   value={licenseIssuer}
                   onChange={(e) => setLicenseIssuer(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                    errors.licenseIssuer ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.licenseIssuer ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                    }`}
                   placeholder="Ví dụ: Bộ Y Tế - Cục Quản lý Khám chữa bệnh"
                 />
                 {errors.licenseIssuer && <p className="text-xs text-rose-600 font-medium">{errors.licenseIssuer}</p>}
@@ -543,9 +541,8 @@ export function FacilityLegalView() {
                   disabled={isVerifiedActive}
                   value={licenseDate}
                   onChange={(e) => setLicenseDate(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                    errors.licenseDate ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.licenseDate ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                    }`}
                 />
                 {errors.licenseDate && <p className="text-xs text-rose-600 font-medium">{errors.licenseDate}</p>}
               </div>
@@ -559,9 +556,8 @@ export function FacilityLegalView() {
                   disabled={isVerifiedActive}
                   value={taxCode}
                   onChange={(e) => setTaxCode(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                    errors.taxCode ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.taxCode ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                    }`}
                   placeholder="Ví dụ: 0315892019 (10 hoặc 13 chữ số)"
                 />
                 {errors.taxCode && <p className="text-xs text-rose-600 font-medium">{errors.taxCode}</p>}
@@ -576,9 +572,8 @@ export function FacilityLegalView() {
                   disabled={isVerifiedActive}
                   value={hotline}
                   onChange={(e) => setHotline(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                    errors.hotline ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.hotline ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                    }`}
                   placeholder="Ví dụ: 1900 8821 hoặc 028 3822 9999"
                 />
                 {errors.hotline && <p className="text-xs text-rose-600 font-medium">{errors.hotline}</p>}
@@ -593,9 +588,8 @@ export function FacilityLegalView() {
                   disabled={isVerifiedActive}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                    errors.address ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.address ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                    }`}
                   placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
                 />
                 {errors.address && <p className="text-xs text-rose-600 font-medium">{errors.address}</p>}
@@ -653,9 +647,8 @@ export function FacilityLegalView() {
                   onChange={(e) =>
                     setBankAccountNumber(e.target.value.replace(/\s+/g, '').slice(0, 19))
                   }
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 tracking-wide focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                    errors.bankAccountNumber ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 tracking-wide focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.bankAccountNumber ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                    }`}
                   placeholder="Ví dụ: 0071000889922"
                 />
                 {errors.bankAccountNumber && <p className="text-xs text-rose-600 font-medium">{errors.bankAccountNumber}</p>}
@@ -671,9 +664,8 @@ export function FacilityLegalView() {
                   value={bankAccountHolder}
                   onChange={(e) => setBankAccountHolder(e.target.value.toUpperCase())}
                   onBlur={() => setBankAccountHolder((prev) => normalizeVietQrAccountHolder(prev))}
-                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 uppercase focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${
-                    errors.bankAccountHolder ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
-                  }`}
+                  className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 uppercase focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.bankAccountHolder ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
+                    }`}
                   placeholder="Ví dụ: CTCP BENH VIEN QUOC TE FAMICARE"
                 />
                 {hasNonAsciiCharacters(bankAccountHolder) && (

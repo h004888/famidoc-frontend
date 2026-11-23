@@ -15,6 +15,7 @@ export interface MedicalContractListItem {
   facilityName: string;
   doctorId?: string;
   doctorName?: string;
+  doctorAvatarUrl?: string | null;
   familyId: string;
   familyHeadName?: string;
   memberCount: number;
@@ -106,6 +107,8 @@ export interface MedicalContractDetailDto {
   createdAt: string;
   updatedAt?: string;
   memberCount?: number;
+  remainingHomeVisits?: number;
+  remainingTelehealth?: number;
   additionalTerms?: string | null;
   documensoEnvelopeId?: string | null;
   documensoItemId?: string | null;
@@ -140,7 +143,7 @@ export interface MedicalContractDetailDto {
       credentialType?: string;
       certificateNumber?: string;
     }>;
-    user?: { fullName?: string; email?: string };
+    user?: { fullName?: string; email?: string; avatarUrl?: string | null };
   } | null;
   members?: Array<{
     id?: string;
@@ -175,7 +178,15 @@ export interface MedicalContractDetailDto {
     addendumId?: string | null;
     paymentStatus?: string;
   }>;
-  servicePackage?: { id?: string; packageName?: string; durationMonths?: number };
+  servicePackage?: {
+    id?: string;
+    packageName?: string;
+    durationMonths?: number;
+    periodicVisitsQuota?: number;
+    telehealthQuota?: number;
+    videoQuotaPolicy?: 'FIXED' | 'UNLIMITED' | string;
+    quotaPeriod?: 'PER_TERM' | 'MONTHLY' | string;
+  };
   billingSnapshot?: {
     package?: { name?: string };
     pricing?: { totalPriceVnd?: number };
@@ -648,6 +659,7 @@ export function mapMedicalContractToFourParty(
     facilityAddress: dto.facility?.address,
     doctorId: dto.doctor?.id,
     doctorName: dto.doctor?.doctorName || dto.doctor?.user?.fullName,
+    doctorAvatarUrl: dto.doctor?.user?.avatarUrl ?? null,
     assignedDoctorId: dto.doctor?.id,
     assignedDoctorName: dto.doctor?.doctorName || dto.doctor?.user?.fullName,
     createdAt: dto.createdAt,

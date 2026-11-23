@@ -54,9 +54,15 @@ describe('FamilyMembersView full real API integration', () => {
     await waitFor(() => {
       expect(screen.getByTestId('family-members-empty-state')).toBeInTheDocument();
       expect(screen.getByTestId('member-quota-badge')).toHaveTextContent('0 / 2 thành viên');
-      expect(screen.getByText('BS. Nguyễn Kiểm Thử')).toBeInTheDocument();
+      expect(screen.getByRole('heading', { name: 'Quản lý Thành viên' })).toBeInTheDocument();
+      expect(screen.getAllByText(/gói Gói Trải Nghiệm/i).length).toBeGreaterThan(0);
+      expect(screen.queryByText(/mã số bảo hiểm y tế/i)).not.toBeInTheDocument();
       expect(screen.queryByText('Nguyễn Văn Phúc')).not.toBeInTheDocument();
       expect(screen.queryByText(/#FAM-88219/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Bảng Sức Khỏe Gia Đình')).not.toBeInTheDocument();
+      expect(screen.queryByText(/MC-REAL-001/)).not.toBeInTheDocument();
+      expect(screen.queryByText('Đồng bộ Hồ sơ FamiDoc')).not.toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /Hợp Đồng & Gói Dịch Vụ/i })).not.toBeInTheDocument();
     });
   });
 
@@ -109,7 +115,7 @@ describe('FamilyMembersView full real API integration', () => {
           bloodType: 'O+',
         })
       );
-      expect(screen.getByText('Trần Thị Mai')).toBeInTheDocument();
+      expect(screen.getAllByText('Trần Thị Mai').length).toBeGreaterThan(0);
       expect(screen.getByTestId('member-quota-badge')).toHaveTextContent('1 / 2 thành viên');
       expect(gateEventListener).toHaveBeenCalledTimes(1);
       expect(toastSpy).toHaveBeenCalled();
@@ -217,16 +223,16 @@ describe('FamilyMembersView full real API integration', () => {
     await userEvent.selectOptions(screen.getByLabelText(/Nhóm máu/i), 'AB-');
 
     await userEvent.click(screen.getByRole('button', { name: /\+ Thêm dị ứng/i }));
-    await userEvent.type(screen.getByLabelText('Tên dị nguyên 1'), 'Hải sản');
+    await userEvent.type(screen.getByLabelText('Chất hoặc thuốc gây dị ứng 1'), 'Hải sản');
     await userEvent.selectOptions(screen.getByLabelText('Nhóm dị ứng 1'), 'FOOD');
     await userEvent.selectOptions(
       screen.getByLabelText('Mức độ dị ứng 1'),
       'LIFE_THREATENING_ANAPHYLAXIS'
     );
-    await userEvent.type(screen.getByLabelText('Biểu hiện lâm sàng 1'), 'Khó thở');
+    await userEvent.type(screen.getByLabelText('Triệu chứng gặp phải 1'), 'Khó thở');
 
     await userEvent.click(screen.getByRole('button', { name: /\+ Thêm dị ứng/i }));
-    await userEvent.type(screen.getByLabelText('Tên dị nguyên 2'), 'Phấn hoa');
+    await userEvent.type(screen.getByLabelText('Chất hoặc thuốc gây dị ứng 2'), 'Phấn hoa');
     await userEvent.selectOptions(screen.getByLabelText('Nhóm dị ứng 2'), 'ENVIRONMENTAL');
 
     await userEvent.click(screen.getByRole('button', { name: /Lưu thành viên/i }));
@@ -270,6 +276,14 @@ describe('FamilyMembersView full real API integration', () => {
         gender: 'MALE',
         relationshipToHead: 'SELF',
         bloodType: 'O+',
+        allergies: [
+          {
+            id: 'al-existing',
+            allergenType: 'DRUG',
+            allergenName: 'Penicillin',
+            severity: 'MODERATE',
+          },
+        ],
         status: 'ACTIVE',
         createdAt: '2026-11-14T00:00:00.000Z',
         updatedAt: '2026-11-14T00:00:00.000Z',
@@ -321,27 +335,226 @@ describe('FamilyMembersView full real API integration', () => {
       expect(screen.getByRole('button', { name: /Đã đủ suất gói/i })).toBeDisabled();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Sửa thông tin của Nguyễn Minh Bé' }));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Sửa thông tin của Nguyễn Minh Bé' })[0]);
     const editInput = screen.getByDisplayValue('Nguyễn Minh Bé');
     await userEvent.clear(editInput);
     await userEvent.type(editInput, 'Nguyễn Minh Bé Mới');
-    await userEvent.click(screen.getByRole('button', { name: /Cập nhật hồ sơ/i }));
+    await userEvent.click(screen.getByRole('button', { name: /Lưu thay đổi/i }));
 
     await waitFor(() => {
       expect(updateSpy).toHaveBeenCalledWith(
         'pt-2',
         expect.objectContaining({ fullName: 'Nguyễn Minh Bé Mới' })
       );
-      expect(screen.getByText('Nguyễn Minh Bé Mới')).toBeInTheDocument();
+      expect(screen.getAllByText('Nguyễn Minh Bé Mới').length).toBeGreaterThan(0);
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Tách Nguyễn Minh Bé Mới khỏi hộ' }));
-    await userEvent.click(screen.getByRole('button', { name: /Xác nhận tách/i }));
+    await userEvent.click(screen.getAllByRole('button', { name: 'Gỡ Nguyễn Minh Bé Mới khỏi danh sách' })[0]);
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Gỡ thành viên khỏi danh sách?');
+    expect(screen.getByRole('alertdialog')).not.toHaveTextContent('MC-REAL-001');
+    await userEvent.click(screen.getByRole('button', { name: /Gỡ thành viên/i }));
 
     await waitFor(() => {
       expect(detachSpy).toHaveBeenCalledWith('pt-2');
       expect(screen.queryByText('Nguyễn Minh Bé Mới')).not.toBeInTheDocument();
       expect(screen.getByTestId('member-quota-badge')).toHaveTextContent('1 / 2 thành viên');
+      expect(screen.getAllByRole('button', { name: /Thêm thành viên mới/i }).length).toBeGreaterThan(0);
+      expect(screen.getAllByRole('link', { name: /Xem hồ sơ/i })[0]).toHaveAttribute(
+        'href',
+        '/family/members/pt-1'
+      );
+      expect(screen.getAllByText('Không có bệnh nền').length).toBeGreaterThan(0);
+    });
+  });
+
+  it('hiển thị lỗi kèm nút Tải lại danh sách (không chồng Empty State) và khôi phục khi retry thành công', async () => {
+    const getSpy = vi
+      .spyOn(patientsApi, 'getFamilyMembers')
+      .mockRejectedValueOnce(new Error('Mất kết nối máy chủ'))
+      .mockResolvedValueOnce([]);
+
+    render(<FamilyMembersView />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent('Mất kết nối máy chủ');
+      expect(screen.queryByTestId('family-members-empty-state')).not.toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: /Tải lại danh sách/i }));
+
+    await waitFor(() => {
+      expect(getSpy).toHaveBeenCalledTimes(2);
+      expect(screen.getByTestId('family-members-empty-state')).toBeInTheDocument();
+    });
+  });
+
+  it('cho phép gõ dấu phẩy/khoảng trắng ở ô Bệnh nền khi sửa và chặn gửi dòng dị ứng có triệu chứng nhưng thiếu tên', async () => {
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([
+      {
+        id: 'pt-1',
+        familyId: 'fam-1',
+        fullName: 'Nguyễn Minh An',
+        dateOfBirth: '1990-01-01',
+        gender: 'MALE',
+        relationshipToHead: 'SELF',
+        bloodType: 'O+',
+        allergies: [
+          {
+            id: 'al-existing',
+            allergenType: 'DRUG',
+            allergenName: 'Penicillin',
+            severity: 'MODERATE',
+          },
+        ],
+        status: 'ACTIVE',
+        createdAt: '2026-11-14T00:00:00.000Z',
+        updatedAt: '2026-11-14T00:00:00.000Z',
+      },
+    ]);
+    const updateSpy = vi.spyOn(patientsApi, 'updateFamilyMember').mockResolvedValueOnce({
+      id: 'pt-1',
+      familyId: 'fam-1',
+      fullName: 'Nguyễn Minh An',
+      dateOfBirth: '1990-01-01',
+      gender: 'MALE',
+      relationshipToHead: 'SELF',
+      bloodType: 'O+',
+      chronicDiseases: 'Tiểu đường, Huyết áp cao',
+      status: 'ACTIVE',
+      createdAt: '2026-11-14T00:00:00.000Z',
+      updatedAt: '2026-11-14T00:00:00.000Z',
+    });
+
+    render(<FamilyMembersView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Nguyễn Minh An').length).toBeGreaterThan(0);
+    });
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Sửa thông tin của Nguyễn Minh An' })[0]);
+    expect(screen.getByRole('dialog')).toHaveTextContent('Cập nhật thông tin thành viên');
+    expect(screen.getByRole('dialog')).toHaveTextContent('Nguyễn Minh An · Chủ hộ (Đại diện)');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('Gói Trải Nghiệm');
+    expect(screen.getByRole('dialog')).not.toHaveTextContent('MC-REAL-001');
+    expect(screen.getByText('Cố định theo tài khoản')).toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toHaveTextContent('Thông tin y tế');
+    // Allergy rows are inline-editable; verify existing allergy appears in the form
+    expect(
+      screen.getByLabelText('Chất hoặc thuốc gây dị ứng 1')
+    ).toHaveAttribute('value', 'Penicillin');
+    await userEvent.click(screen.getByRole('button', { name: 'Tăng huyết áp' }));
+    const chronicInput = screen.getByLabelText(/Bệnh nền đang theo dõi/i);
+    expect(chronicInput).toHaveValue('Tăng huyết áp');
+    await userEvent.clear(chronicInput);
+    await userEvent.type(chronicInput, 'Tiểu đường, Huyết áp cao');
+    expect(chronicInput).toHaveValue('Tiểu đường, Huyết áp cao');
+
+    await userEvent.click(screen.getByRole('button', { name: /Lưu thay đổi/i }));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledWith(
+        'pt-1',
+        expect.objectContaining({ chronicDiseases: 'Tiểu đường, Huyết áp cao' })
+      );
+    });
+
+    await userEvent.click(screen.getAllByRole('button', { name: /Thêm thành viên/i })[0]);
+    await userEvent.type(screen.getByLabelText(/Họ và tên người thân/i), 'Lê Thị Hoa');
+    await userEvent.type(screen.getByLabelText(/Ngày tháng năm sinh/i), '1991-05-05');
+    await userEvent.click(screen.getByRole('button', { name: /\+ Thêm dị ứng/i }));
+    await userEvent.type(screen.getByLabelText('Triệu chứng gặp phải 1'), 'Nổi mề đay');
+    await userEvent.click(screen.getByRole('button', { name: /Lưu thành viên/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Vui lòng nhập tên chất hoặc thuốc gây dị ứng cho dòng đã ghi triệu chứng.'
+    );
+  });
+
+  it('cho phép chỉnh sửa trực tiếp dị ứng trong modal sửa mà không hiện thẻ điều hướng Xem hồ sơ và giữ nguyên thuộc tính dị ứng cũ', async () => {
+    vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValueOnce([
+      {
+        id: 'pt-1',
+        familyId: 'fam-1',
+        fullName: 'Phạm Ngọc Thọ',
+        dateOfBirth: '1985-04-10',
+        gender: 'MALE',
+        relationshipToHead: 'SELF',
+        bloodType: 'O+',
+        allergies: [
+          {
+            id: 'al-food-1',
+            allergenType: 'FOOD',
+            allergenName: 'Tôm cua',
+            severity: 'LIFE_THREATENING_ANAPHYLAXIS',
+            clinicalManifestation: 'Khó thở',
+          },
+        ],
+        status: 'ACTIVE',
+        createdAt: '2026-11-14T00:00:00.000Z',
+        updatedAt: '2026-11-14T00:00:00.000Z',
+      },
+    ]);
+
+    const updateSpy = vi.spyOn(patientsApi, 'updateFamilyMember').mockResolvedValueOnce({
+      id: 'pt-1',
+      familyId: 'fam-1',
+      fullName: 'Phạm Ngọc Thọ',
+      dateOfBirth: '1985-04-10',
+      gender: 'MALE',
+      relationshipToHead: 'SELF',
+      bloodType: 'O+',
+      status: 'ACTIVE',
+      createdAt: '2026-11-14T00:00:00.000Z',
+      updatedAt: '2026-11-14T00:00:00.000Z',
+    });
+    const deleteAllergySpy = vi.spyOn(patientsApi, 'deleteMemberAllergy').mockResolvedValueOnce({
+      id: 'al-food-1',
+      allergenType: 'FOOD',
+      allergenName: 'Tôm cua',
+      severity: 'LIFE_THREATENING_ANAPHYLAXIS',
+    });
+    const addAllergySpy = vi.spyOn(patientsApi, 'addMemberAllergy').mockResolvedValueOnce({
+      id: 'al-drug-2',
+      allergenType: 'DRUG',
+      allergenName: 'Penicillin',
+      severity: 'MODERATE',
+      clinicalManifestation: 'Phát ban',
+    });
+
+    render(<FamilyMembersView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Phạm Ngọc Thọ').length).toBeGreaterThan(0);
+    });
+
+    await userEvent.click(screen.getAllByRole('button', { name: 'Sửa thông tin của Phạm Ngọc Thọ' })[0]);
+
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).not.toHaveTextContent('Quản lý chi tiết trong Xem hồ sơ');
+    expect(dialog).not.toHaveTextContent('Tiền sử dị ứng hiện có');
+    expect(screen.getByLabelText('Chất hoặc thuốc gây dị ứng 1')).toHaveValue('Tôm cua');
+    expect(screen.getByLabelText('Nhóm dị ứng 1')).toHaveValue('FOOD');
+    expect(screen.getByLabelText('Mức độ dị ứng 1')).toHaveValue('LIFE_THREATENING_ANAPHYLAXIS');
+    expect(screen.getByLabelText('Triệu chứng gặp phải 1')).toHaveValue('Khó thở');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Xóa dị ứng 1' }));
+    await userEvent.click(screen.getByRole('button', { name: /\+ Thêm dị ứng/i }));
+    await userEvent.type(screen.getByLabelText('Chất hoặc thuốc gây dị ứng 1'), 'Penicillin');
+    await userEvent.selectOptions(screen.getByLabelText('Mức độ dị ứng 1'), 'MODERATE');
+    await userEvent.type(screen.getByLabelText('Triệu chứng gặp phải 1'), 'Phát ban');
+
+    await userEvent.click(screen.getByRole('button', { name: /Lưu thay đổi/i }));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledTimes(1);
+      expect(deleteAllergySpy).toHaveBeenCalledWith('pt-1', 'al-food-1');
+      expect(addAllergySpy).toHaveBeenCalledWith('pt-1', {
+        allergenType: 'DRUG',
+        allergenName: 'Penicillin',
+        severity: 'MODERATE',
+        clinicalManifestation: 'Phát ban',
+      });
+      expect(screen.getAllByText('Penicillin').length).toBeGreaterThan(0);
     });
   });
 });
