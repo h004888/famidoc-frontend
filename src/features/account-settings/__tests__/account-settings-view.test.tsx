@@ -4,8 +4,10 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AccountSettingsView } from '../components/account-settings-view';
 import { authApi } from '@/lib/api/auth.api';
+import { usersApi } from '@/lib/api/users.api';
 
 let mockRole: 'ADMIN' | 'FACILITY' | 'DOCTOR' | 'FAMILY' = 'ADMIN';
+let mockApplySession = vi.fn();
 let mockUser = {
   id: 'adm-1',
   name: 'Quản trị viên Hệ thống',
@@ -20,14 +22,22 @@ vi.mock('@/features/auth/context/auth-context', () => ({
     role: mockRole,
     user: mockUser,
     isAuthenticated: true,
-    applySession: vi.fn(),
+    applySession: mockApplySession,
     logout: vi.fn(),
   }),
+}));
+
+vi.mock('@/lib/api/users.api', () => ({
+  usersApi: {
+    getProfile: vi.fn(),
+    updateProfile: vi.fn(),
+  },
 }));
 
 describe('AccountSettingsView - thích ứng theo vai trò', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockApplySession = vi.fn();
     mockRole = 'ADMIN';
     mockUser = {
       id: 'adm-1',
@@ -93,5 +103,85 @@ describe('AccountSettingsView - thích ứng theo vai trò', () => {
     });
 
     changePwdSpy.mockRestore();
+  });
+
+  it('tải profile từ GET /api/v1/users/profile và lưu qua PATCH /api/v1/users/profile khi vai trò là FACILITY', async () => {
+    const user = userEvent.setup();
+    mockRole = 'FACILITY';
+    mockUser = {
+      id: 'fac-user-1',
+      name: 'Bệnh viện Cà Mau',
+      email: 'bvcamau@famidoc.vn',
+      phone: '02903888999',
+      role: 'FACILITY' as unknown as 'ADMIN',
+      avatarText: 'BC',
+    };
+
+    vi.mocked(usersApi.getProfile).mockResolvedValueOnce({
+      id: 'fac-user-1',
+      fullName: 'Đại diện BV Cà Mau',
+      email: 'bvcamau@famidoc.vn',
+      phone: '02903888999',
+      role: 'HEALTHCARE_FACILITY',
+      status: 'ACTIVE',
+    });
+    vi.mocked(usersApi.updateProfile).mockResolvedValueOnce({
+      id: 'fac-user-1',
+      fullName: 'Nguyễn Văn Quản Lý',
+      email: 'bvcamau@famidoc.vn',
+      phone: '02903888999',
+      role: 'HEALTHCARE_FACILITY',
+      status: 'ACTIVE',
+    });
+
+    render(<AccountSettingsView />);
+
+    const fullNameInput = await screen.findByDisplayValue('Đại diện BV Cà Mau');
+    expect(screen.getByLabelText(/Số điện thoại/i)).toBeDisabled();
+
+    await user.clear(fullNameInput);
+    await user.type(fullNameInput, 'Nguyễn Văn Quản Lý');
+    await user.click(screen.getByRole('button', { name: /Lưu thay đổi hồ sơ/i }));
+
+    expect(usersApi.updateProfile).toHaveBeenCalledWith({
+      fullName: 'Nguyễn Văn Quản Lý',
+    });
+    expect(mockApplySession).toHaveBeenCalledWith(
+      'FACILITY',
+      expect.objectContaining({ name: 'Nguyễn Văn Quản Lý' }),
+    );
+  });
+
+  it('hiển thị lỗi và không ghi đè session khi PATCH /api/v1/users/profile thất bại ở FACILITY', async () => {
+    const user = userEvent.setup();
+    mockRole = 'FACILITY';
+    mockUser = {
+      id: 'fac-user-1',
+      name: 'Bệnh viện Cà Mau',
+      email: 'bvcamau@famidoc.vn',
+      phone: '02903888999',
+      role: 'FACILITY' as unknown as 'ADMIN',
+      avatarText: 'BC',
+    };
+
+    vi.mocked(usersApi.getProfile).mockResolvedValueOnce({
+      id: 'fac-user-1',
+      fullName: 'Bệnh viện Cà Mau',
+      email: 'bvcamau@famidoc.vn',
+      phone: '02903888999',
+      role: 'HEALTHCARE_FACILITY',
+      status: 'ACTIVE',
+    });
+    vi.mocked(usersApi.updateProfile).mockRejectedValueOnce(new Error('Không thể lưu lên máy chủ'));
+
+    render(<AccountSettingsView />);
+
+    const fullNameInput = await screen.findByDisplayValue('Bệnh viện Cà Mau');
+    await user.clear(fullNameInput);
+    await user.type(fullNameInput, 'Tên Mới');
+    await user.click(screen.getByRole('button', { name: /Lưu thay đổi hồ sơ/i }));
+
+    expect(await screen.findByText(/Không thể lưu lên máy chủ/i)).toBeInTheDocument();
+    expect(mockApplySession).not.toHaveBeenCalled();
   });
 });

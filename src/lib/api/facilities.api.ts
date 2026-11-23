@@ -2,6 +2,57 @@ import { httpClient } from './http-client';
 import { unwrapApiEnvelope } from './envelope';
 import { fetchPaginatedList } from './paginated-list';
 
+export interface FacilityOverviewDto {
+  doctors: {
+    total: number;
+    active: number;
+    pending: number;
+    activePanelCount: number;
+    maxPanelCapacity: number;
+    panelUtilizationPercent: number;
+  };
+  encounters: {
+    month: number;
+    year: number;
+    total: number;
+    completed: number;
+    inProgress: number;
+    confirmed: number;
+    requested: number;
+    cancelled: number;
+    completionRatePercent: number;
+    byChannel: {
+      HOME_VISIT: number;
+      TELEHEALTH: number;
+      FACILITY_VISIT: number;
+    };
+  };
+  revenue: {
+    month: number;
+    year: number;
+    grossVnd: number;
+    facilityShareVnd: number;
+    platformFeeVnd: number;
+    invoiceCount: number;
+    facilitySharePercent: number;
+    platformSharePercent: number;
+    activeB2bContractCode: string | null;
+    activeB2bValidTo: string | null;
+  };
+  recentEncounters: Array<{
+    id: string;
+    encounterType: string;
+    encounterStatus: string;
+    scheduledDate: string;
+    scheduledTime: string;
+    doctorName: string;
+    specialty: string;
+    patientNames: string[];
+    contractNumber: string | null;
+  }>;
+  pendingRescheduleCount: number;
+}
+
 export interface CreateFacilityByAdminPayload {
   facilityName: string;
   representativeName: string;
@@ -234,6 +285,14 @@ export const facilitiesApi = {
       // Ignore
     }
     return null;
+  },
+
+  // Cơ sở Y tế xem số liệu tổng hợp vận hành theo thời gian thực
+  getMyOverview: async (): Promise<FacilityOverviewDto> => {
+    const res = await httpClient.get<unknown>('/api/v1/facilities/me/overview', undefined, {
+      cache: 'no-store',
+    });
+    return unwrapApiEnvelope<FacilityOverviewDto>(res);
   },
 
   // Cơ sở Y tế nộp hồ sơ pháp lý kèm 2 tệp scan riêng (multipart FormData)

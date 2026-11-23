@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { financeApi, type FinanceAnalyticsDto, type FacilitySettlementDto, type ReviewSettlementPayload } from '@/lib/api/finance.api';
+import { contractsApi } from '@/lib/api/contracts.api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,6 +22,10 @@ const settlementStatus: Record<FacilitySettlementDto['disbursementStatus'], stri
 
 export function FacilityRevenueView() {
   const [analytics, setAnalytics] = useState<FinanceAnalyticsDto | null>(null);
+  const [b2bSplit, setB2bSplit] = useState<{ facility: number; platform: number } | null>(null);
+  const [isTestEnvBlocked, setIsTestEnvBlocked] = useState(
+    process.env.NEXT_PUBLIC_APP_ENV === 'production',
+  );
   const [period, setPeriod] = useState('');
   const [environment, setEnvironment] = useState<'LIVE' | 'TEST'>('LIVE');
   const [refresh, setRefresh] = useState(0);
@@ -36,24 +41,69 @@ export function FacilityRevenueView() {
 
   useEffect(() => {
     let active = true;
+    const req = contractsApi?.getStaffingContracts?.();
+    if (!req || typeof req.then !== 'function') return;
+    void req
+      .then((res) => {
+        if (!active || !res || !Array.isArray(res.data)) return;
+        const activeContract = res.data.find((c) => c.status === 'ACTIVE');
+        if (activeContract) {
+          setB2bSplit({
+            facility: activeContract.facilitySharePercent,
+            platform: activeContract.platformSharePercent,
+          });
+        }
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
     const [year, month] = period.split('-').map(Number);
     void financeApi.getAnalytics({ environment, ...(period ? { year, month } : {}) }).then((data) => {
       if (active) setAnalytics(data);
     }).catch((cause: unknown) => {
-      if (active) {
-        setAnalytics(null);
-        setError(cause instanceof Error ? cause.message : 'Không tải được báo cáo doanh thu.');
+      if (!active) return;
+      const msg = cause instanceof Error ? cause.message : 'Không tải được báo cáo doanh thu.';
+      const status = typeof (cause as { status?: unknown })?.status === 'number'
+        ? (cause as { status: number }).status
+        : undefined;
+      if (environment === 'TEST' && (status === 403 || /TEST bị khóa|production|Forbidden/i.test(msg))) {
+        setIsTestEnvBlocked(true);
+        setEnvironment('LIVE');
+        toast.info('Dữ liệu tài chính TEST bị khóa trong môi trường hiện tại. Đã chuyển về LIVE.');
+        return;
       }
+      setAnalytics(null);
+      setError(msg);
     }).finally(() => {
       if (active) setIsLoading(false);
     });
     return () => { active = false; };
   }, [environment, period, refresh]);
 
+  const resolvedSplit = (() => {
+    if (b2bSplit) return b2bSplit;
+    if (analytics && analytics.netVnd > 0) {
+      const facility = Math.round((analytics.facilityShareVnd / analytics.netVnd) * 100);
+      return { facility, platform: Math.max(0, 100 - facility) };
+    }
+    return null;
+  })();
+
   const metrics = analytics && [
     ['Doanh thu ghi nhận', amount.format(analytics.grossVnd)],
-    ['Phần doanh thu CSYT (85%)', amount.format(analytics.facilityShareVnd)],
-    ['Phí nền tảng (15%)', amount.format(analytics.platformFeeVnd)],
+    [
+      resolvedSplit ? `Phần doanh thu CSYT (${resolvedSplit.facility}%)` : 'Phần doanh thu CSYT',
+      amount.format(analytics.facilityShareVnd),
+    ],
+    [
+      resolvedSplit ? `Phí nền tảng (${resolvedSplit.platform}%)` : 'Phí nền tảng',
+      amount.format(analytics.platformFeeVnd),
+    ],
     ['Số hóa đơn', analytics.invoiceCount.toLocaleString('vi-VN')],
   ];
 
@@ -143,13 +193,19 @@ export function FacilityRevenueView() {
           </label>
           <label className="space-y-1 text-sm">
             <span className="block">Môi trường</span>
-            <select className="h-9 rounded-md border bg-white px-2" value={environment} onChange={(event) => {
-              setError('');
-              setIsLoading(true);
-              setEnvironment(event.target.value as typeof environment);
-            }}>
+            <select
+              aria-label="Môi trường"
+              className="h-9 rounded-md border bg-white px-2"
+              value={isTestEnvBlocked ? 'LIVE' : environment}
+              disabled={isTestEnvBlocked}
+              onChange={(event) => {
+                setError('');
+                setIsLoading(true);
+                setEnvironment(event.target.value as typeof environment);
+              }}
+            >
               <option value="LIVE">LIVE</option>
-              <option value="TEST">TEST</option>
+              {!isTestEnvBlocked && <option value="TEST">TEST</option>}
             </select>
           </label>
           <Button variant="outline" disabled={isLoading} onClick={() => {
