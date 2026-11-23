@@ -18,6 +18,12 @@ vi.mock('@/lib/api/finance.api', () => ({
   },
 }));
 
+vi.mock('@/lib/api/contracts.api', () => ({
+  contractsApi: {
+    getStaffingContracts: vi.fn().mockResolvedValue({ data: [], total: 0 }),
+  },
+}));
+
 describe('FacilityRevenueView Responsive Layout', () => {
   it('renders cleanly without nested <main> and includes mobile card container', async () => {
     const { container } = render(<FacilityRevenueView />);

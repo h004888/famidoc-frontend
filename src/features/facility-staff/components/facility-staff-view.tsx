@@ -17,6 +17,14 @@ import { ConfirmDialog } from '@/components/shared';
 import { useFacilityVerificationGateState } from '@/components/layout/facility-verification-gate';
 import { FacilityDoctorExcelImportModal } from './facility-doctor-excel-import-modal';
 
+const DEFAULT_SPECIALTY_OPTIONS = [
+  'Y học gia đình',
+  'Khoa Nội Tổng quát',
+  'Khoa Nhi',
+  'Khoa Nội tiết',
+  'Khoa Cấp cứu & Y tế Gia đình',
+];
+
 export interface DoctorStaff {
   id: string;
   name: string;
@@ -28,8 +36,8 @@ export interface DoctorStaff {
   rejectionReason?: string | null;
   panelCap: number;
   maxCap: number;
-  rating: number;
-  totalEncounters: number;
+  rating: number | null;
+  totalReviews: number;
   status: 'active' | 'on_leave' | 'pending_approval';
   onboardingStatus?:
     | 'PENDING_SUBMISSION'
@@ -63,6 +71,7 @@ export function FacilityStaffView() {
   const [newDoctorPhone, setNewDoctorPhone] = useState('');
   const [newDoctorExp, setNewDoctorExp] = useState('');
   const [newDoctorDept, setNewDoctorDept] = useState('Y học gia đình');
+  const [customDoctorDept, setCustomDoctorDept] = useState('');
   const [newDoctorTitle, setNewDoctorTitle] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -115,8 +124,8 @@ export function FacilityStaffView() {
             rejectionReason: d.rejectionReason || null,
             panelCap: d.activeAndHeldCount ?? d.activePanelCount ?? 0,
             maxCap: d.maxPanelCapacity ?? 30,
-            rating: d.ratingAvg ?? 5.0,
-            totalEncounters: d.totalReviews ?? 0,
+            rating: d.ratingAvg ?? null,
+            totalReviews: d.totalReviews ?? 0,
             status: d.onboardingStatus === 'ACTIVE' ? 'active' : 'pending_approval',
             onboardingStatus: d.onboardingStatus || 'PENDING_SUBMISSION',
             email: d.email,
@@ -194,13 +203,28 @@ export function FacilityStaffView() {
     }
   };
 
+  const departmentOptions = React.useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const spec of DEFAULT_SPECIALTY_OPTIONS) {
+      seen.set(spec.trim().toLowerCase(), spec);
+    }
+    for (const doc of staffList) {
+      const dept = doc.department?.trim();
+      if (!dept) continue;
+      const key = dept.toLowerCase();
+      if (!seen.has(key)) {
+        seen.set(key, dept);
+      }
+    }
+    return Array.from(seen.values());
+  }, [staffList]);
+
   const filteredStaff = staffList.filter((doc) => {
     const matchesDept =
       filterDepartment === 'all' ||
-      doc.department === filterDepartment ||
-      (filterDepartment === 'Y học gia đình' &&
-        (doc.department.toLowerCase() === 'y học gia đình' ||
-          doc.department.toLowerCase() === 'khoa y học gia đình'));
+      doc.department.trim().toLowerCase() === filterDepartment.trim().toLowerCase() ||
+      (filterDepartment.toLowerCase() === 'y học gia đình' &&
+        doc.department.trim().toLowerCase() === 'khoa y học gia đình');
     const matchesStatus =
       filterStatus === 'all' ||
       doc.status === filterStatus ||
@@ -279,11 +303,19 @@ export function FacilityStaffView() {
     setIsSubmitting(true);
     setCreateError(null);
 
+    const resolvedDept =
+      newDoctorDept === '__CUSTOM__' ? customDoctorDept.trim() : newDoctorDept.trim();
+    if (!resolvedDept || resolvedDept.length < 2 || resolvedDept.length > 100) {
+      setIsSubmitting(false);
+      setCreateError('Chuyên khoa chuyên môn phải từ 2 đến 100 ký tự.');
+      return;
+    }
+
     const payload: CreateFacilityDoctorPayload = {
       doctorName: cleanName,
       email: cleanEmail,
       phone: normalizedPhone,
-      specialty: newDoctorDept,
+      specialty: resolvedDept,
       ...(parsedExp !== undefined ? { experienceYears: parsedExp } : {}),
       ...(newDoctorTitle.trim() ? { academicTitle: newDoctorTitle.trim() } : {}),
     };
@@ -301,15 +333,15 @@ export function FacilityStaffView() {
       const newDoc: DoctorStaff = {
         id: createdId,
         name: cleanName,
-        title: newDoctorTitle.trim() ? `${newDoctorTitle.trim()} • ${newDoctorDept}` : `Bác sĩ ${newDoctorDept}`,
-        department: newDoctorDept,
+        title: newDoctorTitle.trim() ? `${newDoctorTitle.trim()} • ${resolvedDept}` : `Bác sĩ ${resolvedDept}`,
+        department: resolvedDept,
         cchnNumber: 'Chờ BS nộp hồ sơ',
         issueDate: 'Chưa nộp',
         credentialsCount: 0,
         panelCap: 0,
         maxCap: 30,
-        rating: 5.0,
-        totalEncounters: 0,
+        rating: null,
+        totalReviews: 0,
         status: 'pending_approval',
         onboardingStatus: 'PENDING_SUBMISSION',
         email: createdRecord?.email || cleanEmail,
@@ -326,7 +358,7 @@ export function FacilityStaffView() {
       setCreatedDoctorInfo({
         name: cleanName,
         email: createdRecord?.email || cleanEmail,
-        specialty: newDoctorDept,
+        specialty: resolvedDept,
         mailSent,
         ...(mailWarning ? { mailWarning } : {}),
       });
@@ -335,6 +367,8 @@ export function FacilityStaffView() {
       setNewDoctorEmail('');
       setNewDoctorPhone('');
       setNewDoctorExp('');
+      setNewDoctorDept('Y học gia đình');
+      setCustomDoctorDept('');
       setNewDoctorTitle('');
       if (mailSent) {
         toast.success(`Đã khởi tạo tài khoản Bác sĩ và gửi email thông tin đăng nhập!`);
@@ -467,11 +501,11 @@ export function FacilityStaffView() {
                 className="h-9 px-3 bg-slate-50 border border-input rounded-xl text-xs sm:text-sm font-medium text-slate-700 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="all">Tất cả chuyên khoa</option>
-                <option value="Y học gia đình">Y học gia đình</option>
-                <option value="Khoa Nội Tổng quát">Khoa Nội Tổng quát</option>
-                <option value="Khoa Nhi">Khoa Nhi</option>
-                <option value="Khoa Nội tiết">Khoa Nội tiết</option>
-                <option value="Khoa Cấp cứu & Y tế Gia đình">Khoa Cấp cứu &amp; Y tế Gia đình</option>
+                {departmentOptions.map((dept) => (
+                  <option key={dept} value={dept}>
+                    {dept}
+                  </option>
+                ))}
               </select>
 
             <select
@@ -897,22 +931,33 @@ export function FacilityStaffView() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                <div className="space-y-2">
+                  <label htmlFor="create-doctor-dept" className="block text-xs font-semibold text-slate-700 mb-1">
                     Khoa phòng chuyên môn
                   </label>
                   <select
+                    id="create-doctor-dept"
                     value={newDoctorDept}
                     onChange={(e) => setNewDoctorDept(e.target.value)}
                     className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 bg-white"
                   >
-                    <option value="Y học gia đình">Y học gia đình</option>
-                    <option value="Khoa Y học Gia đình">Khoa Y học Gia đình</option>
-                    <option value="Khoa Nội Tổng quát">Khoa Nội Tổng quát</option>
-                    <option value="Khoa Nhi">Khoa Nhi</option>
-                    <option value="Khoa Cấp cứu & Y tế Gia đình">Khoa Cấp cứu &amp; Y tế Gia đình</option>
-                    <option value="Khoa Nội tiết">Khoa Nội tiết</option>
+                    {departmentOptions.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
+                    <option value="__CUSTOM__">Khác (nhập chuyên khoa...)</option>
                   </select>
+                  {newDoctorDept === '__CUSTOM__' && (
+                    <input
+                      type="text"
+                      aria-label="Nhập chuyên khoa"
+                      placeholder="VD: Nhi khoa, Tim mạch can thiệp..."
+                      value={customDoctorDept}
+                      onChange={(e) => setCustomDoctorDept(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  )}
                 </div>  
 
                 <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">

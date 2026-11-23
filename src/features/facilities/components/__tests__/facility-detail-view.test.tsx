@@ -98,4 +98,26 @@ describe('FacilityDetailView Component with Full DTO', () => {
       expect(screen.getByText('PGS. TS. Bác sĩ')).toBeInTheDocument();
     });
   });
+
+  it('displays honest empty state without fake doctors or 4.95 rating when facility has zero active doctors', async () => {
+    vi.mocked(publicApi.getFacilityDetail).mockResolvedValue({
+      ...SAMPLE_FACILITY_DTO,
+      featuredDoctors: [],
+    });
+    vi.mocked(publicApi.getDoctors).mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 10,
+    } as any);
+
+    render(<FacilityDetailView id="386586b0-34a0-43f0-9c87-528983872698" />);
+
+    expect(
+      await screen.findByText('Cơ sở y tế hiện chưa có bác sĩ nào đang hoạt động trên hệ thống.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Phạm Minh Đức')).not.toBeInTheDocument();
+    expect(screen.queryByText('Hoàng Minh Tuấn')).not.toBeInTheDocument();
+    expect(screen.queryByText('4.95 ★')).not.toBeInTheDocument();
+  });
 });
