@@ -14,9 +14,7 @@ import {
 import {
   contractsApi,
   matchingApi,
-  patientsApi,
   publicApi,
-  type PatientDto,
   type PublicDoctorCarePackageDto,
   type PublicDoctorDetailDto,
 } from '@/lib/api';
@@ -53,7 +51,55 @@ interface ExistingContractContext {
   facilityId: string;
   memberCount: number;
   additionalTerms: string;
+  homeVisitAddress: string;
   familyRepSigned: boolean;
+}
+
+interface AdminAreaOption {
+  city: string;
+  districts: string[];
+}
+
+const PLACEHOLDER_ADDRESS = 'chưa cập nhật địa chỉ';
+
+function isRealAddress(value?: string | null): value is string {
+  if (typeof value !== 'string') return false;
+  const trimmed = value.trim();
+  return trimmed.length > 0 && trimmed.toLocaleLowerCase('vi') !== PLACEHOLDER_ADDRESS;
+}
+
+function splitExistingAddress(
+  rawAddress: string,
+  areas: AdminAreaOption[],
+): { city: string; ward: string; detail: string } {
+  const trimmed = rawAddress.trim();
+  if (!trimmed) return { city: '', ward: '', detail: '' };
+  const parts = trimmed.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 3) {
+    const candidateCity = parts[parts.length - 1]!;
+    const candidateWard = parts[parts.length - 2]!;
+    const matchedCity = areas.find(
+      (a) => a.city.toLocaleLowerCase('vi') === candidateCity.toLocaleLowerCase('vi'),
+    );
+    if (matchedCity) {
+      const matchedWard = matchedCity.districts.find(
+        (w) => w.toLocaleLowerCase('vi') === candidateWard.toLocaleLowerCase('vi'),
+      );
+      if (matchedWard) {
+        return {
+          city: matchedCity.city,
+          ward: matchedWard,
+          detail: parts.slice(0, -2).join(', '),
+        };
+      }
+      return {
+        city: matchedCity.city,
+        ward: '',
+        detail: parts.slice(0, -1).join(', '),
+      };
+    }
+  }
+  return { city: '', ward: '', detail: trimmed };
 }
 
 export function DoctorContractInitiationPanel({
@@ -73,8 +119,11 @@ export function DoctorContractInitiationPanel({
     useState<PublicDoctorCarePackageDto | null>(null);
   const [existingContract, setExistingContract] =
     useState<ExistingContractContext | null>(null);
-  const [familyMembers, setFamilyMembers] = useState<PatientDto[]>([]);
-  const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
+  const [areas, setAreas] = useState<AdminAreaOption[]>([]);
+  const [selectedCity, setSelectedCity] = useState<string>('');
+  const [selectedWard, setSelectedWard] = useState<string>('');
+  const [addressDetail, setAddressDetail] = useState<string>('');
+  const [addressError, setAddressError] = useState<string | null>(null);
   const [sourceMeta, setSourceMeta] = useState<SourceMeta>({
     kind: 'TRACK_A',
     badgeText: 'Track A · Bác sĩ gia đình đã chọn',
@@ -212,11 +261,14 @@ export function DoctorContractInitiationPanel({
           );
         }
 
-        const [doctorDetail, membersList] = await Promise.all([
+        const [doctorDetail, matchingOptions, gateStatus] = await Promise.all([
           publicApi.getDoctorDetail(targetDoctorId),
-          typeof patientsApi.getFamilyMembers === 'function'
-            ? patientsApi.getFamilyMembers().catch(() => [] as PatientDto[])
-            : Promise.resolve([] as PatientDto[]),
+          typeof matchingApi.getMatchingOptions === 'function'
+            ? matchingApi.getMatchingOptions().catch(() => null)
+            : Promise.resolve(null),
+          typeof contractsApi.getFamilyGateStatus === 'function'
+            ? contractsApi.getFamilyGateStatus().catch(() => null)
+            : Promise.resolve(null),
         ]);
         if (!active) return;
 
@@ -247,6 +299,9 @@ export function DoctorContractInitiationPanel({
                 '',
               memberCount: Math.max(1, contract.memberCount ?? 1),
               additionalTerms: contract.additionalTerms ?? '',
+              homeVisitAddress: isRealAddress(contract.homeVisitAddress)
+                ? contract.homeVisitAddress.trim()
+                : '',
               familyRepSigned: Boolean(
                 contract.signatures?.some((s) => s.signerRole === 'FAMILY_REP')
               ),
@@ -269,17 +324,23 @@ export function DoctorContractInitiationPanel({
           packageCap
         );
 
-        const activePatients = (Array.isArray(membersList) ? membersList : []).filter(
-          (m) => m.status !== 'INACTIVE'
-        );
+        const loadedAreas: AdminAreaOption[] = Array.isArray(matchingOptions?.areas)
+          ? matchingOptions.areas
+          : [];
+        const prefillSource = isRealAddress(contract?.homeVisitAddress)
+          ? contract.homeVisitAddress.trim()
+          : isRealAddress(gateStatus?.familyUnit?.homeAddress)
+            ? gateStatus.familyUnit.homeAddress.trim()
+            : '';
+        const parsedAddr = splitExistingAddress(prefillSource, loadedAreas);
 
         setDoctor(effectiveDoctor);
         setSelectedPackage(matchedPackage);
         setExistingContract(contractContext);
-        setFamilyMembers(activePatients);
-        setSelectedPatientIds(
-          activePatients.slice(0, clampedMembers).map((m) => m.id)
-        );
+        setAreas(loadedAreas);
+        setSelectedCity(parsedAddr.city);
+        setSelectedWard(parsedAddr.ward);
+        setAddressDetail(parsedAddr.detail);
         setSourceMeta(nextSourceMeta);
         setMemberCount(clampedMembers);
         setAdditionalTerms(contractContext?.additionalTerms ?? '');
@@ -358,14 +419,29 @@ export function DoctorContractInitiationPanel({
     return null;
   })();
 
+  const availableWards = useMemo(() => {
+    if (!selectedCity) return [];
+    return areas.find((a) => a.city === selectedCity)?.districts ?? [];
+  }, [areas, selectedCity]);
+
+  const composedHomeVisitAddress = useMemo(() => {
+    const detail = addressDetail.trim();
+    if (!detail) return '';
+    if (selectedCity && selectedWard) {
+      return `${detail}, ${selectedWard}, ${selectedCity}`;
+    }
+    return detail;
+  }, [addressDetail, selectedCity, selectedWard]);
+
   /** Có thay đổi so với hợp đồng cũ hay không. */
   const isDirty = useMemo(() => {
     if (!existingContract) return false;
     return (
       existingContract.memberCount !== effectiveCount ||
-      existingContract.additionalTerms !== additionalTerms.trim()
+      existingContract.additionalTerms !== additionalTerms.trim() ||
+      existingContract.homeVisitAddress !== composedHomeVisitAddress
     );
-  }, [additionalTerms, effectiveCount, existingContract]);
+  }, [additionalTerms, composedHomeVisitAddress, effectiveCount, existingContract]);
 
   const requiresReplacementConfirmation = Boolean(
     existingContract &&
@@ -405,22 +481,39 @@ export function DoctorContractInitiationPanel({
       return;
     }
 
+    const trimmedDetail = addressDetail.trim();
+    if (areas.length > 0 && !selectedCity) {
+      const msg = 'Vui lòng chọn Tỉnh/Thành phố cho địa chỉ Khám tại nhà.';
+      setAddressError(msg);
+      setSubmitError(msg);
+      return;
+    }
+    if (areas.length > 0 && !selectedWard) {
+      const msg = 'Vui lòng chọn Phường/Xã cho địa chỉ Khám tại nhà.';
+      setAddressError(msg);
+      setSubmitError(msg);
+      return;
+    }
+    if (!isRealAddress(trimmedDetail)) {
+      const msg = 'Vui lòng nhập đầy đủ địa chỉ chi tiết (số nhà, tên đường, ngõ/ngách).';
+      setAddressError(msg);
+      setSubmitError(msg);
+      return;
+    }
+
+    setAddressError(null);
     setSubmitError(null);
     setIsSlotConflict(false);
     setConfirmAction(null);
     setIsSubmitting(true);
     try {
       const trimmedTerms = additionalTerms.trim();
-      const validPatientIds =
-        selectedPatientIds.length > 0 && selectedPatientIds.length === effectiveCount
-          ? selectedPatientIds
-          : undefined;
       const created = await contractsApi.initiateFourPartyContract({
         packageId: selectedPackage.id,
         ...(resolvedFacilityId ? { facilityId: resolvedFacilityId } : {}),
         doctorId: resolvedDoctorId,
         memberCount: effectiveCount,
-        ...(validPatientIds ? { patientIds: validPatientIds } : {}),
+        homeVisitAddress: composedHomeVisitAddress,
         ...(matchSessionId ? { matchingSessionId: matchSessionId } : {}),
         ...(queueId ? { queueRequestId: queueId } : {}),
         ...(existingContract ? { replaceContractId: existingContract.id } : {}),
@@ -480,40 +573,54 @@ export function DoctorContractInitiationPanel({
   useEffect(() => {
     if (!selectedPackage || !doctor) return;
     let active = true;
-    setIsPreviewLoading(true);
-    setPreviewError(null);
+    const timer = setTimeout(() => {
+      if (!active) return;
+      setIsPreviewLoading(true);
+      setPreviewError(null);
 
-    contractsApi
-      .previewFourPartyDraftPdf({
-        packageId: selectedPackage.id,
-        doctorId: resolvedDoctorId,
-        ...(resolvedFacilityId ? { facilityId: resolvedFacilityId } : {}),
-        memberCount: effectiveCount,
-      })
-      .then((blob) => {
-        if (!active) return;
-        const url = URL.createObjectURL(blob);
-        setPreviewPdfUrl((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return url;
+      contractsApi
+        .previewFourPartyDraftPdf({
+          packageId: selectedPackage.id,
+          doctorId: resolvedDoctorId,
+          ...(resolvedFacilityId ? { facilityId: resolvedFacilityId } : {}),
+          memberCount: effectiveCount,
+          ...(composedHomeVisitAddress
+            ? { homeVisitAddress: composedHomeVisitAddress }
+            : {}),
+        })
+        .then((blob) => {
+          if (!active) return;
+          const url = URL.createObjectURL(blob);
+          setPreviewPdfUrl((prev) => {
+            if (prev) URL.revokeObjectURL(prev);
+            return url;
+          });
+        })
+        .catch((err) => {
+          if (!active) return;
+          setPreviewError(
+            err instanceof Error
+              ? err.message
+              : 'Không thể kết xuất bản xem trước PDF lúc này.'
+          );
+        })
+        .finally(() => {
+          if (active) setIsPreviewLoading(false);
         });
-      })
-      .catch((err) => {
-        if (!active) return;
-        setPreviewError(
-          err instanceof Error
-            ? err.message
-            : 'Không thể kết xuất bản xem trước PDF lúc này.'
-        );
-      })
-      .finally(() => {
-        if (active) setIsPreviewLoading(false);
-      });
+    }, 250);
 
     return () => {
       active = false;
+      clearTimeout(timer);
     };
-  }, [selectedPackage, doctor, resolvedDoctorId, resolvedFacilityId, effectiveCount]);
+  }, [
+    selectedPackage,
+    doctor,
+    resolvedDoctorId,
+    resolvedFacilityId,
+    effectiveCount,
+    composedHomeVisitAddress,
+  ]);
 
   if (isLoading) {
     return (
@@ -655,6 +762,99 @@ export function DoctorContractInitiationPanel({
               />
             </div>
           ) : null}
+
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-slate-900">
+                Địa chỉ Khám tại nhà <span className="text-rose-600">*</span>
+              </p>
+              <p className="text-xs text-slate-600">
+                Hệ thống dùng địa chỉ này để đưa vào hợp đồng và tự động xếp lịch Khám tại nhà ngay sau khi thanh toán thành công. Danh sách thành viên (tối đa {effectiveCount} người) sẽ được thêm sau khi hợp đồng kích hoạt.
+              </p>
+            </div>
+
+            {areas.length > 0 && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1">
+                  <label
+                    htmlFor="home-visit-city-select"
+                    className="block text-xs font-semibold text-slate-700"
+                  >
+                    1. Tỉnh / Thành phố
+                  </label>
+                  <select
+                    id="home-visit-city-select"
+                    value={selectedCity}
+                    onChange={(e) => {
+                      setSelectedCity(e.target.value);
+                      setSelectedWard('');
+                      setAddressError(null);
+                    }}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    <option value="">-- Chọn Tỉnh / Thành phố --</option>
+                    {areas.map((area) => (
+                      <option key={area.city} value={area.city}>
+                        {area.city}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label
+                    htmlFor="home-visit-ward-select"
+                    className="block text-xs font-semibold text-slate-700"
+                  >
+                    Phường / Xã
+                  </label>
+                  <select
+                    id="home-visit-ward-select"
+                    value={selectedWard}
+                    disabled={!selectedCity}
+                    onChange={(e) => {
+                      setSelectedWard(e.target.value);
+                      setAddressError(null);
+                    }}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 disabled:bg-slate-100 disabled:text-slate-400 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  >
+                    <option value="">-- Chọn Phường / Xã --</option>
+                    {availableWards.map((ward) => (
+                      <option key={ward} value={ward}>
+                        {ward}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <label
+                htmlFor="home-visit-detail-input"
+                className="block text-xs font-semibold text-slate-700"
+              >
+                {areas.length > 0 ? '2. Địa chỉ chi tiết (Số nhà, tên đường, ngõ/ngách, tòa nhà)' : 'Địa chỉ Khám tại nhà chi tiết'}
+              </label>
+              <input
+                id="home-visit-detail-input"
+                type="text"
+                value={addressDetail}
+                onChange={(e) => {
+                  setAddressDetail(e.target.value);
+                  setAddressError(null);
+                }}
+                placeholder="Ví dụ: Số 12, Ngõ 34 Đường Nguyễn Trãi, Tòa B"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              />
+            </div>
+
+            {addressError && (
+              <p role="alert" className="text-xs font-medium text-rose-700">
+                {addressError}
+              </p>
+            )}
+          </div>
 
           <div className="space-y-1.5 pt-1">
             <label

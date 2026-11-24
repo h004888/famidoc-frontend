@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import {
@@ -32,6 +32,7 @@ export function formatVietnameseDateTime(value?: string | null): string | null {
   return new Intl.DateTimeFormat('vi-VN', {
     dateStyle: 'short',
     timeStyle: 'short',
+    timeZone: 'Asia/Ho_Chi_Minh',
   }).format(new Date(timestamp));
 }
 
@@ -437,6 +438,36 @@ export function BookingContractTrackingPanel({
   const [isOpeningPdf, setIsOpeningPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
   const state = signingStateOf(contract);
+  const [clock, setClock] = useState(() => Date.now());
+  const [serverOffset, setServerOffset] = useState(() => {
+    const serverTime = Date.parse(contract.serverTime ?? '');
+    return Number.isFinite(serverTime) ? serverTime - Date.now() : 0;
+  });
+  const refreshedDeadline = useRef<string | null>(null);
+  const deadline = state.isAwaitingSignatures ? contract.signingDeadlineAt : null;
+  const deadlineMs = deadline ? Date.parse(deadline) : NaN;
+  const remaining = Number.isFinite(deadlineMs)
+    ? Math.max(0, Math.ceil((deadlineMs - clock - serverOffset) / 1000))
+    : null;
+  const isPastDeadline = remaining === 0;
+  useEffect(() => {
+    const now = Date.now();
+    const serverTime = Date.parse(contract.serverTime ?? '');
+    setServerOffset(Number.isFinite(serverTime) ? serverTime - now : 0);
+    setClock(now);
+  }, [contract.id, contract.serverTime]);
+  useEffect(() => {
+    if (!deadline || isPastDeadline) return;
+    const timer = window.setInterval(() => setClock(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [deadline, isPastDeadline]);
+  useEffect(() => {
+    if (!deadline || !isPastDeadline) return;
+    const key = `${contract.id}:${deadline}`;
+    if (refreshedDeadline.current === key) return;
+    refreshedDeadline.current = key;
+    onRefresh();
+  }, [contract.id, deadline, isPastDeadline, onRefresh]);
   /** Hợp đồng có bản Documenso để tải PDF đã ký (đủ 4/4 chữ ký mới tải được). */
   const hasDocumensoPdf = Boolean(
     (contract.documensoItemId || contract.signedPdfUrl) &&
@@ -577,7 +608,17 @@ export function BookingContractTrackingPanel({
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-start">
         <div className="min-w-0 space-y-4">
-          {state.isAwaitingSignatures && !isPostFamilySigning && (
+          {deadline && remaining !== null && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+              <p className="font-semibold">Hạn ký: {formatVietnameseDateTime(deadline)} (giờ Việt Nam)</p>
+              <p>
+                {isPastDeadline
+                  ? 'Đã hết thời gian ký. Hệ thống đang xác nhận kết quả.'
+                  : `Còn ${Math.floor(remaining / 3600)} giờ ${Math.floor((remaining % 3600) / 60)} phút ${remaining % 60} giây.`}
+              </p>
+            </div>
+          )}
+          {state.isAwaitingSignatures && !isPostFamilySigning && !isPastDeadline && (
             <DocumensoSigningEmbed
               contractId={contract.id}
               hideHeaderSyncButton
@@ -673,6 +714,9 @@ export function BookingContractTrackingPanel({
               <h2 className="text-base font-bold text-slate-900">
                 Hợp đồng này đã kết thúc
               </h2>
+              {contract.terminationReason && (
+                <p className="text-sm text-slate-700">{contract.terminationReason}</p>
+              )}
               <p className="text-sm leading-relaxed text-slate-600">
                 Hợp đồng không còn hiệu lực để tiếp tục ký hoặc thanh toán. Vui lòng chọn
                 bác sĩ và gói chăm sóc mới nếu bạn muốn đăng ký lại.

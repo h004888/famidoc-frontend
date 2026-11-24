@@ -199,6 +199,23 @@ const contractDetailFixture = {
 };
 
 describe('BookingTrackingStep', () => {
+  it('refreshes an expired signing deadline and shows the confirmed cancellation', async () => {
+    const signingDeadlineAt = new Date(Date.now() - 1000).toISOString();
+    vi.mocked(contractsApi.getMedicalContractDetail)
+      .mockResolvedValueOnce({ ...contractDetailFixture, signingDeadlineAt } as never)
+      .mockResolvedValueOnce({
+        ...contractDetailFixture,
+        signingDeadlineAt,
+        contractStatus: 'TERMINATED',
+        terminationReason: 'Hết hạn ký hợp đồng sau 24 giờ',
+      } as never);
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(await screen.findByText('Hết hạn ký hợp đồng sau 24 giờ')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Chọn bác sĩ.*gói chăm sóc/i })).toHaveAttribute('href', '/doctors');
+    expect(screen.queryByText(/Hệ thống đang xác nhận kết quả/)).not.toBeInTheDocument();
+  });
   beforeEach(() => {
     pushMock.mockReset();
     vi.clearAllMocks();
