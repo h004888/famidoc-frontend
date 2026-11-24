@@ -59,6 +59,33 @@ describe('DoctorContractInitiationPanel', () => {
     vi.restoreAllMocks();
     pushMock.mockReset();
     vi.spyOn(patientsApi, 'getFamilyMembers').mockResolvedValue([]);
+    vi.spyOn(matchingApi, 'getMatchingOptions').mockResolvedValue({
+      areas: [
+        {
+          city: 'Thành phố Hà Nội',
+          districts: ['Phường Láng Thượng', 'Phường Thượng Đình'],
+        },
+        {
+          city: 'Thành phố Hồ Chí Minh',
+          districts: ['Phường Bến Nghé'],
+        },
+      ],
+      ageGroups: [],
+      careCategories: [],
+      academicTitles: [],
+    } as never);
+    vi.spyOn(contractsApi, 'getFamilyGateStatus').mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      familyUnit: {
+        id: 'fam-1',
+        homeAddress: 'Số 10 Nguyễn Trãi, Phường Thượng Đình, Thành phố Hà Nội',
+        emergencyPhone: '0900000000',
+        representativeName: 'Nguyễn Văn A',
+      },
+      patientCount: 1,
+    });
     vi.spyOn(contractsApi, 'previewFourPartyDraftPdf').mockResolvedValue(
       new Blob(['%PDF-1.4'], { type: 'application/pdf' })
     );
@@ -80,45 +107,8 @@ describe('DoctorContractInitiationPanel', () => {
     }
   });
 
-  it('nạp danh sách thành viên thật, pre-select tối đa memberCount, suy ra facility và khởi tạo hợp đồng 4 bên', async () => {
+  it('không chọn patientIds trước thanh toán, suy ra facility, ghép địa chỉ 2 phần và khởi tạo hợp đồng 4 bên', async () => {
     vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
-    const patientsSpy = vi
-      .spyOn(patientsApi, 'getFamilyMembers')
-      .mockResolvedValueOnce([
-        {
-          id: 'pat-1',
-          familyId: 'fam-1',
-          fullName: 'Nguyễn Văn A',
-          dateOfBirth: '1985-01-01',
-          gender: 'MALE',
-          relationshipToHead: 'SELF',
-          status: 'ACTIVE',
-          createdAt: '2026-01-01',
-          updatedAt: '2026-01-01',
-        },
-        {
-          id: 'pat-2',
-          familyId: 'fam-1',
-          fullName: 'Trần Thị B',
-          dateOfBirth: '1988-01-01',
-          gender: 'FEMALE',
-          relationshipToHead: 'SPOUSE',
-          status: 'ACTIVE',
-          createdAt: '2026-01-01',
-          updatedAt: '2026-01-01',
-        },
-        {
-          id: 'pat-3',
-          familyId: 'fam-1',
-          fullName: 'Nguyễn Bé C',
-          dateOfBirth: '2020-01-01',
-          gender: 'MALE',
-          relationshipToHead: 'CHILD',
-          status: 'ACTIVE',
-          createdAt: '2026-01-01',
-          updatedAt: '2026-01-01',
-        },
-      ]);
     const initiateSpy = vi
       .spyOn(contractsApi, 'initiateFourPartyContract')
       .mockResolvedValueOnce({
@@ -140,8 +130,10 @@ describe('DoctorContractInitiationPanel', () => {
       expect(screen.getAllByText(/ThS\. BS Trương Hán Siêu/i).length).toBeGreaterThanOrEqual(1);
     });
 
-    expect(patientsSpy).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId('contract-legal-preview')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Danh sách thành viên \(tối đa 3 người\) sẽ được thêm sau khi hợp đồng kích hoạt/i)
+    ).toBeInTheDocument();
 
     fireEvent.change(
       screen.getByLabelText(/Điều khoản \/ Ghi chú thỏa thuận bổ sung/i),
@@ -158,7 +150,7 @@ describe('DoctorContractInitiationPanel', () => {
         facilityId: 'fac-1',
         doctorId: 'doc-1',
         memberCount: 3,
-        patientIds: ['pat-1', 'pat-2', 'pat-3'],
+        homeVisitAddress: 'Số 10 Nguyễn Trãi, Phường Thượng Đình, Thành phố Hà Nội',
         additionalTerms: 'Ưu tiên thăm khám buổi sáng',
       });
       expect(pushMock).toHaveBeenCalledWith(
@@ -268,6 +260,7 @@ describe('DoctorContractInitiationPanel', () => {
       contractStatus: 'PENDING_APPROVAL',
       memberCount: 3,
       additionalTerms: '',
+      homeVisitAddress: 'Số 10 Nguyễn Trãi, Phường Thượng Đình, Thành phố Hà Nội',
       servicePackage: { id: 'pkg-3m' },
       doctor: { id: 'doc-1' },
       facility: { id: 'fac-1' },
@@ -304,6 +297,7 @@ describe('DoctorContractInitiationPanel', () => {
         facilityId: 'fac-1',
         doctorId: 'doc-1',
         memberCount: 3,
+        homeVisitAddress: 'Số 10 Nguyễn Trãi, Phường Thượng Đình, Thành phố Hà Nội',
         additionalTerms: 'Cập nhật ghi chú mới',
         replaceContractId: 'ctr-draft-1',
       });
@@ -318,6 +312,7 @@ describe('DoctorContractInitiationPanel', () => {
       contractStatus: 'PENDING_PAYMENT',
       memberCount: 3,
       additionalTerms: '',
+      homeVisitAddress: 'Số 10 Nguyễn Trãi, Phường Thượng Đình, Thành phố Hà Nội',
       servicePackage: { id: 'pkg-3m' },
       doctor: { id: 'doc-1' },
       facility: { id: 'fac-1' },
@@ -482,5 +477,131 @@ describe('DoctorContractInitiationPanel', () => {
     expect(
       screen.getByRole('link', { name: /Vào Bảng điều khiển Gia đình/i })
     ).toHaveAttribute('href', '/family');
+  });
+
+  it('cho phép chọn Tỉnh/Thành phố, Phường/Xã từ API v2 + nhập địa chỉ chi tiết và truyền vào PDF preview + khởi tạo hợp đồng', async () => {
+    vi.spyOn(contractsApi, 'getFamilyGateStatus').mockResolvedValueOnce({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      familyUnit: {
+        id: 'fam-1',
+        homeAddress: 'Chưa cập nhật địa chỉ',
+        emergencyPhone: '0900000000',
+        representativeName: 'Nguyễn Văn A',
+      },
+      patientCount: 1,
+    });
+    vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
+    const previewSpy = vi.spyOn(contractsApi, 'previewFourPartyDraftPdf');
+    const initiateSpy = vi
+      .spyOn(contractsApi, 'initiateFourPartyContract')
+      .mockResolvedValueOnce({ id: 'ctr-addr-1' } as never);
+
+    render(
+      <DoctorContractInitiationPanel
+        packageId="pkg-3m"
+        doctorId="doc-1"
+        requestedMembers={3}
+      />
+    );
+
+    const citySelect = await screen.findByLabelText(/1\. Tỉnh \/ Thành phố/i);
+    fireEvent.change(citySelect, { target: { value: 'Thành phố Hồ Chí Minh' } });
+
+    const wardSelect = screen.getByLabelText(/Phường \/ Xã/i);
+    fireEvent.change(wardSelect, { target: { value: 'Phường Bến Nghé' } });
+
+    const detailInput = screen.getByLabelText(/2\. Địa chỉ chi tiết/i);
+    fireEvent.change(detailInput, { target: { value: 'Số 88 Đồng Khởi' } });
+
+    await waitFor(() => {
+      expect(previewSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          homeVisitAddress: 'Số 88 Đồng Khởi, Phường Bến Nghé, Thành phố Hồ Chí Minh',
+        })
+      );
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục ký hợp đồng/i }));
+
+    await waitFor(() => {
+      expect(initiateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          homeVisitAddress: 'Số 88 Đồng Khởi, Phường Bến Nghé, Thành phố Hồ Chí Minh',
+        })
+      );
+    });
+  });
+
+  it('chặn submit khi thiếu 1 trong 2 phần địa chỉ (thiếu Tỉnh/Phường hoặc thiếu Địa chỉ chi tiết)', async () => {
+    vi.spyOn(contractsApi, 'getFamilyGateStatus').mockResolvedValueOnce({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      familyUnit: {
+        id: 'fam-1',
+        homeAddress: 'Chưa cập nhật địa chỉ',
+        emergencyPhone: '0900000000',
+        representativeName: 'Nguyễn Văn A',
+      },
+      patientCount: 1,
+    });
+    vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
+    const initiateSpy = vi.spyOn(contractsApi, 'initiateFourPartyContract');
+
+    render(
+      <DoctorContractInitiationPanel
+        packageId="pkg-3m"
+        doctorId="doc-1"
+        requestedMembers={3}
+      />
+    );
+
+    const citySelect = await screen.findByLabelText(/1\. Tỉnh \/ Thành phố/i);
+    // Chưa chọn Tỉnh/Thành phố
+    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục ký hợp đồng/i }));
+    expect(await screen.findByTestId('submit-error-alert')).toHaveTextContent(
+      /Vui lòng chọn Tỉnh\/Thành phố/i
+    );
+    expect(initiateSpy).not.toHaveBeenCalled();
+
+    // Đã chọn Tỉnh & Phường nhưng để trống địa chỉ chi tiết
+    fireEvent.change(citySelect, { target: { value: 'Thành phố Hà Nội' } });
+    fireEvent.change(screen.getByLabelText(/Phường \/ Xã/i), {
+      target: { value: 'Phường Láng Thượng' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục ký hợp đồng/i }));
+
+    expect(await screen.findByTestId('submit-error-alert')).toHaveTextContent(
+      /Vui lòng nhập đầy đủ địa chỉ chi tiết/i
+    );
+    expect(initiateSpy).not.toHaveBeenCalled();
+  });
+
+  it('pre-fill địa chỉ 2 phần từ existingContract.homeVisitAddress', async () => {
+    vi.spyOn(contractsApi, 'getMedicalContractDetail').mockResolvedValueOnce({
+      id: 'ctr-prefill-1',
+      contractNumber: 'MC-PREFILL-01',
+      contractStatus: 'PENDING_APPROVAL',
+      memberCount: 3,
+      additionalTerms: '',
+      homeVisitAddress: 'Số 99 Chùa Láng, Phường Láng Thượng, Thành phố Hà Nội',
+      servicePackage: { id: 'pkg-3m' },
+      doctor: { id: 'doc-1' },
+      facility: { id: 'fac-1' },
+      signatures: [],
+    } as never);
+    vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
+
+    render(<DoctorContractInitiationPanel contractId="ctr-prefill-1" requestedMembers={1} />);
+
+    const citySelect = (await screen.findByLabelText(/1\. Tỉnh \/ Thành phố/i)) as HTMLSelectElement;
+    const wardSelect = screen.getByLabelText(/Phường \/ Xã/i) as HTMLSelectElement;
+    const detailInput = screen.getByLabelText(/2\. Địa chỉ chi tiết/i) as HTMLInputElement;
+
+    expect(citySelect.value).toBe('Thành phố Hà Nội');
+    expect(wardSelect.value).toBe('Phường Láng Thượng');
+    expect(detailInput.value).toBe('Số 99 Chùa Láng');
   });
 });

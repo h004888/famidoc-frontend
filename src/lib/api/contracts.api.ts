@@ -113,6 +113,7 @@ export interface MedicalContractDetailDto {
   remainingHomeVisits?: number;
   remainingTelehealth?: number;
   additionalTerms?: string | null;
+  homeVisitAddress?: string | null;
   documensoEnvelopeId?: string | null;
   documensoItemId?: string | null;
   signedPdfUrl?: string | null;
