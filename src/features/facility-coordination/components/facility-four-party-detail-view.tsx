@@ -1,235 +1,246 @@
 'use client';
 
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  DocumensoSigningEmbed,
-  openSignedPdf,
-} from '@/features/four-party-contract';
+  CheckCircle2,
+  Clock,
+  Download,
+  ExternalLink,
+  FileText,
+  Lock,
+  RefreshCw,
+} from 'lucide-react';
+import { DocumensoSigningEmbed } from '@/features/four-party-contract';
 import {
   contractsApi,
   extractErrorMessage,
   type BackendSignerRole,
-  type CareNeedsSummaryDto,
   type MedicalContractDetailDto,
 } from '@/lib/api';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Card } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 export interface FacilityFourPartyDetailViewProps {
   contractId: string;
+  /** Chu kỳ tự cập nhật khi chờ đủ 4/4 chữ ký (ms). Mặc định 10000ms. */
+  pollingIntervalMs?: number;
 }
 
-interface ResolvedMemberRow {
-  id: string;
-  fullName: string;
-  relationship: string;
-  age: number | null;
-  gender: string;
-  allergiesText: string;
-}
+const TOTAL_PARTIES = 4;
 
-function formatPriceVnd(value: number | string | undefined): string {
-  const num = typeof value === 'number' ? value : Number(value ?? 0);
-  if (!Number.isFinite(num)) return '—';
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-  }).format(num);
-}
-
-function formatDateTimeVi(value?: string | null): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleString('vi-VN', {
+function formatSignedDateTime(value?: string | null): string | null {
+  if (!value) return null;
+  const ts = Date.parse(value);
+  if (Number.isNaN(ts)) return null;
+  return new Intl.DateTimeFormat('vi-VN', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-  });
+  }).format(new Date(ts));
 }
-
-function formatGenderVi(gender?: string): string {
-  const g = (gender || '').toUpperCase();
-  if (g === 'MALE' || g === 'NAM') return 'Nam';
-  if (g === 'FEMALE' || g === 'NU' || g === 'NỮ') return 'Nữ';
-  return gender || '—';
-}
-
-function formatRelationshipVi(rel?: string): string {
-  const r = (rel || '').toUpperCase();
-  if (r === 'HEAD' || r === 'SELF') return 'Chủ hộ';
-  if (r === 'SPOUSE') return 'Vợ / Chồng';
-  if (r === 'CHILD' || r === 'CON') return 'Con';
-  if (r === 'PARENT') return 'Bố / Mẹ';
-  if (r === 'MEMBER') return 'Thành viên';
-  return rel || 'Thành viên';
-}
-
-function computeAgeFromDob(dob?: string): number | null {
-  if (!dob) return null;
-  const birth = new Date(dob);
-  if (Number.isNaN(birth.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - birth.getFullYear();
-  const m = now.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && now.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age >= 0 ? age : null;
-}
-
-function resolveMembers(
-  detail: MedicalContractDetailDto,
-  careSummary: CareNeedsSummaryDto | null
-): ResolvedMemberRow[] {
-  if (careSummary?.members && careSummary.members.length > 0) {
-    return careSummary.members.map((m, idx) => ({
-      id: m.patientId || `member-${idx}`,
-      fullName: m.fullName || 'Thành viên',
-      relationship: formatRelationshipVi(m.relationshipToHead),
-      age: Number.isFinite(m.age) ? m.age : computeAgeFromDob(m.dateOfBirth),
-      gender: formatGenderVi(m.gender),
-      allergiesText:
-        m.allergies && m.allergies.length > 0
-          ? m.allergies
-              .map((a) => {
-                const name = a.allergenName || a.allergen || 'Dị ứng';
-                return a.severity ? `${name} (${a.severity})` : name;
-              })
-              .join(', ')
-          : 'Không ghi nhận',
-    }));
-  }
-
-  if (detail.members && detail.members.length > 0) {
-    return detail.members.map((m, idx) => ({
-      id: m.patientId || m.id || `detail-member-${idx}`,
-      fullName: m.patient?.fullName || 'Thành viên',
-      relationship: formatRelationshipVi(m.patient?.relationshipToHead),
-      age: computeAgeFromDob(m.patient?.dateOfBirth),
-      gender: formatGenderVi(m.patient?.gender),
-      allergiesText: careSummary
-        ? 'Không ghi nhận'
-        : 'Chưa tải được thông tin dị ứng',
-    }));
-  }
-
-  return [];
-}
-
-const TIMELINE_PARTY_META: Array<{
-  code: 'A' | 'B' | 'C' | 'D';
-  role: BackendSignerRole;
-  title: string;
-  waitingAfterAHit: string;
-}> = [
-  {
-    code: 'A',
-    role: 'FAMILY_REP',
-    title: 'Bên A · Đại diện Hộ gia đình',
-    waitingAfterAHit: 'Cần hoàn tất ký đầu tiên để mở khóa các bên còn lại',
-  },
-  {
-    code: 'B',
-    role: 'HEALTHCARE_FACILITY',
-    title: 'Bên B · Cơ sở Y tế',
-    waitingAfterAHit: 'Thực hiện ký số tại khung Documenso bên phải',
-  },
-  {
-    code: 'C',
-    role: 'ASSIGNED_DOCTOR',
-    title: 'Bên C · Bác sĩ Gia đình',
-    waitingAfterAHit: 'Ký song song sau khi Bên A hoàn tất',
-  },
-  {
-    code: 'D',
-    role: 'ADMIN',
-    title: 'Bên D · Nền tảng FamiDoc',
-    waitingAfterAHit: 'Ký song song sau khi Bên A hoàn tất',
-  },
-];
 
 export function FacilityFourPartyDetailView({
   contractId,
+  pollingIntervalMs = 10_000,
 }: FacilityFourPartyDetailViewProps) {
   const [detail, setDetail] = useState<MedicalContractDetailDto | null>(null);
-  const [careSummary, setCareSummary] = useState<CareNeedsSummaryDto | null>(
-    null
-  );
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false);
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfReloadTick, setPdfReloadTick] = useState(0);
   const requestSeqRef = useRef(0);
+  const hasDetailRef = useRef(false);
 
-  const loadData = useCallback(async () => {
-    const seq = ++requestSeqRef.current;
-    setIsLoading(true);
-    setLoadError(null);
-    const [detailResult, careResult] = await Promise.allSettled([
-      contractsApi.getMedicalContractDetail(contractId),
-      contractsApi.getCareSummary(contractId),
-    ]);
-    if (seq !== requestSeqRef.current) return;
-
-    if (detailResult.status === 'rejected') {
-      setLoadError(
-        extractErrorMessage(
-          detailResult.reason,
-          'Không thể tải chi tiết hợp đồng y tế 4 bên. Vui lòng thử lại.'
-        )
-      );
-      setDetail(null);
-      setCareSummary(null);
-      setIsLoading(false);
-      return;
-    }
-
-    setDetail(detailResult.value);
-    if (careResult.status === 'fulfilled') {
-      setCareSummary(careResult.value);
-    } else {
-      setCareSummary(null);
-    }
-    setIsLoading(false);
-  }, [contractId]);
+  const loadData = useCallback(
+    async (options?: { showSpinner?: boolean; forceSync?: boolean }) => {
+      const seq = ++requestSeqRef.current;
+      if (options?.showSpinner) {
+        setIsRefreshing(true);
+      } else if (!hasDetailRef.current) {
+        setIsLoading(true);
+      }
+      setLoadError(null);
+      try {
+        const data = options?.forceSync
+          ? await contractsApi.getMedicalContractDetail(contractId, {
+              forceSync: true,
+            })
+          : await contractsApi.getMedicalContractDetail(contractId);
+        if (seq !== requestSeqRef.current) return;
+        hasDetailRef.current = true;
+        setDetail(data);
+        setLoadError(null);
+      } catch (err) {
+        if (seq !== requestSeqRef.current) return;
+        if (!hasDetailRef.current) {
+          setLoadError(
+            extractErrorMessage(
+              err,
+              'Không thể tải chi tiết hợp đồng y tế 4 bên. Vui lòng thử lại.'
+            )
+          );
+          setDetail(null);
+        }
+      } finally {
+        if (seq === requestSeqRef.current) {
+          setIsLoading(false);
+          setIsRefreshing(false);
+        }
+      }
+    },
+    [contractId]
+  );
 
   useEffect(() => {
+    hasDetailRef.current = false;
     void loadData();
     return () => {
       requestSeqRef.current += 1;
     };
   }, [loadData]);
 
-  const handleDownloadPdf = async () => {
-    if (!detail) return;
-    setIsDownloadingPdf(true);
-    setPdfError(null);
-    try {
-      await openSignedPdf(detail.id);
-    } catch (err) {
-      setPdfError(
-        err instanceof Error
-          ? err.message
-          : 'Không thể tải bản PDF đã ký từ máy chủ.'
-      );
-    } finally {
-      setIsDownloadingPdf(false);
+  const signaturesByRole = useMemo(() => {
+    const map = new Map<BackendSignerRole, string | null>();
+    for (const sig of detail?.signatures ?? []) {
+      map.set(sig.signerRole, sig.signedAt ?? null);
     }
+    return map;
+  }, [detail?.signatures]);
+
+  const signedCount = signaturesByRole.size;
+  const hasFacilitySigned = Boolean(
+    signaturesByRole.has('HEALTHCARE_FACILITY') ||
+      detail?.contractStatus === 'ACTIVE'
+  );
+  const isAllFourSigned = Boolean(
+    detail &&
+      (signedCount >= TOTAL_PARTIES || detail.contractStatus === 'ACTIVE')
+  );
+  const isWaitingOthersAfterFacilitySigned =
+    Boolean(detail) && hasFacilitySigned && !isAllFourSigned;
+
+  // Tự động kiểm tra tiến độ mỗi 10s khi CSYT đã ký và đang chờ các bên còn lại.
+  useEffect(() => {
+    if (!isWaitingOthersAfterFacilitySigned || pollingIntervalMs <= 0) {
+      return;
+    }
+    const timer = setInterval(() => {
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'hidden'
+      ) {
+        return;
+      }
+      void loadData();
+    }, pollingIntervalMs);
+    return () => clearInterval(timer);
+  }, [isWaitingOthersAfterFacilitySigned, loadData, pollingIntervalMs]);
+
+  // Tải trực tiếp PDF đầy đủ chữ ký để preview ngay trên trang khi đủ 4/4 bên.
+  const targetId = detail?.id;
+  useEffect(() => {
+    if (!targetId || !isAllFourSigned) {
+      setPdfBlobUrl(null);
+      setPdfError(null);
+      return;
+    }
+    let active = true;
+    let createdUrl: string | null = null;
+    setIsLoadingPdf(true);
+    setPdfError(null);
+
+    contractsApi
+      .downloadSignedPdf(targetId)
+      .then((blob) => {
+        if (!active) return;
+        createdUrl = URL.createObjectURL(blob);
+        setPdfBlobUrl(createdUrl);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setPdfError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải bản PDF hợp đồng đã ký.'
+        );
+      })
+      .finally(() => {
+        if (active) setIsLoadingPdf(false);
+      });
+
+    return () => {
+      active = false;
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [isAllFourSigned, pdfReloadTick, targetId]);
+
+  const parties = useMemo(() => {
+    if (!detail) return [];
+    const familyName =
+      detail.familyUnit?.representativeUser?.fullName?.trim() ||
+      'Đại diện Hộ gia đình';
+    const facilityName =
+      detail.facility?.facilityName?.trim() || 'Cơ sở Y tế điều phối';
+    const doctorName =
+      detail.doctor?.doctorName?.trim() ||
+      detail.doctor?.user?.fullName?.trim() ||
+      'Bác sĩ Gia đình phụ trách';
+
+    return [
+      {
+        role: 'FAMILY_REP' as const,
+        label: 'Gia đình',
+        name: familyName,
+        signed: signaturesByRole.has('FAMILY_REP') || detail.contractStatus === 'ACTIVE',
+        signedAt: signaturesByRole.get('FAMILY_REP') ?? null,
+      },
+      {
+        role: 'HEALTHCARE_FACILITY' as const,
+        label: 'Cơ sở y tế điều phối (Bạn)',
+        name: facilityName,
+        signed:
+          signaturesByRole.has('HEALTHCARE_FACILITY') ||
+          detail.contractStatus === 'ACTIVE',
+        signedAt: signaturesByRole.get('HEALTHCARE_FACILITY') ?? null,
+      },
+      {
+        role: 'ASSIGNED_DOCTOR' as const,
+        label: 'Bác sĩ phụ trách',
+        name: doctorName,
+        signed:
+          signaturesByRole.has('ASSIGNED_DOCTOR') ||
+          detail.contractStatus === 'ACTIVE',
+        signedAt: signaturesByRole.get('ASSIGNED_DOCTOR') ?? null,
+      },
+      {
+        role: 'ADMIN' as const,
+        label: 'Nền tảng FamiDoc',
+        name: 'Hệ thống FamiDoc',
+        signed: signaturesByRole.has('ADMIN') || detail.contractStatus === 'ACTIVE',
+        signedAt: signaturesByRole.get('ADMIN') ?? null,
+      },
+    ];
+  }, [detail, signaturesByRole]);
+
+  const handleDownloadPdfFile = () => {
+    if (!pdfBlobUrl || !detail) return;
+    const link = document.createElement('a');
+    link.href = pdfBlobUrl;
+    link.download = `hop-dong-${detail.contractNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
   if (isLoading) {
@@ -241,7 +252,7 @@ export function FacilityFourPartyDetailView({
       >
         <div className="h-8 w-8 animate-spin rounded-full border-3 border-[#eaeffa] border-t-[#0037c1]" />
         <p className="text-sm font-medium">
-          Đang tải chi tiết hợp đồng y tế 4 bên...
+          Đang tải hợp đồng và phiên ký Documenso...
         </p>
       </div>
     );
@@ -265,7 +276,7 @@ export function FacilityFourPartyDetailView({
           <div className="flex flex-wrap items-center gap-3">
             <Button
               type="button"
-              onClick={() => void loadData()}
+              onClick={() => void loadData({ showSpinner: true })}
               className="min-h-[44px] cursor-pointer rounded-lg bg-[#0046c0] text-sm font-semibold text-white hover:bg-[#003899]"
             >
               Thử lại
@@ -275,9 +286,7 @@ export function FacilityFourPartyDetailView({
               variant="outline"
               className="min-h-[44px] rounded-lg border-[#acc0f3] bg-[#f0fbff] text-sm font-semibold text-[#0037c1]"
             >
-              <Link href="/facility/coordination">
-                Quay lại danh sách Hợp đồng Y tế 4 bên
-              </Link>
+              <Link href="/facility/contracts">Quay lại Quản lý Hợp đồng</Link>
             </Button>
           </div>
         </div>
@@ -285,492 +294,265 @@ export function FacilityFourPartyDetailView({
     );
   }
 
-  const members = resolveMembers(detail, careSummary);
-  const signaturesByRole = new Map(
-    (detail.signatures ?? []).map((s) => [s.signerRole, s])
+  const progressPercent = Math.min(
+    100,
+    Math.round((signedCount / TOTAL_PARTIES) * 100)
   );
-  const isCompleteStatus =
-    detail.contractStatus === 'PENDING_PAYMENT' ||
-    detail.contractStatus === 'ACTIVE';
-  const isEndedStatus =
-    detail.contractStatus === 'EXPIRED' ||
-    detail.contractStatus === 'TERMINATED';
-  const familySigned =
-    signaturesByRole.has('FAMILY_REP') || isCompleteStatus;
-
-  const timelineNodes = TIMELINE_PARTY_META.map((meta) => {
-    const sig = signaturesByRole.get(meta.role);
-    const signerFallback = detail.documensoSigners?.find(
-      (s) => s.signerRole === meta.role && s.completedAt
-    );
-    const signed = Boolean(sig) || isCompleteStatus;
-    const signedAt = sig?.signedAt ?? signerFallback?.completedAt ?? null;
-    const isActiveTurn =
-      !signed &&
-      !isEndedStatus &&
-      detail.contractStatus === 'PENDING_APPROVAL' &&
-      (meta.role === 'FAMILY_REP' ? true : familySigned);
-
-    return {
-      ...meta,
-      signed,
-      signedAt,
-      isActiveTurn,
-    };
-  });
-
-  const signedCount = timelineNodes.filter((n) => n.signed).length;
-  const allFourSigned =
-    !isEndedStatus &&
-    (signedCount >= 4 || Boolean(detail.signedPdfUrl) || isCompleteStatus);
-
-  const hasDoctor = Boolean(detail.doctor);
-  const doctorName =
-    detail.doctor?.doctorName ||
-    detail.doctor?.user?.fullName ||
-    'Chưa có thông tin bác sĩ';
-  const doctorCchn =
-    detail.doctor?.cchnNumber ||
-    detail.doctor?.credentials?.find(
-      (c) => c.credentialType === 'PRACTICE_LICENSE_CCHN'
-    )?.certificateNumber;
-  const packageName =
-    detail.billingSnapshot?.package?.name ||
-    detail.servicePackage?.packageName ||
-    careSummary?.packageName ||
-    'Gói Chăm Sóc Gia Đình';
-  const totalPrice =
-    detail.billingSnapshot?.pricing?.totalPriceVnd ?? detail.totalAmount;
-  const durationMonths = detail.servicePackage?.durationMonths ?? 12;
-  const memberCount = detail.memberCount ?? (members.length || 1);
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9] p-4 font-sans text-[#131b2f] antialiased sm:p-6 lg:p-8">
-      <div className="mx-auto max-w-7xl space-y-6">
-        {/* Back link & Header */}
-        <div className="space-y-3 border-b border-[#e4e8ed] pb-5">
+    <div className="min-h-screen bg-slate-50/50 p-4 font-sans text-slate-800 sm:p-6">
+      <div className="mx-auto max-w-5xl space-y-4">
+        {/* Top bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
-            href="/facility/coordination"
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#0037c1] transition-colors hover:text-[#00258b]"
+            href="/facility/contracts"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-slate-800"
           >
-            <span className="material-symbols-outlined text-[18px]">
-              arrow_back
-            </span>
-            <span>Quay lại danh sách Hợp đồng Y tế 4 bên</span>
+            <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+            Quay lại Quản lý Hợp đồng
           </Link>
 
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
-            <div className="space-y-1">
-              <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl font-semibold tracking-tight text-[#20283d] tabular-nums">
-                  Hợp đồng Y tế 4 bên · {detail.contractNumber}
-                </h1>
-                {isEndedStatus ? (
-                  <Badge
-                    variant="outline"
-                    className="h-6 rounded-full border-[#ffa39e] bg-[#fff1f0] px-2.5 text-xs font-semibold text-[#d92d20] tabular-nums"
-                  >
-                    {detail.contractStatus === 'EXPIRED'
-                      ? 'Đã hết hạn'
-                      : 'Đã hủy / Chấm dứt'}
-                  </Badge>
-                ) : allFourSigned ? (
-                  <Badge
-                    variant="outline"
-                    className="h-6 rounded-full border-[#b7eb8f] bg-[#f6ffed] px-2.5 text-xs font-semibold text-[#039855] tabular-nums"
-                  >
-                    {detail.contractStatus === 'ACTIVE'
-                      ? 'Đang hiệu lực (4/4)'
-                      : 'Hoàn tất 4/4 chữ ký'}
-                  </Badge>
-                ) : !familySigned ? (
-                  <Badge
-                    variant="outline"
-                    className="h-6 rounded-full border-[#d9dfe5] bg-[#f6f7f9] px-2.5 text-xs font-semibold text-[#4a4f63] tabular-nums"
-                  >
-                    Chờ Bên A ký trước (0/4)
-                  </Badge>
-                ) : (
-                  <Badge
-                    variant="outline"
-                    className="h-6 rounded-full border-[#ffd591] bg-[#fff7e6] px-2.5 text-xs font-semibold text-[#904d00] tabular-nums"
-                  >
-                    {signaturesByRole.has('HEALTHCARE_FACILITY')
-                      ? `CSYT đã ký (${signedCount}/4)`
-                      : `Chờ Cơ sở Y tế ký (${signedCount}/4)`}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-[#4a4f63] tabular-nums">
-                Khởi tạo lúc {formatDateTimeVi(detail.createdAt)} · Cơ sở Y tế:{' '}
-                {detail.facility?.facilityName || 'Cơ sở Y tế phối hợp'}
-              </p>
-            </div>
+          {isWaitingOthersAfterFacilitySigned && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isRefreshing}
+              onClick={() =>
+                void loadData({ showSpinner: true, forceSync: true })
+              }
+              className="h-8 rounded-lg bg-white text-xs font-semibold"
+            >
+              <RefreshCw
+                className={cn('mr-1.5 size-3.5', isRefreshing && 'animate-spin')}
+              />
+              {isRefreshing ? 'Đang cập nhật...' : 'Cập nhật tiến độ'}
+            </Button>
+          )}
 
-            <div className="shrink-0 rounded-xl border border-[#e4e8ed] bg-white px-4 py-2.5 text-left shadow-xs md:text-right">
-              <div className="text-xs font-semibold text-[#4a4f63] tabular-nums">
-                {packageName} · {durationMonths} tháng ({memberCount} thành viên)
-              </div>
-              <div className="mt-0.5 text-base font-bold text-[#0037c1] tabular-nums">
-                {formatPriceVnd(totalPrice)}
-              </div>
-            </div>
-          </div>
+          {isAllFourSigned && (
+            <Badge
+              variant="outline"
+              className="rounded-full border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800"
+            >
+              Đã đủ 4/4 chữ ký ·{' '}
+              {detail.contractStatus === 'ACTIVE'
+                ? 'Đang hiệu lực'
+                : 'Chờ gia đình thanh toán'}
+            </Badge>
+          )}
         </div>
 
-        {/* 2-Column Layout */}
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-12">
-          {/* Left Column: Household, Members, Read-only Doctor, 4-Party Timeline */}
-          <div className="space-y-6 lg:col-span-6">
-            {/* Household & Members */}
-            <Card className="rounded-xl border-[#e4e8ed] bg-white py-0 shadow-xs">
-              <div className="flex items-center justify-between border-b border-[#e4e8ed] px-5 py-4">
-                <h2 className="text-base font-semibold text-[#20283d]">
-                  Thông tin Hộ gia đình &amp; Thành viên
-                </h2>
-                <Badge
-                  variant="outline"
-                  className="h-6 rounded-full border-[#acc0f3] bg-[#eaeffa] px-2.5 text-xs font-semibold text-[#0037c1] tabular-nums"
-                >
-                  {memberCount} thành viên
-                </Badge>
-              </div>
-              <CardContent className="space-y-4 p-5">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <div className="text-xs text-[#4a4f63]">
-                      Đại diện Hộ gia đình (Bên A)
-                    </div>
-                    <div className="mt-0.5 text-sm font-semibold text-[#20283d]">
-                      {detail.familyUnit?.representativeUser?.fullName ||
-                        'Đại diện Hộ gia đình'}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-[#4a4f63]">
-                      Số điện thoại liên hệ
-                    </div>
-                    <div className="mt-0.5 text-sm font-semibold text-[#20283d] tabular-nums">
-                      {detail.familyUnit?.representativeUser?.phoneNumber ||
-                        detail.familyUnit?.emergencyPhone ||
-                        '—'}
-                    </div>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <div className="text-xs text-[#4a4f63]">
-                      Địa chỉ chăm sóc tại nhà
-                    </div>
-                    <div className="mt-0.5 text-sm font-medium text-[#2f364a]">
-                      {careSummary?.familyAddress ||
-                        detail.familyUnit?.homeAddress ||
-                        'Chưa cập nhật'}
-                    </div>
-                  </div>
-                </div>
-
-                {members.length > 0 ? (
-                  <div className="overflow-x-auto rounded-lg border border-[#e4e8ed]">
-                    <Table className="text-xs sm:text-sm">
-                      <TableHeader>
-                        <TableRow className="border-b border-[#e4e8ed] bg-[#f6f7f9] hover:bg-[#f6f7f9]">
-                          <TableHead className="px-3 py-2.5 text-xs font-semibold text-[#4a4f63]">
-                            Họ và tên
-                          </TableHead>
-                          <TableHead className="px-3 py-2.5 text-xs font-semibold text-[#4a4f63]">
-                            Quan hệ
-                          </TableHead>
-                          <TableHead className="px-3 py-2.5 text-xs font-semibold text-[#4a4f63]">
-                            Tuổi / Giới tính
-                          </TableHead>
-                          <TableHead className="px-3 py-2.5 text-xs font-semibold text-[#4a4f63]">
-                            Dị ứng
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody className="divide-y divide-[#e4e8ed]">
-                        {members.map((m) => (
-                          <TableRow key={m.id}>
-                            <TableCell className="px-3 py-2.5 font-semibold text-[#20283d]">
-                              {m.fullName}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-[#4a4f63]">
-                              {m.relationship}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-[#4a4f63] tabular-nums">
-                              {m.age !== null ? `${m.age} tuổi` : '—'} ·{' '}
-                              {m.gender}
-                            </TableCell>
-                            <TableCell className="px-3 py-2.5 text-[#4a4f63]">
-                              {m.allergiesText}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-[#e4e8ed] bg-[#f6f7f9] px-4 py-3 text-xs text-[#4a4f63] tabular-nums">
-                    Hợp đồng áp dụng cho {memberCount} thành viên hộ gia đình.
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Read-only Pre-selected Doctor */}
-            <Card className="rounded-xl border-[#e4e8ed] bg-white py-0 shadow-xs">
-              <div className="flex items-center justify-between border-b border-[#e4e8ed] px-5 py-4">
-                <h2 className="text-base font-semibold text-[#20283d]">
-                  Bác sĩ Gia đình đã chọn
-                </h2>
-                <Badge
-                  variant="outline"
-                  className="h-6 rounded-full border-[#d9dfe5] bg-[#f6f7f9] px-2.5 text-xs font-semibold text-[#4a4f63]"
-                >
-                  Chỉ xem
-                </Badge>
-              </div>
-              <CardContent className="space-y-3 p-5">
-                {hasDoctor ? (
-                  <>
-                    <div className="flex items-center gap-3.5 rounded-xl border border-[#acc0f3] bg-[#f2f3ff] p-4">
-                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#0046c0] bg-white text-sm font-bold text-[#0037c1]">
-                        {doctorName.split(' ').slice(-1)[0]?.charAt(0) || 'B'}
-                      </div>
-                      <div className="min-w-0 space-y-1">
-                        <div className="text-sm font-bold text-[#20283d]">
-                          {doctorName}
-                        </div>
-                        <div className="text-xs text-[#4a4f63]">
-                          {[detail.doctor?.specialty, detail.facility?.facilityName]
-                            .filter(Boolean)
-                            .join(' · ') || 'Bác sĩ Gia đình'}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                          {doctorCchn && (
-                            <Badge
-                              variant="outline"
-                              className="h-6 rounded-full border-[#b7eb8f] bg-[#f6ffed] px-2.5 text-xs font-semibold text-[#039855] tabular-nums"
-                            >
-                              CCHN · {doctorCchn}
-                            </Badge>
-                          )}
-                          {typeof detail.doctor?.experienceYears === 'number' &&
-                            detail.doctor.experienceYears > 0 && (
-                              <Badge
-                                variant="outline"
-                                className="h-6 rounded-full border-[#d9dfe5] bg-white px-2.5 text-xs font-semibold text-[#4a4f63] tabular-nums"
-                              >
-                                {detail.doctor.experienceYears} năm kinh nghiệm
-                              </Badge>
-                            )}
-                        </div>
-                      </div>
-                    </div>
-                    <p className="flex items-center gap-1.5 text-xs text-[#4a4f63]">
-                      <span className="material-symbols-outlined text-[15px]">
-                        info
-                      </span>
-                      <span>
-                        Bác sĩ đã được hộ gia đình lựa chọn trực tiếp khi đăng ký
-                        gói chăm sóc.
-                      </span>
-                    </p>
-                  </>
-                ) : (
-                  <div
-                    data-testid="facility-detail-no-doctor"
-                    className="flex items-center gap-3 rounded-xl border border-[#e4e8ed] bg-[#f6f7f9] p-4 text-sm text-[#4a4f63]"
-                  >
-                    <span className="material-symbols-outlined text-[20px] text-[#747686]">
-                      person_off
-                    </span>
-                    <span>
-                      Chưa có thông tin bác sĩ gia đình gắn với hợp đồng này.
-                    </span>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* 4-Party Signature Timeline */}
-            <Card
-              data-testid="four-party-signature-timeline"
-              className="rounded-xl border-[#e4e8ed] bg-white py-0 shadow-xs"
-            >
-              <div className="flex items-center justify-between border-b border-[#e4e8ed] px-5 py-4">
-                <h2 className="text-base font-semibold text-[#20283d]">
-                  Tiến trình ký số 4 bên
-                </h2>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    'h-6 rounded-full px-2.5 text-xs font-semibold tabular-nums',
-                    isEndedStatus
-                      ? 'border-[#ffa39e] bg-[#fff1f0] text-[#d92d20]'
-                      : allFourSigned
-                        ? 'border-[#b7eb8f] bg-[#f6ffed] text-[#039855]'
-                        : 'border-[#ffd591] bg-[#fff7e6] text-[#904d00]'
-                  )}
-                >
-                  {isEndedStatus
-                    ? detail.contractStatus === 'EXPIRED'
-                      ? 'Đã hết hạn'
-                      : 'Đã hủy / Chấm dứt'
-                    : `${signedCount}/4 chữ ký hoàn tất`}
-                </Badge>
-              </div>
-              <CardContent className="space-y-3 p-5">
-                {timelineNodes.map((node) => {
-                  const partySubtitle =
-                    node.role === 'FAMILY_REP'
-                      ? detail.familyUnit?.representativeUser?.fullName ||
-                        'Đại diện Hộ gia đình'
-                      : node.role === 'HEALTHCARE_FACILITY'
-                        ? detail.facility?.facilityName || 'Cơ sở Y tế phối hợp'
-                        : node.role === 'ASSIGNED_DOCTOR'
-                          ? doctorName
-                          : 'Công ty Cổ phần Y tế Số FamiDoc';
-
-                  return (
-                    <div
-                      key={node.role}
-                      data-testid={`timeline-party-${node.code}`}
-                      className={cn(
-                        'flex items-start gap-3 rounded-lg border p-3.5',
-                        node.signed
-                          ? 'border-[#b7eb8f] bg-[#f6ffed]/40'
-                          : node.isActiveTurn
-                            ? 'border-[#ffd591] bg-[#fff7e6]'
-                            : 'border-[#e4e8ed] bg-[#f6f7f9]/60'
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border text-xs font-bold',
-                          node.signed
-                            ? 'border-[#b7eb8f] bg-[#f6ffed] text-[#039855]'
-                            : node.isActiveTurn
-                              ? 'border-[#904d00] bg-white text-[#904d00]'
-                              : 'border-[#d9dfe5] bg-[#f6f7f9] text-[#4a4f63]'
-                        )}
-                      >
-                        {node.code}
-                      </span>
-
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <span className="text-sm font-bold text-[#20283d]">
-                            {node.title}
-                          </span>
-                          {node.signed ? (
-                            <Badge
-                              variant="outline"
-                              className="h-6 rounded-full border-[#b7eb8f] bg-[#f6ffed] px-2.5 text-xs font-semibold text-[#039855]"
-                            >
-                              Đã ký
-                            </Badge>
-                          ) : isEndedStatus ? (
-                            <Badge
-                              variant="outline"
-                              className="h-6 rounded-full border-[#d9dfe5] bg-white px-2.5 text-xs font-semibold text-[#4a4f63]"
-                            >
-                              {detail.contractStatus === 'EXPIRED'
-                                ? 'Đã hết hạn'
-                                : 'Đã hủy'}
-                            </Badge>
-                          ) : node.isActiveTurn ? (
-                            <Badge
-                              variant="outline"
-                              className="h-6 rounded-full border-[#ffd591] bg-white px-2.5 text-xs font-semibold text-[#904d00]"
-                            >
-                              Chờ ký
-                            </Badge>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="h-6 rounded-full border-[#d9dfe5] bg-white px-2.5 text-xs font-semibold text-[#4a4f63]"
-                            >
-                              Chờ Bên A ký trước
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-[#4a4f63] tabular-nums">
-                          {partySubtitle}
-                          {node.signed
-                            ? node.signedAt
-                              ? ` · Đã ký lúc ${formatDateTimeVi(node.signedAt)}`
-                              : ' · Đã hoàn tất chữ ký'
-                            : isEndedStatus
-                              ? ' · Hợp đồng đã kết thúc'
-                              : ` · ${node.waitingAfterAHit}`}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Column: Documenso Signing Embed + 4/4 Signed PDF Action */}
-          <div className="space-y-4 lg:col-span-6">
-            {allFourSigned && (
-              <Card
-                data-testid="facility-signed-pdf-card"
-                className="rounded-xl border-[#b7eb8f] bg-[#f6ffed] py-0 shadow-xs"
-              >
-                <CardContent className="space-y-3 p-5">
-                  <div className="flex items-start gap-3">
-                    <span className="material-symbols-outlined mt-0.5 text-[22px] text-[#039855]">
-                      verified
-                    </span>
-                    <div className="space-y-1">
-                      <h2 className="text-sm font-bold text-[#113b00]">
-                        Hợp đồng 4 bên đã được ký đầy đủ (4/4)
-                      </h2>
-                      <p className="text-xs leading-relaxed text-[#2f364a]">
-                        Cả 4 bên đã hoàn tất chữ ký điện tử trên Documenso. Bản
-                        PDF đầy đủ chữ ký đã sẵn sàng tải xuống và lưu trữ.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button
-                      type="button"
-                      disabled={isDownloadingPdf}
-                      onClick={() => void handleDownloadPdf()}
-                      className="min-h-[44px] cursor-pointer rounded-lg bg-[#0046c0] px-4 text-sm font-semibold text-white hover:bg-[#003899]"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">
-                        download
-                      </span>
-                      <span>
-                        {isDownloadingPdf ? 'Đang tải PDF...' : 'Tải PDF đã ký'}
-                      </span>
-                    </Button>
-                  </div>
-                  {pdfError && (
-                    <Alert
-                      variant="destructive"
-                      className="rounded-lg border-[#ffa39e] bg-[#fff1f0] text-[#93000a]"
-                    >
-                      <AlertDescription className="text-xs text-[#93000a]">
-                        {pdfError}
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
+        {/* Trạng thái 1: CSYT (Bên B) chưa ký -> Chỉ hiển thị khung Documenso */}
+        {!hasFacilitySigned && (
+          <div data-testid="facility-documenso-signing-section">
             <DocumensoSigningEmbed
               contractId={detail.id}
               onSyncCompleted={() => {
-                void loadData();
+                void loadData({ forceSync: true });
               }}
             />
           </div>
-        </div>
+        )}
+
+        {/* Trạng thái 2A: CSYT đã ký, chờ các bên còn lại (2/4 hoặc 3/4) */}
+        {isWaitingOthersAfterFacilitySigned && (
+          <div
+            data-testid="facility-post-signing-tracking"
+            className="space-y-4"
+          >
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-emerald-900">
+              <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold">
+                  Cơ sở y tế điều phối đã hoàn tất ký số
+                </p>
+                <p className="text-xs text-emerald-800">
+                  Hợp đồng{' '}
+                  <span className="font-semibold">{detail.contractNumber}</span>{' '}
+                  đã ghi nhận chữ ký của cơ sở y tế. Hệ thống sẽ tự động cập nhật khi các bên còn lại hoàn tất.
+                </p>
+              </div>
+            </div>
+
+            <Card className="gap-0 space-y-4 rounded-2xl border-slate-200 bg-white p-5 shadow-xs sm:p-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold text-slate-900">
+                    Tiến độ ký hợp đồng 4 bên
+                  </h2>
+                  <span
+                    data-testid="facility-signing-progress-count"
+                    className="text-xs font-semibold tabular-nums text-slate-700"
+                  >
+                    {signedCount} / {TOTAL_PARTIES} bên ({progressPercent}%)
+                  </span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={TOTAL_PARTIES}
+                  aria-valuenow={signedCount}
+                  className="h-2 w-full overflow-hidden rounded-full bg-slate-100"
+                >
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+
+              <ul className="space-y-2.5">
+                {parties.map((party) => {
+                  const signedAt = formatSignedDateTime(party.signedAt);
+                  return (
+                    <li
+                      key={party.role}
+                      data-testid={`facility-party-status-${party.role}`}
+                      className={cn(
+                        'flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3.5',
+                        party.signed
+                          ? 'border-emerald-200 bg-emerald-50/50'
+                          : 'border-slate-200 bg-white'
+                      )}
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        {party.signed ? (
+                          <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                        ) : (
+                          <Clock className="size-4 shrink-0 text-amber-500" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-900 sm:text-sm">
+                            {party.label}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {party.name}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
+                            party.signed
+                              ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
+                              : 'border-amber-200 bg-amber-50 text-amber-800'
+                          )}
+                        >
+                          {party.signed ? 'Đã ký' : 'Đang chờ ký'}
+                        </Badge>
+                        {party.signed && signedAt && (
+                          <p className="mt-1 text-[11px] tabular-nums text-emerald-800">
+                            {signedAt}
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-600">
+                <Lock className="size-4 shrink-0 text-slate-500" />
+                <span>
+                  Bản PDF hợp đồng đầy đủ 4 chữ ký sẽ tự động hiển thị trực tiếp tại đây ngay khi cả 4/4 bên hoàn tất ký số.
+                </span>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Trạng thái 2B: Đủ 4/4 chữ ký -> Preview trực tiếp PDF đầy đủ chữ ký */}
+        {isAllFourSigned && (
+          <div
+            data-testid="facility-signed-pdf-preview-section"
+            className="space-y-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-emerald-900">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold">
+                    Hợp đồng đã hoàn tất đủ 4/4 chữ ký
+                  </p>
+                  <p className="text-xs text-emerald-800">
+                    Gia đình ✓ · Cơ sở y tế ✓ · Bác sĩ ✓ · Nền tảng FamiDoc ✓
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white py-0 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
+                <div className="flex items-center gap-2">
+                  <FileText className="size-4 text-primary" />
+                  <span className="text-xs font-bold text-slate-900 sm:text-sm">
+                    Bản hợp đồng đã ký đầy đủ 4 bên ({detail.contractNumber})
+                  </span>
+                </div>
+
+                {pdfBlobUrl && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg text-xs font-semibold"
+                    >
+                      <a
+                        href={pdfBlobUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="mr-1.5 size-3.5" />
+                        Mở tab mới
+                      </a>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleDownloadPdfFile}
+                      className="h-8 rounded-lg text-xs font-semibold"
+                    >
+                      <Download className="mr-1.5 size-3.5" />
+                      Tải PDF
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {isLoadingPdf ? (
+                <div className="flex h-[520px] items-center justify-center bg-slate-50 text-xs text-slate-500">
+                  Đang tải bản xem trước PDF hợp đồng đầy đủ chữ ký...
+                </div>
+              ) : pdfError ? (
+                <div className="space-y-3 p-6 text-center">
+                  <p className="text-xs font-medium text-rose-700">{pdfError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPdfReloadTick((t) => t + 1)}
+                    className="rounded-lg text-xs font-semibold"
+                  >
+                    <RefreshCw className="mr-1.5 size-3.5" />
+                    Thử tải lại PDF
+                  </Button>
+                </div>
+              ) : pdfBlobUrl ? (
+                <iframe
+                  data-testid="facility-signed-pdf-iframe"
+                  src={pdfBlobUrl}
+                  title={`Bản hợp đồng đã ký ${detail.contractNumber}`}
+                  className="h-[740px] w-full border-0 bg-slate-100"
+                />
+              ) : null}
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

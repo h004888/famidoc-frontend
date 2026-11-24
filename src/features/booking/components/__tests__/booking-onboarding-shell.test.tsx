@@ -65,19 +65,21 @@ describe('BookingOnboardingShell', () => {
     mockPathname = '/booking';
   });
 
-  it('hiển thị stepper 3 bước theo đúng thứ tự', () => {
+  it('hiển thị stepper 4 bước theo đúng thứ tự', () => {
     render(
       <BookingOnboardingShell>
         <div data-testid="booking-children">Nội dung bước 1</div>
       </BookingOnboardingShell>
     );
 
-    expect(BOOKING_STEPS.map((step) => step.index)).toEqual([1, 2, 3]);
-    expect(screen.getByTestId('booking-step-1')).toHaveTextContent('Xác nhận gói');
-    expect(screen.getByTestId('booking-step-2')).toHaveTextContent('Ký hợp đồng 4 bên');
-    expect(screen.getByTestId('booking-step-3')).toHaveTextContent('Thanh toán VietQR');
+    expect(BOOKING_STEPS.map((step) => step.index)).toEqual([1, 2, 3, 4]);
+    expect(screen.getByTestId('booking-step-1')).toHaveTextContent('Xác nhận');
+    expect(screen.getByTestId('booking-step-2')).toHaveTextContent('Ký hợp đồng');
+    expect(screen.getByTestId('booking-step-3')).toHaveTextContent('Thanh toán');
+    expect(screen.getByTestId('booking-step-4')).toHaveTextContent('Kích hoạt');
     expect(screen.getByTestId('booking-step-1')).toHaveAttribute('data-step-state', 'current');
     expect(screen.getByTestId('booking-step-2')).toHaveAttribute('data-step-state', 'pending');
+    expect(screen.getByTestId('booking-step-4')).toHaveAttribute('data-step-state', 'pending');
   });
 
   it('dùng header/footer công khai với khung max-w-7xl và ẩn thanh điều hướng đáy mobile', () => {
@@ -114,31 +116,43 @@ describe('BookingOnboardingShell', () => {
   });
 
   it('đánh dấu bước hiện tại theo từng tuyến của luồng đặt gói', () => {
-    mockPathname = '/booking/tracking';
-    const { unmount } = render(
+    mockPathname = '/booking/sign';
+    const { unmount: unmountSign } = render(
       <BookingOnboardingShell>
         <div />
       </BookingOnboardingShell>
     );
     expect(screen.getByTestId('booking-step-1')).toHaveAttribute('data-step-state', 'done');
     expect(screen.getByTestId('booking-step-2')).toHaveAttribute('data-step-state', 'current');
-    unmount();
+    unmountSign();
 
     mockPathname = '/booking/payment';
-    render(
+    const { unmount: unmountPay } = render(
       <BookingOnboardingShell>
         <div />
       </BookingOnboardingShell>
     );
     expect(screen.getByTestId('booking-step-2')).toHaveAttribute('data-step-state', 'done');
     expect(screen.getByTestId('booking-step-3')).toHaveAttribute('data-step-state', 'current');
+    unmountPay();
+
+    mockPathname = '/booking/status';
+    render(
+      <BookingOnboardingShell>
+        <div />
+      </BookingOnboardingShell>
+    );
+    expect(screen.getByTestId('booking-step-3')).toHaveAttribute('data-step-state', 'done');
+    expect(screen.getByTestId('booking-step-4')).toHaveAttribute('data-step-state', 'current');
   });
 
   it('resolveBookingStepIndex trả về chỉ số bước đúng và mặc định bước 1', () => {
     expect(resolveBookingStepIndex('/booking')).toBe(0);
     expect(resolveBookingStepIndex('/booking/')).toBe(0);
+    expect(resolveBookingStepIndex('/booking/sign')).toBe(1);
     expect(resolveBookingStepIndex('/booking/tracking')).toBe(1);
     expect(resolveBookingStepIndex('/booking/payment')).toBe(2);
+    expect(resolveBookingStepIndex('/booking/status')).toBe(3);
     expect(resolveBookingStepIndex(null)).toBe(0);
   });
 
@@ -156,7 +170,7 @@ describe('BookingOnboardingShell', () => {
   });
 
   it('Bước 2 cho phép quay lại Bước 1 kèm contractId qua nút và stepper', () => {
-    mockPathname = '/booking/tracking';
+    mockPathname = '/booking/sign';
     render(
       <BookingOnboardingShell>
         <ContextProbe contractId="ctr-1" contractStatus="PENDING_APPROVAL" />
@@ -168,7 +182,7 @@ describe('BookingOnboardingShell', () => {
       '/booking?contractId=ctr-1'
     );
     expect(
-      screen.getByRole('link', { name: /Quay lại bước 1: Xác nhận gói/i })
+      screen.getByRole('link', { name: /Quay lại bước 1: Xác nhận/i })
     ).toHaveAttribute('href', '/booking?contractId=ctr-1');
   });
 
@@ -184,11 +198,11 @@ describe('BookingOnboardingShell', () => {
       screen.getByRole('link', { name: /Quay lại theo dõi ký hợp đồng/i })
     ).toHaveAttribute('href', '/booking/tracking?contractId=ctr-1');
     expect(
-      screen.getByRole('link', { name: /Quay lại bước 2: Ký hợp đồng 4 bên/i })
+      screen.getByRole('link', { name: /Quay lại bước 2: Ký hợp đồng/i })
     ).toHaveAttribute('href', '/booking/tracking?contractId=ctr-1');
     // Chưa ACTIVE nên vẫn quay lại được Bước 1
     expect(
-      screen.getByRole('link', { name: /Quay lại bước 1: Xác nhận gói/i })
+      screen.getByRole('link', { name: /Quay lại bước 1: Xác nhận/i })
     ).toHaveAttribute('href', '/booking?contractId=ctr-1');
   });
 
@@ -201,17 +215,17 @@ describe('BookingOnboardingShell', () => {
     );
 
     expect(
-      screen.queryByRole('link', { name: /Quay lại bước 1: Xác nhận gói/i })
+      screen.queryByRole('link', { name: /Quay lại bước 1: Xác nhận/i })
     ).toBeNull();
     expect(screen.getByTestId('booking-step-1')).toHaveAttribute('data-step-state', 'done');
     // Bước 2 vẫn là đích quay lại của Bước 3
     expect(
-      screen.getByRole('link', { name: /Quay lại bước 2: Ký hợp đồng 4 bên/i })
+      screen.getByRole('link', { name: /Quay lại bước 2: Ký hợp đồng/i })
     ).toHaveAttribute('href', '/booking/tracking?contractId=ctr-1');
   });
 
   it('chỉ hiển thị hàng nút Quay lại ở màn hình hẹp, desktop dựa vào stepper', () => {
-    mockPathname = '/booking/tracking';
+    mockPathname = '/booking/sign';
     render(
       <BookingOnboardingShell>
         <ContextProbe contractId="ctr-1" contractStatus="PENDING_APPROVAL" />
@@ -223,11 +237,11 @@ describe('BookingOnboardingShell', () => {
     expect(compactRow).toContainElement(
       screen.getByRole('link', { name: /Quay lại bước xác nhận gói/i })
     );
-    expect(screen.getByTestId('booking-step-compact')).toHaveTextContent('Bước 2/3');
+    expect(screen.getByTestId('booking-step-compact')).toHaveTextContent('Bước 2/4');
   });
 
   it('khóa nút Quay lại trên thanh hẹp khi hợp đồng đã ACTIVE', () => {
-    mockPathname = '/booking/tracking';
+    mockPathname = '/booking/status';
     render(
       <BookingOnboardingShell>
         <ContextProbe contractId="ctr-1" contractStatus="ACTIVE" />
@@ -246,8 +260,8 @@ describe('BookingOnboardingShell', () => {
     ).toBeNull();
   });
 
-  it('hiển thị chỉ báo gọn Bước N/3 cho màn hình nhỏ', () => {
-    mockPathname = '/booking/tracking';
+  it('hiển thị chỉ báo gọn Bước N/4 cho màn hình nhỏ', () => {
+    mockPathname = '/booking/sign';
     render(
       <BookingOnboardingShell>
         <ContextProbe contractId="ctr-1" />
@@ -255,7 +269,7 @@ describe('BookingOnboardingShell', () => {
     );
 
     expect(screen.getByTestId('booking-step-compact')).toHaveTextContent(
-      'Bước 2/3: Ký hợp đồng 4 bên'
+      'Bước 2/4: Ký hợp đồng'
     );
   });
 });

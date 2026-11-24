@@ -2,9 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DoctorDashboardView } from '../doctor-dashboard-view';
+import { contractsApi, doctorsApi, encountersApi } from '@/lib/api';
+
+const mockPush = vi.fn();
 
 vi.mock('sonner', () => ({
   toast: {
@@ -14,22 +17,268 @@ vi.mock('sonner', () => ({
 }));
 
 vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: mockPush }),
   usePathname: () => '/doctor',
   useSearchParams: () => new URLSearchParams(),
 }));
 
-describe('UT-CMP-15: DoctorDashboardView Touch Target & Accessibility', () => {
-  it('renders "Mở Phiếu khám" button with accessible touch target styling', () => {
-    render(<DoctorDashboardView />);
-    const openBtns = screen.getAllByRole('button', { name: /Mở Phiếu khám/i });
-    expect(openBtns.length).toBeGreaterThan(0);
-    // Button must have py-2 or min-h-[40px]
-    expect(openBtns[0].className).toContain('py-2');
+const MOCK_ACTIVE_PROFILE = {
+  id: 'doc-real-1',
+  doctorName: 'BS.CKII Lê Minh Quân',
+  academicTitle: 'BS.CKII',
+  specialty: 'Y học gia đình',
+  experienceYears: 12,
+  activePanelCount: 14,
+  maxPanelCapacity: 30,
+  onboardingStatus: 'ACTIVE' as const,
+  facilityId: 'fac-1',
+  facility: { id: 'fac-1', facilityName: 'Bệnh viện Hoàn Mỹ Sài Gòn' },
+  credentials: [
+    {
+      id: 'c1',
+      credentialType: 'PRACTICE_LICENSE_CCHN' as const,
+      certificateNumber: '009988/HCM-CCHN',
+      issueDate: '2020-01-01',
+      issuingAuthority: 'Sở Y tế TP.HCM',
+      fileUrl: '/api/v1/doctors/doc-real-1/credentials/c1/file',
+    },
+  ],
+};
+
+const MOCK_ENCOUNTERS = [
+  {
+    id: 'enc-1',
+    contractId: 'ctr-1',
+    doctorId: 'doc-real-1',
+    scheduledDate: '2026-11-23',
+    scheduledTime: '09:00',
+    encounterType: 'HOME_VISIT',
+    category: 'PERIODIC_ROUTINE',
+    encounterStatus: 'CONFIRMED',
+    displayNotes: 'Tăng huyết áp định kỳ',
+    patient: {
+      id: 'pt-1',
+      fullName: 'Nguyễn Văn Phúc',
+      dateOfBirth: '1948-01-01',
+      allergies: ['Penicillin'],
+      chronicDiseases: 'Tăng huyết áp',
+    },
+    contract: {
+      id: 'ctr-1',
+      contractNumber: 'MC-88219',
+      familyUnit: {
+        id: 'fam-1',
+        homeAddress: '123 Lê Lợi, Quận 1, TP.HCM',
+      },
+    },
+  },
+  {
+    id: 'enc-2',
+    contractId: 'ctr-2',
+    doctorId: 'doc-real-1',
+    scheduledDate: '2026-11-23',
+    scheduledTime: '10:30',
+    encounterType: 'TELEHEALTH',
+    category: 'AD_HOC_ON_DEMAND',
+    encounterStatus: 'CONFIRMED',
+    displayNotes: 'Tư vấn dinh dưỡng thai kỳ',
+    patient: {
+      id: 'pt-2',
+      fullName: 'Lê Thu Trang',
+      dateOfBirth: '1992-05-10',
+    },
+    contract: {
+      id: 'ctr-2',
+      contractNumber: 'MC-44012',
+    },
+  },
+  {
+    id: 'enc-3',
+    contractId: 'ctr-3',
+    doctorId: 'doc-real-1',
+    scheduledDate: '2026-11-23',
+    scheduledTime: '08:15',
+    encounterType: 'HOME_VISIT',
+    category: 'PERIODIC_ROUTINE',
+    encounterStatus: 'IN_PROGRESS',
+    displayNotes: 'Tái khám rối loạn lipid máu',
+    patient: {
+      id: 'pt-3',
+      fullName: 'Trần Thị Bích',
+      dateOfBirth: '1960-03-12',
+    },
+    contract: {
+      id: 'ctr-3',
+      contractNumber: 'MC-29011',
+    },
+  },
+  {
+    id: 'enc-4',
+    contractId: 'ctr-4',
+    doctorId: 'doc-real-1',
+    scheduledDate: '2026-11-23',
+    scheduledTime: '07:45',
+    encounterType: 'TELEHEALTH',
+    category: 'PERIODIC_ROUTINE',
+    encounterStatus: 'COMPLETED',
+    displayNotes: 'Viêm mũi dị ứng',
+    assessment: 'Viêm mũi dị ứng nhẹ',
+    icd10Code: 'J30.4',
+    patient: {
+      id: 'pt-4',
+      fullName: 'Phạm Minh Khôi',
+      dateOfBirth: '2017-08-01',
+    },
+    contract: {
+      id: 'ctr-4',
+      contractNumber: 'MC-51029',
+    },
+  },
+];
+
+describe('DoctorDashboardView — Daily Clinical Hub (5s Scanability IA)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockPush.mockClear();
+    vi.spyOn(doctorsApi, 'getDoctorMe').mockResolvedValue(MOCK_ACTIVE_PROFILE as any);
+    vi.spyOn(contractsApi, 'getMedicalContracts').mockResolvedValue([]);
+    vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValue({
+      data: MOCK_ENCOUNTERS as any,
+      pagination: { page: 1, pageSize: 50, totalItems: MOCK_ENCOUNTERS.length, totalPages: 1 },
+    });
   });
 
-  it('standardizes typography across all 9 Doctor & Facility Portal views (no tracking-wide, font-black, or font-extrabold)', () => {
+  it('auto-selects "Đang khám" tab when in-progress encounters exist and keeps persistent "Cần xử lý ngay" cards even at 0', async () => {
+    const user = userEvent.setup();
     const { container } = render(<DoctorDashboardView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('BS.CKII Lê Minh Quân')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('heading', { level: 1, name: /Ca trực hôm nay/i })).toBeInTheDocument();
+    expect(screen.queryByText(/CCHN:/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/14\/30/)).toBeInTheDocument();
+
+    // Persistent "Cần xử lý ngay" 2-card strip stays visible even when counts are 0
+    expect(screen.getByText('0 hợp đồng chờ ký duyệt')).toBeInTheDocument();
+    expect(screen.getByText('0 xung đột lịch trực')).toBeInTheDocument();
+
+    // Auto-selects "Đang khám" (enc-3: Trần Thị Bích) instead of stranding on an empty tab
+    expect(screen.getAllByText('Trần Thị Bích').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Chưa ghi nhận dị ứng/i)).toBeInTheDocument();
+    expect(screen.getByText(/Chưa ghi nhận bệnh nền/i)).toBeInTheDocument();
+
+    // Zero fake/mock numbers or jargon
+    expect(screen.queryByText(/18\.450\.000/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Escrow/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/WebRTC/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/4\.95 \/ 5\.0/)).not.toBeInTheDocument();
+    expect(container.querySelector('main')).toBeNull();
+
+    // Switch to "Chờ khám" to verify allergy & chronic condition on enc-1
+    await user.click(screen.getByRole('tab', { name: /Chờ khám/i }));
+    const openBtn = screen.getByRole('button', { name: /Mở Phiếu khám/i });
+    expect(openBtn.className).toContain('py-2');
+    expect(openBtn.className).toContain('min-h-11');
+    expect(screen.getByText(/Penicillin/)).toBeInTheDocument();
+    expect(screen.getByText(/Bệnh nền:/)).toBeInTheDocument();
+  });
+
+  it('surfaces pending 4-party contracts in "Cần xử lý ngay" strip from real contractsApi', async () => {
+    vi.spyOn(contractsApi, 'getMedicalContracts').mockResolvedValueOnce([
+      {
+        id: 'ctr-pending-1',
+        contractNumber: 'MC-9001',
+        contractStatus: 'PENDING_APPROVAL',
+        familyHeadName: 'Gia đình Nguyễn Văn A',
+      } as any,
+      {
+        id: 'ctr-pending-2',
+        contractNumber: 'MC-9002',
+        contractStatus: 'PENDING_APPROVAL',
+        familyHeadName: 'Gia đình Trần Thị B',
+      } as any,
+    ]);
+
+    render(<DoctorDashboardView />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/2 hợp đồng 4 bên chờ bạn ký duyệt/i)).toBeInTheDocument();
+    });
+    expect(screen.getByRole('link', { name: /Ký duyệt HĐ \(2\)/i })).toHaveAttribute(
+      'href',
+      '/doctor/contracts'
+    );
+  });
+
+  it('switches queue tabs, filters by visit mode, and adapts primary CTA for Video encounters', async () => {
+    const user = userEvent.setup();
+    render(<DoctorDashboardView />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText('Trần Thị Bích').length).toBeGreaterThan(0);
+    });
+
+    // Switch to "Chờ khám" and click Video encounter -> primary CTA becomes "Vào phòng khám Video"
+    await user.click(screen.getByRole('tab', { name: /Chờ khám/i }));
+    await user.click(screen.getByRole('button', { name: /Lê Thu Trang/i }));
+    expect(screen.getByRole('link', { name: /Vào phòng khám Video/i })).toHaveAttribute(
+      'href',
+      '/doctor/telemedicine?encounterId=enc-2'
+    );
+
+    // Switch to "Hoàn tất" tab
+    await user.click(screen.getByRole('tab', { name: /Hoàn tất/i }));
+    expect(screen.getAllByText('Phạm Minh Khôi').length).toBeGreaterThan(0);
+    expect(screen.getByText(/J30\.4/)).toBeInTheDocument();
+  });
+
+  it('keeps persistent 2-column layout and action cards visible when doctor has 0 scheduled encounters', async () => {
+    vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValueOnce({
+      data: [],
+      pagination: { page: 1, pageSize: 50, totalItems: 0, totalPages: 0 },
+    });
+
+    render(<DoctorDashboardView />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Hôm nay bạn chưa có lịch khám nào')).toBeInTheDocument();
+    });
+    // Both persistent sections remain mounted (nothing vanishes)
+    expect(screen.getByText('0 hợp đồng chờ ký duyệt')).toBeInTheDocument();
+    expect(screen.getByText('0 xung đột lịch trực')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Chờ khám \(0\)/i })).toBeInTheDocument();
+    expect(screen.getByText('Hồ sơ tóm tắt trước khám')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Xem lịch trực tuần này/i })).toHaveAttribute(
+      'href',
+      '/doctor/timetable'
+    );
+  });
+
+  it('shows onboarding notice when doctor profile is not ACTIVE', async () => {
+    vi.spyOn(doctorsApi, 'getDoctorMe').mockResolvedValueOnce({
+      id: 'doc-pending-1',
+      doctorName: 'BS. Trần Thu Hà',
+      specialty: 'Y học gia đình',
+      experienceYears: 3,
+      onboardingStatus: 'PENDING_SUBMISSION',
+      facilityId: 'fac-1',
+      facility: { id: 'fac-1', facilityName: 'Phòng khám An Bình' },
+    } as any);
+
+    render(<DoctorDashboardView />);
+    expect(
+      await screen.findByText(/Hồ sơ Bác sĩ đang trong quy trình thẩm định 2 cấp/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Ca trực hôm nay/i)).not.toBeInTheDocument();
+  });
+
+  it('standardizes typography across all 9 Doctor & Facility Portal views (no font-mono, font-black, or font-extrabold)', async () => {
+    const { container } = render(<DoctorDashboardView />);
+    await waitFor(() => {
+      expect(screen.getByText('BS.CKII Lê Minh Quân')).toBeInTheDocument();
+    });
     expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
 
     const doctorAndFacilityFiles = [
@@ -48,147 +297,8 @@ describe('UT-CMP-15: DoctorDashboardView Touch Target & Accessibility', () => {
       const fullPath = path.resolve(__dirname, relPath);
       const source = fs.readFileSync(fullPath, 'utf-8');
       expect(source, `Typography violation in ${relPath}`).not.toMatch(
-        /\bfont-(mono|black|extrabold)\b/,
+        /\bfont-(mono|black|extrabold)\b/
       );
     }
-  });
-});
-
-describe('UT-CMP-QueuePagination: Patient queue pagination on Doctor Dashboard', () => {
-  it('displays queue pagination info showing total waiting count', () => {
-    render(<DoctorDashboardView />);
-
-    // Queue header should show 3 ca chờ (total)
-    expect(screen.getByText(/3 ca chờ/i)).toBeInTheDocument();
-
-    // Pagination control should exist (shared Pagination component)
-    const paginationNav = document.querySelector('[aria-label="Phân trang"]') as HTMLElement;
-    expect(paginationNav).toBeTruthy();
-
-    // Page number buttons should be visible (3 patients / 2 per page = 2 pages)
-    expect(within(paginationNav).getByText('1')).toBeInTheDocument();
-    expect(within(paginationNav).getByText('2')).toBeInTheDocument();
-  });
-
-  it('Prev button is disabled initially when on first page', () => {
-    render(<DoctorDashboardView />);
-    const prevBtn = screen.getByText('Trước');
-    expect(prevBtn).toBeDisabled();
-  });
-
-  it('Next button is enabled initially when more than one page', () => {
-    render(<DoctorDashboardView />);
-    const nextBtn = screen.getByText('Sau');
-    expect(nextBtn).not.toBeDisabled();
-  });
-
-  it('clicking Next button shows patients from the next page', async () => {
-    render(<DoctorDashboardView />);
-
-    // Page 1 should show exactly 2 patients (pageSize=2)
-    expect(screen.getAllByRole('button', { name: /Mở Phiếu khám/i }).length).toBe(2);
-
-    fireEvent.click(screen.getByText('Sau'));
-
-    await waitFor(() => {
-      const page2OpenBtns = screen.getAllByRole('button', { name: /Mở Phiếu khám/i });
-      expect(page2OpenBtns.length).toBeGreaterThanOrEqual(1);
-    });
-  });
-
-  it('has minimum touch target size (min-h-[40px]) on pagination buttons', () => {
-    render(<DoctorDashboardView />);
-    const prevBtn = screen.getByText('Trước');
-    const nextBtn = screen.getByText('Sau');
-
-    expect(prevBtn.className.includes('min-h-[40px]') || prevBtn.className.includes('py-2')).toBe(
-      true,
-    );
-    expect(nextBtn.className.includes('min-h-[40px]') || nextBtn.className.includes('py-2')).toBe(
-      true,
-    );
-  });
-});
-
-describe('DoctorDashboardView Queue Tabs and Prescriptions', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('switches clinical queue Tabs between pending, in_progress, and signed', async () => {
-    const user = userEvent.setup();
-    render(<DoctorDashboardView />);
-
-    expect(screen.getByText('3 ca chờ')).toBeInTheDocument();
-
-    await user.click(screen.getByRole('tab', { name: 'Đang khám' }));
-    expect(screen.getByText('1 ca chờ')).toBeInTheDocument();
-    expect(screen.getAllByText('Trần Thị Bích (66 tuổi)').length).toBeGreaterThan(0);
-
-    await user.click(screen.getByRole('tab', { name: 'Hoàn tất' }));
-    expect(screen.getByText('1 ca chờ')).toBeInTheDocument();
-    expect(screen.getAllByText('Phạm Minh Khôi (9 tuổi)').length).toBeGreaterThan(0);
-  });
-
-  it('links to the real prescription workflow', () => {
-    render(<DoctorDashboardView />);
-    expect(screen.getByRole('link', { name: /Mở trang kê đơn thuốc/i }))
-      .toHaveAttribute('href', '/doctor/encounters');
-  });
-
-  it('renders without nested <main> landmark', () => {
-    const { container } = render(<DoctorDashboardView />);
-    expect(container.querySelector('main')).toBeNull();
-  });
-
-  it('renders real doctor identity when getDoctorMe returns an ACTIVE profile and shows onboarding notice when PENDING', async () => {
-    const { doctorsApi } = await import('@/lib/api');
-    const spy = vi.spyOn(doctorsApi, 'getDoctorMe').mockResolvedValueOnce({
-      id: 'doc-real-1',
-      doctorName: 'BS.CKII Lê Minh Quân',
-      academicTitle: 'BS.CKII',
-      specialty: 'Y học gia đình',
-      experienceYears: 12,
-      activePanelCount: 8,
-      maxPanelCapacity: 30,
-      onboardingStatus: 'ACTIVE',
-      facilityId: 'fac-1',
-      facility: { id: 'fac-1', facilityName: 'Bệnh viện Hoàn Mỹ Sài Gòn' },
-      credentials: [
-        {
-          id: 'c1',
-          credentialType: 'PRACTICE_LICENSE_CCHN',
-          certificateNumber: '009988/HCM-CCHN',
-          issueDate: '2020-01-01',
-          issuingAuthority: 'Sở Y tế TP.HCM',
-          fileUrl: '/api/v1/doctors/doc-real-1/credentials/c1/file',
-        },
-      ],
-    });
-
-    const { unmount } = render(<DoctorDashboardView />);
-    expect(screen.queryByText(/PGS\.TS Nguyễn Trọng Nghĩa/i)).not.toBeInTheDocument();
-    expect(await screen.findByText('BS.CKII Lê Minh Quân')).toBeInTheDocument();
-    expect(screen.getAllByText(/009988\/HCM-CCHN/).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Bệnh viện Hoàn Mỹ Sài Gòn/)).toBeInTheDocument();
-    unmount();
-
-    spy.mockResolvedValueOnce({
-      id: 'doc-pending-1',
-      doctorName: 'BS. Trần Thu Hà',
-      specialty: 'Y học gia đình',
-      experienceYears: 3,
-      onboardingStatus: 'PENDING_SUBMISSION',
-      facilityId: 'fac-1',
-      facility: { id: 'fac-1', facilityName: 'Phòng khám An Bình' },
-    });
-
-    render(<DoctorDashboardView />);
-    expect(
-      await screen.findByText(/Hồ sơ Bác sĩ đang trong quy trình thẩm định 2 cấp/i),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(/Hàng Đợi Khám Hôm Nay/i)).not.toBeInTheDocument();
-
-    spy.mockRestore();
   });
 });

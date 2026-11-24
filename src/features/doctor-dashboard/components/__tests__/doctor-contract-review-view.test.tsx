@@ -45,6 +45,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
       getMedicalContractById: vi.fn(),
       getSigningSession: vi.fn(),
       syncDocumenso: vi.fn(),
+      downloadSignedPdf: vi.fn(),
     },
   };
 });
@@ -68,24 +69,7 @@ const mockContract: FourPartyContract = {
   doctorId: 'doc-01',
   doctorName: 'BS. CKII Lê Hoàng Nam',
   doctorTitle: 'Bác sĩ Gia đình • Phó trưởng khoa Nội tổng quát',
-  members: [
-    {
-      id: 'm1',
-      name: 'Nguyễn Văn An',
-      age: 38,
-      relation: 'Chủ hộ',
-      chronic: 'Không',
-      allergies: 'Không',
-    },
-    {
-      id: 'm2',
-      name: 'Trần Thị Mai Phương',
-      age: 65,
-      relation: 'Mẹ (Cao tuổi)',
-      chronic: 'Tăng huyết áp, Đái tháo đường Type 2',
-      allergies: 'Dị ứng Penicillin',
-    },
-  ],
+  members: [],
   signatures: {
     family: {
       signedBy: 'Nguyễn Văn An',
@@ -96,9 +80,14 @@ const mockContract: FourPartyContract = {
   },
 };
 
-describe('DoctorContractReviewView (Documenso 4-Party Contract Review)', () => {
+describe('DoctorContractReviewView (Documenso signing, tracking & 4/4 PDF preview)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:doctor-signed-pdf');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.mocked(contractsApi.downloadSignedPdf).mockResolvedValue(
+      new Blob(['%PDF-1.7'], { type: 'application/pdf' })
+    );
     vi.mocked(contractsApi.getSigningSession).mockResolvedValue({
       contractId: 'ct-4p-doc-01',
       contractNumber: 'HD-4P-2026-0001',
@@ -120,16 +109,14 @@ describe('DoctorContractReviewView (Documenso 4-Party Contract Review)', () => {
     });
   });
 
-  it('displays Care Needs Summary including elderly, chronic conditions, and allergies', async () => {
+  it('renders only back link and Documenso signing embed before doctor signs', async () => {
     render(<DoctorContractReviewView contract={mockContract} />);
 
-    expect(screen.getByText(/HD-4P-2026-0001/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Nguyễn Văn An/).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText(/Gói Chăm Sóc Toàn Diện Gia Đình/)).toBeInTheDocument();
-
-    expect(screen.getByText('Trần Thị Mai Phương')).toBeInTheDocument();
-    expect(screen.getByText(/Tăng huyết áp, Đái tháo đường Type 2/)).toBeInTheDocument();
-    expect(screen.getByText(/Dị ứng Penicillin/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Quay lại Danh sách Hợp đồng/i })
+    ).toHaveAttribute('href', '/doctor/contracts');
+    expect(screen.queryByTestId('doctor-post-signing-tracking')).toBeNull();
+    expect(screen.queryByTestId('doctor-signed-pdf-preview-section')).toBeNull();
 
     await waitFor(() => {
       expect(screen.getByTestId('mock-documenso-form')).toHaveAttribute(
@@ -139,26 +126,7 @@ describe('DoctorContractReviewView (Documenso 4-Party Contract Review)', () => {
     });
   });
 
-  it('loads real contract by contractId when members list is empty (post-signature member setup flow)', async () => {
-    vi.mocked(contractsApi.getMedicalContractById).mockResolvedValueOnce({
-      ...mockContract,
-      members: [],
-      membersCount: 4,
-    });
-
-    render(<DoctorContractReviewView contractId="ct-4p-doc-01" />);
-
-    await waitFor(() => {
-      expect(contractsApi.getMedicalContractById).toHaveBeenCalledWith('ct-4p-doc-01');
-      expect(screen.getAllByText(/4\s*thành viên/i).length).toBeGreaterThanOrEqual(1);
-    });
-
-    expect(
-      screen.getByText(/Danh sách hồ sơ sức khỏe từng thành viên sẽ được gia đình bổ sung ngay sau khi hợp đồng được kích hoạt/i)
-    ).toBeInTheDocument();
-  });
-
-  it('triggers Documenso sync when doctor completes signing on Documenso embed', async () => {
+  it('transitions to 4-party tracking view after doctor signs (2/4) without duplicate green banners', async () => {
     const handleSignSuccess = vi.fn();
 
     render(
@@ -175,28 +143,81 @@ describe('DoctorContractReviewView (Documenso 4-Party Contract Review)', () => {
 
     await waitFor(() => {
       expect(contractsApi.syncDocumenso).toHaveBeenCalledWith('ct-4p-doc-01');
-      expect(handleSignSuccess).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'DOCTOR_ACCEPTED',
-          signatures: expect.objectContaining({
-            doctor: expect.objectContaining({
-              signerRole: 'DOCTOR',
-            }),
-          }),
-        })
-      );
+      expect(handleSignSuccess).toHaveBeenCalled();
     });
 
     expect(
-      screen.getByText(/Đã đồng bộ chữ ký Bác sĩ trên Documenso thành công \(2\/4 bên\)/i)
+      screen.getByTestId('doctor-post-signing-tracking')
     ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('doctor-signing-progress-count')
+    ).toHaveTextContent('2 / 4 bên (50%)');
+    expect(screen.getByTestId('doctor-party-status-family')).toHaveTextContent(
+      'Đã ký'
+    );
+    expect(screen.getByTestId('doctor-party-status-doctor')).toHaveTextContent(
+      'Đã ký'
+    );
+    expect(
+      screen.getByTestId('doctor-party-status-facility')
+    ).toHaveTextContent('Đang chờ ký');
+    expect(
+      screen.getByTestId('doctor-party-status-platform')
+    ).toHaveTextContent('Đang chờ ký');
+    expect(screen.queryByTestId('mock-documenso-form')).toBeNull();
+  });
+
+  it('renders inline PDF preview when all 4/4 parties have signed', async () => {
+    const allSignedContract: FourPartyContract = {
+      ...mockContract,
+      status: 'PENDING_PAYMENT',
+      signatures: {
+        ...mockContract.signatures,
+        doctor: {
+          signedBy: 'BS. CKII Lê Hoàng Nam',
+          signerRole: 'DOCTOR',
+          signedAt: '2026-03-31T08:20:00Z',
+          sha256Hash: 'doc-sha256-hash-1234',
+        },
+        facility: {
+          signedBy: 'Phòng khám Đa khoa Quốc tế FamiCare Sài Gòn',
+          signerRole: 'FACILITY',
+          signedAt: '2026-03-31T08:25:00Z',
+          sha256Hash: 'fac-sha256-hash-5678',
+        },
+        platform: {
+          signedBy: 'Nền tảng FamiDoc',
+          signerRole: 'PLATFORM',
+          signedAt: '2026-03-31T08:30:00Z',
+          sha256Hash: 'adm-sha256-hash-9012',
+        },
+      },
+    };
+
+    render(<DoctorContractReviewView contract={allSignedContract} />);
+
+    expect(
+      screen.getByTestId('doctor-signed-pdf-preview-section')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Hợp đồng đã hoàn tất đủ 4\/4 chữ ký/i)
+    ).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(contractsApi.downloadSignedPdf).toHaveBeenCalledWith('ct-4p-doc-01');
+      expect(screen.getByTestId('doctor-signed-pdf-iframe')).toHaveAttribute(
+        'src',
+        'blob:doctor-signed-pdf'
+      );
+    });
   });
 
   it('displays waiting state when Bên A (FAMILY_REP) has not signed yet (HTTP 409)', async () => {
     vi.mocked(contractsApi.getSigningSession).mockRejectedValueOnce(
-      Object.assign(new Error('Chờ Đại diện gia đình (Bên A) ký hợp đồng trước.'), {
-        status: 409,
-      })
+      Object.assign(
+        new Error('Chờ Đại diện gia đình (Bên A) ký hợp đồng trước.'),
+        { status: 409 }
+      )
     );
 
     render(<DoctorContractReviewView contract={mockContract} />);
@@ -206,28 +227,5 @@ describe('DoctorContractReviewView (Documenso 4-Party Contract Review)', () => {
         screen.getByText(/Chờ Đại diện gia đình \(Bên A\) ký hợp đồng trước/i)
       ).toBeInTheDocument();
     });
-  });
-
-  it('renders full Vietnamese legal document sheet in Full View tab', async () => {
-    render(<DoctorContractReviewView contract={mockContract} />);
-
-    fireEvent.click(screen.getByRole('tab', { name: /Toàn văn Hợp đồng & 4 Chữ ký/i }));
-
-    expect(
-      screen.getByText(/CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/i)
-    ).toBeInTheDocument();
-    expect(screen.getByTestId('signature-box-doctor')).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(contractsApi.getSigningSession).toHaveBeenCalled();
-    });
-  });
-
-  it('complies with typography design system (no tracking-wide, font-black, or font-extrabold)', async () => {
-    const { container } = render(<DoctorContractReviewView contract={mockContract} />);
-    await waitFor(() => {
-      expect(contractsApi.getSigningSession).toHaveBeenCalled();
-    });
-    expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });
 });

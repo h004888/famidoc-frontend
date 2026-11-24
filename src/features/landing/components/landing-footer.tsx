@@ -3,7 +3,7 @@ import Link from 'next/link';
 
 export function LandingFooter() {
   return (
-    <footer className="bg-white border-t border-[#c4c5d7]/70 text-[#444654] text-xs pt-14 pb-8">
+    <footer className="bg-white border-t border-[#c4c5d7]/70 text-[#444654] text-sm pt-14 pb-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8">
           {/* Brand Col */}
@@ -16,10 +16,10 @@ export function LandingFooter() {
               />
             </Link>
 
-            <p className="text-xs text-[#444654] leading-relaxed max-w-sm">
-              FamiDoc Pro là nền tảng quản trị bác sĩ gia đình và kết nối y tế thông minh toàn diện tại
-              Việt Nam. Tuân thủ tiêu chuẩn an toàn bảo mật dữ liệu y tế, cấp chứng chỉ hành nghề chính
-              thức bởi Bộ Y Tế.
+            <p className="text-sm text-[#444654] leading-relaxed max-w-md">
+              FamiDoc là cầu nối tin cậy giữa gia đình bạn và các cơ sở y tế được cấp phép, mang đến
+              dịch vụ bác sĩ gia đình chăm sóc sức khỏe xuyên suốt tại nhà và tư vấn trực tuyến. Bác sĩ
+              phụ trách được cơ sở y tế xác thực và phân công riêng cho từng hộ gia đình.
             </p>
 
             <div className="flex items-center gap-3 pt-1">
@@ -49,7 +49,7 @@ export function LandingFooter() {
 
           {/* Links Col 1: Dịch Vụ Y Tế */}
           <div className="space-y-3">
-            <h4 className="font-bold text-[#131b2f] text-sm">Dịch Vụ Y Tế</h4>
+            <h4 className="font-bold text-[#131b2f] text-base">Dịch Vụ Y Tế</h4>
             <ul className="space-y-2">
               <li>
                 <Link href="/doctors" className="hover:text-[#0037c1] transition-colors">
@@ -81,7 +81,7 @@ export function LandingFooter() {
 
           {/* Links Col 2: Chuyên Khoa & Gói Khám */}
           <div className="space-y-3">
-            <h4 className="font-bold text-[#131b2f] text-sm">Chuyên Khoa &amp; Gói Khám</h4>
+            <h4 className="font-bold text-[#131b2f] text-base">Chuyên Khoa &amp; Gói Khám</h4>
             <ul className="space-y-2">
               <li>
                 <Link href="/packages" className="hover:text-[#0037c1] transition-colors">
@@ -113,7 +113,7 @@ export function LandingFooter() {
 
           {/* Links Col 3: Liên Hệ & Trực Ban */}
           <div className="space-y-3">
-            <h4 className="font-bold text-[#131b2f] text-sm">Liên Hệ &amp; Trực Ban</h4>
+            <h4 className="font-bold text-[#131b2f] text-base">Liên Hệ &amp; Trực Ban</h4>
             <ul className="space-y-2">
               <li className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-sm text-[#fa8c16]">call</span>
@@ -130,33 +130,33 @@ export function LandingFooter() {
         </div>
 
         {/* Bottom Copyright & Policy Strip */}
-        <div className="pt-8 border-t border-[#c4c5d7]/50 flex flex-col md:flex-row justify-between items-center gap-4 text-xs">
-          <div>
-            FamiDoc - Family Doctor Management and Healthcare Platform
+        <div className="pt-8 border-t border-[#c4c5d7]/50 flex flex-col lg:flex-row justify-between items-center gap-4 text-xs sm:text-sm">
+          <div className="text-slate-600 text-center lg:text-left">
+            FamiDoc — Nền tảng Quản lý Bác sĩ Gia đình
           </div>
 
-          <div className="flex flex-wrap items-center gap-4">
-            <Link href="/contact" className="hover:text-[#0037c1] hover:underline">
-              Chính sách bảo mật y tế
+          <div className="flex flex-wrap items-center justify-center lg:justify-end gap-x-3 gap-y-2">
+            <Link href="/contact" className="hover:text-[#0037c1] hover:underline whitespace-nowrap">
+              Chính sách bảo mật
             </Link>
-            <span className="text-[#c4c5d7]">•</span>
-            <Link href="/contact" className="hover:text-[#0037c1] hover:underline">
+            <span className="text-[#c4c5d7]" aria-hidden="true">•</span>
+            <Link href="/contact" className="hover:text-[#0037c1] hover:underline whitespace-nowrap">
               Tiêu chuẩn HIPAA/HL7
             </Link>
-            <span className="text-[#c4c5d7]">•</span>
-            <Link href="/contact" className="hover:text-[#0037c1] hover:underline">
-              Quy chuẩn kỹ thuật Bộ Y Tế
+            <span className="text-[#c4c5d7]" aria-hidden="true">•</span>
+            <Link href="/contact" className="hover:text-[#0037c1] hover:underline whitespace-nowrap">
+              Quy chuẩn Bộ Y Tế
             </Link>
-            <span className="text-[#c4c5d7]">•</span>
-            <Link href="/contact" className="hover:text-[#0037c1] hover:underline">
+            <span className="text-[#c4c5d7]" aria-hidden="true">•</span>
+            <Link href="/contact" className="hover:text-[#0037c1] hover:underline whitespace-nowrap">
               Điều khoản dịch vụ
             </Link>
-            <span className="text-[#c4c5d7]">•</span>
+            <span className="text-[#c4c5d7]" aria-hidden="true">•</span>
             <a
               href="tel:19008821"
-              className="hover:text-[#0037c1] hover:underline font-medium text-[#0037c1]"
+              className="hover:text-[#0037c1] hover:underline font-semibold text-[#0037c1] whitespace-nowrap"
             >
-              Đường dây nóng: 1900 8821
+              Hotline: 1900 8821
             </a>
           </div>
         </div>

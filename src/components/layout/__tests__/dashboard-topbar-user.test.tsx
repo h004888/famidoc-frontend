@@ -79,4 +79,25 @@ describe('DashboardTopbarUser', () => {
 
     expect(logoutMock).toHaveBeenCalledTimes(1);
   });
+
+  it('không hiển thị nhãn "Bác sĩ CCHN" dưới tên người dùng trong nút topbar khi vai trò là DOCTOR', () => {
+    mockAuthState = {
+      role: 'DOCTOR' as any,
+      isAuthenticated: true,
+      user: {
+        id: 'doc-1',
+        name: 'Trần Thị Bích',
+        email: 'doctor@famidoc.vn',
+        phone: '0901888999',
+        role: 'DOCTOR' as any,
+        avatarText: 'TB',
+      },
+      logout: logoutMock,
+    };
+    render(<DashboardTopbarUser />);
+
+    const trigger = screen.getByRole('button', { name: 'Mở menu tài khoản' });
+    expect(trigger).toHaveTextContent('Trần Thị Bích');
+    expect(trigger).not.toHaveTextContent('Bác sĩ CCHN');
+  });
 });

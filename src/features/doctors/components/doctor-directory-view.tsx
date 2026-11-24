@@ -726,74 +726,48 @@ export function DoctorDirectoryView({
                         </div>
 
                         {/* Doctor Bottom: Information */}
-                        <div className="p-6 text-center space-y-3 flex-1 flex flex-col justify-between">
-                          <div className="space-y-1.5">
-                            <div className="flex flex-wrap items-center justify-center gap-1.5">
-                              {doc.clinicalTier === 'JUNIOR' && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
-                                  Bác sĩ trẻ
+                        <div className="p-6 text-center flex-1 flex flex-col justify-center min-w-0">
+                          <div className="space-y-1.5 min-w-0">
+                            {(doc.clinicalTier === 'JUNIOR' || doc.clinicalTier === 'SENIOR') && (
+                              <div className="flex flex-wrap items-center justify-center gap-1.5">
+                                {doc.clinicalTier === 'JUNIOR' && (
+                                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-sky-50 text-sky-700 border border-sky-200">
+                                    Bác sĩ trẻ
+                                  </span>
+                                )}
+                                {doc.clinicalTier === 'SENIOR' && (
+                                  <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    Chuyên gia cao cấp
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {doc.title && (
+                              <div className="flex items-center justify-center gap-1.5 w-full text-xs font-semibold text-[#0046c0] uppercase tracking-wider">
+                                <span className="material-symbols-outlined text-sm shrink-0" aria-hidden="true">
+                                  workspace_premium
                                 </span>
-                              )}
-                              {doc.clinicalTier === 'SENIOR' && (
-                                <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                                  Chuyên gia cao cấp
-                                </span>
-                              )}
-                              {doc.isQuotaFull ? (
-                                <span
-                                  data-testid={`doctor-quota-badge-${doc.id}`}
-                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 tabular-nums"
-                                >
-                                  Đã kín lịch (0 slot)
-                                </span>
-                              ) : typeof doc.remainingSlots === 'number' ? (
-                                <span
-                                  data-testid={`doctor-quota-badge-${doc.id}`}
-                                  className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums"
-                                >
-                                  Còn {doc.remainingSlots}/{doc.maxPanelCapacity ?? 30} slot
-                                </span>
-                              ) : null}
-                            </div>
-                            <div className="text-xs font-semibold text-[#0046c0] uppercase tracking-wider">
-                              {doc.title}
-                            </div>
+                                <span className="truncate">{doc.title}</span>
+                              </div>
+                            )}
                             <Link
                               href={buildDoctorHref(doc.id, packageId, initialMembers)}
-                              className="font-bold text-xl text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer block"
+                              className="font-bold text-lg text-slate-900 group-hover:text-[#0046c0] transition-colors cursor-pointer line-clamp-2 break-words"
                             >
                               {doc.name}
                             </Link>
-                            <p className="text-sm text-slate-500 font-medium">
-                              {doc.specialty}
+                            <p className="flex items-center justify-center gap-1.5 w-full text-sm text-slate-600 font-medium">
+                              <span className="material-symbols-outlined text-base text-[#0037c1] shrink-0" aria-hidden="true">
+                                stethoscope
+                              </span>
+                              <span className="truncate">{doc.specialty}</span>
                             </p>
-                            <p className="text-xs text-slate-400 font-normal truncate">
-                              {doc.hospital}
+                            <p className="flex items-center justify-center gap-1.5 w-full text-xs text-slate-500 font-normal">
+                              <span className="material-symbols-outlined text-sm text-slate-400 shrink-0" aria-hidden="true">
+                                domain
+                              </span>
+                              <span className="truncate">{doc.hospital}</span>
                             </p>
-                          </div>
-
-                          <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                            <span className="flex items-center gap-1 font-semibold text-slate-700">
-                              <span className="material-symbols-outlined text-sm text-amber-500 material-symbols-filled">star</span>
-                              {doc.rating} <span className="font-normal text-slate-400">({doc.reviewCount})</span>
-                            </span>
-                            <div className="flex items-center gap-2">
-                              <Link
-                                href={buildDoctorHref(doc.id, packageId, initialMembers)}
-                                className="font-semibold text-slate-500 hover:text-slate-800"
-                              >
-                                Chi tiết
-                              </Link>
-                              <span className="text-slate-300">•</span>
-                              <Link
-                                href={buildDoctorHref(doc.id, packageId, initialMembers)}
-                                className={`font-bold hover:underline cursor-pointer ${
-                                  doc.isQuotaFull ? 'text-amber-700' : 'text-[#0046c0]'
-                                }`}
-                              >
-                                {doc.isQuotaFull ? 'Kín slot · Gợi ý BS →' : 'Đăng ký Bác sĩ →'}
-                              </Link>
-                            </div>
                           </div>
                         </div>
                       </article>

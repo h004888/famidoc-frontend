@@ -146,7 +146,7 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
     });
   });
 
-  it('loads real contracts from contractsApi.getMedicalContracts and opens Documenso modal for Bên D signing', async () => {
+  it('loads real contracts from contractsApi.getMedicalContracts and links Ký xác nhận to /admin/contracts/[id]/review', async () => {
     render(<AdminContractsView />);
 
     await waitFor(() => {
@@ -155,16 +155,8 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
       expect(screen.getAllByText('Phạm Hoàng Minh').length).toBeGreaterThan(0);
     });
 
-    const signBtn = screen.getAllByRole('button', { name: /Ký trên Documenso/i })[0];
-    fireEvent.click(signBtn);
-
-    await waitFor(() => {
-      expect(contractsApi.getSigningSession).toHaveBeenCalledWith('ct-real-001');
-      expect(screen.getByTestId('mock-admin-documenso-form')).toHaveAttribute(
-        'data-token',
-        'tok-admin'
-      );
-    });
+    const signLinks = screen.getAllByRole('link', { name: /Ký xác nhận/i });
+    expect(signLinks[0]).toHaveAttribute('href', '/admin/contracts/ct-real-001/review');
   });
 
   it('displays cancelled badge for CANCELLED contracts without family signature', async () => {
@@ -195,68 +187,35 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
       expect(screen.getAllByText(/CTR-2026-999/).length).toBeGreaterThan(0);
     });
     expect(screen.getAllByText('Đã hủy / Hết hạn').length).toBeGreaterThan(0);
-    // Only the KPI card title has "Chờ Bên A ký trước", not the CANCELLED row badge
-    expect(screen.getAllByText('Chờ Bên A ký trước')).toHaveLength(1);
+    expect(screen.queryByText('Chờ gia đình ký')).toBeNull();
   });
 
-  it('opens sequential B2B signing dialog with Documenso embed before syncing B2B staffing contract', async () => {
-    vi.mocked(contractsApi.getStaffingSigningSession).mockResolvedValue({
-      contractId: 'st-001',
-      contractCode: 'STAFF-2026-001',
-      status: 'PENDING_ADMIN_SIGNATURE',
-      signerRole: 'ADMIN',
-      alreadySigned: false,
-      canSign: true,
-      signingToken: 'tok-b2b-admin-1',
-      signingUrl: 'https://sign.famidoc.online/sign/tok-b2b-admin-1',
-      facilitySigned: true,
-      adminSigned: false,
-      signedPdfUrl: null,
-    });
-    vi.mocked(contractsApi.syncStaffingDocumenso).mockResolvedValue({
-      synced: true,
-      contractId: 'st-001',
-      status: 'ACTIVE',
-      facilitySigned: true,
-      adminSigned: true,
-      signedPdfUrl: '/api/v1/contracts/staffing/st-001/signed-pdf',
-    });
-
+  it('links B2B Ký xác nhận directly to /admin/contracts/staffing/[id] page without modal', async () => {
     render(<AdminContractsView />);
-
-    const b2bTab = await screen.findByRole('tab', { name: /Hợp Đồng Cung Ứng Nhân Lực B2B/i });
-    fireEvent.mouseDown(b2bTab);
-    fireEvent.click(b2bTab);
 
     await waitFor(() => {
       expect(screen.getAllByText('STAFF-2026-001').length).toBeGreaterThan(0);
     });
 
-    const signBtn = screen.getAllByRole('button', { name: /Ký Duyệt \(Documenso\)/i })[0];
-    fireEvent.click(signBtn);
-
-    expect(contractsApi.signStaffingContract).not.toHaveBeenCalled();
-    expect(screen.getByText(/Ký Hợp Đồng B2B Trên Documenso — Quản trị viên Nền tảng/i)).toBeInTheDocument();
-    expect(screen.getByText('Bước 1: Cơ sở Y tế đối tác')).toBeInTheDocument();
-    expect(screen.getByText('Bước 2: Quản trị viên FamiDoc')).toBeInTheDocument();
-
-    const embed = await screen.findByTestId('mock-admin-documenso-form');
-    expect(embed).toHaveAttribute('data-token', 'tok-b2b-admin-1');
-
-    fireEvent.click(screen.getByRole('button', { name: /Đồng bộ sau khi ký/i }));
-
-    await waitFor(() => {
-      expect(contractsApi.syncStaffingDocumenso).toHaveBeenCalledWith('st-001');
+    fireEvent.change(screen.getByLabelText('Lọc theo loại hợp đồng'), {
+      target: { value: 'B2B' },
     });
+
+    const signLink = screen.getAllByRole('link', { name: /Ký xác nhận/i })[0];
+    expect(signLink).toHaveAttribute('href', '/admin/contracts/staffing/st-001');
   });
 
   it('supports keyboard navigation on facility combobox and closes listbox on Escape without closing Dialog', async () => {
     render(<AdminContractsView />);
 
-    const createBtn = await screen.findByRole('button', { name: /Thiết Lập Dự Thảo HĐ B2B/i });
+    const createBtn = await screen.findByRole('button', { name: /Tạo HĐ B2B/i });
     fireEvent.click(createBtn);
 
-    const combobox = await screen.findByRole('combobox');
+    const combobox = await waitFor(() => {
+      const el = screen.getAllByRole('combobox').find((c) => c.hasAttribute('aria-expanded'));
+      if (!el) throw new Error('Combobox not found');
+      return el;
+    });
     expect(combobox).toHaveAttribute('aria-expanded', 'false');
 
     // Open with ArrowDown
@@ -283,10 +242,13 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
   it('displays inline role="alert" error and disables submit button when validToDate <= validFromDate', async () => {
     render(<AdminContractsView />);
 
-    const createBtn = await screen.findByRole('button', { name: /Thiết Lập Dự Thảo HĐ B2B/i });
+    const createBtn = await screen.findByRole('button', { name: /Tạo HĐ B2B/i });
     fireEvent.click(createBtn);
 
-    await screen.findByRole('combobox');
+    await waitFor(() => {
+      const el = screen.getAllByRole('combobox').find((c) => c.hasAttribute('aria-expanded'));
+      if (!el) throw new Error('Combobox not found');
+    });
 
     const startInput = screen.getByLabelText(/Ngày bắt đầu hiệu lực/i);
     const endInput = screen.getByLabelText(/Ngày kết thúc hiệu lực/i);
@@ -328,13 +290,11 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
     render(<AdminContractsView />);
 
     await waitFor(() => {
-      expect(
-        screen.getByText(/Số liệu KPI đang tổng hợp trên 50 hợp đồng y tế mới nhất từ máy chủ/i)
-      ).toBeInTheDocument();
+      expect(screen.getByText(/Tổng hợp đồng/i).closest('button')).toHaveTextContent('51');
     });
   });
 
-  it('ẩn nút "Ký trên Documenso" và loại khỏi đếm/lọc READY_FOR_ADMIN khi documensoEnvelopeId === null', async () => {
+  it('ẩn nút "Ký xác nhận" và loại khỏi đếm/lọc READY_FOR_ADMIN khi documensoEnvelopeId === null', async () => {
     const legacyContract = {
       id: 'ct-legacy-null-env',
       contractNumber: 'CTR-2026-LEGACY',
@@ -369,6 +329,10 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
     ).toBe(false);
 
     vi.mocked(contractsApi.getMedicalContracts).mockResolvedValueOnce([legacyContract]);
+    vi.mocked(contractsApi.getStaffingContracts).mockResolvedValueOnce({
+      data: [],
+      total: 0,
+    });
 
     render(<AdminContractsView />);
 
@@ -377,18 +341,18 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
     });
 
     expect(
-      screen.queryByRole('button', { name: /Ký trên Documenso/i })
+      screen.queryByRole('button', { name: /Ký xác nhận/i })
     ).toBeNull();
     expect(
-      screen.getAllByRole('button', { name: /Chi tiết & Documenso/i }).length
+      screen.getAllByRole('link', { name: /Xem chi tiết/i }).length
     ).toBeGreaterThan(0);
 
-    const readyFilterBtn = screen.getByRole('button', { name: /Chờ Admin ký \(Bên D\)/i });
+    const readyFilterBtn = screen.getByRole('button', { name: /Chờ Admin ký/i });
     expect(readyFilterBtn).toHaveTextContent('0');
     fireEvent.click(readyFilterBtn);
 
     expect(screen.queryAllByText(/CTR-2026-LEGACY/)).toHaveLength(0);
-    expect(screen.getByText(/Không có hợp đồng y tế phù hợp/i)).toBeInTheDocument();
+    expect(screen.getByText(/Không có hợp đồng phù hợp/i)).toBeInTheDocument();
   });
 
   it('submits optional supplementary terms (contractTerms) when creating B2B contract in CreateB2BContractDialog', async () => {
@@ -399,10 +363,13 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
 
     render(<AdminContractsView />);
 
-    const createBtn = await screen.findByRole('button', { name: /Thiết Lập Dự Thảo HĐ B2B/i });
+    const createBtn = await screen.findByRole('button', { name: /Tạo HĐ B2B/i });
     fireEvent.click(createBtn);
 
-    await screen.findByRole('combobox');
+    await waitFor(() => {
+      const el = screen.getAllByRole('combobox').find((c) => c.hasAttribute('aria-expanded'));
+      if (!el) throw new Error('Combobox not found');
+    });
 
     const suppInput = screen.getByLabelText(/Điều khoản bổ sung \/ Thỏa thuận đặc thù/i);
     fireEvent.change(suppInput, {
@@ -424,7 +391,7 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
     });
   });
 
-  it('renders B2B tab with matching 4-party layout: sort control, 2-party progress matrix, and compact columns', async () => {
+  it('renders unified table with Loại filter, sort control, and B2B detail action', async () => {
     vi.mocked(contractsApi.getStaffingContracts).mockResolvedValueOnce({
       data: [
         {
@@ -459,19 +426,16 @@ describe('AdminContractsView (Real API & Documenso Modal)', () => {
 
     render(<AdminContractsView />);
 
-    const b2bTab = await screen.findByRole('tab', { name: /Hợp Đồng Cung Ứng Nhân Lực B2B/i });
-    fireEvent.mouseDown(b2bTab);
-    fireEvent.click(b2bTab);
-
     await waitFor(() => {
       expect(screen.getAllByText('STAFF-2026-100').length).toBeGreaterThan(0);
     });
 
-    expect(screen.getByRole('combobox', { name: /Sắp xếp hợp đồng B2B/i })).toBeInTheDocument();
-    expect(screen.getByText('Tiến độ 2 bên')).toBeInTheDocument();
-    expect(screen.getByLabelText('Tiến độ 1 trên 2 chữ ký')).toBeInTheDocument();
-    expect(screen.getByLabelText('Tiến độ 2 trên 2 chữ ký')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /^Chi tiết$/i }).length).toBeGreaterThan(0);
+    fireEvent.change(screen.getByLabelText('Lọc theo loại hợp đồng'), {
+      target: { value: 'B2B' },
+    });
+
+    expect(screen.getByLabelText('Sắp xếp hợp đồng')).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: /^Xem chi tiết$/i }).length).toBeGreaterThan(0);
   });
 
   it('excludes PENDING_FACILITY_SIGNATURE and REVISION_REQUESTED from READY_FOR_ADMIN filter', async () => {

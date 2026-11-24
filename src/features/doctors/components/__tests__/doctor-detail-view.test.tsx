@@ -158,9 +158,9 @@ describe('DoctorDetailView (API-only rendering)', () => {
     ).toBeGreaterThan(0);
 
     expect(screen.getByText('18 năm')).toBeInTheDocument();
-    expect(screen.getByText('1.500')).toBeInTheDocument();
-    expect(screen.getByText('18/30')).toBeInTheDocument();
-    expect(screen.getAllByText('120 đánh giá').length).toBeGreaterThan(0);
+    expect(screen.queryByText('1.500')).not.toBeInTheDocument();
+    expect(screen.queryByText('18/30')).not.toBeInTheDocument();
+    expect(screen.queryByText('120 đánh giá')).not.toBeInTheDocument();
 
     expect(screen.getByText(/Bác sĩ chuyên sâu về quản lý đa bệnh lý/i)).toBeInTheDocument();
     expect(screen.getByText('Bằng cấp chuyên môn')).toBeInTheDocument();
@@ -172,12 +172,9 @@ describe('DoctorDetailView (API-only rendering)', () => {
     expect(screen.getByText('Khám tận nhà')).toBeInTheDocument();
     expect(screen.getByText('Hồ sơ bệnh án điện tử trọn đời')).toBeInTheDocument();
 
-    expect(screen.getByText('Nguyễn V. A.')).toBeInTheDocument();
+    expect(screen.queryByText('Đánh Giá Đã Xác Thực')).not.toBeInTheDocument();
+    expect(screen.queryByText('Nguyễn V. A.')).not.toBeInTheDocument();
     expect(screen.getAllByText('Gói Đồng Hành').length).toBeGreaterThan(0);
-    expect(screen.getByText('Quận 7')).toBeInTheDocument();
-    expect(
-      screen.getByText(/Bác sĩ Trí rất tận tâm và giải thích cặn kẽ/i)
-    ).toBeInTheDocument();
 
     expect(screen.getAllByText('2.850.000đ').length).toBeGreaterThan(0);
     expect(screen.getByText('3 lượt khám tại nhà')).toBeInTheDocument();
@@ -217,11 +214,13 @@ describe('DoctorDetailView (API-only rendering)', () => {
     expect(
       screen.getByText('Chưa có thông tin phạm vi chăm sóc.')
     ).toBeInTheDocument();
-    expect(screen.getByText('Bác sĩ chưa có đánh giá nào.')).toBeInTheDocument();
+    expect(
+      screen.queryByText('Bác sĩ chưa có đánh giá nào.')
+    ).not.toBeInTheDocument();
     expect(
       screen.getByText('Chưa có gói chăm sóc đang hoạt động.')
     ).toBeInTheDocument();
-    expect(screen.getByText('Chưa có đánh giá')).toBeInTheDocument();
+    expect(screen.queryByText('Chưa có đánh giá')).not.toBeInTheDocument();
   });
 
   describe('Facility Mode (type="facility")', () => {

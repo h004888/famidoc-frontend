@@ -74,10 +74,10 @@ describe('Dual-Track CTA links trên /packages và /packages/[id]', () => {
       .map((el) => el.getAttribute('href'))
       .filter((href): href is string => Boolean(href));
 
-    expect(hrefs).toContain('/doctors?packageId=pkg-uuid-1&members=2');
-    expect(hrefs).toContain('/doctors/matching?packageId=pkg-uuid-1&members=2');
-    expect(hrefs).toContain('/doctors?packageId=pkg-uuid-2&members=4');
-    expect(hrefs).toContain('/doctors/matching?packageId=pkg-uuid-2&members=4');
+    expect(hrefs).toContain('/packages/pkg-uuid-1');
+    expect(hrefs).toContain('/packages/pkg-uuid-2');
+    expect(hrefs).not.toContain('/doctors?packageId=pkg-uuid-1&members=2');
+    expect(hrefs).not.toContain('/doctors/matching?packageId=pkg-uuid-1&members=2');
   });
 
   it('PackageDetailView: hiển thị 2 nhánh Track A và Track B với đúng packageId và members', async () => {
@@ -89,10 +89,10 @@ describe('Dual-Track CTA links trên /packages và /packages/[id]', () => {
     });
 
     expect(
-      screen.getByRole('link', { name: /Tự chọn bác sĩ còn slot \(Track A\)/i })
+      screen.getByRole('link', { name: /Gia đình tự chọn bác sĩ/i })
     ).toHaveAttribute('href', '/doctors?packageId=pkg-uuid-2&members=4');
     expect(
-      screen.getByRole('link', { name: /Hệ thống gợi ý bác sĩ phù hợp \(Track B\)/i })
+      screen.getByRole('link', { name: /Hệ thống gợi ý bác sĩ phù hợp/i })
     ).toHaveAttribute('href', '/doctors/matching?packageId=pkg-uuid-2&members=4');
   });
 });

@@ -22,6 +22,17 @@ function getFamilyRoleLabel(role: string | null | undefined): string {
     : 'Đại diện Hộ gia đình';
 }
 
+function getUserInitials(name?: string | null, fallback?: string | null): string {
+  const parts = (name ?? '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0]!.charAt(0)}${parts[parts.length - 1]!.charAt(0)}`.toUpperCase();
+  }
+  if (parts.length === 1) {
+    return parts[0]!.charAt(0).toUpperCase();
+  }
+  return (fallback ?? '').trim().slice(0, 2).toUpperCase() || 'U';
+}
+
 export interface LandingHeaderProps {
   /**
    * Ẩn thanh điều hướng di động ở chân trang. Dùng trong luồng `/booking` để
@@ -162,10 +173,10 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                   className="inline-flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg bg-blue-50 text-[#0046c0] hover:bg-blue-100/80 text-xs sm:text-sm font-semibold transition-colors border border-blue-200/70 cursor-pointer"
                 >
                   <div
-                    className="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold border border-blue-300"
+                    className="w-7 h-7 rounded-full bg-[#0037c1] text-white flex items-center justify-center text-xs font-bold tracking-tight shrink-0"
                     suppressHydrationWarning
                   >
-                    {user.avatarText || user.name.charAt(0)}
+                    {getUserInitials(user.name, user.avatarText)}
                   </div>
                   <span className="hidden sm:inline max-w-[120px] truncate" suppressHydrationWarning>
                     {user.name}
@@ -185,10 +196,10 @@ export function LandingHeader({ hideMobileBottomNav = false }: LandingHeaderProp
                     <div role="presentation" className="px-3 pb-2.5 mb-1.5 border-b border-slate-100">
                       <div className="flex items-start gap-2.5">
                         <div
-                          className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-[11px] font-bold border border-blue-300 shrink-0"
+                          className="w-9 h-9 rounded-full bg-[#0037c1] text-white flex items-center justify-center text-xs font-bold shrink-0"
                           suppressHydrationWarning
                         >
-                          {user.avatarText || user.name.charAt(0)}
+                          {getUserInitials(user.name, user.avatarText)}
                         </div>
                         <div className="min-w-0 flex-1">
                           <div

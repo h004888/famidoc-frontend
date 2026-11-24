@@ -13,6 +13,7 @@ import { REQUIRED_CREDENTIAL_DEFS } from '@/components/shared';
 import { getTodayInVietnamYmd, isValidPastOrTodayVietnamDate } from '@/lib/date-vn';
 import { DOCTOR_GATE_REFRESH_EVENT } from '@/components/layout/doctor-verification-gate';
 import { Button } from '@/components/ui/button';
+import { DOCTOR_ACADEMIC_TITLE_OPTIONS } from '@/lib/constants/doctor-academic-titles';
 
 type CredentialType = DoctorCredentialDto['credentialType'];
 
@@ -576,12 +577,11 @@ export function DoctorVerificationView() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
                 >
                   <option value="">Chọn học vị</option>
-                  <option value="BS">Bác sĩ (BS)</option>
-                  <option value="ThS.BS">Thạc sĩ Bác sĩ (ThS.BS)</option>
-                  <option value="BS.CKI">BS.CKI</option>
-                  <option value="BS.CKII">BS.CKII</option>
-                  <option value="TS.BS">TS.BS</option>
-                  <option value="PGS.TS.BS">PGS.TS.BS</option>
+                  {DOCTOR_ACADEMIC_TITLE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 

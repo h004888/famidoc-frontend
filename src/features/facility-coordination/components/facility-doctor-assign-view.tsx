@@ -9,6 +9,7 @@ import {
   DocumensoSigningEmbed,
 } from '@/features/four-party-contract';
 import { contractsApi, publicApi } from '@/lib/api';
+import { encountersApi } from '@/lib/api/encounters.api';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -203,7 +204,20 @@ export function FacilityDoctorAssignView({
         doctorTitle: selectedDoctor.title,
       };
       setCurrentContract(updated);
-      const msg = `Đã phân công ${selectedDoctor.name} phụ trách hợp đồng ${currentContract.contractNumber}. Đại diện CSYT vui lòng ký xác nhận trên Documenso.`;
+
+      let scheduleNote = '';
+      if (currentContract.status === 'ACTIVE') {
+        try {
+          const res = await encountersApi.retryContractAutoSchedule(currentContract.id);
+          if (res.scheduledCount > 0) {
+            scheduleNote = ` Hệ thống đã xếp sẵn ${res.scheduledCount} mốc Khám tại nhà.`;
+          }
+        } catch {
+          // Non-blocking if contract already scheduled or missing family data
+        }
+      }
+
+      const msg = `Đã phân công ${selectedDoctor.name} phụ trách hợp đồng ${currentContract.contractNumber}.${scheduleNote}`;
       setSuccessMessage(msg);
       toast.success(msg);
       onAssignSuccess?.(updated);
@@ -599,7 +613,11 @@ export function FacilityDoctorAssignView({
                     onClick={() => void handleSubmitAssignment()}
                     className="px-4 rounded-md text-xs font-semibold cursor-pointer"
                   >
-                    {isAssigning ? 'Đang phân công...' : 'Lưu phân công bác sĩ'}
+                    {isAssigning
+                      ? 'Đang xử lý...'
+                      : currentContract.status === 'ACTIVE'
+                        ? 'Lưu & Xếp lịch tự động ngay'
+                        : 'Lưu phân công bác sĩ'}
                   </Button>
                 </div>
               )}

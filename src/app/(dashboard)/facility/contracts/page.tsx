@@ -1,13 +1,42 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
-import { FacilityContractsView } from '@/features/facility-contracts';
+import { FacilityUnifiedContractsView } from '@/features/facility-contracts';
 
 export const metadata: Metadata = {
-  title: 'Hợp đồng Hợp tác B2B | Cơ sở Y tế FamiDoc',
+  title: 'Quản lý Hợp đồng | Cơ sở Y tế FamiDoc',
   description:
-    'Quản lý hợp đồng khung 2 bên về phân chia doanh thu và cung ứng dịch vụ bác sĩ gia đình giữa Cơ sở Y tế và FamiDoc.',
+    'Quản lý tập trung hợp đồng y tế 4 bên và hợp đồng hợp tác B2B của Cơ sở Y tế.',
 };
 
-export default function FacilityContractsPage() {
-  return <FacilityContractsView />;
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+async function FacilityContractsLoader({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  const params = await searchParams;
+  const rawType = typeof params.type === 'string' ? params.type : undefined;
+  const initialTypeFilter =
+    rawType === 'FOUR_PARTY' || rawType === 'B2B' ? rawType : 'ALL';
+
+  return <FacilityUnifiedContractsView initialTypeFilter={initialTypeFilter} />;
+}
+
+export default function FacilityContractsPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#f8fafc] p-6 text-xs text-slate-500">
+          Đang tải danh sách hợp đồng...
+        </div>
+      }
+    >
+      <FacilityContractsLoader searchParams={searchParams} />
+    </Suspense>
+  );
 }

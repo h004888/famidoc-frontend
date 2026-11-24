@@ -218,6 +218,16 @@
   --sidebar-ring: #0037c1;
 }
 
+html {
+  font-size: 17px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 18px;
+  }
+}
+
 html, body, button, input, select, textarea, code, pre, kbd, samp {
   font-family: var(--font-be-vietnam-pro), 'Be Vietnam Pro', var(--font-sans), sans-serif;
 }

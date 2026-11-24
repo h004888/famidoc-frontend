@@ -335,4 +335,16 @@ describe('Dashboard Shell Navigation (Sidebar + SiteHeader)', () => {
       window.localStorage.removeItem('member_name_59bcb6b0-7b97-400c-860e-a9a9461c8bc4');
     }
   });
+
+  it('omits "Trang chủ" and "Bác sĩ CCHN" from SiteHeader Breadcrumb on /doctor', () => {
+    mockRole = 'DOCTOR';
+    mockPathname = '/doctor';
+    const doctorRender = renderShell();
+
+    const header = doctorRender.container.querySelector('header')!;
+    const breadcrumbNav = within(header).getByRole('navigation', { name: 'breadcrumb' });
+    expect(within(breadcrumbNav).queryByText('Trang chủ')).not.toBeInTheDocument();
+    expect(within(breadcrumbNav).queryByText('Bác sĩ CCHN')).not.toBeInTheDocument();
+    expect(within(breadcrumbNav).getByText('Bảng lâm sàng')).toBeInTheDocument();
+  });
 });

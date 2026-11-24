@@ -1,11 +1,11 @@
-import { FacilityCoordinationHub } from '@/features/facility-coordination';
+import { redirect } from 'next/navigation';
 
 export const metadata = {
-  title: 'Điều phối & Hợp đồng Y tế | Cơ sở Y tế FamiDoc',
+  title: 'Quản lý Hợp đồng | Cơ sở Y tế FamiDoc',
   description:
-    'Rà soát hợp đồng y tế 4 bên, phân ca trực nội viện và giám sát lịch khám ngoại viện của bác sĩ thuộc Cơ sở Y tế.',
+    'Chuyển hướng về trang Quản lý Hợp đồng tập trung của Cơ sở Y tế.',
 };
 
 export default function FacilityCoordinationPage() {
-  return <FacilityCoordinationHub />;
+  redirect('/facility/contracts?type=FOUR_PARTY');
 }

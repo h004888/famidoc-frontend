@@ -268,6 +268,27 @@ export interface DoctorRescheduleReviewDto {
   notes?: string;
 }
 
+export interface MonthlySlotStatus {
+  available: boolean;
+  reason?: string | null;
+  label?: string | null;
+}
+
+export interface MonthlyAvailabilityDay {
+  date: string;
+  isDayOff: boolean;
+  dayOffReason?: string | null;
+  familyHasVisit: boolean;
+  morning: MonthlySlotStatus;
+  afternoon: MonthlySlotStatus;
+}
+
+export interface DoctorMonthlyAvailabilityResponse {
+  month: string;
+  doctorId: string;
+  days: MonthlyAvailabilityDay[];
+}
+
 export const encountersApi = {
   getDoctorTimetable: async (query?: ListEncountersQueryDto): Promise<DoctorTimetableResponse> => {
     const raw = await httpClient.get<DoctorTimetableResponse | { data: EncounterItem[]; pagination: any }>(
@@ -421,6 +442,55 @@ export const encountersApi = {
     contractId: string
   ): Promise<{ generatedCount: number; encounters: EncounterItem[] }> => {
     const raw = await httpClient.post<any>(`/api/v1/encounters/cadence/backfill/${contractId}`, {});
+    return unwrapApiEnvelope(raw);
+  },
+
+  getDoctorMonthlyAvailability: async (
+    doctorId: string,
+    month: string,
+    contractId?: string,
+    excludeEncounterId?: string
+  ): Promise<DoctorMonthlyAvailabilityResponse> => {
+    const raw = await httpClient.get<DoctorMonthlyAvailabilityResponse>(
+      `/api/v1/encounters/doctors/${doctorId}/monthly-availability`,
+      {
+        month,
+        ...(contractId ? { contractId } : {}),
+        ...(excludeEncounterId ? { excludeEncounterId } : {}),
+      }
+    );
+    return unwrapApiEnvelope(raw) as DoctorMonthlyAvailabilityResponse;
+  },
+
+  withdrawRescheduleRequest: async (
+    encounterId: string,
+    requestId: string
+  ): Promise<EncounterRescheduleRequestItem> => {
+    const raw = await httpClient.patch<EncounterRescheduleRequestItem>(
+      `/api/v1/encounters/${encounterId}/reschedule-requests/${requestId}/withdraw`,
+      {}
+    );
+    return unwrapApiEnvelope(raw) as EncounterRescheduleRequestItem;
+  },
+
+  doctorManualSchedule: async (
+    encounterId: string,
+    payload: { proposedDate: string; slotWindow: 'MORNING' | 'AFTERNOON' }
+  ): Promise<EncounterItem> => {
+    const raw = await httpClient.patch<EncounterItem>(
+      `/api/v1/encounters/${encounterId}/doctor-manual-schedule`,
+      payload
+    );
+    return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  retryContractAutoSchedule: async (
+    contractId: string
+  ): Promise<{ scheduledCount: number; encounters: EncounterItem[] }> => {
+    const raw = await httpClient.post<{ scheduledCount: number; encounters: EncounterItem[] }>(
+      `/api/v1/encounters/contracts/${contractId}/retry-auto-schedule`,
+      {}
+    );
     return unwrapApiEnvelope(raw);
   },
 };

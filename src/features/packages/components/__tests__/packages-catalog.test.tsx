@@ -63,7 +63,7 @@ describe('PackagesCatalogView & PackageDetailView (Task 5.1 Live API)', () => {
     vi.restoreAllMocks();
   });
 
-  it('loads live ServicePackage items from API, filters by keyword, and renders Dual-Track CTAs', async () => {
+  it('loads live ServicePackage items from API and switches between full-term and monthly-average pricing', async () => {
     const getPackagesSpy = vi
       .spyOn(publicApi, 'getPackages')
       .mockResolvedValue({ items: LIVE_PACKAGES });
@@ -76,18 +76,11 @@ describe('PackagesCatalogView & PackageDetailView (Task 5.1 Live API)', () => {
     });
 
     expect(screen.getByRole('heading', { level: 3, name: 'Gói Trải Nghiệm' })).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Tìm theo tên gói chăm sóc/i)).toBeNull();
+    expect(screen.queryByText(/Kỳ hạn gói:/i)).toBeNull();
 
-    const searchInput = screen.getByPlaceholderText(/Tìm theo tên gói chăm sóc/i);
-    await userEvent.type(searchInput, 'Đồng Hành');
-    expect(screen.getByRole('heading', { level: 3, name: 'Gói Đồng Hành' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { level: 3, name: 'Gói Trải Nghiệm' })).not.toBeInTheDocument();
-
-    await userEvent.clear(searchInput);
-    await userEvent.type(searchInput, 'khong_ton_tai');
-    expect(screen.getByRole('status')).toHaveTextContent(/Không tìm thấy gói khám phù hợp/i);
-
-    await userEvent.click(screen.getByRole('button', { name: /Xóa bộ lọc/i }));
-    expect(screen.getByRole('heading', { level: 3, name: 'Gói Trải Nghiệm' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Bình Quân Theo Tháng' }));
+    expect(screen.getAllByText('/tháng').length).toBeGreaterThanOrEqual(2);
   });
 
   it('renders PackageDetailView from live API without hardcoded doctor names and updates Dual-Track links on member change', async () => {
@@ -110,8 +103,8 @@ describe('PackagesCatalogView & PackageDetailView (Task 5.1 Live API)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Tăng số thành viên' }));
     expect(screen.getByTestId('package-detail-member-count')).toHaveTextContent('5 người');
 
-    const trackALink = screen.getByRole('link', { name: /Tự chọn bác sĩ còn slot \(Track A\)/i });
-    const trackBLink = screen.getByRole('link', { name: /Hệ thống gợi ý bác sĩ phù hợp \(Track B\)/i });
+    const trackALink = screen.getByRole('link', { name: /Gia đình tự chọn bác sĩ/i });
+    const trackBLink = screen.getByRole('link', { name: /Hệ thống gợi ý bác sĩ phù hợp/i });
 
     expect(trackALink).toHaveAttribute('href', '/doctors?packageId=pkg-live-2&members=5');
     expect(trackBLink).toHaveAttribute('href', '/doctors/matching?packageId=pkg-live-2&members=5');

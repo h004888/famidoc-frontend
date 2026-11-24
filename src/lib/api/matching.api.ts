@@ -6,10 +6,63 @@ export interface MatchDoctorsIntakePayload {
   packageId: string;
   memberCount: number;
   requestedTier?: DoctorClinicalTier;
+  requestedAcademicTitle?: string;
   ageGroups?: string[];
   careCategories?: string[];
   districtArea?: string;
   careDescription?: string;
+}
+
+export interface MatchingOptionsDto {
+  areas: Array<{ city: string; districts: string[] }>;
+  ageGroups: Array<{ id: string; label: string }>;
+  careCategories: Array<{
+    id: string;
+    label: string;
+    specialtyKeywords: string[];
+  }>;
+  academicTitles: Array<{ value: string; label: string; desc: string }>;
+}
+
+export interface MatchedDoctorSummaryDto {
+  id: string;
+  doctorName: string;
+  specialty: string;
+  academicTitle: string | null;
+  experienceYears: number;
+  clinicalTier: DoctorClinicalTier;
+  ratingAvg: number;
+  totalReviews: number;
+  remainingSlots: number;
+  maxPanelCapacity: number;
+  avatarUrl: string | null;
+}
+
+export interface MatchedFacilitySummaryDto {
+  id: string;
+  facilityName: string;
+  address: string;
+  hotline: string;
+}
+
+export interface MatchingComparisonRowDto {
+  criterion: string;
+  familyNeed: string;
+  doctorMatch: string;
+  isMatched: boolean;
+}
+
+export interface MatchedDoctorAlternativeDto {
+  rank: number;
+  scores: {
+    jevFitScore: number;
+    vacancyScore: number;
+    compositeScore: number;
+  };
+  rationale: string;
+  shortReason?: string;
+  doctor: MatchedDoctorSummaryDto;
+  facility: MatchedFacilitySummaryDto;
 }
 
 export interface MatchedDoctorPreviewDto {
@@ -17,12 +70,16 @@ export interface MatchedDoctorPreviewDto {
   matchingSessionId: string;
   expiresAt: string;
   jevModelVersion: string;
+  rankingSource?: 'AI' | 'FALLBACK';
+  relaxedAcademicTitle?: boolean;
+  requestedAcademicTitle?: string | null;
   scores: {
     jevFitScore: number;
     vacancyScore: number;
     compositeScore: number;
   };
   rationale: string;
+  comparisonRows?: MatchingComparisonRowDto[];
   package: {
     id: string;
     packageCode: string;
@@ -36,25 +93,17 @@ export interface MatchedDoctorPreviewDto {
     telehealthQuota: number;
   };
   memberCount: number;
-  doctor: {
-    id: string;
-    doctorName: string;
-    specialty: string;
-    academicTitle: string | null;
-    experienceYears: number;
-    clinicalTier: DoctorClinicalTier;
-    ratingAvg: number;
-    totalReviews: number;
-    remainingSlots: number;
-    maxPanelCapacity: number;
-    avatarUrl: string | null;
-  };
-  facility: {
-    id: string;
-    facilityName: string;
-    address: string;
-    hotline: string;
-  };
+  doctor: MatchedDoctorSummaryDto;
+  facility: MatchedFacilitySummaryDto;
+  alternatives?: MatchedDoctorAlternativeDto[];
+}
+
+export interface PlatformFullMatchingResultDto {
+  outcome: 'PLATFORM_FULL';
+  packageId: string;
+  memberCount: number;
+  hotline: string;
+  message: string;
 }
 
 export interface QueuedMatchingResultDto {
@@ -203,11 +252,18 @@ export interface DiscoveredSystemOneModelDto {
 }
 
 export const matchingApi = {
+  getMatchingOptions: async (): Promise<MatchingOptionsDto> => {
+    const res = await httpClient.get<unknown>('/api/v1/matching/options');
+    return unwrapApiEnvelope<MatchingOptionsDto>(res);
+  },
+
   matchDoctors: async (
     payload: MatchDoctorsIntakePayload
-  ): Promise<MatchedDoctorPreviewDto | QueuedMatchingResultDto> => {
+  ): Promise<MatchedDoctorPreviewDto | PlatformFullMatchingResultDto | QueuedMatchingResultDto> => {
     const res = await httpClient.post<unknown>('/api/v1/matching/doctors', payload);
-    return unwrapApiEnvelope<MatchedDoctorPreviewDto | QueuedMatchingResultDto>(res);
+    return unwrapApiEnvelope<
+      MatchedDoctorPreviewDto | PlatformFullMatchingResultDto | QueuedMatchingResultDto
+    >(res);
   },
 
   getMatchingSession: async (id: string): Promise<MatchingSessionDetailDto> => {

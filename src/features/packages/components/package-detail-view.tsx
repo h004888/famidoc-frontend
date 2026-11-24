@@ -164,9 +164,6 @@ export function PackageDetailView({
 
             <div className="flex flex-wrap items-center gap-2">
               <span className="px-3 py-1 rounded-full bg-white/15 text-xs font-semibold tabular-nums">
-                Mã gói: {pkg.packageCode}
-              </span>
-              <span className="px-3 py-1 rounded-full bg-white/15 text-xs font-semibold tabular-nums">
                 Kỳ hạn {pkg.durationMonths} tháng
               </span>
             </div>
@@ -234,11 +231,6 @@ export function PackageDetailView({
                     </li>
                   ))}
                 </ul>
-                {pkg.benefits?.emergencySupport && (
-                  <p className="text-xs text-slate-500 pt-2 border-t border-slate-100">
-                    <strong>Lưu ý phạm vi:</strong> {pkg.benefits.emergencySupport}
-                  </p>
-                )}
               </div>
 
               <div className="rounded-2xl border border-slate-200 overflow-hidden">
@@ -371,18 +363,15 @@ export function PackageDetailView({
                   className="w-full py-3 px-4 rounded-xl bg-[#0037c1] hover:bg-[#002c9a] text-white text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-colors shadow-xs"
                 >
                   <span className="material-symbols-outlined text-lg">person_search</span>
-                  <span>Tự chọn bác sĩ còn slot (Track A)</span>
+                  <span>Gia đình tự chọn bác sĩ</span>
                 </Link>
                 <Link
                   href={trackBHref}
                   className="w-full py-3 px-4 rounded-xl border border-[#0037c1] bg-blue-50 hover:bg-blue-100 text-[#0037c1] text-xs sm:text-sm font-semibold flex items-center justify-center gap-2 transition-colors"
                 >
                   <span className="material-symbols-outlined text-lg">auto_awesome</span>
-                  <span>Hệ thống gợi ý bác sĩ phù hợp (Track B)</span>
+                  <span>Hệ thống gợi ý bác sĩ phù hợp</span>
                 </Link>
-                <p className="text-[11px] text-slate-500 text-center leading-relaxed">
-                  Bạn sẽ xem trước thông tin 1 bác sĩ và cơ sở y tế phụ trách để xác nhận trước khi khởi tạo hợp đồng 4 bên.
-                </p>
               </div>
             </div>
           </div>

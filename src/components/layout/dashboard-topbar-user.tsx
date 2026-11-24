@@ -36,6 +36,17 @@ export interface DashboardTopbarUserProps {
   compact?: boolean;
 }
 
+function formatAvatarInitials(name?: string, fallback?: string): string {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  }
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return fallback || 'FD';
+}
+
 /**
  * Accessible user profile dropdown in the dashboard topbar.
  */
@@ -51,7 +62,10 @@ export function DashboardTopbarUser({ compact = false }: DashboardTopbarUserProp
   const effectiveRole: LoginRole =
     isAuthenticated ? role : hostPortalRole || role || 'FAMILY';
 
-  const avatarText = mounted || isAuthenticated ? user?.avatarText || 'FD' : 'FD';
+  const avatarText =
+    mounted || isAuthenticated
+      ? formatAvatarInitials(user?.name, user?.avatarText)
+      : 'FD';
   const displayName =
     mounted || isAuthenticated ? user?.name || ROLE_DISPLAY_TITLES[effectiveRole] : '';
   const contactSubtitle = user?.email || user?.phone || '';
@@ -92,9 +106,11 @@ export function DashboardTopbarUser({ compact = false }: DashboardTopbarUserProp
                 >
                   {displayName}
                 </span>
-                <span className="mt-0.5 text-xs leading-tight font-medium text-slate-600">
-                  {roleLabel}
-                </span>
+                {effectiveRole !== 'DOCTOR' && (
+                  <span className="mt-0.5 text-xs leading-tight font-medium text-slate-600">
+                    {roleLabel}
+                  </span>
+                )}
               </div>
               <span className="material-symbols-outlined hidden text-[16px] text-slate-600 group-hover:text-slate-900 md:block">
                 keyboard_arrow_down

@@ -100,7 +100,7 @@ describe('Màn hình Bác sĩ: DoctorContractsInboundView (/doctor/contracts)', 
     render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
     expect(screen.getByText('HĐ-4B-2026-0088')).toBeInTheDocument();
     expect(screen.getByText('Trần Văn Mạnh')).toBeInTheDocument();
-    expect(screen.getByText('Gói Chăm Sóc Sức Khỏe Tam Đại')).toBeInTheDocument();
+    expect(screen.getAllByText('Gói Chăm Sóc Sức Khỏe Tam Đại').length).toBeGreaterThan(0);
 
     expect(screen.getByText('HĐ-4B-2026-0099')).toBeInTheDocument();
     expect(screen.getByText('Lê Thị Thu')).toBeInTheDocument();
@@ -108,35 +108,32 @@ describe('Màn hình Bác sĩ: DoctorContractsInboundView (/doctor/contracts)', 
 
   it('renders status badges distinguishing pending medical review vs active care', () => {
     render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
-    expect(screen.getByText(/Chờ bác sĩ ký Documenso/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Chờ bác sĩ ký/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/Đang phụ trách/i).length).toBeGreaterThan(0);
   });
 
-  it('provides action link directing to contract review and care needs summary screen', () => {
+  it('provides action link directing to contract detail and signing screen', () => {
     render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
-    const reviewLink = screen.getByRole('link', { name: /Thẩm định & Ký Documenso/i });
-    expect(reviewLink).toHaveAttribute('href', '/doctor/contracts/ct-doc-001/review');
+    const reviewLink = screen.getByRole('link', { name: /Ký xác nhận/i });
+    expect(reviewLink).toHaveAttribute('href', '/doctor/contracts/ct-doc-001');
   });
 
   it('renders an empty state container when no contracts are assigned to doctor', () => {
     render(<DoctorContractsInboundView initialContracts={[]} />);
-    expect(screen.getByText(/Chưa có hợp đồng nào được phân công/i)).toBeInTheDocument();
+    expect(screen.getByText(/Không có hợp đồng phù hợp/i)).toBeInTheDocument();
   });
 
-  it('renders standard header, breadcrumbs, and responsive container layout', () => {
+  it('renders standard header and responsive container layout', () => {
     const { container } = render(<DoctorContractsInboundView initialContracts={MOCK_DOCTOR_CONTRACTS} />);
 
-    // Breadcrumbs
-    expect(screen.getByText('Trang chủ')).toBeInTheDocument();
-    expect(screen.getByText('Bác sĩ')).toBeInTheDocument();
-    expect(screen.getByText('Hợp đồng phụ trách')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Quản lý Hợp đồng Phụ trách' })).toBeInTheDocument();
 
     // Main container
     const mainEl = container.querySelector('main');
-    expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-6');
+    expect(mainEl).toHaveClass('max-w-7xl', 'mx-auto', 'space-y-4');
 
-    // Action button & badge
-    expect(screen.getByRole('button', { name: /Làm mới/i })).toBeInTheDocument();
-    expect(screen.getByText(/BS Gia Đình: Lê Hoàng Nam/i)).toBeInTheDocument();
+    // KPI filter strip & table
+    expect(screen.getByRole('region', { name: 'Thống kê hợp đồng phụ trách' })).toBeInTheDocument();
+    expect(screen.getByRole('table')).toBeInTheDocument();
   });
 });

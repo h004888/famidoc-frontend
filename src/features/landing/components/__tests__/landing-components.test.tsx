@@ -156,13 +156,13 @@ describe('UT-CMP: Landing UI Components (High-End Concierge Medical Compliance)'
 
   it('UT-CMP-11: Footer render dạng thanh ngang tinh gọn với tiêu chuẩn BYT và HIPAA', () => {
     render(<LandingFooter />);
-    expect(screen.getAllByText(/FamiDoc Pro/i).length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText(/FamiDoc/i).length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText(/Bộ Y Tế/i).length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByRole('link', { name: /Chính sách bảo mật y tế/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Chính sách bảo mật/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Tiêu chuẩn HIPAA\/HL7/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Quy chuẩn kỹ thuật Bộ Y Tế/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Quy chuẩn Bộ Y Tế/i })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Điều khoản dịch vụ/i })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Đường dây nóng: 1900 8821/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Hotline: 1900 8821/i })).toBeInTheDocument();
   });
 
   it('standardizes typography across LandingStats, LandingPackages, LandingProcess, LandingDoctors', () => {

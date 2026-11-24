@@ -406,6 +406,12 @@ describe('BookingTrackingStep', () => {
       ...contractDetailFixture,
       contractStatus: 'PENDING_PAYMENT',
       documensoItemId: 'item-42',
+      signatures: [
+        { signerRole: 'FAMILY_REP', signerUserId: 'u1', signedAt: '2026-11-15T10:00:00.000Z' },
+        { signerRole: 'HEALTHCARE_FACILITY', signerUserId: 'u2', signedAt: '2026-11-15T10:20:00.000Z' },
+        { signerRole: 'ASSIGNED_DOCTOR', signerUserId: 'u3', signedAt: '2026-11-15T10:30:00.000Z' },
+        { signerRole: 'ADMIN', signerUserId: 'u4', signedAt: '2026-11-15T10:40:00.000Z' },
+      ],
     } as never);
     const downloadSpy = vi
       .mocked(contractsApi.downloadSignedPdf)
@@ -550,7 +556,7 @@ describe('BookingTrackingStep', () => {
     expect(
       screen.getByTestId('booking-post-signing-party-HEALTHCARE_FACILITY')
     ).toHaveTextContent('Đang chờ ký');
-    expect(card).toHaveTextContent(/Tự động kiểm tra tiến độ mỗi 10 giây/i);
+    expect(card).not.toHaveTextContent(/Tự động kiểm tra tiến độ mỗi 10 giây/i);
     // Chỉ giữ duy nhất nút làm mới ở header
     expect(screen.getAllByTestId('booking-tracking-refresh')).toHaveLength(1);
     // Cột phải không lặp lại danh sách 4 bên, thay bằng thẻ bước tiếp theo + nút khóa PDF
@@ -640,6 +646,37 @@ describe('BookingTrackingStep', () => {
       'Đã ký 4/4'
     );
     expect(screen.getByTestId('booking-proceed-payment')).toBeInTheDocument();
+  });
+
+  it('không báo sai "Đã đủ 4/4 chữ ký" khi contractStatus là PENDING_PAYMENT nhưng mới có 1/4 chữ ký', async () => {
+    vi.mocked(contractsApi.getMedicalContractDetail).mockResolvedValue({
+      ...contractDetailFixture,
+      contractStatus: 'PENDING_PAYMENT',
+      documensoItemId: 'item-42',
+      signatures: [
+        {
+          signerRole: 'FAMILY_REP',
+          signerUserId: 'u1',
+          signedAt: '2026-11-15T10:00:00.000Z',
+        },
+      ],
+    } as never);
+
+    render(<BookingTrackingStep contractId="ctr-1" pollingIntervalMs={0} />);
+
+    expect(
+      await screen.findByTestId('booking-post-family-signing-card')
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('booking-tracking-payment-ready')).toBeNull();
+    expect(screen.queryByTestId('booking-view-signed-pdf')).toBeNull();
+    expect(screen.getByTestId('booking-tracking-status')).toHaveTextContent(
+      'Đang chờ 3 bên còn lại (1/4)'
+    );
+    expect(screen.getByTestId('booking-post-signing-stage-1')).toBeInTheDocument();
+    expect(screen.getByTestId('booking-post-signing-stage-2')).toHaveTextContent(
+      '0/3 hoàn tất'
+    );
+    expect(screen.getByTestId('booking-view-signed-pdf-locked')).toBeDisabled();
   });
 });
 

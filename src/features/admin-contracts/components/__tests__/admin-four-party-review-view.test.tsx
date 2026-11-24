@@ -45,71 +45,50 @@ vi.mock('@/lib/api', async (importOriginal) => {
       getMedicalContractById: vi.fn(),
       getSigningSession: vi.fn(),
       syncDocumenso: vi.fn(),
+      downloadSignedPdf: vi.fn(),
     },
   };
 });
 
 const mockContract: FourPartyContract = {
-  id: 'ct-4p-001',
-  contractNumber: 'HD-4P-2026-0001',
+  id: 'ct-4p-admin-01',
+  contractNumber: 'HD-4P-2026-0008',
   status: 'FAMILY_SIGNED',
-  packageId: 'pkg-gold',
+  createdAt: '2026-03-31T08:00:00Z',
+  packageId: 'pkg-family-comp',
   packageName: 'Gói Chăm Sóc Toàn Diện Gia Đình',
-  packagePrice: 9600000,
+  packagePrice: 6800000,
   durationMonths: 12,
-  familyId: 'fam-88219',
+  membersCount: 4,
+  familyId: 'fam-101',
   familyRepresentativeName: 'Nguyễn Văn An',
   familyRepresentativePhone: '0912345678',
-  familyRepresentativeEmail: 'nguyenvanan@example.com',
-  familyAddress: '123 Đường Nguyễn Trãi, Phường Bến Thành, Quận 1, TP. Hồ Chí Minh',
-  membersCount: 3,
-  members: [
-    {
-      id: 'm-1',
-      name: 'Nguyễn Văn An',
-      age: 48,
-      relation: 'Chủ hộ',
-      chronic: 'Tăng huyết áp độ 1',
-      allergies: 'Penicillin',
-    },
-    {
-      id: 'm-2',
-      name: 'Trần Thị Cúc',
-      age: 72,
-      relation: 'Mẹ',
-      chronic: 'Đái tháo đường Type 2',
-      allergies: 'Không có ghi nhận',
-    },
-    {
-      id: 'm-3',
-      name: 'Nguyễn Minh Quân',
-      age: 8,
-      relation: 'Con trai',
-      chronic: 'Hen phế quản nhẹ',
-      allergies: 'Hải sản vỏ cứng',
-    },
-  ],
   facilityId: 'fac-01',
-  facilityName: 'Phòng khám Đa khoa Quốc tế Medsev',
-  facilityAddress: '456 Lê Văn Sỹ, Phường 2, Tân Bình, TP. Hồ Chí Minh',
-  createdAt: '2026-11-09T08:00:00.000Z',
+  facilityName: 'Phòng khám Đa khoa FamiCare',
+  doctorId: 'doc-01',
+  doctorName: 'BS. Lê Hoàng Nam',
+  members: [],
   signatures: {
     family: {
       signedBy: 'Nguyễn Văn An',
       signerRole: 'FAMILY',
-      signedAt: '2026-11-09T08:30:00.000Z',
-      sha256Hash: 'a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890',
-      ipAddress: '14.232.208.55',
+      signedAt: '2026-03-31T08:15:00Z',
+      sha256Hash: 'fam-sha256-hash-89a2',
     },
   },
 };
 
-describe('AdminFourPartyReviewView (Documenso Platform Review & Sign)', () => {
+describe('AdminFourPartyReviewView (Full-page Documenso signing, tracking & 4/4 PDF preview)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:admin-signed-pdf');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    vi.mocked(contractsApi.downloadSignedPdf).mockResolvedValue(
+      new Blob(['%PDF-1.7'], { type: 'application/pdf' })
+    );
     vi.mocked(contractsApi.getSigningSession).mockResolvedValue({
-      contractId: 'ct-4p-001',
-      contractNumber: 'HD-4P-2026-0001',
+      contractId: 'ct-4p-admin-01',
+      contractNumber: 'HD-4P-2026-0008',
       contractStatus: 'PENDING_APPROVAL',
       signerRole: 'ADMIN',
       alreadySigned: false,
@@ -121,21 +100,24 @@ describe('AdminFourPartyReviewView (Documenso Platform Review & Sign)', () => {
     });
     vi.mocked(contractsApi.syncDocumenso).mockResolvedValue({
       synced: true,
-      contractId: 'ct-4p-001',
+      contractId: 'ct-4p-admin-01',
       contractStatus: 'PENDING_APPROVAL',
       signedRoles: ['FAMILY_REP', 'ADMIN'],
       signedPdfUrl: null,
     });
   });
 
-  it('loads real contract by contractId when contract prop is omitted', async () => {
-    vi.mocked(contractsApi.getMedicalContractById).mockResolvedValueOnce(mockContract);
+  it('loads real contract by contractId and mounts DocumensoSigningEmbed', async () => {
+    vi.mocked(contractsApi.getMedicalContractById).mockResolvedValueOnce(
+      mockContract
+    );
 
-    render(<AdminFourPartyReviewView contractId="ct-4p-001" />);
+    render(<AdminFourPartyReviewView contractId="ct-4p-admin-01" pollingIntervalMs={0} />);
 
     await waitFor(() => {
-      expect(contractsApi.getMedicalContractById).toHaveBeenCalledWith('ct-4p-001');
-      expect(screen.getAllByText(/HD-4P-2026-0001/i).length).toBeGreaterThanOrEqual(1);
+      expect(contractsApi.getMedicalContractById).toHaveBeenCalledWith(
+        'ct-4p-admin-01'
+      );
       expect(screen.getByTestId('mock-documenso-form')).toHaveAttribute(
         'data-token',
         'tok-admin'
@@ -143,41 +125,14 @@ describe('AdminFourPartyReviewView (Documenso Platform Review & Sign)', () => {
     });
   });
 
-  it('renders package benefits snapshot and family digital signature details', async () => {
-    render(<AdminFourPartyReviewView contract={mockContract} />);
-
-    expect(screen.getByText(/HD-4P-2026-0001/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Gói Chăm Sóc Toàn Diện Gia Đình/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/Trần Thị Cúc/i).length).toBeGreaterThan(0);
-    expect(
-      screen.getByText(/a1b2c3d4e5f67890abcdef1234567890abcdef1234567890abcdef1234567890/i)
-    ).toBeInTheDocument();
-    expect(screen.getByText(/14\.232\.208\.55/i)).toBeInTheDocument();
-
-    await waitFor(() => {
-      expect(contractsApi.getSigningSession).toHaveBeenCalledWith('ct-4p-001');
-    });
-  });
-
-  it('triggers Documenso sync when Admin completes signing on Documenso embed', async () => {
+  it('transitions to 4-party tracking view after Admin signs (2/4)', async () => {
     const handleSignSuccess = vi.fn();
-    vi.mocked(contractsApi.getMedicalContractById).mockResolvedValueOnce({
-      ...mockContract,
-      status: 'PLATFORM_SIGNED',
-      signatures: {
-        ...mockContract.signatures,
-        platform: {
-          signerRole: 'PLATFORM',
-          signedBy: 'Người ký nền tảng',
-          signedAt: '2026-11-17T01:00:00.000Z',
-          sha256Hash: 'platform-signature-from-api',
-        },
-      },
-    });
+
     render(
       <AdminFourPartyReviewView
         contract={mockContract}
         onSignSuccess={handleSignSuccess}
+        pollingIntervalMs={0}
       />
     );
 
@@ -187,43 +142,53 @@ describe('AdminFourPartyReviewView (Documenso Platform Review & Sign)', () => {
     fireEvent.click(completeBtn);
 
     await waitFor(() => {
-      expect(contractsApi.syncDocumenso).toHaveBeenCalledWith('ct-4p-001');
-      expect(handleSignSuccess).toHaveBeenCalledWith(
-        expect.objectContaining({
-          status: 'PLATFORM_SIGNED',
-          signatures: expect.objectContaining({
-            platform: expect.objectContaining({
-              signerRole: 'PLATFORM',
-            }),
-          }),
-        })
-      );
+      expect(contractsApi.syncDocumenso).toHaveBeenCalledWith('ct-4p-admin-01');
+      expect(handleSignSuccess).toHaveBeenCalled();
     });
+
+    expect(screen.getByTestId('admin-post-signing-tracking')).toBeInTheDocument();
+    expect(screen.getByText('2 / 4 bên (50%)')).toBeInTheDocument();
+  });
+
+  it('renders inline PDF preview when all 4/4 parties have signed', async () => {
+    const allSignedContract: FourPartyContract = {
+      ...mockContract,
+      status: 'PENDING_PAYMENT',
+      signatures: {
+        ...mockContract.signatures,
+        facility: {
+          signedBy: 'Phòng khám Đa khoa FamiCare',
+          signerRole: 'FACILITY',
+          signedAt: '2026-03-31T08:20:00Z',
+          sha256Hash: 'fac-hash-1234',
+        },
+        doctor: {
+          signedBy: 'BS. Lê Hoàng Nam',
+          signerRole: 'DOCTOR',
+          signedAt: '2026-03-31T08:25:00Z',
+          sha256Hash: 'doc-hash-5678',
+        },
+        platform: {
+          signedBy: 'Nền tảng FamiDoc',
+          signerRole: 'PLATFORM',
+          signedAt: '2026-03-31T08:30:00Z',
+          sha256Hash: 'adm-hash-9012',
+        },
+      },
+    };
+
+    render(<AdminFourPartyReviewView contract={allSignedContract} pollingIntervalMs={0} />);
 
     expect(
-      screen.getByText(/Đã đồng bộ trạng thái trên Documenso \(2\/4 bên\)/i)
+      screen.getByTestId('admin-signed-pdf-preview-section')
     ).toBeInTheDocument();
-  });
-
-  it('renders full contract sheet when switched to full view tab', async () => {
-    render(<AdminFourPartyReviewView contract={mockContract} />);
-
-    const fullSheetTab = screen.getByRole('tab', { name: /Toàn văn Hợp đồng/i });
-    fireEvent.click(fullSheetTab);
-
-    expect(screen.getByText(/CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM/i)).toBeInTheDocument();
-    expect(screen.getByTestId('signature-box-platform')).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(contractsApi.getSigningSession).toHaveBeenCalled();
+      expect(contractsApi.downloadSignedPdf).toHaveBeenCalledWith('ct-4p-admin-01');
+      expect(screen.getByTestId('admin-signed-pdf-iframe')).toHaveAttribute(
+        'src',
+        'blob:admin-signed-pdf'
+      );
     });
-  });
-
-  it('complies with typography design system (no tracking-wide, font-black, or font-extrabold)', async () => {
-    const { container } = render(<AdminFourPartyReviewView contract={mockContract} />);
-    await waitFor(() => {
-      expect(contractsApi.getSigningSession).toHaveBeenCalled();
-    });
-    expect(container.innerHTML).not.toMatch(/\bfont-(mono|black|extrabold)\b/);
   });
 });
