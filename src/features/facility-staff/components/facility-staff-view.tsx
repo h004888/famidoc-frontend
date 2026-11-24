@@ -526,22 +526,22 @@ export function FacilityStaffView() {
         {/* Staff Table */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
-            <table className="w-full text-left text-xs sm:text-sm">
-              <thead className="bg-slate-50/80 border-b border-slate-200 text-slate-600 font-semibold uppercase text-[11px] tracking-wider">
+            <table className="w-full border-collapse text-left text-xs sm:text-sm">
+              <thead className="border-b border-slate-200 bg-slate-50/90 text-xs font-semibold text-slate-700">
                 <tr>
-                  <th className="py-3.5 px-4">Bác sĩ &amp; Chức danh</th>
-                  <th className="py-3.5 px-4">Liên hệ &amp; Email</th>
-                  <th className="py-3.5 px-4">Chứng chỉ CCHN</th>
-                  <th className="py-3.5 px-4">Khoa phòng</th>
-                  <th className="py-3.5 px-4 text-center">Panel Cap</th>
-                  <th className="py-3.5 px-4 text-center">Trạng thái Onboarding</th>
-                  <th className="py-3.5 px-4 text-right">Thao tác</th>
+                  <th className="border-r border-slate-200 px-4 py-2.5 text-left">Bác sĩ &amp; Chức danh</th>
+                  <th className="border-r border-slate-200 px-4 py-2.5 text-left">Liên hệ &amp; Email</th>
+                  <th className="border-r border-slate-200 px-4 py-2.5 text-left">Chứng chỉ CCHN</th>
+                  <th className="border-r border-slate-200 px-4 py-2.5 text-left">Khoa phòng</th>
+                  <th className="border-r border-slate-200 px-4 py-2.5 text-left">Panel Cap</th>
+                  <th className="border-r border-slate-200 px-4 py-2.5 text-left">Trạng thái Onboarding</th>
+                  <th className="px-4 py-2.5 text-left">Thao tác</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-200">
                 {filteredStaff.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="py-12 text-center text-slate-400">
+                    <td colSpan={7} className="px-4 py-12 text-left text-slate-500">
                       Không tìm thấy bác sĩ nào phù hợp với điều kiện lọc.
                     </td>
                   </tr>
@@ -549,34 +549,34 @@ export function FacilityStaffView() {
                   filteredStaff.map((doc) => {
                     const capPercent = doc.maxCap > 0 ? Math.round((doc.panelCap / doc.maxCap) * 100) : 0;
                     return (
-                      <tr key={doc.id} className="hover:bg-slate-50/70 transition-colors">
-                        <td className="py-3.5 px-4">
+                      <tr key={doc.id} className="transition-colors hover:bg-slate-50/70">
+                        <td className="border-r border-slate-200 px-4 py-3 text-left">
                           <div className="font-bold text-slate-900">{doc.name}</div>
                           <div className="text-[11px] text-slate-500">{doc.title}</div>
-                          <div className="text-[10px] text-slate-400 tracking-wide mt-0.5">ID: {doc.id}</div>
+                          <div className="mt-0.5 text-[10px] tracking-wide text-slate-400">ID: {doc.id}</div>
                         </td>
 
-                        <td className="py-3.5 px-4">
-                          <div className="text-slate-800 font-medium">{doc.email || '—'}</div>
+                        <td className="border-r border-slate-200 px-4 py-3 text-left">
+                          <div className="font-medium text-slate-800">{doc.email || '—'}</div>
                           <div className="text-[11px] text-slate-500">{doc.phone || '—'}</div>
                         </td>
 
-                        <td className="py-3.5 px-4">
-                          <div className="tabular-nums text-xs text-slate-700 font-semibold">
+                        <td className="border-r border-slate-200 px-4 py-3 text-left">
+                          <div className="text-xs font-semibold text-slate-700 tabular-nums">
                             {doc.cchnNumber}
                           </div>
                           <div className="text-[11px] text-slate-400">Cấp ngày: {doc.issueDate}</div>
                         </td>
 
-                        <td className="py-3.5 px-4 text-slate-600 font-medium">
+                        <td className="border-r border-slate-200 px-4 py-3 text-left font-medium text-slate-600">
                           {doc.department}
                         </td>
 
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="font-semibold text-slate-800">
+                        <td className="border-r border-slate-200 px-4 py-3 text-left">
+                          <div className="font-semibold text-slate-800 tabular-nums">
                             {doc.panelCap} / {doc.maxCap} hộ
                           </div>
-                          <div className="w-20 mx-auto bg-slate-100 rounded-full h-1.5 mt-1">
+                          <div className="mt-1 h-1.5 w-20 rounded-full bg-slate-100">
                             <div
                               className={`h-1.5 rounded-full ${capPercent > 90
                                 ? 'bg-rose-500'
@@ -589,30 +589,30 @@ export function FacilityStaffView() {
                           </div>
                         </td>
 
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <td className="border-r border-slate-200 px-4 py-3 text-left whitespace-nowrap">
                           {doc.onboardingStatus === 'ACTIVE' || doc.status === 'active' ? (
-                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
                               ✓ Đang hoạt động
                             </span>
                           ) : doc.onboardingStatus === 'FACILITY_VERIFIED' ? (
-                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                            <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
                               ● Đã duyệt Cấp 1 (Chờ Admin)
                             </span>
                           ) : doc.onboardingStatus === 'PENDING_FACILITY_REVIEW' ? (
-                            <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 animate-pulse">
+                            <span className="animate-pulse rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-700">
                               ● Chờ CSYT duyệt Cấp 1
                             </span>
                           ) : (
-                            <div className="inline-flex flex-col items-center gap-1">
-                              <span className="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200">
+                            <div className="inline-flex flex-col items-start gap-1">
+                              <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
                                 {doc.rejectionReason ? 'Yêu cầu bổ sung hồ sơ' : 'Chờ BS nộp hồ sơ'}
                               </span>
                             </div>
                           )}
                         </td>
 
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
-                          <div className="flex items-center justify-end gap-2">
+                        <td className="px-4 py-3 text-left whitespace-nowrap">
+                          <div className="flex items-center justify-start gap-2">
                             <Link
                               href={`/facility/doctors/${doc.id}`}
                               className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold transition-colors border border-slate-200"

@@ -27,7 +27,7 @@ const stats: AdminOverview = {
 const currentYear = Number(new Intl.DateTimeFormat('en-US', { year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date()));
 const report: AdminFinanceReport = {
   year: currentYear, environment: 'LIVE',
-  totals: { receivedVnd: 800000, paidVnd: 200000, netVnd: 600000 },
+  totals: { purchasingFamilies: 2, receivedVnd: 800000, paidVnd: 200000, netVnd: 600000 },
   months: Array.from({ length: 12 }, (_, index) => ({
     month: index + 1, receivedVnd: index === 9 ? 800000 : 0, paidVnd: index === 10 ? 200000 : 0,
   })),
@@ -43,7 +43,13 @@ describe('AdminDashboardView', () => {
   it('shows yearly totals and exact amounts for each of the twelve months', async () => {
     render(<AdminDashboardView />);
     expect(await screen.findByText(formatCurrencyVND(600000))).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Báo cáo tài chính năm' })).toBeInTheDocument();
+    const finance = within(screen.getByRole('region', { name: 'Báo cáo tài chính năm' }));
+    expect(finance.getByText('Gia đình đã mua gói').nextElementSibling).toHaveTextContent(/^2$/);
+    expect(finance.getByText('Tổng tiền đã thu').nextElementSibling).toHaveTextContent(formatCurrencyVND(800000));
+    expect(finance.getByText('Đã chi trả CSYT').nextElementSibling).toHaveTextContent(formatCurrencyVND(200000));
+    expect(finance.getByText('Còn lại sau chi trả').nextElementSibling).toHaveTextContent(formatCurrencyVND(600000));
+    expect(screen.queryByText('Tiền đã thu từ đầu năm')).not.toBeInTheDocument();
+    expect(screen.queryByText(formatCurrencyVND(stats.gmvVnd))).not.toBeInTheDocument();
     expect(screen.queryByText('Lịch hẹn theo loại dịch vụ')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Đề xuất hạn mức' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'Hàng đợi ghép bác sĩ' })).toBeInTheDocument();
@@ -67,7 +73,7 @@ describe('AdminDashboardView', () => {
     fireEvent.change(screen.getByRole('combobox', { name: 'Môi trường tổng quan' }), { target: { value: 'TEST' } });
     await waitFor(() => expect(adminApi.financeReport).toHaveBeenLastCalledWith(currentYear - 1, 'TEST'));
     expect(adminApi.overview).toHaveBeenLastCalledWith('monthly', 'TEST');
-    await screen.findByText('Chênh lệch thu chi');
+    await screen.findByText('Còn lại sau chi trả');
   });
 
   it('opens the actual complaint from the overview response', async () => {

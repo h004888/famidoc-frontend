@@ -69,7 +69,7 @@ export interface AdminOverview {
 export interface AdminFinanceReport {
   year: number;
   environment: 'LIVE' | 'TEST';
-  totals: { receivedVnd: number; paidVnd: number; netVnd: number };
+  totals: { purchasingFamilies?: number; receivedVnd: number; paidVnd: number; netVnd: number };
   months: { month: number; receivedVnd: number; paidVnd: number }[];
 }
 

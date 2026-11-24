@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarClock,
   CheckCircle2,
+  ChevronRight,
   Clock3,
   FileSpreadsheet,
   Percent,
@@ -76,6 +77,44 @@ const disbursementStyles = {
   SETTLED: 'border-emerald-200 bg-emerald-50 text-emerald-800',
   FAILED: 'border-red-200 bg-red-50 text-red-800',
 };
+type StatusFilter = 'ALL' | 'READY' | 'WAITING' | 'DISPUTED' | 'SETTLED';
+
+function getUnifiedStatus(settlement: FacilitySettlementDto) {
+  if (settlement.disbursementStatus === 'SETTLED') {
+    return {
+      label: 'Đã chi trả',
+      className: disbursementStyles.SETTLED,
+    };
+  }
+  if (settlement.disbursementStatus === 'FAILED') {
+    return {
+      label: 'Chi trả thất bại',
+      className: disbursementStyles.FAILED,
+    };
+  }
+  if (settlement.reviewStatus === 'DISPUTED') {
+    return {
+      label: 'CSYT báo sai lệch',
+      className: reviewStyles.DISPUTED,
+    };
+  }
+  if (settlement.reviewStatus === 'CONFIRMED') {
+    return {
+      label: 'Sẵn sàng chuyển',
+      className: 'border-blue-200 bg-blue-50 text-blue-800',
+    };
+  }
+  if (settlement.reviewStatus === 'PENDING') {
+    return {
+      label: 'Chờ CSYT xác nhận',
+      className: reviewStyles.PENDING,
+    };
+  }
+  return {
+    label: disbursementLabels[settlement.disbursementStatus],
+    className: disbursementStyles[settlement.disbursementStatus],
+  };
+}
 const currency = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 const formatVND = (amount: number) => currency.format(amount);
 const facilityName = (settlement: FacilitySettlementDto) =>
@@ -103,6 +142,7 @@ export function AdminSettlementsView() {
   const [isLoading, setIsLoading] = useState(true);
   const [isPreparing, setIsPreparing] = useState(false);
   const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [failModalOpen, setFailModalOpen] = useState(false);
@@ -131,7 +171,9 @@ export function AdminSettlementsView() {
     let active = true;
     const [year, month] = period.split('-').map(Number);
     void financeApi.getAnalytics({ environment, ...(period ? { year, month } : {}) }).then((data) => {
-      if (active) setAnalytics(data);
+      if (!active) return;
+      setAnalytics(data);
+      setStatusFilter('ALL');
     }).catch((error: unknown) => {
       if (!active) return;
       setAnalytics(null);
@@ -522,110 +564,177 @@ export function AdminSettlementsView() {
             </p>
           )}
 
-          <Card className="gap-0 overflow-hidden border-slate-200 py-0 shadow-2xs">
+          <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-2xs">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-3.5 sm:px-5">
               <div>
-                <h3 className="text-sm font-bold text-slate-900">
+                <h3 className="text-sm font-bold text-slate-900 sm:text-base">
                   Các khoản chi tháng {analytics.month}/{analytics.year}
                 </h3>
-                <p className="mt-0.5 text-xs text-slate-600">
-                  Danh sách các cơ sở y tế được nền tảng chi trả định kỳ trong kỳ quyết toán.
-                </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700 ring-1 ring-slate-200">
-                  Tổng: {settlements.length} khoản
-                </span>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter('ALL')}
+                  className={`rounded-full px-2.5 py-1 font-semibold transition-colors ${
+                    statusFilter === 'ALL'
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-white text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100'
+                  }`}
+                >
+                  Tất cả ({settlements.length})
+                </button>
                 {totals.readyToPayCount > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-800 ring-1 ring-blue-200">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('READY')}
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold transition-colors ${
+                      statusFilter === 'READY'
+                        ? 'bg-blue-700 text-white'
+                        : 'bg-blue-50 text-blue-800 ring-1 ring-blue-200 hover:bg-blue-100'
+                    }`}
+                  >
                     <Clock3 aria-hidden="true" className="size-3" />
-                    Sẵn sàng chuyển: {totals.readyToPayCount}
-                  </span>
+                    Sẵn sàng chuyển ({totals.readyToPayCount})
+                  </button>
                 )}
                 {totals.waitingReviewCount > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 font-semibold text-amber-800 ring-1 ring-amber-200">
-                    Chờ CSYT duyệt: {totals.waitingReviewCount}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('WAITING')}
+                    className={`rounded-full px-2.5 py-1 font-semibold transition-colors ${
+                      statusFilter === 'WAITING'
+                        ? 'bg-amber-600 text-white'
+                        : 'bg-amber-50 text-amber-800 ring-1 ring-amber-200 hover:bg-amber-100'
+                    }`}
+                  >
+                    Chờ CSYT duyệt ({totals.waitingReviewCount})
+                  </button>
                 )}
                 {totals.disputedCount > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 font-semibold text-red-800 ring-1 ring-red-200">
-                    Báo sai lệch: {totals.disputedCount}
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('DISPUTED')}
+                    className={`rounded-full px-2.5 py-1 font-semibold transition-colors ${
+                      statusFilter === 'DISPUTED'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-red-50 text-red-800 ring-1 ring-red-200 hover:bg-red-100'
+                    }`}
+                  >
+                    Báo sai lệch ({totals.disputedCount})
+                  </button>
                 )}
                 {totals.settledCount > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-800 ring-1 ring-emerald-200">
+                  <button
+                    type="button"
+                    onClick={() => setStatusFilter('SETTLED')}
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold transition-colors ${
+                      statusFilter === 'SETTLED'
+                        ? 'bg-emerald-700 text-white'
+                        : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 hover:bg-emerald-100'
+                    }`}
+                  >
                     <CheckCircle2 aria-hidden="true" className="size-3" />
-                    Hoàn tất chuyển khoản: {totals.settledCount}
-                  </span>
+                    Đã chi trả ({totals.settledCount})
+                  </button>
                 )}
               </div>
             </div>
             {settlements.length === 0 ? (
-              <p className="p-8 text-center text-sm text-slate-600">
+              <p className="px-5 py-8 text-left text-sm text-slate-600">
                 Kỳ này chưa có bảng đối soát. Bấm &ldquo;Lập bảng đối soát&rdquo; để tổng hợp doanh thu và phần chi trả hàng tháng cho các CSYT.
               </p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-slate-200 bg-slate-50/90">
-                    <TableHead className="whitespace-normal">Cơ sở y tế</TableHead>
-                    <TableHead className="hidden text-right whitespace-normal lg:table-cell">Doanh thu tháng (100%)</TableHead>
-                    <TableHead className="hidden text-right whitespace-normal xl:table-cell">Phí nền tảng (15%)</TableHead>
-                    <TableHead className="text-right whitespace-normal">Số tiền chi trả CSYT (85%)</TableHead>
-                    <TableHead className="hidden md:table-cell">Xác nhận của cơ sở</TableHead>
-                    <TableHead className="hidden md:table-cell">Trạng thái chi trả</TableHead>
-                    <TableHead className="text-right"><span className="sr-only">Thao tác</span></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {settlements.map((settlement) => (
-                    <TableRow key={settlement.id} className="border-slate-200 hover:bg-slate-50/70">
-                      <TableCell className="min-w-28 whitespace-normal">
-                        <p className="wrap-anywhere font-semibold text-slate-900">{facilityName(settlement)}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-slate-600">
-                          <span className="wrap-anywhere tabular-nums">{settlement.settlementCode}</span>
-                          <span aria-hidden="true">·</span>
-                          <span>Tháng {settlement.month}/{settlement.year}</span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-600 md:hidden">
-                          {settlement.disbursementStatus === 'PENDING' && settlement.reviewStatus && settlement.reviewStatus !== 'CONFIRMED'
-                            ? reviewLabels[settlement.reviewStatus]
-                            : disbursementLabels[settlement.disbursementStatus]}
-                        </p>
-                      </TableCell>
-                      <TableCell className="hidden text-right text-sm text-slate-700 tabular-nums lg:table-cell">
-                        {formatVND(settlement.totalRealizedRevenue)}
-                      </TableCell>
-                      <TableCell className="hidden text-right text-sm text-slate-600 tabular-nums xl:table-cell">
-                        {formatVND(settlement.platformFeeAmount)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <p className="text-xs font-bold text-primary tabular-nums sm:text-sm">
-                          {formatVND(settlement.facilityPayoutAmount)}
-                        </p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">Chưa khấu trừ thuế</p>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {settlement.reviewStatus ? (
-                          <Badge variant="outline" className={reviewStyles[settlement.reviewStatus]}>
-                            {reviewLabels[settlement.reviewStatus]}
-                          </Badge>
-                        ) : '—'}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant="outline" className={disbursementStyles[settlement.disbursementStatus]}>
-                          {disbursementLabels[settlement.disbursementStatus]}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button type="button" size="sm" variant="outline" className="h-auto min-h-8 whitespace-normal" onClick={() => setDetailsId(settlement.id)}>
-                          Xem chi tiết
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              (() => {
+                const visibleSettlements = settlements.filter((item) => {
+                  if (statusFilter === 'READY') {
+                    return item.disbursementStatus === 'PENDING' && item.reviewStatus === 'CONFIRMED';
+                  }
+                  if (statusFilter === 'WAITING') {
+                    return item.disbursementStatus === 'PENDING' && item.reviewStatus === 'PENDING';
+                  }
+                  if (statusFilter === 'DISPUTED') {
+                    return item.reviewStatus === 'DISPUTED';
+                  }
+                  if (statusFilter === 'SETTLED') {
+                    return item.disbursementStatus === 'SETTLED';
+                  }
+                  return true;
+                });
+
+                return (
+                  <Table className="border-collapse">
+                    <TableHeader>
+                      <TableRow className="border-b border-slate-200 bg-slate-50/90 hover:bg-slate-50/90">
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Cơ sở y tế
+                        </TableHead>
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Số tiền chi trả (85%)
+                        </TableHead>
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Trạng thái
+                        </TableHead>
+                        <TableHead className="px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Thao tác
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody className="divide-y divide-slate-200">
+                      {visibleSettlements.map((settlement) => {
+                        const unified = getUnifiedStatus(settlement);
+                        return (
+                          <TableRow
+                            key={settlement.id}
+                            className="cursor-pointer transition-colors hover:bg-primary/5"
+                            onClick={() => setDetailsId(settlement.id)}
+                          >
+                            <TableCell className="border-r border-slate-200 px-4 py-3 text-left whitespace-normal">
+                              <p className="wrap-anywhere font-semibold text-slate-900">
+                                {facilityName(settlement)}
+                              </p>
+                              <p className="mt-0.5 wrap-anywhere text-xs text-slate-500 tabular-nums">
+                                {settlement.settlementCode}
+                              </p>
+                            </TableCell>
+                            <TableCell className="border-r border-slate-200 px-4 py-3 text-left">
+                              <p className="text-sm font-bold text-primary tabular-nums">
+                                {formatVND(settlement.facilityPayoutAmount)}
+                              </p>
+                            </TableCell>
+                            <TableCell className="border-r border-slate-200 px-4 py-3 text-left">
+                              <Badge variant="outline" className={unified.className}>
+                                {unified.label}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="px-4 py-3 text-left">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="border-primary/30 text-primary hover:bg-primary/5 hover:text-primary"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setDetailsId(settlement.id);
+                                }}
+                              >
+                                Xem chi tiết
+                                <ChevronRight aria-hidden="true" className="ml-1 size-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {visibleSettlements.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="px-4 py-8 text-left text-sm text-slate-600">
+                            Không có khoản chi nào ở trạng thái đã chọn.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                );
+              })()
             )}
           </Card>
         </>
@@ -633,7 +742,7 @@ export function AdminSettlementsView() {
 
       <Dialog open={Boolean(details)} onOpenChange={(open) => { if (!open) setDetailsId(null); }}>
         {details && (
-          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+          <DialogContent className="max-h-[calc(100dvh-2rem)] w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-4xl">
             <DialogHeader className="pr-6 text-left">
               <DialogTitle>Chi tiết khoản chi</DialogTitle>
               <DialogDescription>{facilityName(details)} · Tháng {details.month}/{details.year} · {details.settlementCode}</DialogDescription>

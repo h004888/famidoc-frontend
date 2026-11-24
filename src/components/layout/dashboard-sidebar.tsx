@@ -86,7 +86,7 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       },
       {
         href: '/admin/telehealth',
-        label: 'Lịch khám trực tuyến',
+        label: 'Lịch khám',
         shortLabel: 'Lịch khám',
         icon: 'videocam',
       },

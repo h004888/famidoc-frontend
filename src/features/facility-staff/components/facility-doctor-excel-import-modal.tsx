@@ -433,21 +433,21 @@ export function FacilityDoctorExcelImportModal({
 
                       <div className="border border-slate-200 rounded-2xl overflow-x-auto max-h-64 overflow-y-auto">
                         <table className="w-full text-left border-collapse text-xs">
-                          <thead className="bg-slate-50 text-slate-600 sticky top-0">
+                          <thead className="bg-slate-50/90 text-slate-700 font-semibold sticky top-0">
                             <tr>
-                              <th className="p-2.5 border-b border-slate-200 w-10">Chọn</th>
-                              <th className="p-2.5 border-b border-slate-200">Dòng</th>
-                              <th className="p-2.5 border-b border-slate-200">Họ và tên</th>
-                              <th className="p-2.5 border-b border-slate-200">Email</th>
-                              <th className="p-2.5 border-b border-slate-200">Số điện thoại</th>
-                              <th className="p-2.5 border-b border-slate-200">Chuyên khoa</th>
-                              <th className="p-2.5 border-b border-slate-200">Học vị / KN</th>
+                              <th className="px-3 py-2.5 text-left border-b border-r border-slate-200 w-10">Chọn</th>
+                              <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Dòng</th>
+                              <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Họ và tên</th>
+                              <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Email</th>
+                              <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Số điện thoại</th>
+                              <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Chuyên khoa</th>
+                              <th className="px-3 py-2.5 text-left border-b border-slate-200">Học vị / KN</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-slate-200">
                             {previewData.validRows.map((row) => (
                               <tr key={row.rowNumber} className="hover:bg-slate-50/80">
-                                <td className="p-2.5">
+                                <td className="px-3 py-2.5 text-left border-r border-slate-200">
                                   <input
                                     type="checkbox"
                                     aria-label={`Chọn dòng ${row.rowNumber} - ${row.doctorName}`}
@@ -456,12 +456,12 @@ export function FacilityDoctorExcelImportModal({
                                     className="rounded border-slate-300 cursor-pointer"
                                   />
                                 </td>
-                                <td className="p-2.5 tabular-nums text-slate-500">#{row.rowNumber}</td>
-                                <td className="p-2.5 font-semibold text-slate-900">{row.doctorName}</td>
-                                <td className="p-2.5 text-slate-700">{row.email}</td>
-                                <td className="p-2.5 tabular-nums text-slate-700">{row.phone}</td>
-                                <td className="p-2.5 text-slate-700">{row.specialty}</td>
-                                <td className="p-2.5 text-slate-600">
+                                <td className="px-3 py-2.5 text-left border-r border-slate-200 tabular-nums text-slate-500">#{row.rowNumber}</td>
+                                <td className="px-3 py-2.5 text-left border-r border-slate-200 font-semibold text-slate-900">{row.doctorName}</td>
+                                <td className="px-3 py-2.5 text-left border-r border-slate-200 text-slate-700">{row.email}</td>
+                                <td className="px-3 py-2.5 text-left border-r border-slate-200 tabular-nums text-slate-700">{row.phone}</td>
+                                <td className="px-3 py-2.5 text-left border-r border-slate-200 text-slate-700">{row.specialty}</td>
+                                <td className="px-3 py-2.5 text-left text-slate-600">
                                   {row.academicTitle ? `${row.academicTitle} • ` : ''}
                                   {row.experienceYears} năm
                                 </td>
@@ -487,23 +487,23 @@ export function FacilityDoctorExcelImportModal({
                   {previewData.existingRows.length > 0 ? (
                     <div className="border border-slate-200 rounded-2xl overflow-x-auto max-h-64 overflow-y-auto">
                       <table className="w-full text-left border-collapse text-xs">
-                        <thead className="bg-slate-50 text-slate-600 sticky top-0">
+                        <thead className="bg-slate-50/90 text-slate-700 font-semibold sticky top-0">
                           <tr>
-                            <th className="p-2.5 border-b border-slate-200">Dòng</th>
-                            <th className="p-2.5 border-b border-slate-200">Họ tên</th>
-                            <th className="p-2.5 border-b border-slate-200">Email</th>
-                            <th className="p-2.5 border-b border-slate-200">Số điện thoại</th>
-                            <th className="p-2.5 border-b border-slate-200">Trạng thái hiện hữu</th>
+                            <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Dòng</th>
+                            <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Họ tên</th>
+                            <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Email</th>
+                            <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Số điện thoại</th>
+                            <th className="px-3 py-2.5 text-left border-b border-slate-200">Trạng thái hiện hữu</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-200">
                           {previewData.existingRows.map((row) => (
                             <tr key={row.rowNumber}>
-                              <td className="p-2.5 tabular-nums text-slate-500">#{row.rowNumber}</td>
-                              <td className="p-2.5 font-medium text-slate-900">{row.existingDoctorName}</td>
-                              <td className="p-2.5 text-slate-700">{row.email}</td>
-                              <td className="p-2.5 tabular-nums text-slate-700">{row.phone}</td>
-                              <td className="p-2.5 text-sky-700 font-medium">
+                              <td className="px-3 py-2.5 text-left border-r border-slate-200 tabular-nums text-slate-500">#{row.rowNumber}</td>
+                              <td className="px-3 py-2.5 text-left border-r border-slate-200 font-medium text-slate-900">{row.existingDoctorName}</td>
+                              <td className="px-3 py-2.5 text-left border-r border-slate-200 text-slate-700">{row.email}</td>
+                              <td className="px-3 py-2.5 text-left border-r border-slate-200 tabular-nums text-slate-700">{row.phone}</td>
+                              <td className="px-3 py-2.5 text-left text-sky-700 font-medium">
                                 Đã tồn tại ({row.existingOnboardingStatus}) • Bỏ qua
                               </td>
                             </tr>
@@ -527,20 +527,20 @@ export function FacilityDoctorExcelImportModal({
                   {previewData.invalidRows.length > 0 ? (
                     <div className="border border-slate-200 rounded-2xl overflow-x-auto max-h-64 overflow-y-auto">
                       <table className="w-full text-left border-collapse text-xs">
-                        <thead className="bg-slate-50 text-slate-600 sticky top-0">
+                        <thead className="bg-slate-50/90 text-slate-700 font-semibold sticky top-0">
                           <tr>
-                            <th className="p-2.5 border-b border-slate-200">Dòng</th>
-                            <th className="p-2.5 border-b border-slate-200">Dữ liệu đọc được</th>
-                            <th className="p-2.5 border-b border-slate-200">Nguyên nhân lỗi</th>
+                            <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Dòng</th>
+                            <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Dữ liệu đọc được</th>
+                            <th className="px-3 py-2.5 text-left border-b border-slate-200">Nguyên nhân lỗi</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-slate-200">
                           {previewData.invalidRows.map((row) => (
                             <tr key={row.rowNumber} className="bg-rose-50/30">
-                              <td className="p-2.5 tabular-nums font-semibold text-rose-700">
+                              <td className="px-3 py-2.5 text-left border-r border-slate-200 tabular-nums font-semibold text-rose-700">
                                 #{row.rowNumber}
                               </td>
-                              <td className="p-2.5 text-slate-700">
+                              <td className="px-3 py-2.5 text-left border-r border-slate-200 text-slate-700">
                                 <div className="font-medium text-slate-900">
                                   {row.raw.doctorName || '(Trống tên)'}
                                 </div>
@@ -548,7 +548,7 @@ export function FacilityDoctorExcelImportModal({
                                   {row.raw.email || '(Trống email)'} • {row.raw.phone || '(Trống SĐT)'}
                                 </div>
                               </td>
-                              <td className="p-2.5 text-rose-700">
+                              <td className="px-3 py-2.5 text-left text-rose-700">
                                 <ul className="list-disc pl-4 space-y-0.5">
                                   {row.errors.map((errText, idx) => (
                                     <li key={idx}>{errText}</li>
@@ -637,21 +637,21 @@ export function FacilityDoctorExcelImportModal({
               {confirmResult.createdDoctors.length > 0 && (
                 <div className="border border-slate-200 rounded-2xl overflow-x-auto max-h-56 overflow-y-auto">
                   <table className="w-full text-left border-collapse text-xs">
-                    <thead className="bg-slate-50 text-slate-600 sticky top-0">
+                    <thead className="bg-slate-50/90 text-slate-700 font-semibold sticky top-0">
                       <tr>
-                        <th className="p-2.5 border-b border-slate-200">Bác sĩ</th>
-                        <th className="p-2.5 border-b border-slate-200">Email</th>
-                        <th className="p-2.5 border-b border-slate-200">Gửi email mời</th>
+                        <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Bác sĩ</th>
+                        <th className="px-3 py-2.5 text-left border-b border-r border-slate-200">Email</th>
+                        <th className="px-3 py-2.5 text-left border-b border-slate-200">Gửi email mời</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-200">
                       {confirmResult.createdDoctors.map((item) => (
                         <tr key={item.doctor.id}>
-                          <td className="p-2.5 font-semibold text-slate-900">
+                          <td className="px-3 py-2.5 text-left border-r border-slate-200 font-semibold text-slate-900">
                             {item.doctor.doctorName}
                           </td>
-                          <td className="p-2.5 text-slate-700">{item.doctor.email || '—'}</td>
-                          <td className="p-2.5">
+                          <td className="px-3 py-2.5 text-left border-r border-slate-200 text-slate-700">{item.doctor.email || '—'}</td>
+                          <td className="px-3 py-2.5 text-left">
                             {item.mailSent ? (
                               <span className="text-emerald-700 font-semibold">Đã gửi</span>
                             ) : (

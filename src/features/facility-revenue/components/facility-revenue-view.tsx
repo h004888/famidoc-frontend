@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
-  BanknoteArrowDown,
-  CalendarClock,
-  FileText,
-  Percent,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  FileCheck2,
+  Layers,
+  PackageCheck,
   RefreshCw,
-  ShieldAlert,
-  TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -17,11 +18,10 @@ import {
   type FacilitySettlementDto,
   type ReviewSettlementPayload,
 } from '@/lib/api/finance.api';
-import { contractsApi } from '@/lib/api/contracts.api';
 import { extractErrorMessage } from '@/lib/api/error-handler';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -40,12 +40,39 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { SettlementPaymentSummary } from '@/components/shared/settlement-payment-summary';
 import {
-  MonthlyPayoutPolicyBanner,
-  SettlementPaymentSummary,
-} from '@/components/shared/settlement-payment-summary';
+  FacilityFamilyPackagesPanel,
+  FacilityPackageSummaryPanel,
+} from './facility-business-tables';
 
 const amount = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+
+type RevenueTab = 'packages' | 'summary' | 'settlements';
+
+const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
+function formatPeriodValue(year: number, month: number) {
+  return `${year}-${String(month).padStart(2, '0')}`;
+}
+
+function parsePeriodValue(value: string): { year: number; month: number } | null {
+  const [y, m] = value.split('-').map(Number);
+  if (!Number.isInteger(y) || !Number.isInteger(m) || m < 1 || m > 12) return null;
+  return { year: y, month: m };
+}
+
+function getDefaultVietnamPreviousMonth() {
+  const now = new Date(Date.now() + 7 * 3_600_000);
+  now.setUTCDate(1);
+  now.setUTCMonth(now.getUTCMonth() - 1);
+  return { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 };
+}
+
+function getCurrentVietnamMonth() {
+  const now = new Date(Date.now() + 7 * 3_600_000);
+  return { year: now.getUTCFullYear(), month: now.getUTCMonth() + 1 };
+}
 
 const settlementStatus: Record<FacilitySettlementDto['disbursementStatus'], string> = {
   PENDING: 'Chờ chi trả',
@@ -69,15 +96,19 @@ const reviewBadgeStyles = {
 
 export function FacilityRevenueView() {
   const [analytics, setAnalytics] = useState<FinanceAnalyticsDto | null>(null);
-  const [b2bSplit, setB2bSplit] = useState<{ facility: number; platform: number } | null>(null);
   const [isTestEnvBlocked, setIsTestEnvBlocked] = useState(
     process.env.NEXT_PUBLIC_APP_ENV === 'production',
   );
   const [period, setPeriod] = useState('');
+  const [monthPickerOpen, setMonthPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() => getDefaultVietnamPreviousMonth().year);
+  const monthPickerRef = useRef<HTMLDivElement | null>(null);
   const [environment, setEnvironment] = useState<'LIVE' | 'TEST'>('LIVE');
   const [refresh, setRefresh] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState<RevenueTab>('packages');
+  const [selectedPackageCode, setSelectedPackageCode] = useState<string | null>(null);
   const [review, setReview] = useState<{
     item: FacilitySettlementDto;
     action: ReviewSettlementPayload['action'];
@@ -88,32 +119,13 @@ export function FacilityRevenueView() {
 
   useEffect(() => {
     let active = true;
-    const req = contractsApi?.getStaffingContracts?.();
-    if (!req || typeof req.then !== 'function') return;
-    void req
-      .then((res) => {
-        if (!active || !res || !Array.isArray(res.data)) return;
-        const activeContract = res.data.find((c) => c.status === 'ACTIVE');
-        if (activeContract) {
-          setB2bSplit({
-            facility: activeContract.facilitySharePercent,
-            platform: activeContract.platformSharePercent,
-          });
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let active = true;
     const [year, month] = period.split('-').map(Number);
     void financeApi
       .getAnalytics({ environment, ...(period ? { year, month } : {}) })
       .then((data) => {
-        if (active) setAnalytics(data);
+        if (!active) return;
+        setAnalytics(data);
+        setSelectedPackageCode(null);
       })
       .catch((cause: unknown) => {
         if (!active) return;
@@ -149,16 +161,6 @@ export function FacilityRevenueView() {
     };
   }, [environment, period, refresh]);
 
-  const resolvedSplit = (() => {
-    if (b2bSplit) return b2bSplit;
-    if (analytics && analytics.netVnd > 0) {
-      const facility = Math.round(
-        (analytics.facilityShareVnd / analytics.netVnd) * 100,
-      );
-      return { facility, platform: Math.max(0, 100 - facility) };
-    }
-    return { facility: 85, platform: 15 };
-  })();
   const openReview = (item: FacilitySettlementDto, action: ReviewSettlementPayload['action']) => {
     setReason('');
     setReviewError('');
@@ -223,9 +225,7 @@ export function FacilityRevenueView() {
         ? 'CSYT đã xác nhận'
         : item.reviewStatus === 'DISPUTED'
           ? 'Đã báo sai lệch'
-          : canReview
-            ? 'Chờ CSYT xác nhận'
-            : '—';
+          : canReview;
     const badgeClass =
       item.reviewStatus === 'CONFIRMED'
         ? reviewBadgeStyles.CONFIRMED
@@ -264,46 +264,191 @@ export function FacilityRevenueView() {
     );
   };
 
+  useEffect(() => {
+    if (!monthPickerOpen) return;
+    const handlePointerDown = (event: MouseEvent) => {
+      if (
+        monthPickerRef.current &&
+        !monthPickerRef.current.contains(event.target as Node)
+      ) {
+        setMonthPickerOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMonthPickerOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [monthPickerOpen]);
+
+  const activePeriod =
+    parsePeriodValue(period) ??
+    (analytics
+      ? { year: analytics.year, month: analytics.month }
+      : getDefaultVietnamPreviousMonth());
+
+  const selectPeriod = (year: number, month: number) => {
+    if (year < 2000 || year > 2200 || month < 1 || month > 12) return;
+    setError('');
+    setIsLoading(true);
+    setPeriod(formatPeriodValue(year, month));
+    setPickerYear(year);
+    setMonthPickerOpen(false);
+  };
+
+  const shiftPeriod = (deltaMonths: number) => {
+    const totalMonths = activePeriod.year * 12 + (activePeriod.month - 1) + deltaMonths;
+    const nextYear = Math.floor(totalMonths / 12);
+    const nextMonth = (totalMonths % 12) + 1;
+    selectPeriod(nextYear, nextMonth);
+  };
+
+  const hasBusiness = Boolean(analytics?.facilityBusiness);
+  const effectiveTab: RevenueTab = hasBusiness ? activeTab : 'settlements';
+  const familyPackagesCount = analytics?.facilityBusiness?.familyPackages?.length ?? 0;
+  const packagesSummaryCount = analytics?.facilityBusiness?.purchases.byPackage.length ?? 0;
+  const pendingReviewCount =
+    analytics?.settlements.filter(
+      (item) => item.disbursementStatus !== 'SETTLED' && item.reviewStatus === 'PENDING',
+    ).length ?? 0;
+
   return (
-    <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      {/* Header + Bộ lọc kỳ báo cáo */}
-      <header className="rounded-2xl border border-slate-200 bg-white p-5 shadow-2xs sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-1.5">
+    <div className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6 lg:px-8">
+      {/* Header gọn + Bộ chọn lịch theo tháng */}
+      <header className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-2xs sm:px-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-xl font-bold text-slate-900 sm:text-2xl">
-                Đối soát doanh thu B2B
+              <h1 className="text-lg font-bold text-slate-900 sm:text-xl">
+                Đối soát doanh thu
               </h1>
-              <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-800">
-                <CalendarClock aria-hidden="true" className="mr-1 size-3.5" />
-                Nhận tiền hàng tháng
-              </Badge>
-              <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">
-                <ShieldAlert aria-hidden="true" className="mr-1 size-3.5" />
-                CSYT &amp; Bác sĩ tự kê khai thuế
-              </Badge>
             </div>
-            <p className="text-sm text-slate-600">
-              Đối soát và nhận tiền hàng tháng từ nền tảng FamiDoc theo ngày phục vụ, kể cả gói mua theo quý hoặc năm.
-            </p>
           </div>
 
-          <div className="flex w-full flex-wrap items-end gap-2.5 sm:w-auto">
-            <label className="min-w-0 flex-1 space-y-1 text-xs font-semibold text-slate-700 sm:flex-none">
-              <span className="block">Kỳ báo cáo</span>
-              <input
-                type="month"
-                min="2000-01"
-                max="2200-12"
-                className="h-9 w-full rounded-md border border-slate-300 bg-white px-2.5 text-sm font-normal text-slate-900 sm:w-auto"
-                value={period}
-                onChange={(event) => {
-                  setError('');
-                  setIsLoading(true);
-                  setPeriod(event.target.value);
-                }}
-              />
-            </label>
+          <div className="flex w-full flex-wrap items-end gap-2 sm:w-auto">
+            {/* Bộ chọn lịch theo tháng */}
+            <div ref={monthPickerRef} className="relative min-w-0 flex-1 sm:flex-none">
+              <span className="mb-1 block text-xs font-semibold text-slate-700">
+                Chọn tháng
+              </span>
+              <div className="inline-flex h-9 w-full items-center overflow-hidden rounded-md border border-slate-300 bg-white sm:w-auto">
+                <button
+                  type="button"
+                  aria-label="Tháng trước"
+                  disabled={isLoading}
+                  onClick={() => shiftPeriod(-1)}
+                  className="flex h-full items-center justify-center border-r border-slate-200 px-2 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
+                >
+                  <ChevronLeft aria-hidden="true" className="size-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Chọn tháng theo lịch"
+                  aria-expanded={monthPickerOpen}
+                  aria-haspopup="dialog"
+                  disabled={isLoading}
+                  onClick={() => {
+                    setPickerYear(activePeriod.year);
+                    setMonthPickerOpen((open) => !open);
+                  }}
+                  className="flex h-full flex-1 items-center justify-center gap-1.5 px-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 disabled:opacity-50 sm:min-w-[138px]"
+                >
+                  <Calendar aria-hidden="true" className="size-3.5 text-primary" />
+                  <span className="tabular-nums">
+                    Tháng {activePeriod.month}/{activePeriod.year}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-label="Tháng sau"
+                  disabled={isLoading}
+                  onClick={() => shiftPeriod(1)}
+                  className="flex h-full items-center justify-center border-l border-slate-200 px-2 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 disabled:opacity-50"
+                >
+                  <ChevronRight aria-hidden="true" className="size-4" />
+                </button>
+              </div>
+
+              {monthPickerOpen && (
+                <div
+                  role="dialog"
+                  aria-label="Lịch chọn tháng"
+                  className="absolute right-0 z-30 mt-1.5 w-64 rounded-xl border border-slate-200 bg-white p-3 shadow-lg"
+                >
+                  <div className="mb-2.5 flex items-center justify-between">
+                    <button
+                      type="button"
+                      aria-label="Năm trước"
+                      onClick={() => setPickerYear((year) => Math.max(2000, year - 1))}
+                      className="rounded-md p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      <ChevronLeft aria-hidden="true" className="size-4" />
+                    </button>
+                    <span className="text-sm font-bold text-slate-900 tabular-nums">
+                      Năm {pickerYear}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label="Năm sau"
+                      onClick={() => setPickerYear((year) => Math.min(2200, year + 1))}
+                      className="rounded-md p-1 text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    >
+                      <ChevronRight aria-hidden="true" className="size-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {MONTHS.map((monthNumber) => {
+                      const isSelected =
+                        pickerYear === activePeriod.year &&
+                        monthNumber === activePeriod.month;
+                      return (
+                        <button
+                          key={monthNumber}
+                          type="button"
+                          onClick={() => selectPeriod(pickerYear, monthNumber)}
+                          className={`rounded-lg py-1.5 text-xs font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-primary text-white'
+                              : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                          }`}
+                        >
+                          Tháng {monthNumber}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-2.5 flex items-center justify-between border-t border-slate-100 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const prev = getDefaultVietnamPreviousMonth();
+                        selectPeriod(prev.year, prev.month);
+                      }}
+                      className="text-xs font-medium text-slate-600 hover:text-primary"
+                    >
+                      Tháng trước
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const current = getCurrentVietnamMonth();
+                        selectPeriod(current.year, current.month);
+                      }}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Tháng hiện tại
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <label className="min-w-0 flex-1 space-y-1 text-xs font-semibold text-slate-700 sm:flex-none">
               <span className="block">Môi trường</span>
               <select
@@ -323,6 +468,8 @@ export function FacilityRevenueView() {
             </label>
             <Button
               variant="outline"
+              size="sm"
+              className="h-9"
               disabled={isLoading}
               onClick={() => {
                 setError('');
@@ -330,7 +477,7 @@ export function FacilityRevenueView() {
                 setRefresh((value) => value + 1);
               }}
             >
-              <RefreshCw aria-hidden="true" className="mr-1.5 size-4" />
+              <RefreshCw aria-hidden="true" className="mr-1.5 size-3.5" />
               Làm mới
             </Button>
           </div>
@@ -338,170 +485,387 @@ export function FacilityRevenueView() {
       </header>
 
       {isLoading && (
-        <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+        <p
+          role="status"
+          className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600"
+        >
           Đang tải báo cáo doanh thu…
         </p>
       )}
       {error && (
-        <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-destructive">
+        <p
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-destructive"
+        >
           {error}
         </p>
       )}
 
       {analytics && !isLoading && (
         <>
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 py-1 text-sm font-semibold text-slate-800 shadow-2xs">
-              <CalendarClock aria-hidden="true" className="size-4 text-primary" />
-              <span>
-                Tháng {analytics.month}/{analytics.year} · {analytics.environment}
-              </span>
-            </p>
-            <span className="text-xs text-slate-500">
-              Tỷ lệ phân bổ theo hợp đồng B2B: {resolvedSplit.facility}% CSYT nhận · {resolvedSplit.platform}% Phí nền tảng
-            </span>
-          </div>
-
-          {/* 4 Card KPI trực quan phân tách dòng tiền */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Card className="border-slate-200 py-4 shadow-2xs">
-              <CardContent className="space-y-1.5 px-5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-slate-600">Doanh thu ghi nhận</p>
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                    <TrendingUp aria-hidden="true" className="size-4" />
-                  </span>
+          {/* Lớp 1 (Ngoài cùng): 4 thẻ thông tin tổng quan tĩnh (không bấm) */}
+          <section
+            aria-label="Tổng quan doanh thu kỳ báo cáo"
+            className="grid grid-cols-2 gap-3 lg:grid-cols-4"
+          >
+            {analytics.facilityBusiness && (
+              <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+                <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
+                  <span>Gói gia đình trong kỳ</span>
+                  <PackageCheck aria-hidden="true" className="size-4 text-primary" />
                 </div>
-                <p className="text-xl font-bold text-slate-900 tabular-nums">
-                  {amount.format(analytics.grossVnd)}
+                <p className="mt-1.5 text-lg font-bold text-slate-900 tabular-nums sm:text-xl">
+                  {familyPackagesCount.toLocaleString('vi-VN')} gói
                 </p>
-                <p className="text-xs text-slate-500">100% doanh thu phân bổ trong tháng</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 border-primary/30 bg-gradient-to-br from-blue-50/80 via-white to-white py-4 shadow-2xs">
-              <CardContent className="space-y-1.5 px-5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-semibold text-blue-950">
-                    Phần doanh thu CSYT ({resolvedSplit.facility}%)
-                  </p>
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <BanknoteArrowDown aria-hidden="true" className="size-4" />
-                  </span>
-                </div>
-                <p className="text-xl font-bold text-primary tabular-nums">
-                  {amount.format(analytics.facilityShareVnd)}
-                </p>
-                <p className="text-xs font-medium text-blue-900/80">
-                  Nền tảng trả cho CSYT · Chưa khấu trừ thuế
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 py-4 shadow-2xs">
-              <CardContent className="space-y-1.5 px-5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-slate-600">
-                    Phí nền tảng ({resolvedSplit.platform}%)
-                  </p>
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                    <Percent aria-hidden="true" className="size-4" />
-                  </span>
-                </div>
-                <p className="text-xl font-bold text-slate-900 tabular-nums">
-                  {amount.format(analytics.platformFeeVnd)}
-                </p>
-                <p className="text-xs text-slate-500">Phí công nghệ &amp; vận hành FamiDoc</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-slate-200 py-4 shadow-2xs">
-              <CardContent className="space-y-1.5 px-5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-slate-600">Số hóa đơn</p>
-                  <span className="flex size-8 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                    <FileText aria-hidden="true" className="size-4" />
-                  </span>
-                </div>
-                <p className="text-xl font-bold text-slate-900 tabular-nums">
-                  {analytics.invoiceCount.toLocaleString('vi-VN')}
-                </p>
-                <p className="text-xs text-slate-500">Hóa đơn phát sinh phân bổ trong kỳ</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Chính sách chi trả hàng tháng & Tuyên bố không hỗ trợ đóng thuế cho CSYT và bác sĩ */}
-          <MonthlyPayoutPolicyBanner
-            role="facility"
-            facilityPercent={resolvedSplit.facility}
-            platformPercent={resolvedSplit.platform}
-          />
-
-          {/* Bảng quyết toán của kỳ */}
-          <Card className="gap-0 overflow-hidden border-slate-200 py-0 shadow-2xs">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/80 px-4 py-3.5 sm:px-5">
-              <div>
-                <h2 className="font-bold text-slate-900">Bảng quyết toán của kỳ</h2>
-                <p className="mt-0.5 text-xs text-slate-600">
-                  Kiểm tra doanh thu, xác nhận bảng đối soát hàng tháng để nền tảng thực hiện chuyển khoản.
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {analytics.facilityBusiness.purchases.purchasingHouseholds.toLocaleString(
+                    'vi-VN',
+                  )}{' '}
+                  hộ mua mới · {analytics.facilityBusiness.activeHouseholds.toLocaleString('vi-VN')}{' '}
+                  hộ hiệu lực
                 </p>
               </div>
-              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
-                {analytics.settlements.length} bảng quyết toán
-              </span>
+            )}
+
+            {analytics.facilityBusiness && (
+              <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+                <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
+                  <span>Giá trị gói đã thanh toán</span>
+                  <Layers aria-hidden="true" className="size-4 text-slate-500" />
+                </div>
+                <p className="mt-1.5 text-lg font-bold text-slate-900 tabular-nums sm:text-xl">
+                  {amount.format(analytics.facilityBusiness.purchases.grossVnd)}
+                </p>
+                <p className="mt-0.5 text-xs text-slate-500">
+                  {analytics.facilityBusiness.purchases.packagesSold.toLocaleString('vi-VN')} gói đã
+                  thu trong tháng
+                </p>
+              </div>
+            )}
+
+            <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+              <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
+                <span>Phí nền tảng kỳ này (15%)</span>
+                <Wallet aria-hidden="true" className="size-4 text-amber-600" />
+              </div>
+              <p className="mt-1.5 text-lg font-bold text-amber-700 tabular-nums sm:text-xl">
+                {amount.format(analytics.platformFeeVnd)}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                Trên doanh thu phân bổ {amount.format(analytics.grossVnd)}
+              </p>
             </div>
 
-            <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-slate-50/90">
-                    <TableHead>Mã quyết toán</TableHead>
-                    <TableHead className="hidden lg:table-cell text-right">
-                      Phân bổ tháng (100% / −{resolvedSplit.platform}%)
-                    </TableHead>
-                    <TableHead>Số tiền nhận CSYT ({resolvedSplit.facility}%)</TableHead>
-                    <TableHead>Trạng thái</TableHead>
-                    <TableHead>Mã chuyển khoản</TableHead>
-                    <TableHead>Đối soát CSYT</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+              <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
+                <span>CSYT nhận kỳ này (85%)</span>
+                <FileCheck2 aria-hidden="true" className="size-4 text-primary" />
+              </div>
+              <p className="mt-1.5 text-lg font-bold text-primary tabular-nums sm:text-xl">
+                {amount.format(analytics.facilityShareVnd)}
+              </p>
+              <p className="mt-0.5 text-xs text-slate-500">
+                {pendingReviewCount > 0
+                  ? `${pendingReviewCount} bảng đang chờ CSYT xác nhận`
+                  : 'Chưa khấu trừ thuế · Đối soát hàng tháng'}
+              </p>
+            </div>
+          </section>
+
+          {/* Lớp 2 (Trung gian): Không gian làm việc 1 khung duy nhất chia Tab ngang — không cần cuộn dài */}
+          <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 py-0 shadow-2xs">
+            <div
+              role="tablist"
+              aria-label="Phân mục đối soát doanh thu CSYT"
+              className="flex overflow-x-auto border-b border-slate-200 bg-slate-50/80 px-2 pt-2 sm:px-4"
+            >
+              {analytics.facilityBusiness && (
+                <button
+                  type="button"
+                  role="tab"
+                  id="tab-packages"
+                  aria-selected={effectiveTab === 'packages'}
+                  aria-controls="panel-packages"
+                  onClick={() => setActiveTab('packages')}
+                  className={`flex shrink-0 items-center gap-2 border-b-2 px-3.5 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
+                    effectiveTab === 'packages'
+                      ? 'border-primary bg-white text-primary rounded-t-lg'
+                      : 'border-transparent text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Gói gia đình &amp; Bác sĩ khám</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 tabular-nums">
+                    {familyPackagesCount}
+                  </span>
+                </button>
+              )}
+
+              {analytics.facilityBusiness && (
+                <button
+                  type="button"
+                  role="tab"
+                  id="tab-summary"
+                  aria-selected={effectiveTab === 'summary'}
+                  aria-controls="panel-summary"
+                  onClick={() => setActiveTab('summary')}
+                  className={`flex shrink-0 items-center gap-2 border-b-2 px-3.5 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
+                    effectiveTab === 'summary'
+                      ? 'border-primary bg-white text-primary rounded-t-lg'
+                      : 'border-transparent text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Tổng hợp theo gói</span>
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 tabular-nums">
+                    {packagesSummaryCount}
+                  </span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                role="tab"
+                id="tab-settlements"
+                aria-selected={effectiveTab === 'settlements'}
+                aria-controls="panel-settlements"
+                onClick={() => setActiveTab('settlements')}
+                className={`flex shrink-0 items-center gap-2 border-b-2 px-3.5 py-2.5 text-xs font-semibold transition-colors sm:text-sm ${
+                  effectiveTab === 'settlements'
+                    ? 'border-primary bg-white text-primary rounded-t-lg'
+                    : 'border-transparent text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>Quyết toán kỳ</span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 tabular-nums">
+                  {analytics.settlements.length}
+                </span>
+                {pendingReviewCount > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="border-amber-300 bg-amber-50 px-1.5 py-0 text-[10px] font-semibold text-amber-800"
+                  >
+                    Chờ xác nhận
+                  </Badge>
+                )}
+              </button>
+            </div>
+
+            {/* Tab 1: Quản lý gói gia đình mua & Bác sĩ tham gia khám (bấm sâu xem giá gói / 15% / 85%) */}
+            {effectiveTab === 'packages' && analytics.facilityBusiness && (
+              <div
+                role="tabpanel"
+                id="panel-packages"
+                aria-labelledby="tab-packages"
+              >
+                <FacilityFamilyPackagesPanel
+                  business={analytics.facilityBusiness}
+                  periodLabel={`Tháng ${analytics.month}/${analytics.year}`}
+                  formatAmount={amount.format}
+                  selectedPackageCode={selectedPackageCode}
+                  onClearPackageFilter={() => setSelectedPackageCode(null)}
+                />
+              </div>
+            )}
+
+            {/* Tab 2: Tổng hợp theo gói đã thanh toán trong tháng (bấm 1 gói -> lọc sâu ở Tab 1) */}
+            {effectiveTab === 'summary' && analytics.facilityBusiness && (
+              <div
+                role="tabpanel"
+                id="panel-summary"
+                aria-labelledby="tab-summary"
+              >
+                <FacilityPackageSummaryPanel
+                  business={analytics.facilityBusiness}
+                  formatAmount={amount.format}
+                  onSelectPackage={(packageCode) => {
+                    setSelectedPackageCode(packageCode);
+                    setActiveTab('packages');
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Tab 3: Bảng quyết toán của kỳ */}
+            {effectiveTab === 'settlements' && (
+              <div
+                role="tabpanel"
+                id="panel-settlements"
+                aria-labelledby="tab-settlements"
+              >
+                <div className="space-y-0.5 border-b border-slate-200 bg-slate-50/60 px-4 py-3 sm:px-5">
+                  <h2
+                    id="facility-settlement-title"
+                    className="text-sm font-bold text-slate-900 sm:text-base"
+                  >
+                    Bảng quyết toán của kỳ
+                  </h2>
+                </div>
+
+                {analytics.settlements.length === 0 && (
+                  <dl className="grid gap-3 border-b border-slate-200 bg-slate-50/30 px-4 py-3 text-sm sm:grid-cols-3 sm:px-5">
+                    <div>
+                      <dt className="text-xs text-slate-600">Doanh thu phân bổ trong tháng</dt>
+                      <dd className="font-semibold text-slate-900 tabular-nums">
+                        {amount.format(analytics.grossVnd)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-600">Phí nền tảng trong tháng</dt>
+                      <dd className="font-semibold text-amber-700 tabular-nums">
+                        {amount.format(analytics.platformFeeVnd)}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-slate-600">Dự kiến chi trả trong tháng</dt>
+                      <dd className="font-bold text-primary tabular-nums">
+                        {amount.format(analytics.facilityShareVnd)}
+                      </dd>
+                    </div>
+                  </dl>
+                )}
+
+                <div className="hidden md:block">
+                  <Table
+                    aria-labelledby="facility-settlement-title"
+                    className="border-collapse"
+                  >
+                    <TableHeader>
+                      <TableRow className="bg-slate-50/90 hover:bg-slate-50/90">
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Mã quyết toán
+                        </TableHead>
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Phân bổ trong tháng
+                        </TableHead>
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Số tiền chi trả CSYT
+                        </TableHead>
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Trạng thái
+                        </TableHead>
+                        <TableHead className="border-r border-slate-200 px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Mã chuyển khoản
+                        </TableHead>
+                        <TableHead className="px-4 py-2.5 text-left text-xs font-semibold text-slate-700">
+                          Đối soát CSYT
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {analytics.settlements.map((item) => (
+                        <TableRow key={item.id} className="hover:bg-slate-50/70">
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left align-top">
+                            <p className="text-sm font-semibold text-slate-900 tabular-nums">
+                              {item.settlementCode}
+                            </p>
+                            <p className="mt-0.5 text-xs text-slate-500">
+                              Kỳ tháng {item.month}/{item.year}
+                            </p>
+                          </TableCell>
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left align-top text-xs tabular-nums">
+                            <p className="font-medium text-slate-800">
+                              {amount.format(item.totalRealizedRevenue)}
+                            </p>
+                            <p className="mt-0.5 text-slate-500">
+                              Phí nền tảng −{amount.format(item.platformFeeAmount)}
+                            </p>
+                          </TableCell>
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left align-top">
+                            <p className="text-sm font-bold text-primary tabular-nums">
+                              {amount.format(item.facilityPayoutAmount)}
+                            </p>
+                            <p className="text-xs text-slate-600">Chưa khấu trừ thuế</p>
+                            {/* <details className="mt-2">
+                              <summary className="cursor-pointer text-xs font-medium text-primary hover:underline">
+                                Chi tiết tiền và thuế
+                              </summary>
+                              <div className="w-full max-w-md py-2">
+                                <SettlementPaymentSummary item={item} />
+                              </div>
+                            </details> */}
+                          </TableCell>
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left align-top">
+                            <Badge
+                              variant="outline"
+                              className={settlementStatusStyles[item.disbursementStatus]}
+                            >
+                              {settlementStatus[item.disbursementStatus]}
+                            </Badge>
+                            {item.settledAt && (
+                              <p className="mt-1 text-xs text-slate-500">
+                                Ngày chuyển:{' '}
+                                {new Date(item.settledAt).toLocaleDateString('vi-VN')}
+                              </p>
+                            )}
+                            {item.failureReason && (
+                              <p className="mt-1 max-w-xs whitespace-normal text-xs text-red-700">
+                                {item.failureReason}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="border-r border-slate-200 px-4 py-3 text-left align-top">
+                            <span className="wrap-anywhere text-xs font-medium text-slate-800 tabular-nums">
+                              {item.bankTransferOrderId || '—'}
+                            </span>
+                            {item.bankDestination?.accountNumber && (
+                              <p className="mt-0.5 wrap-anywhere text-[11px] text-slate-500">
+                                {item.bankDestination.bankName} ·{' '}
+                                {item.bankDestination.accountNumber}
+                              </p>
+                            )}
+                          </TableCell>
+                          <TableCell className="px-4 py-3 text-left align-top">
+                            {renderReview(item)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                      {analytics.settlements.length === 0 && (
+                        <TableRow>
+                          <TableCell
+                            colSpan={6}
+                            className="px-4 py-10 text-left text-sm text-slate-600"
+                          >
+                            Chưa có bảng quyết toán cho kỳ này.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                <div className="divide-y divide-slate-100 md:hidden">
                   {analytics.settlements.map((item) => (
-                    <TableRow key={item.id} className="hover:bg-slate-50/70">
-                      <TableCell>
-                        <p className="tabular-nums text-sm font-semibold text-slate-900">
-                          {item.settlementCode}
-                        </p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          Kỳ tháng {item.month}/{item.year}
-                        </p>
-                      </TableCell>
-                      <TableCell className="hidden lg:table-cell text-right text-xs tabular-nums">
-                        <p className="font-medium text-slate-800">
-                          {amount.format(item.totalRealizedRevenue)}
-                        </p>
-                        <p className="mt-0.5 text-slate-500">
-                          Phí {resolvedSplit.platform}%: −{amount.format(item.platformFeeAmount)}
-                        </p>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm font-bold text-primary tabular-nums">
-                          {amount.format(item.facilityPayoutAmount)}
-                        </p>
-                        <p className="text-xs text-slate-600">
-                          Tháng {item.month}/{item.year} · Chưa khấu trừ thuế
-                        </p>
-                        <details className="mt-2">
-                          <summary className="cursor-pointer text-xs font-medium text-primary hover:underline">
-                            Chi tiết tiền và thuế
-                          </summary>
-                          <div className="w-full max-w-md py-2">
-                            <SettlementPaymentSummary item={item} />
-                          </div>
-                        </details>
-                      </TableCell>
-                      <TableCell>
+                    <div key={item.id} className="space-y-2.5 p-4 text-sm">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <div>
+                          <span className="font-semibold text-slate-900 tabular-nums">
+                            {item.settlementCode}
+                          </span>
+                          <p className="text-xs text-slate-500">
+                            Kỳ tháng {item.month}/{item.year}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-primary tabular-nums">
+                            {amount.format(item.facilityPayoutAmount)}
+                          </span>
+                          <p className="text-[11px] text-slate-500">Chưa khấu trừ thuế</p>
+                        </div>
+                      </div>
+                      <dl className="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <dt className="text-slate-600">Doanh thu phân bổ</dt>
+                          <dd className="font-medium tabular-nums">
+                            {amount.format(item.totalRealizedRevenue)}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="text-slate-600">Phí nền tảng</dt>
+                          <dd className="font-medium tabular-nums">
+                            {amount.format(item.platformFeeAmount)}
+                          </dd>
+                        </div>
+                      </dl>
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge
                           variant="outline"
                           className={settlementStatusStyles[item.disbursementStatus]}
@@ -509,99 +873,40 @@ export function FacilityRevenueView() {
                           {settlementStatus[item.disbursementStatus]}
                         </Badge>
                         {item.settledAt && (
-                          <p className="mt-1 text-xs text-slate-500">
-                            Ngày chuyển: {new Date(item.settledAt).toLocaleDateString('vi-VN')}
-                          </p>
+                          <span className="text-xs text-slate-500">
+                            Chuyển ngày{' '}
+                            {new Date(item.settledAt).toLocaleDateString('vi-VN')}
+                          </span>
                         )}
-                        {item.failureReason && (
-                          <p className="mt-1 max-w-xs whitespace-normal text-xs text-red-700">
-                            {item.failureReason}
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="wrap-anywhere tabular-nums text-xs font-medium text-slate-800">
-                          {item.bankTransferOrderId || '—'}
-                        </span>
-                        {item.bankDestination?.accountNumber && (
-                          <p className="mt-0.5 wrap-anywhere text-[11px] text-slate-500">
-                            {item.bankDestination.bankName} · {item.bankDestination.accountNumber}
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell>{renderReview(item)}</TableCell>
-                    </TableRow>
+                      </div>
+                      {item.failureReason && (
+                        <p className="text-xs text-red-700">{item.failureReason}</p>
+                      )}
+                      {item.bankTransferOrderId && (
+                        <p className="wrap-anywhere text-xs text-muted-foreground">
+                          Mã chuyển khoản{' '}
+                          <span className="tabular-nums">{item.bankTransferOrderId}</span>
+                        </p>
+                      )}
+                      {/* <details>
+                        <summary className="cursor-pointer text-xs font-medium text-primary">
+                          Chi tiết tiền và thuế
+                        </summary>
+                        <div className="py-2">
+                          <SettlementPaymentSummary item={item} />
+                        </div>
+                      </details> */}
+                      {renderReview(item)}
+                    </div>
                   ))}
                   {analytics.settlements.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={6} className="py-10 text-center text-sm text-slate-600">
-                        Chưa có bảng quyết toán cho kỳ này.
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="divide-y divide-slate-100 md:hidden">
-              {analytics.settlements.map((item) => (
-                <div key={item.id} className="space-y-2.5 p-4 text-sm">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div>
-                      <span className="tabular-nums font-semibold text-slate-900">
-                        {item.settlementCode}
-                      </span>
-                      <p className="text-xs text-slate-500">
-                        Kỳ tháng {item.month}/{item.year}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <span className="font-bold text-primary tabular-nums">
-                        {amount.format(item.facilityPayoutAmount)}
-                      </span>
-                      <p className="text-[11px] text-slate-500">
-                        {resolvedSplit.facility}% · Chưa trừ thuế
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className={settlementStatusStyles[item.disbursementStatus]}
-                    >
-                      {settlementStatus[item.disbursementStatus]}
-                    </Badge>
-                    {item.settledAt && (
-                      <span className="text-xs text-slate-500">
-                        Chuyển ngày {new Date(item.settledAt).toLocaleDateString('vi-VN')}
-                      </span>
-                    )}
-                  </div>
-                  {item.failureReason && (
-                    <p className="text-xs text-red-700">{item.failureReason}</p>
-                  )}
-                  {item.bankTransferOrderId && (
-                    <p className="wrap-anywhere text-xs text-muted-foreground">
-                      Mã chuyển khoản <span className="tabular-nums">{item.bankTransferOrderId}</span>
+                    <p className="p-8 text-center text-sm text-slate-600">
+                      Chưa có bảng quyết toán cho kỳ này.
                     </p>
                   )}
-                  <details>
-                    <summary className="cursor-pointer text-xs font-medium text-primary">
-                      Chi tiết tiền và thuế
-                    </summary>
-                    <div className="py-2">
-                      <SettlementPaymentSummary item={item} />
-                    </div>
-                  </details>
-                  {renderReview(item)}
                 </div>
-              ))}
-              {analytics.settlements.length === 0 && (
-                <p className="p-8 text-center text-sm text-slate-600">
-                  Chưa có bảng quyết toán cho kỳ này.
-                </p>
-              )}
-            </div>
+              </div>
+            )}
           </Card>
         </>
       )}
