@@ -190,7 +190,7 @@ describe('DoctorContractInitiationPanel', () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it('kẹp requestedMembers=99 về trần maxMembers=6 và hiển thị thông báo điều chỉnh', async () => {
+  it('kẹp requestedMembers=99 về trần maxMembers=6 và không hiển thị banner thông báo điều chỉnh', async () => {
     vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
 
     render(
@@ -203,15 +203,13 @@ describe('DoctorContractInitiationPanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent(
-        /vượt quá trần tối đa 6 người/i
-      );
+      expect(screen.getByText(/6\s*thành viên/i)).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/6\s*thành viên/i)).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
-  it('kẹp requestedMembers=0 về tối thiểu includedMembers (3 người) và hiển thị banner cảnh báo', async () => {
+  it('kẹp requestedMembers=0 về tối thiểu includedMembers (3 người) và không hiển thị banner cảnh báo', async () => {
     vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
 
     render(
@@ -224,12 +222,10 @@ describe('DoctorContractInitiationPanel', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByRole('status')).toHaveTextContent(
-        /không hợp lệ \(< 1\)/i
-      );
+      expect(screen.getByText(/3\s*thành viên/i)).toBeInTheDocument();
     });
 
-    expect(screen.getByText(/3\s*thành viên/i)).toBeInTheDocument();
+    expect(screen.queryByRole('status')).toBeNull();
   });
 
   it('hiển thị tên gói và nút Chọn lại gói trỏ về hồ sơ bác sĩ trên mobile', async () => {
@@ -603,5 +599,39 @@ describe('DoctorContractInitiationPanel', () => {
     expect(citySelect.value).toBe('Thành phố Hà Nội');
     expect(wardSelect.value).toBe('Phường Láng Thượng');
     expect(detailInput.value).toBe('Số 99 Chùa Láng');
+  });
+
+  it('không hiển thị banner clampNotice khi requestedMembers thấp hơn mức tối thiểu nhưng vẫn tự clamp về includedMembers', async () => {
+    vi.spyOn(publicApi, 'getDoctorDetail').mockResolvedValueOnce(mockDoctor);
+    const initiateSpy = vi
+      .spyOn(contractsApi, 'initiateFourPartyContract')
+      .mockResolvedValueOnce({
+        id: 'ctr-clamp-1',
+      } as never);
+
+    render(
+      <DoctorContractInitiationPanel
+        packageId="pkg-3m"
+        doctorId="doc-1"
+        requestedMembers={1}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/ThS\. BS Trương Hán Siêu/i).length).toBeGreaterThanOrEqual(1);
+    });
+
+    expect(screen.queryByText(/thấp hơn mức tối thiểu/i)).toBeNull();
+    expect(screen.queryByText(/vượt quá trần tối đa/i)).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /Tiếp tục ký hợp đồng/i }));
+
+    await waitFor(() => {
+      expect(initiateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          memberCount: 3,
+        })
+      );
+    });
   });
 });

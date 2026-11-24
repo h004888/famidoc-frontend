@@ -404,21 +404,6 @@ export function DoctorContractInitiationPanel({
   const isExistingUnpaid =
     existingContract !== null && !isContractActive;
 
-  const clampNotice = (() => {
-    if (existingContract) return null;
-    if (!Number.isFinite(requestedMembers)) return null;
-    const requested = Math.trunc(requestedMembers);
-    if (requested > maxPkgMembers) {
-      return `Số lượng thành viên từ liên kết (${requested}) vượt quá trần tối đa ${maxPkgMembers} người của gói ${selectedPackage?.packageName ?? ''}. Hệ thống đã tự điều chỉnh về ${maxPkgMembers} người.`;
-    }
-    if (requested < minPkgMembers) {
-      return requested < 1
-        ? `Số lượng thành viên từ liên kết không hợp lệ (< 1). Hệ thống đã tự điều chỉnh về tối thiểu ${minPkgMembers} người theo quyền lợi có sẵn của gói.`
-        : `Số lượng thành viên từ liên kết (${requested}) thấp hơn mức tối thiểu ${minPkgMembers} người có sẵn trong gói ${selectedPackage?.packageName ?? ''}. Hệ thống đã tự điều chỉnh về ${minPkgMembers} người.`;
-    }
-    return null;
-  })();
-
   const availableWards = useMemo(() => {
     if (!selectedCity) return [];
     return areas.find((a) => a.city === selectedCity)?.districts ?? [];
@@ -720,15 +705,6 @@ export function DoctorContractInitiationPanel({
               <span>Tiếp tục tới bước ký</span>
               <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
             </button>
-          </div>
-        )}
-
-        {clampNotice && (
-          <div
-            role="status"
-            className="rounded-xl border border-blue-200 bg-blue-50 p-3.5 text-sm text-blue-900"
-          >
-            {clampNotice}
           </div>
         )}
 
