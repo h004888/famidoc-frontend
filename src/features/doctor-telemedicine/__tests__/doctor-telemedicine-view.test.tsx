@@ -71,9 +71,13 @@ describe('DoctorTelemedicineView', () => {
     expect(screen.queryByText('00:14:32')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Kết Thúc Ca Khám' }));
+    const confirmEndBtn = await screen.findByRole('button', {
+      name: /Kết thúc hẳn & Ghi hồ sơ/i,
+    });
+    fireEvent.click(confirmEndBtn);
     await waitFor(() => {
       expect(endCallMock).toHaveBeenCalled();
-      expect(pushMock).toHaveBeenCalledWith('/doctor/encounters');
+      expect(pushMock).toHaveBeenCalledWith('/doctor/encounters/enc-doc-1/wrap-up');
     });
   });
 });

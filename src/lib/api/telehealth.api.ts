@@ -5,9 +5,11 @@ export type EncounterStatus =
   | 'PROPOSED'
   | 'CONFIRMED'
   | 'IN_PROGRESS'
+  | 'WRAP_UP'
   | 'COMPLETED'
   | 'RESCHEDULE_REQUESTED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'NO_SHOW';
 
 export type EncounterCategory = 'PERIODIC' | 'AD_HOC';
 
@@ -530,3 +532,8 @@ export interface TelehealthMessageDto {
   attachmentSizeBytes: number | null;
   createdAt: string;
 }
+
+export const getFamilyClinicalSnapshot = async (encounterId: string): Promise<any> => {
+  const raw = await httpClient.get<any>(`/api/v1/telehealth/sessions/${encounterId}/snapshot`);
+  return unwrapApiEnvelope(raw);
+};

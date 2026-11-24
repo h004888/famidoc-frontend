@@ -165,25 +165,7 @@ describe('FamilyAppointmentsView (/family/appointments)', () => {
 
     render(<FamilyAppointmentsView />);
 
-    const bookBtn = await screen.findByRole('button', { name: /\+ Đặt Tư vấn Video/i });
-    await waitFor(() => expect(bookBtn).not.toBeDisabled());
-
-    fireEvent.click(bookBtn);
-
-    const reasonInput = await screen.findByLabelText(/Triệu chứng \/ Vấn đề cần hỏi Bác sĩ/i);
-    fireEvent.change(reasonInput, { target: { value: 'Đo huyết áp sáng nay hơi cao' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /Gửi yêu cầu Tư vấn/i }));
-
-    await waitFor(() => {
-      expect(createAdHocSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          contractId: 'ctr-1',
-          patientId: 'p-1',
-          encounterType: 'TELEHEALTH',
-          reason: 'Đo huyết áp sáng nay hơi cao',
-        })
-      );
-    });
+    const bookLink = await screen.findByRole('link', { name: /\+ Đặt Tư vấn Video/i });
+    expect(bookLink).toHaveAttribute('href', '/family/appointments/book-video');
   });
 });

@@ -187,6 +187,8 @@ function mapEncounterToAppointment(item: EncounterItem): Appointment {
     IN_PROGRESS: 'in_progress',
     COMPLETED: 'completed',
     CANCELLED: 'cancelled',
+    WRAP_UP: 'completed',
+    NO_SHOW: 'cancelled',
   };
   const isHome = item.encounterType !== 'TELEHEALTH' && item.encounterType !== 'TELEMEDICINE';
   const resolvedAddress = isHome
@@ -509,24 +511,25 @@ export function FamilyAppointmentsView() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            <Button
-              type="button"
-              size="sm"
-              disabled={!canBookTelehealth}
-              onClick={() => {
-                setTelehealthError('');
-                setTelehealthModalOpen(true);
-              }}
-              className="rounded-xl text-xs font-semibold gap-1.5"
-              title={
-                !canBookTelehealth
-                  ? 'Hết lượt Tư vấn Video trong gói hoặc chưa có hợp đồng hoạt động'
-                  : 'Đặt lịch Tư vấn Video với Bác sĩ phụ trách'
-              }
-            >
-              <span className="material-symbols-outlined text-[16px]">video_call</span>
-              <span>+ Đặt Tư vấn Video</span>
-            </Button>
+            {canBookTelehealth ? (
+              <Button asChild size="sm" className="rounded-xl text-xs font-semibold gap-1.5">
+                <Link href="/family/appointments/book-video">
+                  <span className="material-symbols-outlined text-[16px]">video_call</span>
+                  <span>+ Đặt Tư vấn Video</span>
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                disabled
+                className="rounded-xl text-xs font-semibold gap-1.5"
+                title="Hết lượt Tư vấn Video trong gói hoặc chưa có hợp đồng hoạt động"
+              >
+                <span className="material-symbols-outlined text-[16px]">video_call</span>
+                <span>+ Đặt Tư vấn Video</span>
+              </Button>
+            )}
 
             <Button asChild variant="outline" size="sm" className="rounded-xl text-xs font-semibold gap-1.5">
               <Link href="/family/telemedicine">
@@ -1201,6 +1204,29 @@ export function FamilyAppointmentsView() {
                         Xác nhận Bác sĩ đã đến nhà
                       </Button>
                     )}
+                  {selectedTimetableApt.status === 'requested' && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const id = selectedTimetableApt.id;
+                        setSelectedTimetableApt(null);
+                        void encountersApi
+                          .cancelEncounter(id, 'Gia đình hủy yêu cầu chờ duyệt')
+                          .then(() => {
+                            toast.success('Đã hủy yêu cầu và hoàn lại lượt tạm giữ.');
+                            return loadTimetable();
+                          })
+                          .catch((err) =>
+                            toast.error(err instanceof Error ? err.message : 'Không thể hủy yêu cầu.'),
+                          );
+                      }}
+                      className="text-rose-700 border-rose-200 hover:bg-rose-50"
+                    >
+                      Hủy yêu cầu
+                    </Button>
+                  )}
                   {selectedTimetableApt.status === 'confirmed' &&
                     !selectedTimetableApt.pendingReschedule && (
                       <Button asChild variant="outline" size="sm">

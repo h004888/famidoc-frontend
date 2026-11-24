@@ -220,7 +220,7 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       {
         group: 'Khám & Điều trị',
         href: '/family/telemedicine',
-        label: 'Phòng khám Video 24/7',
+        label: 'Phòng khám Video',
         shortLabel: 'Telemed',
         icon: 'videocam',
       },
@@ -249,7 +249,7 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       {
         group: 'Khám & Điều trị',
         href: '/family/telemedicine',
-        label: 'Phòng khám Video 24/7',
+        label: 'Phòng khám Video',
         shortLabel: 'Telemed',
         icon: 'videocam',
       },

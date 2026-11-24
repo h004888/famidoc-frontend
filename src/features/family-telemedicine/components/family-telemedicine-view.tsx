@@ -25,6 +25,7 @@ export function FamilyTelemedicineView() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [reloadNonce, setReloadNonce] = useState(0);
+  const [hasJoined, setHasJoined] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,7 +78,7 @@ export function FamilyTelemedicineView() {
 
   const roomState = useLivekitTelehealthRoom({
     encounterId: activeEncounterId,
-    enabled: Boolean(activeEncounterId && isJoinable),
+    enabled: Boolean(activeEncounterId && isJoinable && hasJoined),
   });
 
   const primaryPatientId = encounter?.patientId ?? encounter?.patient?.id;
@@ -86,8 +87,7 @@ export function FamilyTelemedicineView() {
   const latestVital = useMemo(() => vitals[0] ?? null, [vitals]);
 
   const handleEndCall = async () => {
-    await roomState.endCall().catch(() => null);
-    router.push('/family/appointments');
+    setHasJoined(false);
   };
 
   if (loading) {
@@ -161,12 +161,32 @@ export function FamilyTelemedicineView() {
           )}
         </div>
 
-        <TelehealthVideoStage
-          roomState={roomState}
-          remoteLabel={doctorName}
-          endCallLabel="Rời phòng khám"
-          onEndCall={() => void handleEndCall()}
-        />
+        {!hasJoined ? (
+          <Card className="p-6 space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-base font-bold">Phòng chờ Tư vấn Video (Pre-Join)</h2>
+              <p className="text-xs text-muted-foreground">
+                Bác sĩ: {doctorName} · Kiểm tra Micro &amp; Camera trước khi tham gia. Nếu bạn
+                rời phòng giữa chừng, phòng vẫn mở để quay lại.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" onClick={() => setHasJoined(true)}>
+                Tham gia phòng ngay
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/family/appointments">Quay lại Lịch hẹn</Link>
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <TelehealthVideoStage
+            roomState={roomState}
+            remoteLabel={doctorName}
+            endCallLabel="Rời phòng"
+            onEndCall={() => void handleEndCall()}
+          />
+        )}
       </div>
 
       <div className="lg:col-span-4">

@@ -10,8 +10,10 @@ export type EncounterStatus =
   | 'ON_THE_WAY'
   | 'ARRIVED'
   | 'IN_PROGRESS'
+  | 'WRAP_UP'
   | 'COMPLETED'
   | 'CANCELLED'
+  | 'NO_SHOW'
   | 'RESCHEDULE_REQUESTED';
 
 export type EncounterScheduleStage =
@@ -489,6 +491,50 @@ export const encountersApi = {
   ): Promise<{ scheduledCount: number; encounters: EncounterItem[] }> => {
     const raw = await httpClient.post<{ scheduledCount: number; encounters: EncounterItem[] }>(
       `/api/v1/encounters/contracts/${contractId}/retry-auto-schedule`,
+      {}
+    );
+    return unwrapApiEnvelope(raw);
+  },
+
+  getDoctorVideoAvailability: async (
+    doctorId: string,
+    month: string,
+    contractId?: string
+  ): Promise<any> => {
+    const raw = await httpClient.get<any>(
+      `/api/v1/encounters/doctors/${doctorId}/video-availability`,
+      {
+        month,
+        ...(contractId ? { contractId } : {}),
+      }
+    );
+    return unwrapApiEnvelope(raw);
+  },
+
+  cancelEncounter: async (encounterId: string, reason?: string): Promise<EncounterItem> => {
+    const raw = await httpClient.patch<EncounterItem>(
+      `/api/v1/encounters/${encounterId}/cancel`,
+      { reason }
+    );
+    return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  completeWrapUp: async (
+    encounterId: string,
+    payload: { patientIds: string[]; notes?: string }
+  ): Promise<EncounterItem> => {
+    const raw = await httpClient.patch<EncounterItem>(
+      `/api/v1/encounters/${encounterId}/finalize`,
+      {
+        plan: payload.notes || 'Tư vấn theo dõi tại nhà — Không kê đơn',
+      }
+    );
+    return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  remindWrapUp: async (encounterId: string): Promise<{ ok: boolean }> => {
+    const raw = await httpClient.post<{ ok: boolean }>(
+      `/api/v1/encounters/${encounterId}/remind-wrap-up`,
       {}
     );
     return unwrapApiEnvelope(raw);

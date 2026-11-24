@@ -169,6 +169,18 @@ function getStatusInfo(rawStatus: string) {
         className: 'bg-indigo-50 text-indigo-800 border-indigo-200',
         stepIndex: 2,
       };
+    case 'WRAP_UP':
+      return {
+        label: 'Chờ hoàn tất hồ sơ',
+        className: 'bg-amber-50 text-amber-800 border-amber-200',
+        stepIndex: 2,
+      };
+    case 'NO_SHOW':
+      return {
+        label: 'Vắng mặt',
+        className: 'bg-rose-50 text-rose-700 border-rose-200',
+        stepIndex: -1,
+      };
     case 'COMPLETED':
       return {
         label: 'Đã hoàn thành',
@@ -214,6 +226,7 @@ export function DoctorTimetableView() {
   const [calendarAnchorIso, setCalendarAnchorIso] = useState(todayIso);
 
   const [actionId, setActionId] = useState<string | null>(null);
+  const [selectedTelehealthTimes, setSelectedTelehealthTimes] = useState<Record<string, string>>({});
   const [selectedWeeklyEnc, setSelectedWeeklyEnc] = useState<EncounterItem | null>(null);
 
   const [rescheduleTarget, setRescheduleTarget] = useState<EncounterItem | null>(null);
@@ -321,13 +334,17 @@ export function DoctorTimetableView() {
     return Array.from(map.entries());
   }, [filteredEncounters]);
 
-  const handleConfirmTelehealth = async (encounterId: string, confirmed: boolean) => {
+  const handleConfirmTelehealth = async (
+    encounterId: string,
+    confirmed: boolean,
+    confirmedTime?: string
+  ) => {
     setActionId(encounterId);
     try {
-      await encountersApi.confirmEncounter(encounterId, confirmed);
+      await (encountersApi.confirmEncounter as any)(encounterId, confirmed, confirmedTime);
       toast.success(
         confirmed
-          ? 'Đã nhận lịch Tư vấn Video. Hệ thống đã đồng bộ với gia đình.'
+          ? `Đã nhận lịch Tư vấn Video${confirmedTime ? ` lúc ${confirmedTime}` : ''}. Hệ thống đã đồng bộ với gia đình.`
           : 'Đã từ chối yêu cầu Tư vấn Video.'
       );
       await loadTimetableAndRequests();
@@ -548,7 +565,13 @@ export function DoctorTimetableView() {
             </div>
 
             <div className="space-y-2.5">
-              {pendingTelehealthRequests.map((enc) => (
+              {pendingTelehealthRequests.map((enc) => {
+                const isMorning = getSessionBucket(getEncounterTime(enc)) === 'morning';
+                const candidateTimes = isMorning
+                  ? ['08:30', '09:00', '09:30', '10:00', '10:30', '11:00']
+                  : ['14:00', '14:30', '15:00', '15:30', '16:00', '16:30'];
+                const chosenTime = selectedTelehealthTimes[enc.id] ?? candidateTimes[1];
+                return (
                 <div
                   key={`tele-req-${enc.id}`}
                   className="bg-white rounded-xl border border-sky-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs"
@@ -563,15 +586,36 @@ export function DoctorTimetableView() {
                         <span>Yêu cầu Tư vấn Video · 2 bên</span>
                       </Badge>
                       <span className="font-bold text-slate-900 tabular-nums">
-                        {getEncounterTime(enc)} · {formatVnDate(getEncounterDate(enc))}
+                        {isMorning ? 'Khung Sáng (08:00–11:30)' : 'Khung Chiều (13:30–17:30)'} ·{' '}
+                        {formatVnDate(getEncounterDate(enc))}
                       </span>
                       <span className="font-semibold text-slate-800">
                         · {getPatientLabel(enc)}
                       </span>
                     </div>
                     <p className="text-slate-600">
-                      {enc.cancelReason || enc.subjectiveNote || 'Gia đình đặt lịch Tư vấn Video.'}
+                      {enc.displayNotes || enc.subjectiveNote || 'Tư vấn sức khỏe gia đình theo nhu cầu'}
                     </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-[11px] font-semibold text-slate-600">Chốt giờ gọi:</span>
+                      <select
+                        aria-label="Chốt giờ gọi cụ thể"
+                        value={chosenTime}
+                        onChange={(e) =>
+                          setSelectedTelehealthTimes((prev) => ({
+                            ...prev,
+                            [enc.id]: e.target.value,
+                          }))
+                        }
+                        className="h-7 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-semibold tabular-nums"
+                      >
+                        {candidateTimes.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
@@ -579,11 +623,11 @@ export function DoctorTimetableView() {
                       type="button"
                       size="sm"
                       disabled={actionId === enc.id}
-                      onClick={() => void handleConfirmTelehealth(enc.id, true)}
+                      onClick={() => void handleConfirmTelehealth(enc.id, true, chosenTime)}
                       className="h-8 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold gap-1"
                     >
                       <span className="material-symbols-outlined text-[15px]">check</span>
-                      <span>Nhận lịch Video</span>
+                      <span>Duyệt &amp; Chốt {chosenTime}</span>
                     </Button>
                     <Button
                       type="button"
@@ -597,7 +641,8 @@ export function DoctorTimetableView() {
                     </Button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
 
               {pendingReschedules.map((req) => (
                 <div
