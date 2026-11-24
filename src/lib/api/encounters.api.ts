@@ -280,6 +280,8 @@ export interface MonthlyAvailabilityDay {
   date: string;
   isDayOff: boolean;
   dayOffReason?: string | null;
+  isOutOfContract?: boolean;
+  outOfContractReason?: string | null;
   familyHasVisit: boolean;
   morning: MonthlySlotStatus;
   afternoon: MonthlySlotStatus;
@@ -288,6 +290,8 @@ export interface MonthlyAvailabilityDay {
 export interface DoctorMonthlyAvailabilityResponse {
   month: string;
   doctorId: string;
+  contractStartDate?: string | null;
+  contractEndDate?: string | null;
   days: MonthlyAvailabilityDay[];
 }
 

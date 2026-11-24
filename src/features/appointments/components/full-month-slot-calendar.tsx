@@ -48,7 +48,7 @@ export function FullMonthSlotCalendar({
   const minSelectableIso = toLocalIso(minSelectableDate);
 
   const handleCellClick = (day: MonthlyAvailabilityDay) => {
-    if (day.date < minSelectableIso) {
+    if (day.date < minSelectableIso || day.isOutOfContract) {
       return;
     }
     if (day.isDayOff) {
@@ -135,6 +135,8 @@ export function FullMonthSlotCalendar({
               {days.map((day) => {
                 const dayNum = Number(day.date.slice(8, 10));
                 const isLockedByCutoff = day.date < minSelectableIso;
+                const isOutOfContract = Boolean(day.isOutOfContract);
+                const isDisabled = isLockedByCutoff || isOutOfContract;
                 const isSelected = selectedDate === day.date;
                 const isFull = !day.morning.available && !day.afternoon.available;
                 const isBlocked = day.isDayOff || day.familyHasVisit || isFull;
@@ -150,11 +152,11 @@ export function FullMonthSlotCalendar({
                   <button
                     key={day.date}
                     type="button"
-                    disabled={isLockedByCutoff}
-                    aria-disabled={isLockedByCutoff}
+                    disabled={isDisabled}
+                    aria-disabled={isDisabled}
                     onClick={() => handleCellClick(day)}
                     className={`h-[88px] rounded-xl border p-2 text-left flex flex-col justify-between transition-all ${
-                      isLockedByCutoff
+                      isDisabled
                         ? 'border-slate-200/60 bg-slate-100/80 text-slate-400 opacity-55 cursor-not-allowed'
                         : isSelected
                           ? 'border-[#2E37A4] bg-indigo-50/50 ring-2 ring-[#2E37A4]/30 cursor-pointer'
@@ -168,6 +170,10 @@ export function FullMonthSlotCalendar({
                         <span className="text-[10px] font-medium text-slate-400">
                           {cutoffLabel}
                         </span>
+                      ) : isOutOfContract ? (
+                        <span className="text-[10px] font-medium text-slate-400">
+                          Ngoài hạn gói
+                        </span>
                       ) : day.isDayOff ? (
                         <span className="text-[10px] font-semibold text-slate-400">Nghỉ</span>
                       ) : day.familyHasVisit ? (
@@ -179,7 +185,7 @@ export function FullMonthSlotCalendar({
                       )}
                       <span
                         className={`text-xs font-bold tabular-nums ${
-                          isLockedByCutoff
+                          isDisabled
                             ? 'text-slate-400'
                             : isSelected
                               ? 'text-[#2E37A4]'
@@ -190,7 +196,7 @@ export function FullMonthSlotCalendar({
                       </span>
                     </div>
 
-                    {!isLockedByCutoff && !day.isDayOff && !day.familyHasVisit && (
+                    {!isDisabled && !day.isDayOff && !day.familyHasVisit && (
                       <div className="space-y-0.5 text-[10px] font-medium tabular-nums">
                         <div className={day.morning.available ? 'text-emerald-700' : 'text-slate-400'}>
                           S: {day.morning.available ? '✓' : '✗'}
