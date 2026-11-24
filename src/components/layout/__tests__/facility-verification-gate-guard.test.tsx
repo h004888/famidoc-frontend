@@ -172,7 +172,7 @@ describe('FacilityVerificationGateGuard & DashboardSidebar Facility Gate', () =>
         within(mobileNav).getByRole('button', { name: 'Quản lý Bác sĩ & CCHN (Đã khóa)' }),
       ).toBeDisabled();
       expect(
-        within(mobileNav).getByRole('button', { name: 'Hợp đồng Hợp tác B2B (Đã khóa)' }),
+        within(mobileNav).getByRole('button', { name: 'Quản lý Hợp đồng (Đã khóa)' }),
       ).toBeDisabled();
       expect(
         within(mobileNav).getByRole('button', { name: 'Tổng quan Cơ sở (Đã khóa)' }),

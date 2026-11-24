@@ -966,8 +966,8 @@ describe('BookingPaymentStep', () => {
     render(<BookingPaymentStep contractId="ctr-1" pollingIntervalMs={0} />);
 
     expect(await screen.findByTestId('booking-payment-first-encounter')).toBeInTheDocument();
-    expect(screen.getByTestId('booking-payment-first-encounter')).toHaveTextContent('2026-11-22');
-    expect(screen.getByTestId('booking-payment-first-encounter')).toHaveTextContent('08:30');
+    expect(screen.getByTestId('booking-payment-first-encounter')).toHaveTextContent('22/11/2026');
+    expect(screen.getByTestId('booking-payment-first-encounter')).toHaveTextContent('Khung Sáng (08:00 - 11:30)');
     expect(screen.getByRole('link', { name: /Xem lịch khám/i })).toHaveAttribute(
       'href',
       '/family/appointments'

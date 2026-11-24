@@ -581,7 +581,7 @@ export function AdminContractsView() {
                       <td className="px-3 py-3">
                         <span
                           title={row.contractNumber}
-                          className="block max-w-[130px] truncate font-mono text-xs font-medium tabular-nums text-slate-600"
+                          className="block max-w-[130px] truncate text-xs font-medium tabular-nums text-slate-600"
                         >
                           {row.contractNumber}
                         </span>
@@ -645,7 +645,7 @@ export function AdminContractsView() {
                       >
                         {row.kind === 'FOUR_PARTY' ? '4 bên' : 'B2B'}
                       </Badge>
-                      <span className="font-mono text-xs font-medium tabular-nums text-slate-600">
+                      <span className="text-xs font-medium tabular-nums text-slate-600">
                         {row.contractNumber}
                       </span>
                     </div>

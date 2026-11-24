@@ -131,10 +131,10 @@ describe('DoctorVerificationGateGuard & DashboardSidebar Doctor Gate', () => {
         'nav[aria-label="Điều hướng chính trên điện thoại"]',
       ) as HTMLElement;
       expect(
-        within(mobileNav).getByRole('button', { name: 'Bảng Lâm sàng (Đã khóa)' }),
+        within(mobileNav).getByRole('button', { name: 'Bảng lâm sàng (Đã khóa)' }),
       ).toBeDisabled();
       expect(
-        within(mobileNav).getByRole('button', { name: 'Hợp đồng & Phụ trách Hộ (Đã khóa)' }),
+        within(mobileNav).getByRole('button', { name: 'Khám bệnh & Kê đơn (Đã khóa)' }),
       ).toBeDisabled();
     });
 

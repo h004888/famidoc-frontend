@@ -11,7 +11,6 @@ export type EncounterStatus =
   | 'CANCELLED'
   | 'NO_SHOW';
 
-export type EncounterStatus = ScheduleEncounterStatus;
 export type EncounterCategory = 'PERIODIC' | 'AD_HOC' | 'PERIODIC_ROUTINE' | 'AD_HOC_ON_DEMAND';
 
 export interface TelehealthEncounterItem {

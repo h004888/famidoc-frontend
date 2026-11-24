@@ -489,7 +489,7 @@ export function DoctorContractsInboundView({
                         <td className="px-3 py-3">
                           <span
                             title={contract.contractNumber}
-                            className="block max-w-[130px] truncate font-mono text-xs font-medium tabular-nums text-slate-600"
+                            className="block max-w-[130px] truncate text-xs font-medium tabular-nums text-slate-600"
                           >
                             {contract.contractNumber}
                           </span>
