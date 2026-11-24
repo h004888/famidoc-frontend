@@ -19,6 +19,7 @@ export interface BookingContractTrackingPanelProps {
 
 /** Các trạng thái backend coi như hợp đồng đã dừng/không còn chờ ký. */
 const TERMINATED_STATUSES = new Set(['EXPIRED', 'TERMINATED']);
+const TOTAL_REQUIRED_SIGNERS = 4;
 
 /**
  * Định dạng mốc thời gian sang ngày giờ Việt Nam; trả `null` khi chuỗi không hợp lệ
@@ -45,10 +46,12 @@ function signingStateOf(contract: MedicalContractDetailDto) {
   const signedRoles = new Set<BackendSignerRole>(
     (contract.signatures ?? []).map((signature) => signature.signerRole)
   );
+  const signedCount = signedRoles.size;
+  const hasAllFourSignatures = signedCount >= TOTAL_REQUIRED_SIGNERS;
   const status = contract.contractStatus;
   const isActive = status === 'ACTIVE';
   const isTerminated = TERMINATED_STATUSES.has(status);
-  const isPaymentReady = status === 'PENDING_PAYMENT';
+  const isPaymentReady = status === 'PENDING_PAYMENT' && hasAllFourSignatures;
   const isAwaitingSignatures = !isActive && !isTerminated && !isPaymentReady;
 
   return {
@@ -57,7 +60,8 @@ function signingStateOf(contract: MedicalContractDetailDto) {
     isTerminated,
     isPaymentReady,
     isAwaitingSignatures,
-    signedCount: signedRoles.size,
+    hasAllFourSignatures,
+    signedCount,
   };
 }
 
@@ -122,7 +126,10 @@ function resolveStatusLabel(state: ReturnType<typeof signingStateOf>): string {
   if (state.isActive) return 'Đang hiệu lực';
   if (state.isTerminated) return 'Đã kết thúc';
   if (state.isPaymentReady) return 'Sẵn sàng thanh toán';
-  if (state.signedRoles.has('FAMILY_REP')) return 'Đang chờ các bên còn lại ký';
+  if (state.signedRoles.has('FAMILY_REP')) {
+    const remaining = Math.max(0, TOTAL_REQUIRED_SIGNERS - state.signedCount);
+    return `Đang chờ ${remaining} bên còn lại (${state.signedCount}/${TOTAL_REQUIRED_SIGNERS})`;
+  }
   return 'Đang chờ đại diện hộ gia đình ký';
 }
 
@@ -210,7 +217,7 @@ function buildSignedAtByRole(
 
 /**
  * Cột chính của `/booking/tracking` sau khi Bên A đã ký xong: thay khung nhúng
- * Documenso bằng bảng theo dõi tiến độ 4 bên kèm thời điểm ký của từng bên.
+ * Documenso bằng bảng theo dõi tiến độ 2 giai đoạn (Bên A hoàn tất -> 3 bên ký song song).
  */
 function PostFamilySigningCard({
   parties,
@@ -223,33 +230,41 @@ function PostFamilySigningCard({
   signedAtByRole: Map<BackendSignerRole, string | null>;
   familySignedAt: string | null;
 }) {
-  const totalParties = 4;
+  const totalParties = TOTAL_REQUIRED_SIGNERS;
   const progressPercent = Math.min(
     100,
     Math.round((state.signedCount / totalParties) * 100)
   );
+  const familyParty = parties.find((party) => party.role === 'FAMILY_REP');
+  const parallelParties = parties.filter((party) => party.role !== 'FAMILY_REP');
+  const parallelSignedCount = parallelParties.filter((party) =>
+    state.signedRoles.has(party.role)
+  ).length;
 
   return (
     <section
       data-testid="booking-post-family-signing-card"
-      className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
+      className="space-y-5 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6"
     >
       <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
-        <span className="material-symbols-outlined shrink-0 text-[22px] text-emerald-700">
+        <span
+          aria-hidden="true"
+          className="material-symbols-outlined shrink-0 text-[22px] text-emerald-700"
+        >
           verified
         </span>
         <div className="space-y-1">
           <h2 className="text-sm font-bold text-emerald-900 sm:text-base">
-            Đại diện hộ gia đình (Bên A) đã ký xong
+            Đại diện hộ gia đình (Bên A) đã ký thành công
           </h2>
           <p
             data-testid="booking-post-family-signed-at"
             className="text-xs leading-relaxed text-emerald-800 sm:text-sm"
           >
             {familySignedAt
-              ? `Đã hoàn tất ký số lúc ${familySignedAt}.`
-              : 'Đã hoàn tất ký số hợp đồng.'}{' '}
-            Hợp đồng sẽ có hiệu lực sau khi đủ 4/4 bên ký.
+              ? `Ghi nhận chữ ký số lúc ${familySignedAt}.`
+              : 'Đã ghi nhận chữ ký số hợp đồng.'}{' '}
+            Hợp đồng sẽ sẵn sàng thanh toán ngay khi đủ 4/4 bên ký.
           </p>
         </div>
       </div>
@@ -258,10 +273,12 @@ function PostFamilySigningCard({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-bold text-slate-900">Tiến độ ký 4 bên</p>
           <span
+            role="status"
+            aria-atomic="true"
             data-testid="booking-post-signing-progress"
-            className="text-xs font-semibold tabular-nums text-slate-600"
+            className="text-xs font-semibold tabular-nums text-slate-700"
           >
-            Đã ký {state.signedCount}/{totalParties} bên
+            Đã ký {state.signedCount}/{totalParties} bên ({progressPercent}%)
           </span>
         </div>
         <div
@@ -270,71 +287,138 @@ function PostFamilySigningCard({
           aria-valuemax={totalParties}
           aria-valuenow={state.signedCount}
           aria-label="Tiến độ ký hợp đồng 4 bên"
-          className="h-2 w-full overflow-hidden rounded-full bg-slate-100"
+          className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100"
         >
           <div
-            className="h-full rounded-full bg-emerald-500 transition-all"
+            className="h-full rounded-full bg-emerald-500 transition-all duration-300"
             style={{ width: `${progressPercent}%` }}
           />
         </div>
       </div>
 
-      <ul className="space-y-2.5">
-        {parties.map((party) => {
-          const signed = state.signedRoles.has(party.role);
-          const signedAt = signedAtByRole.get(party.role) ?? null;
-          return (
+      {familyParty && (
+        <div
+          data-testid="booking-post-signing-stage-1"
+          className="space-y-2"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+            Giai đoạn 1 · Đại diện hộ gia đình (Đã hoàn tất)
+          </p>
+          <ul className="space-y-2">
             <li
-              key={party.role}
-              data-testid={`booking-post-signing-party-${party.role}`}
-              data-signed={signed ? 'true' : 'false'}
-              className={cn(
-                'flex flex-wrap items-start justify-between gap-3 rounded-xl border p-3.5',
-                signed
-                  ? 'border-emerald-200 bg-emerald-50/60'
-                  : 'border-slate-200 bg-white'
-              )}
+              data-testid={`booking-post-signing-party-${familyParty.role}`}
+              data-signed="true"
+              className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3.5"
             >
-              <div className="min-w-0 space-y-1">
-                <p className="text-xs font-semibold text-slate-500">
-                  {party.partyCode}
-                </p>
-                <p className="break-words text-sm font-bold text-slate-900">
-                  {party.name || party.title}
-                </p>
-                {party.name && party.name !== party.title && (
-                  <p className="text-xs text-slate-600">{party.title}</p>
-                )}
-                <p className="text-xs leading-relaxed text-slate-600">
-                  {party.description}
-                </p>
+              <div className="flex min-w-0 items-start gap-2.5">
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined mt-0.5 shrink-0 text-[18px] text-emerald-700"
+                >
+                  check_circle
+                </span>
+                <div className="min-w-0 space-y-0.5">
+                  <p className="text-xs font-semibold text-emerald-800">
+                    {familyParty.partyCode} · Bạn
+                  </p>
+                  <p className="break-words text-sm font-bold text-slate-900">
+                    {familyParty.name || familyParty.title}
+                  </p>
+                  {familyParty.name && familyParty.name !== familyParty.title && (
+                    <p className="text-xs text-slate-600">{familyParty.title}</p>
+                  )}
+                </div>
               </div>
               <div className="shrink-0 text-right">
-                <span
-                  className={cn(
-                    'inline-flex rounded-md px-2 py-0.5 text-xs font-semibold',
-                    signed
-                      ? 'bg-emerald-100 text-emerald-800'
-                      : 'bg-amber-50 text-amber-800'
-                  )}
-                >
-                  {signed ? 'Đã ký' : 'Đang chờ ký'}
+                <span className="inline-flex rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-800">
+                  Đã ký
                 </span>
-                {signed && signedAt && (
-                  <p className="mt-1 text-xs text-emerald-900">{signedAt}</p>
+                {familySignedAt && (
+                  <p className="mt-1 text-xs tabular-nums text-emerald-900">
+                    {familySignedAt}
+                  </p>
                 )}
               </div>
             </li>
-          );
-        })}
-      </ul>
+          </ul>
+        </div>
+      )}
 
-      <p className="flex items-center gap-1.5 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-        <span className="material-symbols-outlined text-[16px] text-slate-500">
-          sync
-        </span>
-        <span>Tự động kiểm tra tiến độ mỗi 10 giây khi trang đang mở.</span>
-      </p>
+      <div
+        data-testid="booking-post-signing-stage-2"
+        className="space-y-2"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Giai đoạn 2 · Các bên đang ký song song
+          </p>
+          <span className="text-xs font-semibold tabular-nums text-amber-800">
+            {parallelSignedCount}/{parallelParties.length} hoàn tất
+          </span>
+        </div>
+        <ul className="space-y-2.5">
+          {parallelParties.map((party) => {
+            const signed = state.signedRoles.has(party.role);
+            const signedAt = signedAtByRole.get(party.role) ?? null;
+            return (
+              <li
+                key={party.role}
+                data-testid={`booking-post-signing-party-${party.role}`}
+                data-signed={signed ? 'true' : 'false'}
+                className={cn(
+                  'flex flex-wrap items-start justify-between gap-3 rounded-xl border p-3.5',
+                  signed
+                    ? 'border-emerald-200 bg-emerald-50/60'
+                    : 'border-slate-200 bg-white'
+                )}
+              >
+                <div className="flex min-w-0 items-start gap-2.5">
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'material-symbols-outlined mt-0.5 shrink-0 text-[18px]',
+                      signed ? 'text-emerald-700' : 'text-amber-600'
+                    )}
+                  >
+                    {signed ? 'check_circle' : 'schedule'}
+                  </span>
+                  <div className="min-w-0 space-y-0.5">
+                    <p className="text-xs font-semibold text-slate-500">
+                      {party.partyCode}
+                    </p>
+                    <p className="break-words text-sm font-bold text-slate-900">
+                      {party.name || party.title}
+                    </p>
+                    {party.name && party.name !== party.title && (
+                      <p className="text-xs text-slate-600">{party.title}</p>
+                    )}
+                    <p className="text-xs leading-relaxed text-slate-600">
+                      {party.description}
+                    </p>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <span
+                    className={cn(
+                      'inline-flex rounded-md px-2 py-0.5 text-xs font-semibold',
+                      signed
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-50 text-amber-800'
+                    )}
+                  >
+                    {signed ? 'Đã ký' : 'Đang chờ ký'}
+                  </span>
+                  {signed && signedAt && (
+                    <p className="mt-1 text-xs tabular-nums text-emerald-900">
+                      {signedAt}
+                    </p>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </section>
   );
 }
@@ -355,7 +439,8 @@ export function BookingContractTrackingPanel({
   const state = signingStateOf(contract);
   /** Hợp đồng có bản Documenso để tải PDF đã ký (đủ 4/4 chữ ký mới tải được). */
   const hasDocumensoPdf = Boolean(
-    contract.documensoItemId || contract.signedPdfUrl
+    (contract.documensoItemId || contract.signedPdfUrl) &&
+      (state.isActive || state.hasAllFourSignatures)
   );
   const parties = buildParties(contract);
   const statusLabel = resolveStatusLabel(state);
@@ -657,31 +742,75 @@ export function BookingContractTrackingPanel({
           {isPostFamilySigning ? (
             <section
               data-testid="booking-post-signing-next-step"
-              className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5"
+              className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5"
             >
               <h2 className="text-sm font-bold text-slate-900">
                 Bước tiếp theo
               </h2>
-              <p className="text-xs leading-relaxed text-slate-600">
-                Cơ sở y tế (Bên B), bác sĩ phụ trách (Bên C) và nền tảng FamiDoc (Bên D)
-                đang hoàn tất ký song song. Khi đủ 4/4 chữ ký, bạn sẽ thanh toán VietQR
-                để kích hoạt gói chăm sóc.
-              </p>
-              <div className="space-y-2">
+              <ol className="space-y-2.5 text-xs">
+                <li className="flex items-start gap-2.5 text-emerald-800">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined mt-0.5 shrink-0 text-[16px] text-emerald-600"
+                  >
+                    check_circle
+                  </span>
+                  <span className="font-semibold">Gia đình ký hợp đồng</span>
+                </li>
+                <li className="flex items-start gap-2.5 text-amber-900">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined mt-0.5 shrink-0 text-[16px] text-amber-600"
+                  >
+                    pending
+                  </span>
+                  <span className="font-semibold">
+                    3 bên còn lại ký song song
+                  </span>
+                </li>
+                <li className="flex items-start gap-2.5 text-slate-500">
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined mt-0.5 shrink-0 text-[16px] text-slate-400"
+                  >
+                    radio_button_unchecked
+                  </span>
+                  <span>Thanh toán VietQR &amp; kích hoạt gói</span>
+                </li>
+              </ol>
+
+              <div className="space-y-2 border-t border-slate-100 pt-3">
                 <button
                   type="button"
                   disabled
                   aria-disabled="true"
                   data-testid="booking-view-signed-pdf-locked"
-                  className="inline-flex min-h-11 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-100 px-4 text-sm font-semibold text-slate-500"
+                  className="inline-flex min-h-10 w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-500"
                 >
-                  <span className="material-symbols-outlined text-[18px]">lock</span>
-                  <span>Xem PDF đã ký (chờ đủ 4/4)</span>
+                  <span
+                    aria-hidden="true"
+                    className="material-symbols-outlined text-[16px]"
+                  >
+                    lock
+                  </span>
+                  <span>Bản PDF đã ký 4 bên (chờ đủ 4/4)</span>
                 </button>
                 <p className="text-xs leading-relaxed text-slate-500">
-                  Tệp PDF đã ký đủ 4 bên chỉ khả dụng sau khi cả bốn bên hoàn tất ký số.
+                  Tự động mở khóa sau khi đủ 4/4 chữ ký điện tử.
                 </p>
               </div>
+
+              <p className="flex items-start gap-2 rounded-xl bg-slate-50 p-3 text-xs leading-relaxed text-slate-600">
+                <span
+                  aria-hidden="true"
+                  className="material-symbols-outlined mt-0.5 shrink-0 text-[16px] text-slate-500"
+                >
+                  info
+                </span>
+                <span>
+                  Bạn có thể đóng trang này. FamiDoc sẽ gửi email ngay khi đủ 4/4 chữ ký.
+                </span>
+              </p>
             </section>
           ) : (
             <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5">

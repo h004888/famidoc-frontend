@@ -326,7 +326,7 @@ class HttpClient {
             }
             return fetch(url, {
               ...options,
-              method: 'GET',
+              method: options.method ?? 'GET',
               headers,
             });
           },

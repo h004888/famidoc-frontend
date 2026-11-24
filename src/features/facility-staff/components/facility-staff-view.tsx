@@ -9,6 +9,7 @@ import {
   type DoctorQuotaProposalDto,
 } from '@/lib/api/doctors.api';
 import { extractErrorMessage } from '@/lib/api';
+import { DOCTOR_ACADEMIC_TITLE_OPTIONS } from '@/lib/constants/doctor-academic-titles';
 import {
   isValidVietnameseMobilePhone,
   normalizeVietnameseMobilePhone,
@@ -906,12 +907,11 @@ export function FacilityStaffView() {
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs sm:text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 bg-white"
                     >
                       <option value="">-- Để bác sĩ tự cập nhật --</option>
-                      <option value="BS">Bác sĩ (BS)</option>
-                      <option value="ThS.BS">Thạc sĩ Bác sĩ (ThS.BS)</option>
-                      <option value="BS.CKI">Bác sĩ Chuyên khoa 1 (BS.CKI)</option>
-                      <option value="BS.CKII">Bác sĩ Chuyên khoa 2 (BS.CKII)</option>
-                      <option value="TS.BS">Tiến sĩ Bác sĩ (TS.BS)</option>
-                      <option value="PGS.TS.BS">Phó Giáo sư (PGS.TS.BS)</option>
+                      {DOCTOR_ACADEMIC_TITLE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
 

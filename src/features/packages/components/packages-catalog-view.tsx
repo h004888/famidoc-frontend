@@ -17,14 +17,6 @@ export interface PackagesCatalogViewProps {
   initialPackages?: PublicPackageItemDto[];
 }
 
-type CategoryFilter = 'all' | 'trial' | 'standard' | 'annual';
-
-function resolvePackageCategory(durationMonths: number): Exclude<CategoryFilter, 'all'> {
-  if (durationMonths <= 1) return 'trial';
-  if (durationMonths >= 12) return 'annual';
-  return 'standard';
-}
-
 function formatVnd(amount: number): string {
   return `${Math.round(amount).toLocaleString('vi-VN')}đ`;
 }
@@ -33,8 +25,6 @@ export function PackagesCatalogView({ initialPackages }: PackagesCatalogViewProp
   const [packages, setPackages] = useState<PublicPackageItemDto[]>(initialPackages ?? []);
   const [isLoading, setIsLoading] = useState(!initialPackages);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [searchKeyword, setSearchKeyword] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>('all');
   const [isMonthlyView, setIsMonthlyView] = useState(false);
 
   const [selectedEstimatorPkgId, setSelectedEstimatorPkgId] = useState<string>(
@@ -72,26 +62,6 @@ export function PackagesCatalogView({ initialPackages }: PackagesCatalogViewProp
     if (initialPackages) return;
     void fetchPackages();
   }, [initialPackages]);
-
-  const filteredPackages = useMemo(() => {
-    const kw = searchKeyword.trim().toLowerCase();
-    return packages.filter((pkg) => {
-      const matchKeyword =
-        !kw ||
-        pkg.packageName.toLowerCase().includes(kw) ||
-        pkg.packageCode.toLowerCase().includes(kw) ||
-        (pkg.description ?? '').toLowerCase().includes(kw);
-
-      const category = resolvePackageCategory(pkg.durationMonths);
-      const matchCategory = selectedCategory === 'all' || category === selectedCategory;
-      return matchKeyword && matchCategory;
-    });
-  }, [packages, searchKeyword, selectedCategory]);
-
-  const handleResetFilter = () => {
-    setSearchKeyword('');
-    setSelectedCategory('all');
-  };
 
   const estimatorPkg = useMemo(() => {
     return (
@@ -135,8 +105,8 @@ export function PackagesCatalogView({ initialPackages }: PackagesCatalogViewProp
             <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight text-white">
               Gói Bác Sĩ Gia Đình &amp; Bảng Giá Dịch Vụ
             </h1>
-            <p className="text-sm sm:text-base text-blue-100 max-w-2xl mx-auto">
-              Minh bạch hạn mức khám tại nhà, tư vấn Telehealth và số thành viên. Chọn gói trước rồi tự chọn bác sĩ (Track A) hoặc để hệ thống gợi ý bác sĩ phù hợp (Track B).
+            <p className="text-sm sm:text-base text-blue-100 max-w-2xl mx-auto leading-relaxed">
+              Rõ ràng số lượt khám tại nhà, tư vấn từ xa và số người trong gia đình. Bạn chỉ cần chọn gói phù hợp rồi chọn bác sĩ mình muốn hoặc để hệ thống gợi ý giúp.
             </p>
             <nav
               aria-label="Breadcrumb"
@@ -152,77 +122,31 @@ export function PackagesCatalogView({ initialPackages }: PackagesCatalogViewProp
           </div>
         </section>
 
-        {/* Search & Filter Bar */}
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10 relative z-20">
-          <div className="bg-white rounded-2xl shadow-md border border-slate-200 p-5 sm:p-6 space-y-4">
-            <div className="flex flex-col lg:flex-row items-center gap-4 justify-between">
-              <div className="relative w-full lg:max-w-md">
-                <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xl">
-                  search
-                </span>
-                <input
-                  type="text"
-                  value={searchKeyword}
-                  onChange={(e) => setSearchKeyword(e.target.value)}
-                  placeholder="Tìm theo tên gói chăm sóc..."
-                  className="w-full h-11 pl-11 pr-9 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 focus:outline-hidden focus:border-[#0037c1] focus:bg-white transition-all"
-                />
-                {searchKeyword && (
-                  <button
-                    type="button"
-                    aria-label="Xóa từ khóa tìm kiếm"
-                    onClick={() => setSearchKeyword('')}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-base">close</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="inline-flex items-center gap-2 p-1 rounded-xl bg-slate-100 border border-slate-200 text-xs font-semibold w-full sm:w-auto justify-center">
-                <button
-                  type="button"
-                  onClick={() => setIsMonthlyView(false)}
-                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${
-                    !isMonthlyView ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Giá Trọn Gói Cả Kỳ
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsMonthlyView(true)}
-                  className={`px-4 py-2 rounded-lg transition-all cursor-pointer ${
-                    isMonthlyView ? 'bg-[#0037c1] text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Bình Quân Theo Tháng
-                </button>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-slate-100">
-              <span className="text-xs font-semibold text-slate-500 mr-1">Kỳ hạn gói:</span>
-              {[
-                { id: 'all', label: 'Tất cả các gói' },
-                { id: 'trial', label: '1 Tháng (Trải nghiệm)' },
-                { id: 'standard', label: '3 - 6 Tháng (Gia đình)' },
-                { id: 'annual', label: '12 Tháng (Toàn diện)' },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setSelectedCategory(tab.id as CategoryFilter)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all cursor-pointer ${
-                    selectedCategory === tab.id
-                      ? 'bg-[#0037c1] text-white shadow-xs'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+        {/* Billing View Switcher */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 -mt-7 relative z-20 flex justify-center">
+          <div className="inline-flex items-center gap-1.5 p-1.5 rounded-2xl bg-white border border-slate-200 shadow-md text-xs sm:text-sm font-semibold">
+            <button
+              type="button"
+              onClick={() => setIsMonthlyView(false)}
+              className={`px-5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                !isMonthlyView
+                  ? 'bg-[#0037c1] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              Giá Trọn Gói Cả Kỳ
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsMonthlyView(true)}
+              className={`px-5 py-2.5 rounded-xl transition-all cursor-pointer ${
+                isMonthlyView
+                  ? 'bg-[#0037c1] text-white shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              Bình Quân Theo Tháng
+            </button>
           </div>
         </div>
 
@@ -266,32 +190,22 @@ export function PackagesCatalogView({ initialPackages }: PackagesCatalogViewProp
                 Thử tải lại
               </button>
             </div>
-          ) : filteredPackages.length === 0 ? (
+          ) : packages.length === 0 ? (
             <div
               role="status"
               className="bg-white rounded-2xl border border-slate-200 p-10 text-center max-w-md mx-auto space-y-4 shadow-sm"
             >
               <div className="w-14 h-14 bg-blue-50 text-[#0037c1] rounded-full flex items-center justify-center mx-auto">
-                <span className="material-symbols-outlined text-2xl">search_off</span>
+                <span className="material-symbols-outlined text-2xl">inventory_2</span>
               </div>
-              <h3 className="text-lg font-bold text-slate-900">Không tìm thấy gói khám phù hợp</h3>
-              <p className="text-xs text-slate-500">
-                {searchKeyword
-                  ? `Không có gói dịch vụ khớp với từ khóa "${searchKeyword}".`
-                  : 'Hiện chưa có gói chăm sóc nào trong nhóm kỳ hạn này.'}
+              <h3 className="text-lg font-bold text-slate-900">Chưa có gói chăm sóc nào</h3>
+              <p className="text-xs sm:text-sm text-slate-500">
+                Hiện chưa có gói chăm sóc sức khỏe nào đang phát hành.
               </p>
-              <button
-                type="button"
-                onClick={handleResetFilter}
-                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-[#0037c1] text-white text-xs font-semibold cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-base">refresh</span>
-                <span>Xóa bộ lọc</span>
-              </button>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-              {filteredPackages.map((pkg) => {
+              {packages.map((pkg) => {
                 const monthlyAvg = Math.round(
                   pkg.basePrice / Math.max(1, pkg.durationMonths)
                 );
@@ -305,22 +219,13 @@ export function PackagesCatalogView({ initialPackages }: PackagesCatalogViewProp
                     className="rounded-2xl p-6 flex flex-col justify-between bg-white border border-slate-200 shadow-xs hover:shadow-md hover:border-[#0037c1]/50 transition-all"
                   >
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-[#0037c1] tabular-nums">
+                      <div className="space-y-2">
+                        <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-[#0037c1] tabular-nums">
                           {pkg.durationMonths} tháng
                         </span>
-                        <span className="text-[11px] font-medium text-slate-500 tabular-nums">
-                          {pkg.packageCode}
-                        </span>
-                      </div>
-
-                      <div>
-                        <h3 className="text-lg font-bold text-slate-900">{pkg.packageName}</h3>
-                        {pkg.description && (
-                          <p className="text-xs text-slate-500 mt-1 line-clamp-2">
-                            {pkg.description}
-                          </p>
-                        )}
+                        <h3 className="text-lg font-bold text-slate-900 leading-snug line-clamp-2">
+                          {pkg.packageName}
+                        </h3>
                       </div>
 
                       <div className="pt-3 border-t border-slate-100">
@@ -328,66 +233,47 @@ export function PackagesCatalogView({ initialPackages }: PackagesCatalogViewProp
                           <span className="text-2xl font-bold text-[#0037c1] tabular-nums">
                             {displayPrice}
                           </span>
-                          <span className="text-xs text-slate-500 font-medium tabular-nums">
+                          <span className="text-xs sm:text-sm text-slate-500 font-medium tabular-nums">
                             {displayPeriod}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5 tabular-nums">
-                          Bình quân {formatVnd(monthlyAvg)}/tháng · Phụ phí thêm người:{' '}
-                          {formatVnd(pkg.additionalMemberMonthlyPrice)}/người/tháng
-                        </p>
                       </div>
 
-                      <ul className="space-y-2 pt-3 border-t border-slate-100 text-xs text-slate-700">
+                      <ul className="space-y-2.5 pt-3 border-t border-slate-100 text-xs sm:text-sm text-slate-700">
                         <li className="flex items-center justify-between gap-2">
                           <span className="text-slate-500">Thành viên mặc định</span>
-                          <span className="font-semibold text-slate-900 tabular-nums">
+                          <span className="font-bold text-slate-900 tabular-nums">
                             {pkg.includedMembers} người
                           </span>
                         </li>
                         <li className="flex items-center justify-between gap-2">
                           <span className="text-slate-500">Thành viên tối đa</span>
-                          <span className="font-semibold text-slate-900 tabular-nums">
+                          <span className="font-bold text-slate-900 tabular-nums">
                             {pkg.maxMembers} người
                           </span>
                         </li>
                         <li className="flex items-center justify-between gap-2">
                           <span className="text-slate-500">Khám tại nhà</span>
-                          <span className="font-semibold text-slate-900 tabular-nums">
+                          <span className="font-bold text-slate-900 tabular-nums">
                             {pkg.periodicVisitsQuota} lượt
                           </span>
                         </li>
                         <li className="flex items-center justify-between gap-2">
                           <span className="text-slate-500">Telehealth</span>
-                          <span className="font-semibold text-slate-900 tabular-nums">
+                          <span className="font-bold text-slate-900 tabular-nums">
                             {pkg.telehealthQuota} lượt
                           </span>
                         </li>
                       </ul>
                     </div>
 
-                    <div className="pt-5 mt-5 border-t border-slate-100 space-y-2">
+                    <div className="pt-5 mt-5 border-t border-slate-100">
                       <Link
                         href={`/packages/${encodeURIComponent(pkg.id)}`}
-                        className="w-full py-2.5 px-3 rounded-lg bg-[#0037c1] hover:bg-[#002c9a] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                        className="w-full py-2.5 px-3 rounded-lg bg-[#0037c1] hover:bg-[#002c9a] text-white text-xs sm:text-sm font-semibold flex items-center justify-center transition-colors"
                       >
-                        <span>Xem chi tiết &amp; chọn nhánh</span>
-                        <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                        <span>Xem chi tiết</span>
                       </Link>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        <Link
-                          href={`/doctors?packageId=${encodeURIComponent(pkg.id)}&members=${pkg.includedMembers}`}
-                          className="py-2 px-2 rounded-lg border border-slate-200 hover:border-[#0037c1] text-[11px] font-semibold text-slate-700 hover:text-[#0037c1] text-center transition-colors"
-                        >
-                          Tự chọn BS (Track A)
-                        </Link>
-                        <Link
-                          href={`/doctors/matching?packageId=${encodeURIComponent(pkg.id)}&members=${pkg.includedMembers}`}
-                          className="py-2 px-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-[11px] font-semibold text-[#0037c1] text-center transition-colors"
-                        >
-                          Gợi ý BS (Track B)
-                        </Link>
-                      </div>
                     </div>
                   </div>
                 );
@@ -519,23 +405,6 @@ export function PackagesCatalogView({ initialPackages }: PackagesCatalogViewProp
                     <div className="text-[11px] text-slate-500 mt-1 tabular-nums">
                       Bình quân: <strong>{formatVnd(monthlyAverageEstimated)}/tháng</strong>
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Link
-                      href={`/doctors?packageId=${encodeURIComponent(estimatorPkg.id)}&members=${clampedMemberCount}`}
-                      className="w-full py-2.5 rounded-lg bg-[#0037c1] hover:bg-[#002c9a] text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      <span>Tự chọn bác sĩ (Track A)</span>
-                      <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                    </Link>
-                    <Link
-                      href={`/doctors/matching?packageId=${encodeURIComponent(estimatorPkg.id)}&members=${clampedMemberCount}`}
-                      className="w-full py-2.5 rounded-lg border border-[#0037c1] bg-blue-50 hover:bg-blue-100 text-[#0037c1] text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors"
-                    >
-                      <span>Hệ thống gợi ý bác sĩ (Track B)</span>
-                      <span className="material-symbols-outlined text-sm">auto_awesome</span>
-                    </Link>
                   </div>
                 </div>
               </div>

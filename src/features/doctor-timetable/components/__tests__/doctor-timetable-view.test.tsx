@@ -23,7 +23,7 @@ describe('DoctorTimetableView (/doctor/timetable)', () => {
           contractId: 'ctr-1',
           patientId: 'p-1',
           doctorId: 'doc-1',
-          scheduledDate: '2026-11-25T00:00:00.000Z',
+          scheduledDate: `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`,
           scheduledTime: '08:30:00',
           encounterType: 'HOME_VISIT',
           category: 'PERIODIC_ROUTINE',
@@ -44,7 +44,7 @@ describe('DoctorTimetableView (/doctor/timetable)', () => {
           encounterType: 'TELEHEALTH',
           category: 'AD_HOC_ON_DEMAND',
           encounterStatus: 'REQUESTED',
-          cancelReason: 'Đo huyết áp sáng nay hơi cao',
+          subjectiveNote: 'Đo huyết áp sáng nay hơi cao',
           participants: [{ patientId: 'p-1', patient: { id: 'p-1', fullName: 'Phạm Ngọc Thọ' } }],
           rescheduleRequests: [],
         },
@@ -66,7 +66,7 @@ describe('DoctorTimetableView (/doctor/timetable)', () => {
     render(<DoctorTimetableView />);
 
     await waitFor(() => {
-      expect(screen.getByText('123 Nguyễn Trãi, Q.1')).toBeInTheDocument();
+      expect(screen.getAllByText(/Phạm Ngọc Thọ/i).length).toBeGreaterThan(0);
       expect(screen.getByText('Đo huyết áp sáng nay hơi cao')).toBeInTheDocument();
     });
 
@@ -75,16 +75,17 @@ describe('DoctorTimetableView (/doctor/timetable)', () => {
     expect(screen.queryByText(/Bán Kính Khám Tại Nhà/i)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Bắt đầu di chuyển/i })).not.toBeInTheDocument();
 
-    // 1-step check-in arrival
-    fireEvent.click(screen.getByRole('button', { name: /Check-in đã đến nhà/i }));
+    // 1-step check-in arrival (open detail modal from today's encounter card)
+    fireEvent.click(screen.getByRole('button', { name: /Chi tiết/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Check-in đã đến nhà/i }));
     await waitFor(() => {
       expect(arriveSpy).toHaveBeenCalledWith('enc-home-confirmed');
     });
 
     // Priority telehealth approval
-    fireEvent.click(screen.getByRole('button', { name: /Nhận lịch Video/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Duyệt & Chốt 14:30/i }));
     await waitFor(() => {
-      expect(confirmTeleSpy).toHaveBeenCalledWith('enc-tele-req', true);
+      expect(confirmTeleSpy).toHaveBeenCalledWith('enc-tele-req', true, '14:30');
     });
   });
 });

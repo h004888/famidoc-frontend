@@ -1,9 +1,20 @@
 import { unwrapApiEnvelope } from './envelope';
 import { httpClient } from './http-client';
+import type { EncounterParticipant } from './encounters.api';
 
-import type { EncounterParticipant, EncounterStatus as ScheduleEncounterStatus } from './encounters.api';
+export type EncounterStatus =
+  | 'PROPOSED'
+  | 'REQUESTED'
+  | 'CONFIRMED'
+  | 'ON_THE_WAY'
+  | 'ARRIVED'
+  | 'IN_PROGRESS'
+  | 'WRAP_UP'
+  | 'COMPLETED'
+  | 'RESCHEDULE_REQUESTED'
+  | 'CANCELLED'
+  | 'NO_SHOW';
 
-export type EncounterStatus = ScheduleEncounterStatus;
 export type EncounterCategory = 'PERIODIC' | 'AD_HOC' | 'PERIODIC_ROUTINE' | 'AD_HOC_ON_DEMAND';
 
 export interface TelehealthEncounterItem {
@@ -487,3 +498,8 @@ export interface TelehealthMessageDto {
   attachmentSizeBytes: number | null;
   createdAt: string;
 }
+
+export const getFamilyClinicalSnapshot = async (encounterId: string): Promise<any> => {
+  const raw = await httpClient.get<any>(`/api/v1/telehealth/sessions/${encounterId}/snapshot`);
+  return unwrapApiEnvelope(raw);
+};

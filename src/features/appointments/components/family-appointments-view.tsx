@@ -55,35 +55,99 @@ function formatVnDate(isoDate: string): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-function getSessionBucket(time: string): 'morning' | 'afternoon' | 'evening' {
+function getSessionBucket(time: string): 'morning' | 'afternoon' {
   const hour = Number.parseInt(time.split(':')[0] || '8', 10);
   if (!Number.isFinite(hour) || hour < 12) return 'morning';
-  if (hour < 18) return 'afternoon';
-  return 'evening';
+  return 'afternoon';
 }
 
-function getSessionLabel(bucket: 'morning' | 'afternoon' | 'evening'): string {
-  if (bucket === 'morning') return 'Sáng';
-  if (bucket === 'afternoon') return 'Chiều';
-  return 'Tối';
+function getSessionLabel(bucket: 'morning' | 'afternoon'): string {
+  return bucket === 'morning' ? 'Sáng' : 'Chiều';
 }
 
 function getWeekDays(anchorIso: string): { iso: string; dayLabel: string; shortDate: string }[] {
   const base = new Date(`${anchorIso}T00:00:00`);
   const safe = Number.isNaN(base.getTime()) ? new Date() : base;
   const day = safe.getDay();
-  const diffToMon = day === 0 ? -6 : 1 - day;
-  const monday = new Date(safe);
-  monday.setDate(safe.getDate() + diffToMon);
-  const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  const diffToSun = -day;
+  const sunday = new Date(safe);
+  sunday.setDate(safe.getDate() + diffToSun);
+  const labels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   return labels.map((dayLabel, idx) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + idx);
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + idx);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return { iso: `${yyyy}-${mm}-${dd}`, dayLabel, shortDate: `${dd}/${mm}` };
   });
+}
+
+function getMonthGridDays(anchorIso: string): {
+  iso: string;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+}[] {
+  const base = new Date(`${anchorIso}T00:00:00`);
+  const safe = Number.isNaN(base.getTime()) ? new Date() : base;
+  const year = safe.getFullYear();
+  const month = safe.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const lastOfMonth = new Date(year, month + 1, 0);
+
+  const startOffset = firstOfMonth.getDay(); // 0 = Sun
+  const totalCells = Math.ceil((startOffset + lastOfMonth.getDate()) / 7) * 7;
+
+  const cells: { iso: string; dayNumber: number; isCurrentMonth: boolean }[] = [];
+  for (let i = 0; i < totalCells; i++) {
+    const d = new Date(year, month, 1 - startOffset + i);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    cells.push({
+      iso: `${yyyy}-${mm}-${dd}`,
+      dayNumber: d.getDate(),
+      isCurrentMonth: d.getMonth() === month,
+    });
+  }
+  return cells;
+}
+
+function formatMonthYearLabel(anchorIso: string): string {
+  const base = new Date(`${anchorIso}T00:00:00`);
+  const safe = Number.isNaN(base.getTime()) ? new Date() : base;
+  return `Tháng ${safe.getMonth() + 1}, ${safe.getFullYear()}`;
+}
+
+function shiftIsoDate(anchorIso: string, deltaDays: number, deltaMonths = 0): string {
+  const base = new Date(`${anchorIso}T00:00:00`);
+  const safe = Number.isNaN(base.getTime()) ? new Date() : base;
+  if (deltaMonths !== 0) {
+    safe.setMonth(safe.getMonth() + deltaMonths);
+  }
+  if (deltaDays !== 0) {
+    safe.setDate(safe.getDate() + deltaDays);
+  }
+  const yyyy = safe.getFullYear();
+  const mm = String(safe.getMonth() + 1).padStart(2, '0');
+  const dd = String(safe.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+function getCalendarPillStyle(apt: Appointment): string {
+  if (apt.status === 'completed') {
+    return 'bg-slate-100 text-slate-600 border-slate-200/80 hover:bg-slate-200/70';
+  }
+  if (apt.status === 'requested') {
+    return 'bg-amber-50 text-amber-900 border-amber-200/80 hover:bg-amber-100/80';
+  }
+  if (apt.status === 'arrived' || apt.status === 'in_progress') {
+    return 'bg-emerald-50 text-emerald-900 border-emerald-200/80 hover:bg-emerald-100/80';
+  }
+  if (apt.type === 'telehealth') {
+    return 'bg-violet-50 text-violet-900 border-violet-200/80 hover:bg-violet-100/80';
+  }
+  return 'bg-sky-50 text-sky-900 border-sky-200/80 hover:bg-sky-100/80';
 }
 
 function formatTimelineDayHeading(isoDate: string, todayIso: string): string {
@@ -123,6 +187,8 @@ function mapEncounterToAppointment(item: EncounterItem): Appointment {
     IN_PROGRESS: 'in_progress',
     COMPLETED: 'completed',
     CANCELLED: 'cancelled',
+    WRAP_UP: 'completed',
+    NO_SHOW: 'cancelled',
   };
   const isHome = item.encounterType !== 'TELEHEALTH' && item.encounterType !== 'TELEMEDICINE';
   const resolvedAddress = isHome
@@ -162,6 +228,9 @@ export function FamilyAppointmentsView() {
   const [pendingReschedules, setPendingReschedules] = useState<EncounterRescheduleRequestItem[]>(
     []
   );
+  const [outgoingReschedules, setOutgoingReschedules] = useState<EncounterRescheduleRequestItem[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [quotas, setQuotas] = useState<{
     home: number;
@@ -189,14 +258,14 @@ export function FamilyAppointmentsView() {
   const [submittingReschedule, setSubmittingReschedule] = useState(false);
   const [rescheduleReason, setRescheduleReason] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
-  const [viewMode, setViewMode] = useState<'timeline' | 'timetable'>('timeline');
+  const [activeTab, setActiveTab] = useState<'upcoming' | 'completed' | 'all'>('all');
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('month');
   const [memberFilter, setMemberFilter] = useState<string>('__ALL__');
   const [selectedTimetableApt, setSelectedTimetableApt] = useState<Appointment | null>(null);
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null);
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const [weekAnchorIso, setWeekAnchorIso] = useState(todayIso);
+  const [calendarAnchorIso, setCalendarAnchorIso] = useState(todayIso);
   const [rescheduleDate, setRescheduleDate] = useState(todayIso);
   const [rescheduleTime, setRescheduleTime] = useState('14:00');
   const [rescheduleError, setRescheduleError] = useState('');
@@ -222,6 +291,11 @@ export function FamilyAppointmentsView() {
       setPendingReschedules(
         (pendingList ?? []).filter(
           (r) => r.status === 'PENDING' && r.familyDecision === 'PENDING'
+        )
+      );
+      setOutgoingReschedules(
+        (pendingList ?? []).filter(
+          (r) => r.status === 'PENDING' && r.familyDecision === 'APPROVED'
         )
       );
     } catch (err) {
@@ -301,6 +375,19 @@ export function FamilyAppointmentsView() {
       await loadTimetable();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Không thể phản hồi yêu cầu đổi lịch.');
+    } finally {
+      setDecidingRescheduleId(null);
+    }
+  };
+
+  const handleWithdrawReschedule = async (encounterId: string, requestId: string) => {
+    setDecidingRescheduleId(requestId);
+    try {
+      await encountersApi.withdrawRescheduleRequest(encounterId, requestId);
+      toast.success('Đã thu hồi đề xuất đổi lịch. Lịch khám cũ vẫn được giữ nguyên.');
+      await loadTimetable();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Không thể thu hồi đề xuất đổi lịch.');
     } finally {
       setDecidingRescheduleId(null);
     }
@@ -424,24 +511,25 @@ export function FamilyAppointmentsView() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
-            <Button
-              type="button"
-              size="sm"
-              disabled={!canBookTelehealth}
-              onClick={() => {
-                setTelehealthError('');
-                setTelehealthModalOpen(true);
-              }}
-              className="rounded-xl text-xs font-semibold gap-1.5"
-              title={
-                !canBookTelehealth
-                  ? 'Hết lượt Tư vấn Video trong gói hoặc chưa có hợp đồng hoạt động'
-                  : 'Đặt lịch Tư vấn Video với Bác sĩ phụ trách'
-              }
-            >
-              <span className="material-symbols-outlined text-[16px]">video_call</span>
-              <span>+ Đặt Tư vấn Video</span>
-            </Button>
+            {canBookTelehealth ? (
+              <Button asChild size="sm" className="rounded-xl text-xs font-semibold gap-1.5">
+                <Link href="/family/appointments/book-video">
+                  <span className="material-symbols-outlined text-[16px]">video_call</span>
+                  <span>+ Đặt Tư vấn Video</span>
+                </Link>
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                disabled
+                className="rounded-xl text-xs font-semibold gap-1.5"
+                title="Hết lượt Tư vấn Video trong gói hoặc chưa có hợp đồng hoạt động"
+              >
+                <span className="material-symbols-outlined text-[16px]">video_call</span>
+                <span>+ Đặt Tư vấn Video</span>
+              </Button>
+            )}
 
             <Button asChild variant="outline" size="sm" className="rounded-xl text-xs font-semibold gap-1.5">
               <Link href="/family/telemedicine">
@@ -501,8 +589,51 @@ export function FamilyAppointmentsView() {
         {/* 3. PRIORITY ACTION BANNERS (1-Tap Arrival Confirmation + Tripartite Reschedule Decisions) */}
         {(arrivedEncounters.length > 0 ||
           onTheWayEncounters.length > 0 ||
-          pendingReschedules.length > 0) && (
+          pendingReschedules.length > 0 ||
+          outgoingReschedules.length > 0) && (
           <section aria-label="Việc cần xác nhận ngay" className="space-y-3">
+            {outgoingReschedules.map((req) => {
+              const newDate = formatVnDate(req.proposedDate.slice(0, 10));
+              const newTime = req.proposedTime.includes('T')
+                ? req.proposedTime.slice(11, 16)
+                : req.proposedTime.slice(0, 5);
+              const hour = Number.parseInt(newTime.split(':')[0] || '8', 10);
+              const slotLabel =
+                hour < 12 ? 'Khung Sáng (08:00 - 11:30)' : 'Khung Chiều (13:30 - 17:30)';
+              return (
+                <div
+                  key={`outgoing-${req.id}`}
+                  className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-sky-950"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 text-sm font-bold text-sky-900">
+                      <span className="material-symbols-outlined text-[18px] text-sky-700">
+                        hourglass_top
+                      </span>
+                      <span>Đang chờ Bác sĩ duyệt đề xuất đổi lịch</span>
+                    </div>
+                    <p>
+                      Đổi sang: <strong className="tabular-nums">{newDate}</strong> ·{' '}
+                      <strong>{slotLabel}</strong>
+                    </p>
+                    <p className="text-sky-800">
+                      Tiến độ: Gia đình ✓ · Bác sĩ ⏳ (tạm giữ khung tối đa 24 giờ){' '}
+                      {req.reason ? `· Lý do: ${req.reason}` : ''}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={decidingRescheduleId === req.id}
+                    onClick={() => void handleWithdrawReschedule(req.encounterId, req.id)}
+                    className="h-8 rounded-xl border-sky-300 bg-white text-sky-900 hover:bg-sky-100 text-xs font-semibold shrink-0"
+                  >
+                    {decidingRescheduleId === req.id ? 'Đang thu hồi...' : 'Thu hồi đề xuất'}
+                  </Button>
+                </div>
+              );
+            })}
             {arrivedEncounters.map((apt) => (
               <div
                 key={`arrived-${apt.id}`}
@@ -612,93 +743,103 @@ export function FamilyAppointmentsView() {
           </section>
         )}
 
-        {/* 4. FILTER BAR & TIMELINE / TIMETABLE */}
-        <section className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div className="inline-flex items-center gap-1 p-1 bg-slate-100/90 rounded-xl overflow-x-auto self-start">
-              {[
-                { id: 'upcoming', label: 'Sắp tới', count: upcomingCount },
-                { id: 'completed', label: 'Đã khám', count: completedCount },
-                { id: 'all', label: 'Tất cả', count: appointments.length },
-              ].map((t) => {
-                const isActive = activeTab === t.id;
-                return (
-                  <button
-                    key={t.id}
+        {/* 4. CALENDAR & TIMELINE VIEW */}
+        <section className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
+          {/* Calendar Top Bar (matching reference Calendar layout) */}
+          <div className="px-4 sm:px-6 pt-5 pb-4 border-b border-slate-100 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                  Lịch khám
+                </h2>
+              </div>
+
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCalendarAnchorIso(todayIso)}
+                  className="h-8 rounded-lg text-xs font-medium px-3"
+                >
+                  Hôm nay
+                </Button>
+                <div className="inline-flex items-center gap-1">
+                  <Button
                     type="button"
-                    onClick={() => setActiveTab(t.id as 'upcoming' | 'completed' | 'all')}
-                    className={`min-h-9 flex items-center justify-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${
-                      isActive
-                        ? 'bg-white text-primary shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
+                    variant="outline"
+                    size="icon"
+                    aria-label="Khoảng thời gian trước"
+                    onClick={() =>
+                      setCalendarAnchorIso((prev) =>
+                        viewMode === 'month' ? shiftIsoDate(prev, 0, -1) : shiftIsoDate(prev, -7)
+                      )
+                    }
+                    className="h-8 w-8 rounded-lg"
                   >
-                    <span>{t.label}</span>
-                    <span
-                      className={`px-1.5 py-0.5 rounded-md text-[11px] tabular-nums font-semibold leading-none ${
-                        isActive ? 'bg-primary/10 text-primary' : 'bg-slate-200 text-slate-600'
-                      }`}
-                    >
-                      {t.count}
-                    </span>
-                  </button>
-                );
-              })}
+                    <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Khoảng thời gian sau"
+                    onClick={() =>
+                      setCalendarAnchorIso((prev) =>
+                        viewMode === 'month' ? shiftIsoDate(prev, 0, 1) : shiftIsoDate(prev, 7)
+                      )
+                    }
+                    className="h-8 w-8 rounded-lg"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </Button>
+                </div>
+                <span className="text-sm font-semibold text-slate-900 tabular-nums pl-1 min-w-[118px]">
+                  {viewMode === 'month'
+                    ? formatMonthYearLabel(calendarAnchorIso)
+                    : (() => {
+                        const wd = getWeekDays(calendarAnchorIso);
+                        return `${wd[0].shortDate} – ${wd[6].shortDate}`;
+                      })()}
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              {(appointments.length > 2 || memberFilter !== '__ALL__') &&
-                familyMembers.length > 1 && (
-                  <select
-                    aria-label="Lọc theo thành viên"
-                    value={memberFilter}
-                    onChange={(e) => setMemberFilter(e.target.value)}
-                    className="h-9 px-2.5 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-700 focus:border-primary outline-none"
-                  >
-                    <option value="__ALL__">Mọi thành viên</option>
-                    {familyMembers.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.fullName}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
+            {/* Calendar Sub-Toolbar: Week | Month */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div
-                className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 text-xs"
+                className="inline-flex items-center gap-0.5 rounded-xl bg-slate-100 p-1 text-xs"
                 role="group"
                 aria-label="Chế độ xem lịch"
               >
-                <button
-                  type="button"
-                  onClick={() => setViewMode('timeline')}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-                    viewMode === 'timeline'
-                      ? 'bg-[#2E37A4] text-white font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[15px]">view_agenda</span>
-                  <span>Timeline</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('timetable')}
-                  className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer ${
-                    viewMode === 'timetable'
-                      ? 'bg-[#2E37A4] text-white font-semibold'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  <span className="material-symbols-outlined text-[15px]">calendar_view_week</span>
-                  <span>Khóa biểu tuần</span>
-                </button>
+                {[
+                  { id: 'week', label: 'Tuần' },
+                  { id: 'month', label: 'Tháng' },
+                ].map((mode) => {
+                  const active = viewMode === mode.id;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => setViewMode(mode.id as 'week' | 'month')}
+                      className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                        active
+                          ? 'bg-white text-slate-900 font-semibold shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  );
+                })}
               </div>
+
+              <div className="flex flex-wrap items-center gap-2" />
             </div>
           </div>
 
           {loadError ? (
-            <div className="bg-white rounded-2xl border border-rose-200 p-8 text-center space-y-3 shadow-xs">
+            <div className="p-8 text-center space-y-3">
               <p role="alert" className="text-sm font-medium text-rose-700">
                 {loadError}
               </p>
@@ -707,377 +848,189 @@ export function FamilyAppointmentsView() {
               </Button>
             </div>
           ) : isLoading ? (
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-10 text-center space-y-3 shadow-xs">
+            <div className="p-12 text-center space-y-3">
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
-              <p className="text-xs font-medium text-slate-500">Đang tải lịch khám tại nhà...</p>
+              <p className="text-xs font-medium text-slate-500">Đang tải lịch khám gia đình...</p>
             </div>
-          ) : filteredAppointments.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-slate-200/70 p-10 text-center space-y-2 shadow-xs">
-              <span className="material-symbols-outlined text-4xl text-slate-300">event_busy</span>
-              <h3 className="font-bold text-sm text-slate-900">
-                Chưa có lịch khám tại nhà nào trong mục này
-              </h3>
-              <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Lịch khám định kỳ sẽ được hệ thống tự động sắp xếp theo gói chăm sóc của gia đình.
-              </p>
-            </div>
-          ) : viewMode === 'timetable' ? (
+          ) : viewMode === 'month' ? (
+            /* MONTH CALENDAR GRID (Sun - Sat) */
             (() => {
-              const weekDays = getWeekDays(weekAnchorIso);
-              const shiftWeek = (deltaDays: number) => {
-                const d = new Date(`${weekAnchorIso}T00:00:00`);
-                d.setDate(d.getDate() + deltaDays);
-                setWeekAnchorIso(d.toISOString().slice(0, 10));
-              };
-              const sessions: {
-                key: 'morning' | 'afternoon' | 'evening';
-                label: string;
-                range: string;
-              }[] = [
-                { key: 'morning', label: 'Sáng', range: '07:00 – 12:00' },
-                { key: 'afternoon', label: 'Chiều', range: '13:00 – 17:30' },
-                { key: 'evening', label: 'Tối', range: '18:00 – 21:00' },
-              ];
+              const monthCells = getMonthGridDays(calendarAnchorIso);
+              const weekdayHeaders = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+              const byDate = new Map<string, Appointment[]>();
+              for (const apt of filteredAppointments) {
+                const list = byDate.get(apt.date) ?? [];
+                list.push(apt);
+                byDate.set(apt.date, list);
+              }
 
               return (
-                <div className="rounded-2xl border border-slate-200 bg-white shadow-xs overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => shiftWeek(-7)}
-                        className="h-8 px-2.5 text-xs"
-                      >
-                        ← Tuần trước
-                      </Button>
-                      <span className="text-xs sm:text-sm font-bold text-slate-900 tabular-nums px-2">
-                        Tuần {weekDays[0].shortDate} – {weekDays[6].shortDate}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => shiftWeek(7)}
-                        className="h-8 px-2.5 text-xs"
-                      >
-                        Tuần sau →
-                      </Button>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setWeekAnchorIso(todayIso)}
-                      className="h-7 px-2 text-xs text-primary"
-                    >
-                      Hôm nay
-                    </Button>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[780px] border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-200 bg-slate-50/40">
-                          <th className="w-28 px-3 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wider">
-                            Buổi
-                          </th>
-                          {weekDays.map((day) => (
-                            <th
-                              key={day.iso}
-                              className={`px-2.5 py-2.5 text-center font-semibold border-l border-slate-100 ${
-                                day.iso === todayIso
-                                  ? 'bg-indigo-50/70 text-[#2E37A4]'
-                                  : 'text-slate-700'
-                              }`}
-                            >
-                              <span className="block text-[11px] uppercase">{day.dayLabel}</span>
-                              <span className="block text-xs font-bold tabular-nums">
-                                {day.shortDate}
-                              </span>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {sessions.map((session) => (
-                          <tr key={session.key} className="align-top">
-                            <td className="px-3 py-3 bg-slate-50/30 border-r border-slate-100">
-                              <div className="font-bold text-slate-800">{session.label}</div>
-                              <div className="text-[11px] text-slate-400 tabular-nums">
-                                {session.range}
-                              </div>
-                            </td>
-                            {weekDays.map((day) => {
-                              const cellItems = filteredAppointments.filter(
-                                (a) => a.date === day.iso && getSessionBucket(a.time) === session.key
-                              );
-                              return (
-                                <td
-                                  key={`${day.iso}-${session.key}`}
-                                  className={`p-2 min-h-[76px] border-l border-slate-100 ${
-                                    day.iso === todayIso ? 'bg-indigo-50/20' : ''
-                                  }`}
-                                >
-                                  <div className="space-y-1.5 min-h-[60px]">
-                                    {cellItems.map((apt) => (
-                                      <button
-                                        key={apt.id}
-                                        type="button"
-                                        onClick={() => setSelectedTimetableApt(apt)}
-                                        className={`w-full text-left rounded-lg border p-2 transition-colors cursor-pointer ${
-                                          apt.type === 'home'
-                                            ? 'border-indigo-200 bg-indigo-50/80 text-indigo-950 hover:bg-indigo-100/70'
-                                            : 'border-sky-200 bg-sky-50/80 text-sky-950 hover:bg-sky-100/70'
-                                        }`}
-                                      >
-                                        <div className="font-bold tabular-nums text-[11px]">
-                                          {apt.time} · {apt.type === 'home' ? 'Tại nhà' : 'Video'}
-                                        </div>
-                                        <div className="truncate font-semibold text-[11px] mt-0.5">
-                                          {apt.patientName}
-                                        </div>
-                                      </button>
-                                    ))}
-                                  </div>
-                                </td>
-                              );
-                            })}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              );
-            })()
-          ) : (
-            /* TIMELINE THEO NGÀY */
-            <div className="space-y-6">
-              {(() => {
-                const groups = new Map<string, Appointment[]>();
-                for (const apt of filteredAppointments) {
-                  const key = apt.date || 'unknown';
-                  const list = groups.get(key) ?? [];
-                  list.push(apt);
-                  groups.set(key, list);
-                }
-                return Array.from(groups.entries()).map(([dateKey, dayItems]) => (
-                  <div key={dateKey} className="space-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#2E37A4] shrink-0" />
-                      <h2 className="text-sm font-bold text-slate-900">
-                        {formatTimelineDayHeading(dateKey, todayIso)}
-                      </h2>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600 tabular-nums">
-                        {dayItems.length} lịch hẹn
-                      </span>
+                <div className="p-3 sm:p-5 overflow-x-auto">
+                  <div className="min-w-[720px]">
+                    <div className="grid grid-cols-7 gap-2 mb-2">
+                      {weekdayHeaders.map((label) => (
+                        <div
+                          key={label}
+                          className="text-center text-xs font-semibold text-slate-600 py-1"
+                        >
+                          {label}
+                        </div>
+                      ))}
                     </div>
 
-                    <div className="ml-1 pl-4 border-l-2 border-slate-200 space-y-3">
-                      {dayItems.map((apt) => {
-                        const bucket = getSessionBucket(apt.time);
-                        const pendingReq = apt.pendingReschedule;
+                    <div className="grid grid-cols-7 gap-2">
+                      {monthCells.map((cell) => {
+                        const dayApts = byDate.get(cell.iso) ?? [];
+                        const isToday = cell.iso === todayIso;
+                        const isPast = cell.iso < todayIso;
                         return (
                           <div
-                            key={apt.id}
-                            className="grid grid-cols-1 md:grid-cols-[88px_1fr] gap-2.5 md:gap-4 items-start"
+                            key={cell.iso}
+                            className={`h-[120px] rounded-xl border p-2 flex flex-col transition-colors ${
+                              isToday
+                                ? 'border-indigo-300 bg-indigo-50/20 ring-1 ring-indigo-200/70'
+                                : isPast
+                                  ? 'border-slate-100 bg-slate-100/70 opacity-60'
+                                  : cell.isCurrentMonth
+                                    ? 'border-slate-200/80 bg-white hover:border-slate-300'
+                                    : 'border-slate-100 bg-slate-50/50'
+                            }`}
                           >
-                            <div className="flex md:flex-col items-center md:items-start gap-2 md:gap-0.5 pt-1">
-                              <span className="text-base font-bold tabular-nums text-[#2E37A4]">
-                                {apt.time}
-                              </span>
-                              <span className="text-[11px] font-medium text-slate-500">
-                                Buổi {getSessionLabel(bucket).toLowerCase()}
+                            <div className="flex items-center justify-between mb-1.5 shrink-0">
+                              {dayApts.length > 0 ? (
+                                <span className="text-[10px] font-semibold text-slate-400 tabular-nums">
+                                  {dayApts.length} lịch
+                                </span>
+                              ) : (
+                                <span />
+                              )}
+                              <span
+                                className={`text-xs font-semibold tabular-nums leading-none ${
+                                  isToday
+                                    ? 'inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#2E37A4] text-white'
+                                    : cell.isCurrentMonth
+                                      ? 'text-slate-700'
+                                      : 'text-slate-300'
+                                }`}
+                              >
+                                {cell.dayNumber}
                               </span>
                             </div>
 
-                            <Card className="bg-white rounded-2xl border-slate-200/80 hover:border-slate-300 shadow-xs transition-all p-4 sm:p-5 space-y-3">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge
-                                    variant="outline"
-                                    className={`gap-1 px-2.5 py-0.5 rounded-lg text-xs font-semibold ${
-                                      apt.type === 'home'
-                                        ? 'bg-primary/10 text-primary border-primary/20'
-                                        : 'bg-sky-50 text-sky-700 border-sky-200/70'
-                                    }`}
-                                  >
-                                    <span className="material-symbols-outlined text-[15px]">
-                                      {apt.type === 'home' ? 'home_health' : 'videocam'}
-                                    </span>
-                                    <span>
-                                      {apt.type === 'home'
-                                        ? 'Khám Bác sĩ Tại Nhà'
-                                        : 'Tư Vấn Video (Telehealth)'}
-                                    </span>
-                                  </Badge>
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[11px] font-medium bg-slate-100 text-slate-600"
-                                  >
-                                    {apt.type === 'home' ? 'Tự động theo gói' : 'Đặt theo nhu cầu'}
-                                  </Badge>
-                                </div>
-
-                                <div>
-                                  {apt.status === 'requested' && (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200/80 inline-flex items-center gap-1.5">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                      <span>Chờ Bác sĩ duyệt</span>
-                                    </span>
-                                  )}
-                                  {apt.status === 'confirmed' && (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200/80 inline-flex items-center gap-1.5">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                      <span>Đã xếp lịch</span>
-                                    </span>
-                                  )}
-                                  {apt.status === 'on_the_way' && (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-sky-50 text-sky-800 border border-sky-200">
-                                      Bác sĩ đang di chuyển
-                                    </span>
-                                  )}
-                                  {apt.status === 'arrived' && (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-900 border border-emerald-300">
-                                      Bác sĩ đã đến · Chờ xác nhận
-                                    </span>
-                                  )}
-                                  {apt.status === 'in_progress' && (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200">
-                                      Đang thăm khám
-                                    </span>
-                                  )}
-                                  {apt.status === 'completed' && (
-                                    <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                                      Đã hoàn thành
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-4 items-end">
-                                <div className="space-y-2 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-600">
-                                    <span className="inline-flex items-center gap-1.5 font-semibold text-slate-900">
-                                      <span className="material-symbols-outlined text-[16px] text-primary">
-                                        person
-                                      </span>
-                                      <span>{apt.patientName}</span>
-                                    </span>
-                                    <span className="text-slate-300">•</span>
-                                    <span>
-                                      <strong className="text-slate-800">{apt.doctorName}</strong> (
-                                      {apt.hospital})
-                                    </span>
-                                  </div>
-
-                                  <p className="text-xs sm:text-sm text-slate-800 font-medium bg-slate-50 rounded-xl border border-slate-200/70 px-3.5 py-2.5">
-                                    {apt.chiefComplaint}
-                                  </p>
-
-                                  {apt.address && (
-                                    <p className="text-xs text-slate-600 flex items-center gap-1.5">
-                                      <span className="material-symbols-outlined text-[15px] text-primary shrink-0">
-                                        location_on
-                                      </span>
-                                      <span>{apt.address}</span>
-                                    </p>
-                                  )}
-
-                                  {pendingReq && (
-                                    <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2 text-xs text-amber-900">
-                                      <span className="font-semibold">
-                                        {apt.type === 'telehealth'
-                                          ? 'Đang chờ đổi giờ (2 bên): '
-                                          : 'Đang chờ duyệt đổi lịch (3 bên): '}
-                                      </span>
-                                      <span>
-                                        Gia đình {pendingReq.familyDecision === 'APPROVED' ? '✓' : '⏳'} ·
-                                        Bác sĩ {pendingReq.doctorDecision === 'APPROVED' ? '✓' : '⏳'}
-                                        {apt.type === 'home' &&
-                                          ` · CSYT ${pendingReq.facilityDecision === 'APPROVED' ? '✓' : '⏳'}`}
-                                      </span>
-                                    </div>
-                                  )}
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                                  {apt.type === 'telehealth' &&
-                                    (apt.status === 'confirmed' || apt.status === 'in_progress') && (
-                                      <Button asChild size="sm" className="h-9 rounded-xl text-xs font-semibold gap-1.5">
-                                        <Link href={`/family/telemedicine?encounterId=${apt.id}`}>
-                                          <span className="material-symbols-outlined text-[16px]">
-                                            videocam
-                                          </span>
-                                          <span>Vào phòng khám Video</span>
-                                        </Link>
-                                      </Button>
-                                    )}
-
-                                  {apt.type === 'home' && apt.status === 'arrived' && (
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      disabled={confirmingArrivalId === apt.id}
-                                      onClick={() => void handleConfirmArrival(apt.id)}
-                                      className="h-9 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold gap-1.5"
-                                    >
-                                      <span className="material-symbols-outlined text-[16px]">
-                                        check_circle
-                                      </span>
-                                      <span>Xác nhận Bác sĩ đã đến nhà</span>
-                                    </Button>
-                                  )}
-
-                                  {apt.status === 'confirmed' && !pendingReq && (
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => handleOpenReschedule(apt)}
-                                      className="h-9 rounded-xl text-xs font-semibold gap-1"
-                                    >
-                                      <span className="material-symbols-outlined text-[15px] text-primary">
-                                        edit_calendar
-                                      </span>
-                                      <span>Đề xuất đổi lịch</span>
-                                    </Button>
-                                  )}
-
-                                  {apt.status === 'completed' && (
-                                    <Button
-                                      asChild
-                                      variant="outline"
-                                      size="sm"
-                                      className="h-9 rounded-xl text-primary border-primary/20 text-xs font-semibold gap-1.5"
-                                    >
-                                      <Link
-                                        href={
-                                          apt.patientId
-                                            ? `/family/members/${apt.patientId}`
-                                            : '/family/medical-book'
-                                        }
-                                      >
-                                        <span className="material-symbols-outlined text-[16px]">
-                                          clinical_notes
-                                        </span>
-                                        <span>Xem kết quả khám &amp; toa thuốc</span>
-                                      </Link>
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                            </Card>
+                            <div className="flex-1 overflow-y-auto space-y-1 pr-0.5">
+                              {dayApts.map((apt) => (
+                                <button
+                                  key={apt.id}
+                                  type="button"
+                                  onClick={() => setSelectedTimetableApt(apt)}
+                                  title={`${apt.time} - ${apt.patientName} (${apt.doctorName})`}
+                                  className={`w-full text-left rounded-md border px-2 py-1 text-[11px] font-medium truncate transition-colors cursor-pointer ${getCalendarPillStyle(
+                                    apt
+                                  )}`}
+                                >
+                                  <span className="tabular-nums font-semibold">{apt.time}</span>
+                                  <span> - </span>
+                                  <span>
+                                    {apt.type === 'home' ? 'Tại nhà' : 'Video'} · {apt.patientName}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         );
                       })}
                     </div>
                   </div>
-                ));
-              })()}
-            </div>
+                </div>
+              );
+            })()
+          ) : (
+            /* WEEK TIMETABLE VIEW */
+            (() => {
+              const weekDays = getWeekDays(calendarAnchorIso);
+              const sessions: {
+                key: 'morning' | 'afternoon';
+                label: string;
+                range: string;
+              }[] = [
+                { key: 'morning', label: 'Sáng', range: '08:00 – 11:30' },
+                { key: 'afternoon', label: 'Chiều', range: '13:30 – 17:30' },
+              ];
+
+              return (
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[780px] border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50/40">
+                        <th className="w-28 px-3 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wider">
+                          Buổi
+                        </th>
+                        {weekDays.map((day) => (
+                          <th
+                            key={day.iso}
+                            className={`px-2.5 py-2.5 text-center font-semibold border-l border-slate-100 ${
+                              day.iso === todayIso
+                                ? 'bg-indigo-50/70 text-[#2E37A4]'
+                                : 'text-slate-700'
+                            }`}
+                          >
+                            <span className="block text-[11px] uppercase">{day.dayLabel}</span>
+                            <span className="block text-xs font-bold tabular-nums">
+                              {day.shortDate}
+                            </span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {sessions.map((session) => (
+                        <tr key={session.key} className="align-top">
+                          <td className="px-3 py-3 bg-slate-50/30 border-r border-slate-100">
+                            <div className="font-bold text-slate-800">{session.label}</div>
+                            <div className="text-[11px] text-slate-400 tabular-nums">
+                              {session.range}
+                            </div>
+                          </td>
+                          {weekDays.map((day) => {
+                            const cellItems = filteredAppointments.filter(
+                              (a) => a.date === day.iso && getSessionBucket(a.time) === session.key
+                            );
+                            return (
+                              <td
+                                key={`${day.iso}-${session.key}`}
+                                className={`p-2 min-h-[76px] border-l border-slate-100 ${
+                                  day.iso === todayIso ? 'bg-indigo-50/20' : ''
+                                }`}
+                              >
+                                <div className="space-y-1.5 min-h-[60px]">
+                                  {cellItems.map((apt) => (
+                                    <button
+                                      key={apt.id}
+                                      type="button"
+                                      onClick={() => setSelectedTimetableApt(apt)}
+                                      className={`w-full text-left rounded-lg border p-2 transition-colors cursor-pointer ${getCalendarPillStyle(
+                                        apt
+                                      )}`}
+                                    >
+                                      <div className="font-bold tabular-nums text-[11px]">
+                                        {apt.time} · {apt.type === 'home' ? 'Tại nhà' : 'Video'}
+                                      </div>
+                                      <div className="truncate font-semibold text-[11px] mt-0.5">
+                                        {apt.patientName}
+                                      </div>
+                                    </button>
+                                  ))}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })()
           )}
         </section>
       </main>
@@ -1191,7 +1144,7 @@ export function FamilyAppointmentsView() {
         </DialogContent>
       </Dialog>
 
-      {/* MODAL: CHI TIẾT TỪ KHÓA BIỂU TUẦN */}
+      {/* MODAL: CHI TIẾT LỊCH HẸN TỪ CALENDAR */}
       <Dialog
         open={Boolean(selectedTimetableApt)}
         onOpenChange={(open) => !open && setSelectedTimetableApt(null)}
@@ -1201,7 +1154,9 @@ export function FamilyAppointmentsView() {
             <>
               <DialogHeader>
                 <DialogTitle className="text-base font-bold text-slate-900">
-                  Khám Bác sĩ Tại Nhà
+                  {selectedTimetableApt.type === 'home'
+                    ? 'Khám Bác sĩ Tại Nhà'
+                    : 'Tư vấn Video (Telehealth)'}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-slate-500 tabular-nums">
                   {selectedTimetableApt.time} · {selectedTimetableApt.displayDate}
@@ -1224,34 +1179,63 @@ export function FamilyAppointmentsView() {
                     <span className="text-slate-800">{selectedTimetableApt.chiefComplaint}</span>
                   </div>
                 </div>
-                <div className="flex justify-end gap-2">
-                  {selectedTimetableApt.status === 'arrived' && (
+                <div className="flex flex-wrap justify-end gap-2">
+                  {selectedTimetableApt.type === 'telehealth' &&
+                    (selectedTimetableApt.status === 'confirmed' ||
+                      selectedTimetableApt.status === 'in_progress') && (
+                      <Button asChild size="sm">
+                        <Link href={`/family/telemedicine?encounterId=${selectedTimetableApt.id}`}>
+                          Vào phòng khám Video
+                        </Link>
+                      </Button>
+                    )}
+                  {selectedTimetableApt.type === 'home' &&
+                    selectedTimetableApt.status === 'arrived' && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          const id = selectedTimetableApt.id;
+                          setSelectedTimetableApt(null);
+                          void handleConfirmArrival(id);
+                        }}
+                        className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                      >
+                        Xác nhận Bác sĩ đã đến nhà
+                      </Button>
+                    )}
+                  {selectedTimetableApt.status === 'requested' && (
                     <Button
                       type="button"
+                      variant="outline"
                       size="sm"
                       onClick={() => {
                         const id = selectedTimetableApt.id;
                         setSelectedTimetableApt(null);
-                        void handleConfirmArrival(id);
+                        void encountersApi
+                          .cancelEncounter(id, 'Gia đình hủy yêu cầu chờ duyệt')
+                          .then(() => {
+                            toast.success('Đã hủy yêu cầu và hoàn lại lượt tạm giữ.');
+                            return loadTimetable();
+                          })
+                          .catch((err) =>
+                            toast.error(err instanceof Error ? err.message : 'Không thể hủy yêu cầu.'),
+                          );
                       }}
-                      className="bg-emerald-700 hover:bg-emerald-800 text-white"
+                      className="text-rose-700 border-rose-200 hover:bg-rose-50"
                     >
-                      Xác nhận Bác sĩ đã đến nhà
+                      Hủy yêu cầu
                     </Button>
                   )}
                   {selectedTimetableApt.status === 'confirmed' &&
                     !selectedTimetableApt.pendingReschedule && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const target = selectedTimetableApt;
-                          setSelectedTimetableApt(null);
-                          handleOpenReschedule(target);
-                        }}
-                      >
-                        Đề xuất đổi lịch
+                      <Button asChild variant="outline" size="sm">
+                        <Link
+                          href={`/family/appointments/${selectedTimetableApt.id}/reschedule`}
+                          onClick={() => setSelectedTimetableApt(null)}
+                        >
+                          Đề xuất đổi lịch
+                        </Link>
                       </Button>
                     )}
                 </div>

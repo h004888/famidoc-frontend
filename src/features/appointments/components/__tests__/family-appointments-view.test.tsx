@@ -113,8 +113,8 @@ describe('FamilyAppointmentsView (/family/appointments)', () => {
     render(<FamilyAppointmentsView />);
 
     await waitFor(() => {
-      expect(screen.getByText('Khám định kỳ tại nhà')).toBeInTheDocument();
-      expect(screen.getByText('Tư vấn kết quả xét nghiệm qua Video')).toBeInTheDocument();
+      expect(screen.getAllByText(/Phạm Ngọc Thọ/i).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/BS\. Trần Thị Bích/i).length).toBeGreaterThan(0);
     });
 
     // No manual booking button, no internal contract hash, no static doctor card
@@ -138,10 +138,6 @@ describe('FamilyAppointmentsView (/family/appointments)', () => {
     await waitFor(() => {
       expect(decideSpy).toHaveBeenCalledWith('enc-arrived-1', 'req-1', { decision: 'APPROVE' });
     });
-
-    // Origin badges distinguish auto-scheduled HOME_VISIT vs on-demand TELEHEALTH
-    expect(screen.getByText('Tự động theo gói')).toBeInTheDocument();
-    expect(screen.getByText('Đặt theo nhu cầu')).toBeInTheDocument();
   });
 
   it('allows booking an on-demand TELEHEALTH video consultation when quota permits', async () => {
@@ -165,25 +161,7 @@ describe('FamilyAppointmentsView (/family/appointments)', () => {
 
     render(<FamilyAppointmentsView />);
 
-    const bookBtn = await screen.findByRole('button', { name: /\+ Đặt Tư vấn Video/i });
-    await waitFor(() => expect(bookBtn).not.toBeDisabled());
-
-    fireEvent.click(bookBtn);
-
-    const reasonInput = await screen.findByLabelText(/Triệu chứng \/ Vấn đề cần hỏi Bác sĩ/i);
-    fireEvent.change(reasonInput, { target: { value: 'Đo huyết áp sáng nay hơi cao' } });
-
-    fireEvent.click(screen.getByRole('button', { name: /Gửi yêu cầu Tư vấn/i }));
-
-    await waitFor(() => {
-      expect(createAdHocSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          contractId: 'ctr-1',
-          patientId: 'p-1',
-          encounterType: 'TELEHEALTH',
-          reason: 'Đo huyết áp sáng nay hơi cao',
-        })
-      );
-    });
+    const bookLink = await screen.findByRole('link', { name: /\+ Đặt Tư vấn Video/i });
+    expect(bookLink).toHaveAttribute('href', '/family/appointments/book-video');
   });
 });

@@ -62,6 +62,9 @@ interface DoctorOption {
 const BACKEND_STATUS_LABELS: Record<BackendContractStatus, string> = {
   PENDING_APPROVAL: 'Chờ thẩm định & ký duyệt',
   PENDING_PAYMENT: 'Chờ thanh toán VietQR',
+  PAID_PENDING_APPROVAL: 'Đã tạm giữ — Chờ CSYT & BS duyệt',
+  APPROVAL_REJECTED: 'Đã từ chối phê duyệt',
+  APPROVAL_EXPIRED: 'Quá hạn phê duyệt 24h',
   ACTIVE: 'Đang hiệu lực (ACTIVE)',
   EXPIRED: 'Đã hết hạn',
   TERMINATED: 'Đã chấm dứt / Hủy',

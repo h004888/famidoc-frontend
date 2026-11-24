@@ -47,11 +47,10 @@ function getEncounterDate(enc: EncounterItem): string {
   return enc.scheduledDate ? enc.scheduledDate.slice(0, 10) : '';
 }
 
-function getSessionBucket(time: string): 'morning' | 'afternoon' | 'evening' {
+function getSessionBucket(time: string): 'morning' | 'afternoon' {
   const hour = Number.parseInt(time.split(':')[0] || '8', 10);
   if (!Number.isFinite(hour) || hour < 12) return 'morning';
-  if (hour < 18) return 'afternoon';
-  return 'evening';
+  return 'afternoon';
 }
 
 function getSessionLabel(bucket: 'morning' | 'afternoon' | 'evening'): string {
@@ -84,18 +83,63 @@ function getWeekDays(anchorIso: string): { iso: string; dayLabel: string; shortD
   const base = new Date(`${anchorIso}T00:00:00`);
   const safe = Number.isNaN(base.getTime()) ? new Date() : base;
   const day = safe.getDay();
-  const diffToMon = day === 0 ? -6 : 1 - day;
-  const monday = new Date(safe);
-  monday.setDate(safe.getDate() + diffToMon);
-  const labels = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  const sunday = new Date(safe);
+  sunday.setDate(safe.getDate() - day);
+  const labels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
   return labels.map((dayLabel, idx) => {
-    const d = new Date(monday);
-    d.setDate(monday.getDate() + idx);
+    const d = new Date(sunday);
+    d.setDate(sunday.getDate() + idx);
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return { iso: `${yyyy}-${mm}-${dd}`, dayLabel, shortDate: `${dd}/${mm}` };
   });
+}
+
+function getMonthGridDays(anchorIso: string): {
+  iso: string;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+}[] {
+  const base = new Date(`${anchorIso}T00:00:00`);
+  const safe = Number.isNaN(base.getTime()) ? new Date() : base;
+  const year = safe.getFullYear();
+  const month = safe.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const lastOfMonth = new Date(year, month + 1, 0);
+  const startOffset = firstOfMonth.getDay();
+  const totalCells = Math.ceil((startOffset + lastOfMonth.getDate()) / 7) * 7;
+
+  const cells: { iso: string; dayNumber: number; isCurrentMonth: boolean }[] = [];
+  for (let i = 0; i < totalCells; i++) {
+    const d = new Date(year, month, 1 - startOffset + i);
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    cells.push({
+      iso: `${yyyy}-${mm}-${dd}`,
+      dayNumber: d.getDate(),
+      isCurrentMonth: d.getMonth() === month,
+    });
+  }
+  return cells;
+}
+
+function formatMonthYearLabel(anchorIso: string): string {
+  const base = new Date(`${anchorIso}T00:00:00`);
+  const safe = Number.isNaN(base.getTime()) ? new Date() : base;
+  return `Tháng ${safe.getMonth() + 1}, ${safe.getFullYear()}`;
+}
+
+function shiftIsoDate(anchorIso: string, deltaDays: number, deltaMonths = 0): string {
+  const base = new Date(`${anchorIso}T00:00:00`);
+  const safe = Number.isNaN(base.getTime()) ? new Date() : base;
+  if (deltaMonths !== 0) safe.setMonth(safe.getMonth() + deltaMonths);
+  if (deltaDays !== 0) safe.setDate(safe.getDate() + deltaDays);
+  const yyyy = safe.getFullYear();
+  const mm = String(safe.getMonth() + 1).padStart(2, '0');
+  const dd = String(safe.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function getStatusInfo(rawStatus: string) {
@@ -124,6 +168,18 @@ function getStatusInfo(rawStatus: string) {
         label: 'Đang thăm khám',
         className: 'bg-indigo-50 text-indigo-800 border-indigo-200',
         stepIndex: 2,
+      };
+    case 'WRAP_UP':
+      return {
+        label: 'Chờ hoàn tất hồ sơ',
+        className: 'bg-amber-50 text-amber-800 border-amber-200',
+        stepIndex: 2,
+      };
+    case 'NO_SHOW':
+      return {
+        label: 'Vắng mặt',
+        className: 'bg-rose-50 text-rose-700 border-rose-200',
+        stepIndex: -1,
       };
     case 'COMPLETED':
       return {
@@ -158,17 +214,19 @@ export function DoctorTimetableView() {
   const [pendingReschedules, setPendingReschedules] = useState<EncounterRescheduleRequestItem[]>(
     []
   );
+  const [outgoingReschedules, setOutgoingReschedules] = useState<EncounterRescheduleRequestItem[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [statusTab, setStatusTab] = useState<'upcoming' | 'completed' | 'all'>('upcoming');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'home' | 'telehealth'>('all');
-  const [viewMode, setViewMode] = useState<'timeline' | 'weekly'>('timeline');
+  const [viewMode, setViewMode] = useState<'week' | 'month'>('month');
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const [weekAnchorIso, setWeekAnchorIso] = useState(todayIso);
+  const [calendarAnchorIso, setCalendarAnchorIso] = useState(todayIso);
 
   const [actionId, setActionId] = useState<string | null>(null);
+  const [selectedTelehealthTimes, setSelectedTelehealthTimes] = useState<Record<string, string>>({});
   const [selectedWeeklyEnc, setSelectedWeeklyEnc] = useState<EncounterItem | null>(null);
 
   const [rescheduleTarget, setRescheduleTarget] = useState<EncounterItem | null>(null);
@@ -191,6 +249,14 @@ export function DoctorTimetableView() {
       setPendingReschedules(
         (requests ?? []).filter((r) => r.status === 'PENDING' && r.doctorDecision === 'PENDING')
       );
+      setOutgoingReschedules(
+        (requests ?? []).filter(
+          (r) =>
+            r.status === 'PENDING' &&
+            r.doctorDecision === 'APPROVED' &&
+            r.familyDecision === 'PENDING'
+        )
+      );
     } catch (err) {
       setLoadError(
         err instanceof Error ? err.message : 'Không thể tải lịch làm việc của bác sĩ.'
@@ -207,6 +273,15 @@ export function DoctorTimetableView() {
   const pendingTelehealthRequests = useMemo(() => {
     return encounters.filter(
       (e) => e.encounterType === 'TELEHEALTH' && e.encounterStatus === 'REQUESTED'
+    );
+  }, [encounters]);
+
+  const manualScheduleItems = useMemo(() => {
+    return encounters.filter(
+      (e) =>
+        e.encounterStatus === 'REQUESTED' &&
+        (e.cancelReason?.includes('MANUAL_SLOT_REQUIRED') ||
+          String(e.scheduleStage) === 'MANUAL_SLOT_REQUIRED')
     );
   }, [encounters]);
 
@@ -230,12 +305,7 @@ export function DoctorTimetableView() {
     return encounters
       .filter((enc) => {
         const st = String(enc.encounterStatus || '');
-        if (st === 'CANCELLED' || st === 'REQUESTED') return false;
-        if (statusTab === 'upcoming' && !isUpcomingStatus(st)) return false;
-        if (statusTab === 'completed' && st !== 'COMPLETED') return false;
-        const isHome = enc.encounterType === 'HOME_VISIT';
-        if (typeFilter === 'home' && !isHome) return false;
-        if (typeFilter === 'telehealth' && isHome) return false;
+        if (st === 'CANCELLED') return false;
         return true;
       })
       .sort((a, b) =>
@@ -243,7 +313,15 @@ export function DoctorTimetableView() {
           `${getEncounterDate(b)} ${getEncounterTime(b)}`
         )
       );
-  }, [encounters, statusTab, typeFilter]);
+  }, [encounters]);
+
+  const todayEncounters = useMemo(() => {
+    return filteredEncounters.filter((enc) => getEncounterDate(enc) === todayIso);
+  }, [filteredEncounters, todayIso]);
+
+  const nextUpcomingEncounter = useMemo(() => {
+    return filteredEncounters.find((enc) => getEncounterDate(enc) >= todayIso) ?? null;
+  }, [filteredEncounters, todayIso]);
 
   const groupedByDate = useMemo(() => {
     const map = new Map<string, EncounterItem[]>();
@@ -256,13 +334,17 @@ export function DoctorTimetableView() {
     return Array.from(map.entries());
   }, [filteredEncounters]);
 
-  const handleConfirmTelehealth = async (encounterId: string, confirmed: boolean) => {
+  const handleConfirmTelehealth = async (
+    encounterId: string,
+    confirmed: boolean,
+    confirmedTime?: string
+  ) => {
     setActionId(encounterId);
     try {
-      await encountersApi.confirmEncounter(encounterId, confirmed);
+      await (encountersApi.confirmEncounter as any)(encounterId, confirmed, confirmedTime);
       toast.success(
         confirmed
-          ? 'Đã nhận lịch Tư vấn Video. Hệ thống đã đồng bộ với gia đình.'
+          ? `Đã nhận lịch Tư vấn Video${confirmedTime ? ` lúc ${confirmedTime}` : ''}. Hệ thống đã đồng bộ với gia đình.`
           : 'Đã từ chối yêu cầu Tư vấn Video.'
       );
       await loadTimetableAndRequests();
@@ -289,6 +371,19 @@ export function DoctorTimetableView() {
       await loadTimetableAndRequests();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Không thể xử lý yêu cầu đổi lịch.');
+    } finally {
+      setActionId(null);
+    }
+  };
+
+  const handleWithdrawReschedule = async (encounterId: string, requestId: string) => {
+    setActionId(requestId);
+    try {
+      await encountersApi.withdrawRescheduleRequest(encounterId, requestId);
+      toast.success('Đã thu hồi đề xuất đổi lịch. Lịch khám cũ được giữ nguyên.');
+      await loadTimetableAndRequests();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Không thể thu hồi đề xuất đổi lịch.');
     } finally {
       setActionId(null);
     }
@@ -348,12 +443,7 @@ export function DoctorTimetableView() {
     }
   };
 
-  const weekDays = useMemo(() => getWeekDays(weekAnchorIso), [weekAnchorIso]);
-  const shiftWeek = (deltaDays: number) => {
-    const d = new Date(`${weekAnchorIso}T00:00:00`);
-    d.setDate(d.getDate() + deltaDays);
-    setWeekAnchorIso(d.toISOString().slice(0, 10));
-  };
+  const weekDays = useMemo(() => getWeekDays(calendarAnchorIso), [calendarAnchorIso]);
 
   return (
     <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
@@ -390,54 +480,73 @@ export function DoctorTimetableView() {
           </div>
         </header>
 
-        {/* 2. COMPACT OPERATIONAL STRIP */}
+        {/* 2. LỊCH ĐI KHÁM HÔM NAY (HIỂN THỊ CÁC GIA ĐÌNH CẦN ĐI KHÁM TRONG NGÀY) */}
         <section
-          aria-label="Tóm tắt lịch làm việc"
-          className="rounded-xl border border-slate-200/80 bg-white px-4 py-2.5 shadow-2xs flex flex-wrap items-center justify-between gap-3 text-xs"
+          aria-label="Gia đình cần đi khám hôm nay"
+          className="rounded-2xl border border-indigo-200/80 bg-white p-4 shadow-2xs space-y-3"
         >
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-medium ${
-                counts.pendingCount > 0
-                  ? 'bg-amber-50 text-amber-900 border border-amber-200'
-                  : 'bg-slate-50 text-slate-600'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[15px] text-amber-600">
-                pending_actions
-              </span>
-              <span>Chờ duyệt (Video / Đổi lịch):</span>
-              <strong className="tabular-nums font-bold">{counts.pendingCount}</strong>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[18px] text-[#2E37A4]">today</span>
+              <h2 className="text-sm font-bold text-slate-900">
+                Gia đình phải đi khám hôm nay ({formatVnDate(todayIso)})
+              </h2>
+            </div>
+            <span className="text-xs font-semibold text-[#2E37A4] tabular-nums">
+              {todayEncounters.length} gia đình
             </span>
-
-            <button
-              type="button"
-              onClick={() => setStatusTab('upcoming')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-primary/5 text-slate-700 hover:text-primary font-medium transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[15px] text-primary">
-                event_upcoming
-              </span>
-              <span>Sắp tới &amp; Đang khám:</span>
-              <strong className="tabular-nums font-bold">{counts.upcoming}</strong>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStatusTab('completed')}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 font-medium transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[15px] text-emerald-600">
-                task_alt
-              </span>
-              <span>Đã hoàn thành:</span>
-              <strong className="tabular-nums font-bold">{counts.completed}</strong>
-            </button>
           </div>
 
-          <span className="text-[11px] text-slate-500">
-            Khám tại nhà: Check-in 1 bước · Tư vấn Video: Duyệt 2 bên
-          </span>
+          {todayEncounters.length === 0 ? (
+            <p className="text-xs text-slate-500">
+              Hôm nay chưa có lịch đi khám nào.
+              {nextUpcomingEncounter
+                ? ` Lịch gần nhất tiếp theo: ${formatVnDate(getEncounterDate(nextUpcomingEncounter))} (${
+                    getSessionBucket(getEncounterTime(nextUpcomingEncounter)) === 'morning'
+                      ? 'Khung Sáng'
+                      : 'Khung Chiều'
+                  }) — ${getPatientLabel(nextUpcomingEncounter)}.`
+                : ''}
+            </p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {todayEncounters.map((enc) => {
+                const isHome = enc.encounterType === 'HOME_VISIT';
+                const timeStr = getEncounterTime(enc);
+                const slotLabel =
+                  getSessionBucket(timeStr) === 'morning'
+                    ? 'Khung Sáng (08:00 - 11:30)'
+                    : 'Khung Chiều (13:30 - 17:30)';
+                const addr =
+                  enc.contract?.familyUnit?.homeAddress || enc.contract?.familyUnit?.address;
+                return (
+                  <div
+                    key={`today-${enc.id}`}
+                    className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex items-center justify-between gap-3 text-xs"
+                  >
+                    <div className="space-y-0.5 min-w-0">
+                      <div className="font-bold text-slate-900 truncate">
+                        {getPatientLabel(enc)} · {isHome ? 'Khám tại nhà' : 'Video'}
+                      </div>
+                      <div className="text-[#2E37A4] font-semibold">
+                        {isHome ? slotLabel : timeStr}
+                      </div>
+                      {addr && <div className="text-slate-500 truncate">{addr}</div>}
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedWeeklyEnc(enc)}
+                      className="h-8 rounded-lg text-xs shrink-0"
+                    >
+                      Chi tiết
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
         {/* 3. PRIORITY INBOX (TELEHEALTH REQUESTS + RESCHEDULE REQUESTS) */}
@@ -456,7 +565,13 @@ export function DoctorTimetableView() {
             </div>
 
             <div className="space-y-2.5">
-              {pendingTelehealthRequests.map((enc) => (
+              {pendingTelehealthRequests.map((enc) => {
+                const isMorning = getSessionBucket(getEncounterTime(enc)) === 'morning';
+                const candidateTimes = isMorning
+                  ? ['08:30', '09:00', '09:30', '10:00', '10:30', '11:00']
+                  : ['14:00', '14:30', '15:00', '15:30', '16:00', '16:30'];
+                const chosenTime = selectedTelehealthTimes[enc.id] ?? candidateTimes[1];
+                return (
                 <div
                   key={`tele-req-${enc.id}`}
                   className="bg-white rounded-xl border border-sky-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs"
@@ -471,15 +586,36 @@ export function DoctorTimetableView() {
                         <span>Yêu cầu Tư vấn Video · 2 bên</span>
                       </Badge>
                       <span className="font-bold text-slate-900 tabular-nums">
-                        {getEncounterTime(enc)} · {formatVnDate(getEncounterDate(enc))}
+                        {isMorning ? 'Khung Sáng (08:00–11:30)' : 'Khung Chiều (13:30–17:30)'} ·{' '}
+                        {formatVnDate(getEncounterDate(enc))}
                       </span>
                       <span className="font-semibold text-slate-800">
                         · {getPatientLabel(enc)}
                       </span>
                     </div>
                     <p className="text-slate-600">
-                      {enc.cancelReason || enc.subjectiveNote || 'Gia đình đặt lịch Tư vấn Video.'}
+                      {enc.displayNotes || enc.subjectiveNote || 'Tư vấn sức khỏe gia đình theo nhu cầu'}
                     </p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <span className="text-[11px] font-semibold text-slate-600">Chốt giờ gọi:</span>
+                      <select
+                        aria-label="Chốt giờ gọi cụ thể"
+                        value={chosenTime}
+                        onChange={(e) =>
+                          setSelectedTelehealthTimes((prev) => ({
+                            ...prev,
+                            [enc.id]: e.target.value,
+                          }))
+                        }
+                        className="h-7 rounded-lg border border-slate-200 bg-slate-50 px-2 text-xs font-semibold tabular-nums"
+                      >
+                        {candidateTimes.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
@@ -487,11 +623,11 @@ export function DoctorTimetableView() {
                       type="button"
                       size="sm"
                       disabled={actionId === enc.id}
-                      onClick={() => void handleConfirmTelehealth(enc.id, true)}
+                      onClick={() => void handleConfirmTelehealth(enc.id, true, chosenTime)}
                       className="h-8 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold gap-1"
                     >
                       <span className="material-symbols-outlined text-[15px]">check</span>
-                      <span>Nhận lịch Video</span>
+                      <span>Duyệt &amp; Chốt {chosenTime}</span>
                     </Button>
                     <Button
                       type="button"
@@ -505,7 +641,8 @@ export function DoctorTimetableView() {
                     </Button>
                   </div>
                 </div>
-              ))}
+                );
+              })}
 
               {pendingReschedules.map((req) => (
                 <div
@@ -527,7 +664,7 @@ export function DoctorTimetableView() {
                     </div>
                     <p className="text-slate-700">{req.reason}</p>
                     <p className="text-[11px] text-slate-500">
-                      CSYT: {req.facilityDecision === 'APPROVED' ? 'Đã đồng ý ✓' : 'Đang chờ duyệt'}
+                      Tiến độ: Gia đình đã đề xuất ✓ · Chờ Bác sĩ xác nhận
                     </p>
                   </div>
 
@@ -559,163 +696,280 @@ export function DoctorTimetableView() {
           </section>
         )}
 
-        {/* 4. UNIFIED CONTROL BAR */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="inline-flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/80 shadow-2xs">
-              {(
-                [
-                  { key: 'upcoming', label: `Sắp tới (${counts.upcoming})` },
-                  { key: 'completed', label: `Đã khám (${counts.completed})` },
-                  { key: 'all', label: `Tất cả (${counts.all})` },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setStatusTab(tab.key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer tabular-nums ${
-                    statusTab === tab.key
-                      ? 'bg-primary text-white shadow-2xs'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="inline-flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200/80 shadow-2xs">
-              {(
-                [
-                  { key: 'all', label: 'Tất cả' },
-                  { key: 'home', label: 'Tại nhà' },
-                  { key: 'telehealth', label: 'Video' },
-                ] as const
-              ).map((item) => (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => setTypeFilter(item.key)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                    typeFilter === item.key
-                      ? 'bg-slate-900 text-white'
-                      : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="inline-flex items-center p-1 bg-white rounded-xl border border-slate-200/80 shadow-2xs self-start lg:self-auto">
-            <button
-              type="button"
-              onClick={() => setViewMode('timeline')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                viewMode === 'timeline'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">view_agenda</span>
-              <span>Theo ngày</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('weekly')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
-                viewMode === 'weekly'
-                  ? 'bg-primary text-white shadow-2xs'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">calendar_view_week</span>
-              <span>Khóa biểu tuần</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 5. MAIN CONTENT */}
-        {loadError ? (
-          <Card className="bg-white rounded-2xl border-rose-200 p-8 text-center space-y-3">
-            <p role="alert" className="text-sm font-medium text-rose-700">
-              {loadError}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void loadTimetableAndRequests()}
-            >
-              Thử tải lại
-            </Button>
-          </Card>
-        ) : isLoading ? (
-          <div className="space-y-3" aria-busy="true" aria-label="Đang tải lịch làm việc">
-            {[1, 2].map((idx) => (
+        {/* 3A. ĐỀ XUẤT ĐỔI LỊCH BÁC SĨ ĐÃ GỬI (CHỜ GIA ĐÌNH DUYỆT) */}
+        {outgoingReschedules.length > 0 && (
+          <section className="space-y-2">
+            {outgoingReschedules.map((req) => (
               <div
-                key={idx}
-                className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3 animate-pulse"
+                key={`doc-out-${req.id}`}
+                className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-sky-950"
               >
-                <div className="flex justify-between">
-                  <div className="h-5 w-32 rounded-md bg-slate-200" />
-                  <div className="h-5 w-24 rounded-full bg-slate-200" />
+                <div className="space-y-1">
+                  <div className="font-bold text-sm text-sky-900">
+                    Đang chờ Gia đình duyệt đề xuất đổi lịch (tạm giữ khung tối đa 24 giờ)
+                  </div>
+                  <p>
+                    Đổi sang:{' '}
+                    <strong className="tabular-nums">
+                      {formatVnDate(req.proposedDate?.slice(0, 10) || '')}
+                    </strong>{' '}
+                    ·{' '}
+                    <strong>
+                      {Number.parseInt(
+                        (req.proposedTime?.includes('T')
+                          ? req.proposedTime.slice(11, 13)
+                          : req.proposedTime?.slice(0, 2)) || '8',
+                        10
+                      ) < 12
+                        ? 'Khung Sáng (08:00 - 11:30)'
+                        : 'Khung Chiều (13:30 - 17:30)'}
+                    </strong>
+                    {req.reason ? ` · Lý do: ${req.reason}` : ''}
+                  </p>
                 </div>
-                <div className="h-4 w-64 rounded-md bg-slate-100" />
-                <div className="h-3 w-full rounded-md bg-slate-100" />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={actionId === req.id}
+                  onClick={() => void handleWithdrawReschedule(req.encounterId, req.id)}
+                  className="h-8 rounded-xl border-sky-300 bg-white text-sky-900 hover:bg-sky-100 text-xs font-semibold shrink-0"
+                >
+                  {actionId === req.id ? 'Đang thu hồi...' : 'Thu hồi đề xuất'}
+                </Button>
               </div>
             ))}
-          </div>
-        ) : filteredEncounters.length === 0 ? (
-          <Card className="bg-white rounded-2xl border-slate-200 p-10 text-center space-y-2">
-            <span className="material-symbols-outlined text-4xl text-slate-300">event_busy</span>
-            <h3 className="text-sm font-bold text-slate-900">
-              Chưa có ca khám nào trong mục này
-            </h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              Các lịch khám tại nhà tự động theo gói và lịch tư vấn Video đã nhận sẽ hiển thị tại
-              đây để bạn check-in và ghi nhận bệnh án.
-            </p>
-          </Card>
-        ) : viewMode === 'weekly' ? (
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-2xs overflow-hidden">
-            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/60 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => shiftWeek(-7)}
-                  className="h-8 px-2.5 text-xs"
-                >
-                  ← Tuần trước
-                </Button>
-                <span className="text-xs sm:text-sm font-bold text-slate-900 tabular-nums px-2">
-                  Tuần {weekDays[0].shortDate} – {weekDays[6].shortDate}
-                </span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => shiftWeek(7)}
-                  className="h-8 px-2.5 text-xs"
-                >
-                  Tuần sau →
-                </Button>
+          </section>
+        )}
+
+        {/* 3B. BANNER EF3: CẦN BÁC SĨ TỰ XẾP TAY */}
+        {manualScheduleItems.length > 0 && (
+          <section
+            aria-label="Mốc khám cần bác sĩ tự xếp tay"
+            className="rounded-2xl border border-rose-200 bg-rose-50/85 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          >
+            <div className="space-y-1 text-xs text-rose-950">
+              <div className="font-bold text-sm text-rose-900">
+                Cần Bác sĩ tự xếp tay (EF3): Có {manualScheduleItems.length} mốc khám định kỳ chưa xếp tự động được
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setWeekAnchorIso(todayIso)}
-                className="h-7 px-2 text-xs text-primary"
-              >
-                Hôm nay
-              </Button>
+              <p>
+                Các mốc này bị kín đủ 2/2 khung trong tuần dự kiến. Vui lòng chọn ngày và khung Sáng/Chiều còn trống trực tiếp trên lịch.
+              </p>
+            </div>
+            <Button asChild size="sm" className="rounded-xl text-xs font-semibold shrink-0">
+              <Link href="/doctor/timetable/manual-schedule">
+                Xem &amp; Xếp tay ({manualScheduleItems.length})
+              </Link>
+            </Button>
+          </section>
+        )}
+
+        {/* 4. CALENDAR CONTAINER (NO FILTERS · MONTH / WEEK · 2 SLOTS) */}
+        <section className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">
+          <div className="px-4 sm:px-6 pt-5 pb-4 border-b border-slate-100 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
+                Lịch làm việc
+              </h2>
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCalendarAnchorIso(todayIso)}
+                  className="h-8 rounded-lg text-xs font-medium px-3"
+                >
+                  Hôm nay
+                </Button>
+                <div className="inline-flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Khoảng thời gian trước"
+                    onClick={() =>
+                      setCalendarAnchorIso((prev) =>
+                        viewMode === 'month' ? shiftIsoDate(prev, 0, -1) : shiftIsoDate(prev, -7)
+                      )
+                    }
+                    className="h-8 w-8 rounded-lg"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">chevron_left</span>
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    aria-label="Khoảng thời gian sau"
+                    onClick={() =>
+                      setCalendarAnchorIso((prev) =>
+                        viewMode === 'month' ? shiftIsoDate(prev, 0, 1) : shiftIsoDate(prev, 7)
+                      )
+                    }
+                    className="h-8 w-8 rounded-lg"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">chevron_right</span>
+                  </Button>
+                </div>
+                <span className="text-sm font-semibold text-slate-900 tabular-nums pl-1 min-w-[118px]">
+                  {viewMode === 'month'
+                    ? formatMonthYearLabel(calendarAnchorIso)
+                    : `${weekDays[0].shortDate} – ${weekDays[6].shortDate}`}
+                </span>
+              </div>
             </div>
 
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div
+                className="inline-flex items-center gap-0.5 rounded-xl bg-slate-100 p-1 text-xs"
+                role="group"
+                aria-label="Chế độ xem lịch bác sĩ"
+              >
+                {[
+                  { id: 'week', label: 'Tuần' },
+                  { id: 'month', label: 'Tháng' },
+                ].map((mode) => {
+                  const active = viewMode === mode.id;
+                  return (
+                    <button
+                      key={mode.id}
+                      type="button"
+                      onClick={() => setViewMode(mode.id as 'week' | 'month')}
+                      className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
+                        active
+                          ? 'bg-white text-slate-900 font-semibold shadow-2xs'
+                          : 'text-slate-500 hover:text-slate-900'
+                      }`}
+                    >
+                      {mode.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="text-[11px] text-slate-500">
+                Định mức: Tối đa 2 gia đình/ngày (Sáng 08:00-11:30 · Chiều 13:30-17:30)
+              </span>
+            </div>
+          </div>
+
+          {loadError ? (
+            <div className="p-8 text-center space-y-3">
+              <p role="alert" className="text-sm font-medium text-rose-700">
+                {loadError}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void loadTimetableAndRequests()}
+              >
+                Thử tải lại
+              </Button>
+            </div>
+          ) : isLoading ? (
+            <div className="p-12 text-center text-xs text-slate-500">
+              Đang tải lịch làm việc của bác sĩ...
+            </div>
+          ) : viewMode === 'month' ? (
+            (() => {
+              const monthCells = getMonthGridDays(calendarAnchorIso);
+              const weekdayHeaders = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+              const byDate = new Map<string, EncounterItem[]>();
+              for (const enc of filteredEncounters) {
+                const key = getEncounterDate(enc);
+                const list = byDate.get(key) ?? [];
+                list.push(enc);
+                byDate.set(key, list);
+              }
+
+              return (
+                <div className="p-3 sm:p-5 overflow-x-auto">
+                  <div className="min-w-[720px]">
+                    <div className="grid grid-cols-7 gap-2 mb-2">
+                      {weekdayHeaders.map((label) => (
+                        <div
+                          key={label}
+                          className="text-center text-xs font-semibold text-slate-600 py-1"
+                        >
+                          {label}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2">
+                      {monthCells.map((cell) => {
+                        const dayItems = byDate.get(cell.iso) ?? [];
+                        const isToday = cell.iso === todayIso;
+                        const isPast = cell.iso < todayIso;
+                        return (
+                          <div
+                            key={cell.iso}
+                            className={`h-[120px] rounded-xl border p-2 flex flex-col transition-colors ${
+                              isToday
+                                ? 'border-indigo-300 bg-indigo-50/20 ring-1 ring-indigo-200/70'
+                                : isPast
+                                  ? 'border-slate-100 bg-slate-100/70 opacity-60'
+                                  : cell.isCurrentMonth
+                                    ? 'border-slate-200/80 bg-white hover:border-slate-300'
+                                    : 'border-slate-100 bg-slate-50/50'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between mb-1.5 shrink-0">
+                              {dayItems.length > 0 ? (
+                                <span className="text-[10px] font-semibold text-slate-400 tabular-nums">
+                                  {dayItems.length} ca
+                                </span>
+                              ) : (
+                                <span />
+                              )}
+                              <span
+                                className={`text-xs font-semibold tabular-nums leading-none ${
+                                  isToday
+                                    ? 'inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#2E37A4] text-white'
+                                    : cell.isCurrentMonth
+                                      ? 'text-slate-700'
+                                      : 'text-slate-300'
+                                }`}
+                              >
+                                {cell.dayNumber}
+                              </span>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto space-y-1 pr-0.5">
+                              {dayItems.map((enc) => {
+                                const isHome = enc.encounterType === 'HOME_VISIT';
+                                const timeStr = getEncounterTime(enc);
+                                const bucketLabel =
+                                  getSessionBucket(timeStr) === 'morning' ? 'Sáng' : 'Chiều';
+                                return (
+                                  <button
+                                    key={enc.id}
+                                    type="button"
+                                    onClick={() => setSelectedWeeklyEnc(enc)}
+                                    className={`w-full text-left rounded-md border px-2 py-1 text-[11px] font-medium truncate transition-colors cursor-pointer ${
+                                      isHome
+                                        ? 'bg-sky-50 text-sky-900 border-sky-200/80 hover:bg-sky-100/80'
+                                        : 'bg-violet-50 text-violet-900 border-violet-200/80 hover:bg-violet-100/80'
+                                    }`}
+                                  >
+                                    <span className="font-semibold">
+                                      {isHome ? bucketLabel : timeStr}
+                                    </span>
+                                    <span> · </span>
+                                    <span>{getPatientLabel(enc)}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[780px] border-collapse text-xs">
                 <thead>
@@ -739,9 +993,8 @@ export function DoctorTimetableView() {
                 <tbody>
                   {(
                     [
-                      { key: 'morning', label: 'Sáng', range: '07:00 – 12:00' },
-                      { key: 'afternoon', label: 'Chiều', range: '13:00 – 17:30' },
-                      { key: 'evening', label: 'Tối', range: '18:00 – 21:00' },
+                      { key: 'morning', label: 'Sáng', range: '08:00 – 11:30' },
+                      { key: 'afternoon', label: 'Chiều', range: '13:30 – 17:30' },
                     ] as const
                   ).map((sess) => (
                     <tr key={sess.key} className="border-b border-slate-100 last:border-b-0">
@@ -750,12 +1003,11 @@ export function DoctorTimetableView() {
                         <div className="text-[10px] text-slate-400 tabular-nums">{sess.range}</div>
                       </td>
                       {weekDays.map((day) => {
-                        const cellItems = filteredEncounters.filter((enc) => {
-                          return (
+                        const cellItems = filteredEncounters.filter(
+                          (enc) =>
                             getEncounterDate(enc) === day.iso &&
                             getSessionBucket(getEncounterTime(enc)) === sess.key
-                          );
-                        });
+                        );
                         return (
                           <td
                             key={day.iso}
@@ -795,232 +1047,8 @@ export function DoctorTimetableView() {
                 </tbody>
               </table>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {groupedByDate.map(([dateKey, dayItems]) => (
-              <section key={dateKey} className="space-y-2.5">
-                <div className="flex items-center justify-between px-1">
-                  <h2 className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wide">
-                    {formatDayHeading(dateKey, todayIso)}
-                  </h2>
-                  <span className="text-xs font-semibold text-slate-500 tabular-nums">
-                    {dayItems.length} ca khám
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {dayItems.map((enc) => {
-                    const isHome = enc.encounterType === 'HOME_VISIT';
-                    const rawStatus = String(enc.encounterStatus || 'CONFIRMED');
-                    const statusInfo = getStatusInfo(rawStatus);
-                    const timeStr = getEncounterTime(enc);
-                    const patientName = getPatientLabel(enc);
-                    const pendingReq = (enc.rescheduleRequests ?? []).find(
-                      (r) => r.status === 'PENDING'
-                    );
-                    const addressOrReason = isHome
-                      ? enc.contract?.familyUnit?.homeAddress ||
-                        enc.contract?.familyUnit?.address ||
-                        'Theo địa chỉ hộ gia đình trên hợp đồng'
-                      : enc.cancelReason ||
-                        enc.subjectiveNote ||
-                        'Tư vấn sức khỏe trực tuyến qua Video';
-
-                    return (
-                      <Card
-                        key={enc.id}
-                        className="bg-white rounded-2xl border-slate-200/90 hover:border-slate-300 shadow-2xs transition-colors p-4 sm:p-5 space-y-4"
-                      >
-                        <div className="grid grid-cols-1 lg:grid-cols-[100px_190px_1fr_auto] gap-4 items-center">
-                          {/* Column 1: Time */}
-                          <div className="flex lg:flex-col items-baseline lg:items-start gap-2 lg:gap-0.5">
-                            <span className="text-lg font-bold text-primary tabular-nums">
-                              {timeStr}
-                            </span>
-                            <span className="text-[11px] font-medium text-slate-500">
-                              {getSessionLabel(getSessionBucket(timeStr))}
-                            </span>
-                          </div>
-
-                          {/* Column 2: Type & Status */}
-                          <div className="space-y-1.5">
-                            <Badge
-                              variant="outline"
-                              className={`gap-1 font-semibold ${
-                                isHome
-                                  ? 'bg-primary/10 text-primary border-primary/20'
-                                  : 'bg-sky-50 text-sky-800 border-sky-200'
-                              }`}
-                            >
-                              <span className="material-symbols-outlined text-[14px]">
-                                {isHome ? 'home_health' : 'videocam'}
-                              </span>
-                              <span>{isHome ? 'Khám tại nhà' : 'Tư vấn Video'}</span>
-                            </Badge>
-                            <div>
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusInfo.className}`}
-                              >
-                                {statusInfo.label}
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Column 3: Patient & Location/Reason */}
-                          <div className="flex items-start gap-3 min-w-0">
-                            <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-700 text-xs font-bold">
-                              {getInitials(patientName)}
-                            </span>
-                            <div className="min-w-0 space-y-1">
-                              <div className="text-sm font-bold text-slate-900 truncate">
-                                {patientName}
-                              </div>
-                              <div className="flex items-center gap-1.5 text-xs text-slate-600">
-                                <span className="material-symbols-outlined text-[15px] text-slate-400 shrink-0">
-                                  {isHome ? 'location_on' : 'notes'}
-                                </span>
-                                <span className="truncate">{addressOrReason}</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Column 4: Primary & Secondary Actions */}
-                          <div className="flex flex-wrap items-center gap-2 shrink-0">
-                            {isHome &&
-                              (rawStatus === 'CONFIRMED' || rawStatus === 'ON_THE_WAY') && (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  disabled={actionId === enc.id}
-                                  onClick={() => void handleMarkArrived(enc.id)}
-                                  className="h-9 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold gap-1.5"
-                                >
-                                  <span className="material-symbols-outlined text-[16px]">
-                                    location_on
-                                  </span>
-                                  <span>Check-in đã đến nhà</span>
-                                </Button>
-                              )}
-
-                            {isHome && rawStatus === 'IN_PROGRESS' && (
-                              <Button
-                                asChild
-                                size="sm"
-                                className="h-9 rounded-xl text-xs font-semibold gap-1.5"
-                              >
-                                <Link href={`/doctor/encounters?encounterId=${enc.id}`}>
-                                  <span className="material-symbols-outlined text-[16px]">
-                                    clinical_notes
-                                  </span>
-                                  <span>Mở bệnh án &amp; Khám</span>
-                                </Link>
-                              </Button>
-                            )}
-
-                            {!isHome &&
-                              (rawStatus === 'CONFIRMED' || rawStatus === 'IN_PROGRESS') && (
-                                <Button
-                                  asChild
-                                  size="sm"
-                                  className="h-9 rounded-xl bg-sky-600 hover:bg-sky-700 text-white text-xs font-semibold gap-1.5"
-                                >
-                                  <Link href={`/doctor/telemedicine?encounterId=${enc.id}`}>
-                                    <span className="material-symbols-outlined text-[16px]">
-                                      videocam
-                                    </span>
-                                    <span>Vào phòng khám Video</span>
-                                  </Link>
-                                </Button>
-                              )}
-
-                            {rawStatus === 'CONFIRMED' && !pendingReq && (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleOpenRescheduleModal(enc)}
-                                className="h-9 rounded-xl text-xs font-semibold"
-                              >
-                                Xin đổi lịch
-                              </Button>
-                            )}
-
-                            {rawStatus === 'COMPLETED' && (
-                              <Button
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="h-9 rounded-xl text-xs font-semibold"
-                              >
-                                <Link href={`/doctor/encounters?encounterId=${enc.id}`}>
-                                  Xem lại hồ sơ
-                                </Link>
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-
-                        {pendingReq && (
-                          <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-3.5 py-2 text-xs text-amber-900">
-                            <span className="font-semibold">Đang chờ duyệt đổi lịch: </span>
-                            <span>
-                              Gia đình {pendingReq.familyDecision === 'APPROVED' ? '✓' : '⏳'} · Bác
-                              sĩ {pendingReq.doctorDecision === 'APPROVED' ? '✓' : '⏳'}
-                              {isHome &&
-                                ` · CSYT ${pendingReq.facilityDecision === 'APPROVED' ? '✓' : '⏳'}`}
-                            </span>
-                          </div>
-                        )}
-
-                        {isHome && statusInfo.stepIndex >= 0 && (
-                          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[11px]">
-                            <span className="font-semibold text-slate-500 mr-1">
-                              Tiến độ thực địa:
-                            </span>
-                            {PROGRESS_STEPS.map((st, index) => {
-                              const isDone = statusInfo.stepIndex > st.step;
-                              const isCurrent = statusInfo.stepIndex === st.step;
-                              return (
-                                <React.Fragment key={st.step}>
-                                  <span
-                                    className={`inline-flex items-center gap-1 font-medium ${
-                                      isCurrent
-                                        ? 'text-primary font-bold'
-                                        : isDone
-                                          ? 'text-emerald-700'
-                                          : 'text-slate-400'
-                                    }`}
-                                  >
-                                    <span
-                                      className={`h-2 w-2 rounded-full ${
-                                        isCurrent
-                                          ? 'bg-primary'
-                                          : isDone
-                                            ? 'bg-emerald-600'
-                                            : 'bg-slate-200'
-                                      }`}
-                                    />
-                                    <span>{st.label}</span>
-                                  </span>
-                                  {index < PROGRESS_STEPS.length - 1 && (
-                                    <span aria-hidden="true" className="text-slate-300">
-                                      —
-                                    </span>
-                                  )}
-                                </React.Fragment>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </Card>
-                    );
-                  })}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+          )}
+        </section>
       </main>
 
       {/* DIALOG: CHI TIẾT CA TỪ KHÓA BIỂU TUẦN */}
@@ -1085,6 +1113,16 @@ export function DoctorTimetableView() {
                     <Button asChild size="sm" className="bg-sky-600 hover:bg-sky-700 text-white">
                       <Link href={`/doctor/telemedicine?encounterId=${selectedWeeklyEnc.id}`}>
                         Vào phòng khám Video
+                      </Link>
+                    </Button>
+                  )}
+                  {selectedWeeklyEnc.encounterStatus === 'CONFIRMED' && (
+                    <Button asChild size="sm" variant="outline">
+                      <Link
+                        href={`/doctor/timetable/${selectedWeeklyEnc.id}/reschedule`}
+                        onClick={() => setSelectedWeeklyEnc(null)}
+                      >
+                        Xin đổi lịch
                       </Link>
                     </Button>
                   )}

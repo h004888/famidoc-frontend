@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { LandingHeader, LandingFooter } from '@/features/landing';
@@ -10,61 +10,33 @@ import {
   extractErrorMessage,
   matchingApi,
   publicApi,
-  type DoctorClinicalTier,
+  type MatchedDoctorPreviewDto,
+  type MatchingOptionsDto,
+  type PlatformFullMatchingResultDto,
   type PublicPackageItemDto,
-  type QueuedMatchingResultDto,
 } from '@/lib/api';
+import { DOCTOR_ACADEMIC_TITLE_OPTIONS } from '@/lib/constants/doctor-academic-titles';
 
-const AGE_GROUP_OPTIONS = [
-  'Trẻ nhỏ (< 12 tuổi)',
-  'Người trưởng thành',
-  'Người cao tuổi (> 60 tuổi)',
-  'Mẹ bầu / Sau sinh',
+const FALLBACK_AGE_GROUPS = [
+  'Trẻ nhỏ (<12 tuổi)',
+  'Người lớn (12–59 tuổi)',
+  'Người cao tuổi (≥60 tuổi)',
+  'Mẹ bầu & sau sinh',
 ];
 
-const CARE_CATEGORY_OPTIONS = [
-  'Tăng huyết áp / Tim mạch',
-  'Đái tháo đường / Nội tiết',
-  'Nhi khoa & Dinh dưỡng',
-  'Hô hấp / Tai mũi họng',
-  'Khám sức khỏe định kỳ',
-  'Phục hồi chức năng',
+const FALLBACK_CARE_CATEGORIES = [
+  'Khám định kỳ cả nhà',
+  'Tim mạch · Huyết áp',
+  'Tiểu đường · Nội tiết',
+  'Nhi · Dinh dưỡng',
+  'Hô hấp · Tai mũi họng',
+  'Xương khớp · Phục hồi',
 ];
 
-const DISTRICT_SUGGESTIONS = [
-  'Quận 1, TP.HCM',
-  'Quận 3, TP.HCM',
-  'Quận 7, TP.HCM',
-  'Đống Đa, Hà Nội',
-  'Cầu Giấy, Hà Nội',
-  'Hải Châu, Đà Nẵng',
-];
-
-const TIER_OPTIONS: Array<{
-  value: DoctorClinicalTier | 'ANY';
-  label: string;
-  desc: string;
-}> = [
-  {
-    value: 'ANY',
-    label: 'Linh hoạt mọi trình độ',
-    desc: 'Ưu tiên độ phù hợp chuyên môn và bác sĩ còn nhiều slot trống',
-  },
-  {
-    value: 'JUNIOR',
-    label: 'Bác sĩ trẻ (JUNIOR)',
-    desc: 'Nhiệt huyết, nhiều thời gian theo sát từng gia đình',
-  },
-  {
-    value: 'STANDARD',
-    label: 'Bác sĩ gia đình (STANDARD)',
-    desc: 'Kinh nghiệm ngoại trú ổn định 5+ năm / ThS / CKI',
-  },
-  {
-    value: 'SENIOR',
-    label: 'Chuyên gia cao cấp (SENIOR)',
-    desc: '12+ năm kinh nghiệm hoặc CKII / TS / PGS',
-  },
+const FALLBACK_AREAS: Array<{ city: string; districts: string[] }> = [
+  { city: 'TP. Hồ Chí Minh', districts: ['Quận 1', 'Quận 3', 'Quận 7'] },
+  { city: 'Hà Nội', districts: ['Đống Đa', 'Cầu Giấy'] },
+  { city: 'Đà Nẵng', districts: ['Hải Châu'] },
 ];
 
 function toggleTag(list: string[], value: string): string[] {
@@ -74,7 +46,6 @@ function toggleTag(list: string[], value: string): string[] {
 }
 
 export function DoctorMatchingWizard() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const initialPackageParam = searchParams?.get('packageId') ?? '';
   const initialMembersParam = Number(searchParams?.get('members') ?? '');
@@ -83,15 +54,19 @@ export function DoctorMatchingWizard() {
   const [isLoadingPackages, setIsLoadingPackages] = useState(true);
   const [selectedPackageId, setSelectedPackageId] = useState<string>('');
   const [memberCount, setMemberCount] = useState<number>(1);
-  const [requestedTier, setRequestedTier] = useState<DoctorClinicalTier | 'ANY'>('ANY');
-  const [ageGroups, setAgeGroups] = useState<string[]>(['Người cao tuổi (> 60 tuổi)']);
-  const [careCategories, setCareCategories] = useState<string[]>(['Khám sức khỏe định kỳ']);
-  const [districtArea, setDistrictArea] = useState<string>('');
+  const [requestedAcademicTitle, setRequestedAcademicTitle] = useState<string>('ANY');
+  const [ageGroups, setAgeGroups] = useState<string[]>(['Người cao tuổi (≥60 tuổi)']);
+  const [careCategories, setCareCategories] = useState<string[]>(['Khám định kỳ cả nhà']);
+  const [selectedCity, setSelectedCity] = useState<string>('');
+  const [selectedDistrict, setSelectedDistrict] = useState<string>('');
+  const [matchingOptions, setMatchingOptions] = useState<MatchingOptionsDto | null>(null);
   const [careDescription, setCareDescription] = useState<string>('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [queuedResult, setQueuedResult] = useState<QueuedMatchingResultDto | null>(null);
+  const [matchedResult, setMatchedResult] = useState<MatchedDoctorPreviewDto | null>(null);
+  const [platformFullResult, setPlatformFullResult] =
+    useState<PlatformFullMatchingResultDto | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -136,6 +111,66 @@ export function DoctorMatchingWizard() {
     };
   }, [initialPackageParam, initialMembersParam]);
 
+  useEffect(() => {
+    let active = true;
+    if (typeof matchingApi.getMatchingOptions === 'function') {
+      matchingApi
+        .getMatchingOptions()
+        .then((opts) => {
+          if (active && opts) {
+            setMatchingOptions(opts);
+          }
+        })
+        .catch(() => {
+          // Fallback sang danh mục mặc định nếu API tạm thời chưa phản hồi
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const areaOptions = useMemo(
+    () => (matchingOptions?.areas?.length ? matchingOptions.areas : FALLBACK_AREAS),
+    [matchingOptions]
+  );
+
+  const ageGroupOptions = useMemo(
+    () =>
+      matchingOptions?.ageGroups?.length
+        ? matchingOptions.ageGroups.map((a) => a.label)
+        : FALLBACK_AGE_GROUPS,
+    [matchingOptions]
+  );
+
+  const careCategoryOptions = useMemo(
+    () =>
+      matchingOptions?.careCategories?.length
+        ? matchingOptions.careCategories.map((c) => c.label)
+        : FALLBACK_CARE_CATEGORIES,
+    [matchingOptions]
+  );
+
+  const academicTitleOptions = useMemo(
+    () =>
+      matchingOptions?.academicTitles?.length
+        ? matchingOptions.academicTitles
+        : DOCTOR_ACADEMIC_TITLE_OPTIONS,
+    [matchingOptions]
+  );
+
+  const availableDistricts = useMemo(() => {
+    if (!selectedCity) return [];
+    return areaOptions.find((a) => a.city === selectedCity)?.districts ?? [];
+  }, [areaOptions, selectedCity]);
+
+  const effectiveDistrictArea = useMemo(() => {
+    if (selectedDistrict && selectedCity) {
+      return `${selectedDistrict}, ${selectedCity}`;
+    }
+    return selectedCity || '';
+  }, [selectedCity, selectedDistrict]);
+
   const selectedPackage = useMemo(() => {
     return packages.find((p) => p.id === selectedPackageId) ?? packages[0] ?? null;
   }, [packages, selectedPackageId]);
@@ -169,7 +204,7 @@ export function DoctorMatchingWizard() {
     if (
       ageGroups.length === 0 &&
       careCategories.length === 0 &&
-      !districtArea.trim() &&
+      !effectiveDistrictArea &&
       !careDescription.trim()
     ) {
       setSubmitError(
@@ -179,30 +214,34 @@ export function DoctorMatchingWizard() {
     }
 
     setSubmitError(null);
-    setQueuedResult(null);
+    setMatchedResult(null);
+    setPlatformFullResult(null);
     setIsSubmitting(true);
 
     try {
       const result = await matchingApi.matchDoctors({
         packageId: selectedPackage.id,
         memberCount: clampedMembers,
-        ...(requestedTier !== 'ANY' ? { requestedTier } : {}),
+        ...(requestedAcademicTitle !== 'ANY' ? { requestedAcademicTitle } : {}),
         ageGroups,
         careCategories,
-        ...(districtArea.trim() ? { districtArea: districtArea.trim() } : {}),
+        ...(effectiveDistrictArea ? { districtArea: effectiveDistrictArea } : {}),
         ...(careDescription.trim()
           ? { careDescription: careDescription.trim() }
           : {}),
       });
 
       if (result.outcome === 'MATCHED') {
-        router.push(
-          `/booking?matchSessionId=${encodeURIComponent(result.matchingSessionId)}`
-        );
+        setMatchedResult(result);
         return;
       }
 
-      setQueuedResult(result);
+      if (result.outcome === 'PLATFORM_FULL') {
+        setPlatformFullResult(result);
+        return;
+      }
+
+      setSubmitError('Không thể tải kết quả gợi ý bác sĩ lúc này. Vui lòng thử lại.');
     } catch (err) {
       setSubmitError(
         extractErrorMessage(
@@ -228,7 +267,7 @@ export function DoctorMatchingWizard() {
           <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 text-xs font-semibold">
               <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
-              <span>Track B · Ghép Nối Bác Sĩ Thông Minh</span>
+              <span>Gợi ý bác sĩ phù hợp cho gia đình</span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
               Hệ Thống Gợi Ý Bác Sĩ Gia Đình Phù Hợp
@@ -248,67 +287,313 @@ export function DoctorMatchingWizard() {
                 Gói dịch vụ
               </Link>
               <span>/</span>
-              <span className="text-white font-semibold">Gợi ý bác sĩ (Track B)</span>
+              <span className="text-white font-semibold">Gợi ý bác sĩ</span>
             </nav>
           </div>
         </section>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 relative z-20 space-y-6">
-          {queuedResult ? (
-            <div
-              data-testid="matching-queued-banner"
-              className="bg-white rounded-2xl border border-amber-200 p-6 sm:p-8 shadow-md space-y-5"
-            >
-              <div className="flex items-start gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center shrink-0">
-                  <span className="material-symbols-outlined text-2xl">hourglass_top</span>
-                </div>
-                <div className="space-y-1">
-                  <Badge
-                    variant="outline"
-                    className="bg-amber-50 text-amber-800 border-amber-200 text-xs"
-                  >
-                    Đã đưa vào Hàng chờ điều phối Admin
-                  </Badge>
-                  <h2 className="text-lg sm:text-xl font-bold text-slate-900">
-                    Yêu cầu tìm bác sĩ đã được tiếp nhận vào hàng chờ
-                  </h2>
-                  <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                    {queuedResult.message}
+          {matchedResult ? (
+            <div data-testid="matching-results-screen" className="space-y-6">
+              {matchedResult.relaxedAcademicTitle && (
+                <div
+                  data-testid="matching-relaxed-banner"
+                  className="rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4 text-xs sm:text-sm text-[#0037c1] flex items-start gap-3 shadow-xs"
+                >
+                  <span className="material-symbols-outlined text-lg shrink-0 mt-0.5">
+                    info
+                  </span>
+                  <p className="leading-relaxed">
+                    Hiện chưa còn bác sĩ{' '}
+                    {matchedResult.requestedAcademicTitle
+                      ? `(${matchedResult.requestedAcademicTitle}) `
+                      : ''}
+                    trống lịch. Hệ thống đã mở rộng sang các bác sĩ phù hợp nhất với nhu cầu gia
+                    đình bạn.
                   </p>
                 </div>
+              )}
+
+              {/* Top 1 Card */}
+              <div
+                data-testid="matching-top1-card"
+                className="bg-white rounded-2xl border-2 border-[#0037c1]/25 p-6 sm:p-8 shadow-md space-y-5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#0037c1]">
+                    <span className="material-symbols-outlined text-base material-symbols-filled">
+                      star
+                    </span>
+                    <span>Bác sĩ phù hợp nhất với gia đình bạn (Top 1)</span>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="bg-emerald-50 text-[#03864b] border-emerald-200 text-xs font-semibold"
+                  >
+                    Còn nhận gia đình
+                  </Badge>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start gap-5">
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
+                    {matchedResult.doctor.avatarUrl ? (
+                      <img
+                        src={matchedResult.doctor.avatarUrl}
+                        alt={matchedResult.doctor.doctorName}
+                        className="w-full h-full object-cover object-top"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-slate-500">
+                        {matchedResult.doctor.doctorName.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 leading-snug">
+                      {matchedResult.doctor.academicTitle
+                        ? `${matchedResult.doctor.academicTitle} `
+                        : ''}
+                      {matchedResult.doctor.doctorName}
+                    </h2>
+                    <p className="text-sm font-semibold text-[#0037c1]">
+                      {matchedResult.doctor.specialty} · {matchedResult.doctor.experienceYears} năm
+                      kinh nghiệm
+                    </p>
+                    <div className="text-xs sm:text-sm text-slate-600 space-y-1">
+                      <p className="flex items-start gap-1.5">
+                        <span className="material-symbols-outlined text-base text-slate-400 shrink-0 mt-0.5">
+                          domain
+                        </span>
+                        <span className="font-medium text-slate-800">
+                          {matchedResult.facility.facilityName}
+                        </span>
+                      </p>
+                      <p className="flex items-start gap-1.5">
+                        <span className="material-symbols-outlined text-base text-slate-400 shrink-0 mt-0.5">
+                          location_on
+                        </span>
+                        <span>{matchedResult.facility.address}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    So sánh độ phù hợp với nhu cầu gia đình
+                  </p>
+                  <div className="overflow-x-auto rounded-xl border border-slate-200">
+                    <table className="w-full text-left text-xs sm:text-sm border-collapse">
+                      <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
+                        <tr>
+                          <th className="py-2.5 px-3.5 font-semibold w-[28%]">Tiêu chí</th>
+                          <th className="py-2.5 px-3.5 font-semibold w-[36%]">Gia đình bạn cần</th>
+                          <th className="py-2.5 px-3.5 font-semibold w-[36%]">Bác sĩ đáp ứng</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {(matchedResult.comparisonRows && matchedResult.comparisonRows.length > 0
+                          ? matchedResult.comparisonRows
+                          : [
+                              {
+                                criterion: 'Nhu cầu sức khỏe',
+                                familyNeed: careCategories.join(', ') || 'Chăm sóc gia đình',
+                                doctorMatch: `Chuyên khoa ${matchedResult.doctor.specialty}`,
+                                isMatched: true,
+                              },
+                              {
+                                criterion: 'Khu vực sống',
+                                familyNeed: effectiveDistrictArea || 'Mọi khu vực',
+                                doctorMatch: matchedResult.facility.address,
+                                isMatched: true,
+                              },
+                              {
+                                criterion: 'Học hàm / Học vị',
+                                familyNeed:
+                                  matchedResult.requestedAcademicTitle || 'Linh hoạt phù hợp nhất',
+                                doctorMatch: matchedResult.doctor.academicTitle || 'Bác sĩ',
+                                isMatched: !matchedResult.relaxedAcademicTitle,
+                              },
+                              {
+                                criterion: 'Lịch nhận hộ',
+                                familyNeed: 'Cần tiếp nhận ngay',
+                                doctorMatch: 'Đang còn lịch trống',
+                                isMatched: true,
+                              },
+                            ]
+                        ).map((row) => (
+                          <tr key={row.criterion}>
+                            <td className="py-2.5 px-3.5 font-semibold text-slate-800 align-top">
+                              {row.criterion}
+                            </td>
+                            <td className="py-2.5 px-3.5 text-slate-600 align-top">
+                              {row.familyNeed}
+                            </td>
+                            <td className="py-2.5 px-3.5 align-top">
+                              <span className="inline-flex items-start gap-1.5 font-medium text-slate-900">
+                                <span
+                                  className={`material-symbols-outlined text-base shrink-0 mt-0.5 ${
+                                    row.isMatched ? 'text-[#03864b]' : 'text-amber-600'
+                                  }`}
+                                  aria-hidden="true"
+                                >
+                                  {row.isMatched ? 'check_circle' : 'info'}
+                                </span>
+                                <span>{row.doctorMatch}</span>
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setMatchedResult(null)}
+                    className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold cursor-pointer transition-colors"
+                  >
+                    ← Chỉnh lại nhu cầu
+                  </button>
+                  <Link
+                    href={`/booking?matchSessionId=${encodeURIComponent(matchedResult.matchingSessionId)}`}
+                    className="px-6 py-3 rounded-xl bg-[#0037c1] hover:bg-[#002c9a] text-white text-xs sm:text-sm font-semibold text-center transition-colors shadow-xs"
+                  >
+                    Chọn bác sĩ này &amp; Tiếp tục đặt gói →
+                  </Link>
+                </div>
               </div>
 
-              <div className="rounded-xl bg-slate-50 border border-slate-200 p-4 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs tabular-nums">
-                <div>
-                  <span className="text-slate-500 block">Mã yêu cầu hàng chờ</span>
-                  <strong className="text-slate-900">{queuedResult.queueRequestId}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Trạng thái</span>
-                  <strong className="text-amber-700">{queuedResult.status}</strong>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Hạn phản hồi SLA</span>
-                  <strong className="text-slate-900">
-                    {new Date(queuedResult.slaExpiresAt).toLocaleString('vi-VN')}
-                  </strong>
-                </div>
-              </div>
+              {/* Top 2 - 4 Alternatives */}
+              {matchedResult.alternatives && matchedResult.alternatives.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-700">
+                    Các bác sĩ phù hợp tiếp theo (Xếp hạng 2 – {matchedResult.alternatives.length + 1})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {matchedResult.alternatives.map((alt) => (
+                      <div
+                        key={alt.doctor.id}
+                        data-testid={`matching-alt-card-${alt.rank}`}
+                        className="bg-white rounded-2xl border border-slate-200 p-5 flex flex-col h-full gap-3.5 shadow-xs"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-50 text-[#0037c1]">
+                            #{alt.rank}
+                          </span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-[#03864b] border border-emerald-200">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#03864b]" />
+                            Còn nhận
+                          </span>
+                        </div>
 
-              <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center gap-3 min-h-[3.5rem]">
+                          <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 ring-1 ring-slate-200 shrink-0">
+                            {alt.doctor.avatarUrl ? (
+                              <img
+                                src={alt.doctor.avatarUrl}
+                                alt={alt.doctor.doctorName}
+                                className="w-full h-full object-cover object-top"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-base font-bold text-slate-500">
+                                {alt.doctor.doctorName.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            {alt.doctor.academicTitle && (
+                              <p className="text-[11px] font-semibold text-[#0037c1] uppercase tracking-wide truncate">
+                                {alt.doctor.academicTitle}
+                              </p>
+                            )}
+                            <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-snug line-clamp-2">
+                              {alt.doctor.doctorName}
+                            </h4>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1 text-xs min-h-[3.75rem]">
+                          <p className="font-semibold text-[#0037c1] line-clamp-2 leading-snug">
+                            {alt.doctor.specialty} · {alt.doctor.experienceYears} năm KN
+                          </p>
+                          <p className="text-slate-500 truncate">
+                            {alt.facility.facilityName}
+                          </p>
+                        </div>
+
+                        <div className="flex-1 rounded-xl bg-slate-50 border border-slate-200/70 p-3 text-xs text-slate-600 leading-relaxed">
+                          <span className="font-semibold text-slate-800 block mb-1">
+                            Vì sao xếp sau:
+                          </span>
+                          {alt.shortReason ||
+                            (alt.rationale.startsWith('Độ phù hợp')
+                              ? `Bác sĩ ${alt.doctor.specialty} (${alt.doctor.experienceYears} năm kinh nghiệm) tại ${alt.facility.facilityName}, hiện vẫn còn lịch trống nhận gia đình.`
+                              : alt.rationale)}
+                        </div>
+
+                        <Link
+                          href={`/booking?packageId=${encodeURIComponent(matchedResult.package.id)}&doctorId=${encodeURIComponent(alt.doctor.id)}&facilityId=${encodeURIComponent(alt.facility.id)}&members=${matchedResult.memberCount}`}
+                          className="mt-auto w-full py-2.5 px-3 rounded-xl border border-[#0037c1] bg-blue-50 hover:bg-blue-100 text-[#0037c1] text-xs font-semibold text-center transition-colors"
+                        >
+                          Chọn bác sĩ này
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="text-center pt-2">
                 <Link
-                  href="/family/subscription"
-                  className="px-5 py-2.5 rounded-xl bg-[#0037c1] hover:bg-[#002c9a] text-white text-xs sm:text-sm font-semibold transition-colors"
+                  href="/doctors"
+                  className="text-xs sm:text-sm font-semibold text-[#0037c1] hover:underline"
                 >
-                  Theo dõi hàng chờ tại Cổng Gia đình
+                  Xem toàn bộ danh sách bác sĩ →
                 </Link>
+              </div>
+            </div>
+          ) : platformFullResult ? (
+            <div
+              data-testid="matching-platform-full-banner"
+              className="bg-white rounded-2xl border border-amber-200 p-8 sm:p-10 shadow-md text-center space-y-5"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center mx-auto">
+                <span className="material-symbols-outlined text-3xl">event_busy</span>
+              </div>
+              <div className="space-y-2 max-w-xl mx-auto">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-900">
+                  Hiện toàn bộ bác sĩ đều đã kín lịch nhận gia đình
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  {platformFullResult.message}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <a
+                  href={`tel:${platformFullResult.hotline.replace(/\s+/g, '')}`}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0037c1] hover:bg-[#002c9a] text-white text-xs sm:text-sm font-semibold transition-colors"
+                >
+                  <span className="material-symbols-outlined text-base">call</span>
+                  <span>Gọi Hotline: {platformFullResult.hotline}</span>
+                </a>
                 <Link
                   href="/doctors"
                   className="px-5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold transition-colors"
                 >
-                  Tự chọn bác sĩ còn slot (Track A)
+                  Xem danh sách bác sĩ
                 </Link>
+                <button
+                  type="button"
+                  onClick={() => setPlatformFullResult(null)}
+                  className="px-4 py-2.5 text-xs sm:text-sm font-semibold text-slate-600 hover:text-[#0037c1] cursor-pointer"
+                >
+                  ← Chỉnh lại nhu cầu
+                </button>
               </div>
             </div>
           ) : (
@@ -419,28 +704,44 @@ export function DoctorMatchingWizard() {
                 )}
               </div>
 
-              {/* Step 2: Doctor Clinical Tier */}
+              {/* Step 2: Doctor Academic Title */}
               <div className="space-y-3">
                 <h2 className="text-sm font-bold text-slate-900 uppercase">
-                  2. Trình độ bác sĩ mong muốn
+                  2. Học hàm / Học vị bác sĩ mong muốn
                 </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {TIER_OPTIONS.map((tier) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setRequestedAcademicTitle('ANY')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer sm:col-span-2 lg:col-span-3 ${
+                      requestedAcademicTitle === 'ANY'
+                        ? 'border-[#0037c1] bg-blue-50/60 ring-1 ring-[#0037c1]'
+                        : 'border-slate-200 hover:border-slate-300 bg-white'
+                    }`}
+                  >
+                    <div className="font-bold text-xs sm:text-sm text-slate-900">
+                      Hệ thống tự chọn phù hợp nhất
+                    </div>
+                    <div className="text-[11px] sm:text-xs text-slate-500 mt-0.5">
+                      Ưu tiên bác sĩ đúng chuyên khoa và còn lịch trống
+                    </div>
+                  </button>
+                  {academicTitleOptions.map((titleOpt) => (
                     <button
-                      key={tier.value}
+                      key={titleOpt.value}
                       type="button"
-                      onClick={() => setRequestedTier(tier.value)}
+                      onClick={() => setRequestedAcademicTitle(titleOpt.value)}
                       className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        requestedTier === tier.value
+                        requestedAcademicTitle === titleOpt.value
                           ? 'border-[#0037c1] bg-blue-50/60 ring-1 ring-[#0037c1]'
                           : 'border-slate-200 hover:border-slate-300 bg-white'
                       }`}
                     >
-                      <div className="font-bold text-xs text-slate-900">
-                        {tier.label}
+                      <div className="font-bold text-xs sm:text-sm text-slate-900">
+                        {titleOpt.label}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-0.5">
-                        {tier.desc}
+                        {titleOpt.desc}
                       </div>
                     </button>
                   ))}
@@ -455,10 +756,10 @@ export function DoctorMatchingWizard() {
 
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-700 block">
-                    Nhóm đối tượng trong gia đình
+                    Thành viên trong gia đình
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {AGE_GROUP_OPTIONS.map((item) => {
+                    {ageGroupOptions.map((item) => {
                       const active = ageGroups.includes(item);
                       return (
                         <button
@@ -481,10 +782,10 @@ export function DoctorMatchingWizard() {
 
                 <div className="space-y-2">
                   <label className="text-xs font-semibold text-slate-700 block">
-                    Nhóm bệnh lý / Nhu cầu ưu tiên
+                    Nhu cầu chăm sóc chính
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {CARE_CATEGORY_OPTIONS.map((item) => {
+                    {careCategoryOptions.map((item) => {
                       const active = careCategories.includes(item);
                       return (
                         <button
@@ -507,37 +808,72 @@ export function DoctorMatchingWizard() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label
-                    htmlFor="matching-district-input"
-                    className="text-xs font-semibold text-slate-700 block"
-                  >
-                    Quận / Huyện hoặc khu vực ưu tiên
-                  </label>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
-                    {DISTRICT_SUGGESTIONS.map((area) => (
-                      <button
-                        key={area}
-                        type="button"
-                        onClick={() => setDistrictArea(area)}
-                        className={`px-2.5 py-1 rounded-full text-[11px] font-medium border cursor-pointer ${
-                          districtArea === area
-                            ? 'bg-blue-50 border-[#0037c1] text-[#0037c1]'
-                            : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'
-                        }`}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="matching-city-select"
+                      className="text-xs font-semibold text-slate-700 block"
+                    >
+                      Tỉnh / Thành phố
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="matching-city-select"
+                        value={selectedCity}
+                        onChange={(e) => {
+                          setSelectedCity(e.target.value);
+                          setSelectedDistrict('');
+                        }}
+                        className="w-full h-11 pl-3.5 pr-10 appearance-none rounded-xl border border-slate-300 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#0037c1] cursor-pointer"
                       >
-                        {area}
-                      </button>
-                    ))}
+                        <option value="">Tất cả khu vực đang hoạt động</option>
+                        {areaOptions.map((area) => (
+                          <option key={area.city} value={area.city}>
+                            {area.city}
+                          </option>
+                        ))}
+                      </select>
+                      <span
+                        aria-hidden="true"
+                        className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xl"
+                      >
+                        keyboard_arrow_down
+                      </span>
+                    </div>
                   </div>
-                  <input
-                    id="matching-district-input"
-                    type="text"
-                    value={districtArea}
-                    onChange={(e) => setDistrictArea(e.target.value)}
-                    placeholder="VD: Quận 1, TP.HCM hoặc Đống Đa, Hà Nội"
-                    className="w-full h-11 px-3.5 rounded-xl border border-slate-300 text-sm text-slate-900 focus:outline-hidden focus:border-[#0037c1]"
-                  />
+
+                  <div className="space-y-1.5">
+                    <label
+                      htmlFor="matching-district-select"
+                      className="text-xs font-semibold text-slate-700 block"
+                    >
+                      Phường / Xã
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="matching-district-select"
+                        disabled={!selectedCity || availableDistricts.length === 0}
+                        value={selectedDistrict}
+                        onChange={(e) => setSelectedDistrict(e.target.value)}
+                        className="w-full h-11 pl-3.5 pr-10 appearance-none rounded-xl border border-slate-300 bg-white text-sm text-slate-900 focus:outline-hidden focus:border-[#0037c1] disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer disabled:cursor-not-allowed"
+                      >
+                        <option value="">
+                          {selectedCity ? 'Toàn tỉnh / thành phố' : 'Chọn Tỉnh / TP trước'}
+                        </option>
+                        {availableDistricts.map((dist) => (
+                          <option key={dist} value={dist}>
+                            {dist}
+                          </option>
+                        ))}
+                      </select>
+                      <span
+                        aria-hidden="true"
+                        className="material-symbols-outlined pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 text-xl"
+                      >
+                        keyboard_arrow_down
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -567,7 +903,7 @@ export function DoctorMatchingWizard() {
                   href="/doctors"
                   className="text-xs font-semibold text-slate-600 hover:text-[#0037c1]"
                 >
-                  ← Chuyển sang tự chọn bác sĩ (Track A)
+                  ← Chuyển sang tự chọn bác sĩ
                 </Link>
                 <Button
                   type="submit"

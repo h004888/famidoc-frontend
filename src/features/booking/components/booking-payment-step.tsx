@@ -229,6 +229,12 @@ async function resolvePaymentOrContractState(
     }
     try {
       const detail = await contractsApi.getMedicalContractDetail(contractId);
+      if (!addendumId && detail?.contractStatus === 'PAID_PENDING_APPROVAL') {
+        if (typeof window !== 'undefined') {
+          window.location.assign(`/booking/status?contractId=${encodeURIComponent(contractId)}`);
+        }
+        return { kind: 'active', payment: null };
+      }
       if (!addendumId && detail?.contractStatus === 'ACTIVE') {
         return { kind: 'active', payment: null };
       }
@@ -280,6 +286,8 @@ export function BookingPaymentStep({
   const [showPaymentIssueModal, setShowPaymentIssueModal] = useState(false);
   const [openPaymentIssue, setOpenPaymentIssue] = useState<OpenPaymentIssue | null>(null);
   const [firstEncounter, setFirstEncounter] = useState<EncounterItem | null>(null);
+  const [scheduledEncounters, setScheduledEncounters] = useState<EncounterItem[]>([]);
+  const [encountersLoaded, setEncountersLoaded] = useState(false);
   const isMountedRef = useRef(true);
   const bookingNavigation = useBookingNavigationOptional();
   const syncNavigation = bookingNavigation?.update;
@@ -301,12 +309,17 @@ export function BookingPaymentStep({
     if (!isActivated || !contractId || addendumId) return;
     let active = true;
     encountersApi
-      .getFamilyTimetable({ contractId, category: 'PERIODIC_ROUTINE', pageSize: 1 })
+      .getFamilyTimetable({ contractId, category: 'PERIODIC_ROUTINE', pageSize: 20 })
       .then((res) => {
         if (!active) return;
-        setFirstEncounter(res.data?.[0] ?? null);
+        const list = res.data ?? [];
+        setScheduledEncounters(list);
+        setFirstEncounter(list[0] ?? null);
+        setEncountersLoaded(true);
       })
-      .catch(() => {});
+      .catch(() => {
+        if (active) setEncountersLoaded(true);
+      });
     return () => {
       active = false;
     };
@@ -603,25 +616,59 @@ export function BookingPaymentStep({
         {firstEncounter && (
           <div
             data-testid="booking-payment-first-encounter"
-            className="mx-auto max-w-lg rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-left space-y-2"
+            className="mx-auto max-w-lg rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-left space-y-2.5"
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">
-                Lịch khám gia đình đầu tiên (Đã xếp lịch)
+                Lộ trình Khám tại nhà đã chốt sẵn ({scheduledEncounters.length} mốc)
               </span>
               <span className="rounded-full bg-white px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 border border-emerald-200">
                 Đã xác nhận
               </span>
             </div>
-            <p className="text-sm font-semibold text-slate-900">
-              {firstEncounter.scheduledDate?.slice(0, 10)} lúc{' '}
-              {firstEncounter.scheduledTime?.includes('T')
-                ? firstEncounter.scheduledTime.slice(11, 16)
-                : firstEncounter.scheduledTime?.slice(0, 5)}
-              {firstEncounter.doctor?.doctorName ? ` · ${firstEncounter.doctor.doctorName}` : ''}
+            <div className="space-y-1.5">
+              {scheduledEncounters.slice(0, 3).map((enc, idx) => {
+                const rawTime = enc.scheduledTime?.includes('T')
+                  ? enc.scheduledTime.slice(11, 16)
+                  : enc.scheduledTime?.slice(0, 5) || '08:00';
+                const hour = Number.parseInt(rawTime.split(':')[0] || '8', 10);
+                const slotLabel =
+                  hour < 12 ? 'Khung Sáng (08:00 - 11:30)' : 'Khung Chiều (13:30 - 17:30)';
+                const isManual =
+                  enc.encounterStatus === 'REQUESTED' &&
+                  (enc.cancelReason?.includes('MANUAL_SLOT_REQUIRED') ||
+                    String(enc.scheduleStage) === 'MANUAL_SLOT_REQUIRED');
+                return (
+                  <div
+                    key={enc.id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white/90 border border-emerald-100 px-3 py-2 text-xs"
+                  >
+                    <span className="font-semibold text-slate-900 tabular-nums">
+                      Mốc {idx + 1}: {enc.scheduledDate?.slice(0, 10).split('-').reverse().join('/')} ·{' '}
+                      {slotLabel}
+                    </span>
+                    <span
+                      className={`font-semibold ${
+                        isManual ? 'text-amber-700' : 'text-emerald-700'
+                      }`}
+                    >
+                      {isManual ? 'Chờ BS xếp tay' : 'Đã chốt'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-[11px] text-slate-600">
+              Tư vấn Video (Online): Không xếp tự động — gia đình chủ động đặt khi có nhu cầu.
             </p>
-            <p className="text-xs text-slate-600">
-              Hệ thống đã tự động xếp khung giờ rảnh gần nhất của bác sĩ cho gia đình bạn.
+          </div>
+        )}
+        {encountersLoaded && scheduledEncounters.length === 0 && (
+          <div className="mx-auto max-w-lg rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 text-left text-xs text-amber-900 space-y-1">
+            <div className="font-bold">Lưu ý khởi tạo lịch Khám tại nhà</div>
+            <p>
+              Nếu gói có lượt Khám tại nhà nhưng chưa hiển thị lịch, vui lòng kiểm tra địa chỉ nhà
+              hoặc bổ sung hồ sơ thành viên gia đình. Quỹ Tư vấn Video sẽ được đặt theo nhu cầu.
             </p>
           </div>
         )}

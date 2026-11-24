@@ -50,6 +50,7 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
     pathRole || hostPortalRole || initialRole || (isAuthenticated ? role : mounted ? role : 'FAMILY');
   const menuConfig = ROLE_MENUS[effectiveRole] || ROLE_MENUS.FAMILY;
   const isFamilyAccount = effectiveRole === 'FAMILY' || effectiveRole === 'PATIENT';
+  const isDoctorAccount = effectiveRole === 'DOCTOR';
   /**
    * Khi tài khoản gia đình chưa kích hoạt gói và đang ở khung dashboard, breadcrumb
    * gốc của vai trò trỏ về `/onboarding`. Nếu đang chờ ký/thanh toán thì trỏ
@@ -132,7 +133,7 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
             <Separator orientation="vertical" className="h-4" />
             <Breadcrumb suppressHydrationWarning>
               <BreadcrumbList className="text-xs" suppressHydrationWarning>
-                {!isFamilyAccount && (
+                {!isFamilyAccount && !isDoctorAccount && (
                   <>
                     <BreadcrumbItem suppressHydrationWarning>
                       <BreadcrumbLink asChild suppressHydrationWarning>
@@ -144,14 +145,18 @@ export function SiteHeader({ initialRole }: SiteHeaderProps = {}) {
                     <BreadcrumbSeparator />
                   </>
                 )}
-                <BreadcrumbItem suppressHydrationWarning>
-                  <BreadcrumbLink asChild suppressHydrationWarning>
-                    <Link href={roleHomePath} className="font-medium text-slate-500 hover:text-primary" suppressHydrationWarning>
-                      {menuConfig.roleLabel}
-                    </Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
+                {!isDoctorAccount && (
+                  <>
+                    <BreadcrumbItem suppressHydrationWarning>
+                      <BreadcrumbLink asChild suppressHydrationWarning>
+                        <Link href={roleHomePath} className="font-medium text-slate-500 hover:text-primary" suppressHydrationWarning>
+                          {menuConfig.roleLabel}
+                        </Link>
+                      </BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator />
+                  </>
+                )}
                 {memberId ? (
                   <>
                     <BreadcrumbItem suppressHydrationWarning>

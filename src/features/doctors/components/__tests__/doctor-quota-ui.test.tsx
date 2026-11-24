@@ -146,12 +146,10 @@ describe('Track A Quota Slots & Junior Alternatives UI (Task 5.2)', () => {
     render(<DoctorDirectoryView packageId="pkg-1" initialMembers={4} />);
 
     await waitFor(() => {
-      expect(screen.getByTestId('doctor-quota-badge-doc-open-1')).toHaveTextContent(
-        'Còn 7/30 slot'
-      );
-      expect(screen.getByTestId('doctor-quota-badge-doc-full-1')).toHaveTextContent(
-        'Đã kín lịch (0 slot)'
-      );
+      expect(screen.getByText('BS. Còn Slot')).toBeInTheDocument();
+      expect(screen.getByText('BS. Kín Slot')).toBeInTheDocument();
+      expect(screen.queryByTestId('doctor-quota-badge-doc-open-1')).toBeNull();
+      expect(screen.queryByTestId('doctor-quota-badge-doc-full-1')).toBeNull();
     });
   });
 
@@ -165,7 +163,7 @@ describe('Track A Quota Slots & Junior Alternatives UI (Task 5.2)', () => {
     );
 
     expect(screen.getByTestId('doctor-detail-slot-badge')).toHaveTextContent(
-      'Còn 8/30 slot hộ gia đình'
+      'Còn nhận gia đình'
     );
     const ctaLink = screen.getByRole('link', { name: /Đăng ký dịch vụ với bác sĩ/i });
     expect(ctaLink).toHaveAttribute(

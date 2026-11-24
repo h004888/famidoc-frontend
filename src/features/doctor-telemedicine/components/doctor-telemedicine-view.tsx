@@ -21,6 +21,8 @@ export function DoctorTelemedicineView() {
   const [encounter, setEncounter] = useState<EncounterItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasJoined, setHasJoined] = useState(false);
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,12 +65,17 @@ export function DoctorTelemedicineView() {
 
   const roomState = useLivekitTelehealthRoom({
     encounterId: activeEncounterId,
-    enabled: Boolean(activeEncounterId && isJoinable),
+    enabled: Boolean(activeEncounterId && isJoinable && hasJoined),
   });
 
   const handleEndCall = async () => {
+    setEndConfirmOpen(true);
+  };
+
+  const handleConfirmDefinitiveEnd = async () => {
+    setEndConfirmOpen(false);
     await roomState.endCall().catch(() => null);
-    router.push('/doctor/encounters');
+    router.push(`/doctor/encounters/${encounter?.id ?? ''}/wrap-up`);
   };
 
   if (loading) {
@@ -116,13 +123,56 @@ export function DoctorTelemedicineView() {
           </Button>
         </div>
 
-        <TelehealthVideoStage
-          roomState={roomState}
-          remoteLabel={patientName}
-          allowScreenShare
-          endCallLabel="Kết Thúc Ca Khám"
-          onEndCall={() => void handleEndCall()}
-        />
+        {!hasJoined ? (
+          <Card className="p-6 space-y-4">
+            <div className="space-y-1">
+              <h2 className="text-base font-bold">Phòng chờ Bác sĩ (Pre-Join)</h2>
+              <p className="text-xs text-muted-foreground">
+                Bệnh nhân: {patientName} · Kiểm tra Micro &amp; Camera trước khi bắt đầu buổi tư vấn.
+              </p>
+            </div>
+            <Button type="button" onClick={() => setHasJoined(true)}>
+              Tham gia phòng ngay
+            </Button>
+          </Card>
+        ) : (
+          <TelehealthVideoStage
+            roomState={roomState}
+            remoteLabel={patientName}
+            allowScreenShare
+            endCallLabel="Kết Thúc Ca Khám"
+            onEndCall={() => void handleEndCall()}
+          />
+        )}
+
+        {endConfirmOpen && (
+          <Card className="p-4 border-rose-200 bg-rose-50/70 space-y-3">
+            <p className="text-xs font-bold text-slate-900">
+              Bạn muốn xử lý phiên Video này như thế nào?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setEndConfirmOpen(false);
+                  setHasJoined(false);
+                }}
+              >
+                Tạm rời phòng (Giữ phòng mở)
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={() => void handleConfirmDefinitiveEnd()}
+              >
+                Kết thúc hẳn &amp; Ghi hồ sơ
+              </Button>
+            </div>
+          </Card>
+        )}
       </div>
 
       <div className="h-[620px] lg:col-span-4">

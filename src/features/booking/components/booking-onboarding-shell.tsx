@@ -20,21 +20,27 @@ export interface BookingStepDefinition {
 export const BOOKING_STEPS: BookingStepDefinition[] = [
   {
     index: 1,
-    label: 'Xác nhận gói',
-    shortLabel: 'Xác nhận gói',
+    label: 'Xác nhận',
+    shortLabel: 'Xác nhận',
     href: '/booking',
   },
   {
     index: 2,
-    label: 'Ký hợp đồng 4 bên',
-    shortLabel: 'Ký hợp đồng 4 bên',
-    href: '/booking/tracking',
+    label: 'Ký hợp đồng',
+    shortLabel: 'Ký hợp đồng',
+    href: '/booking/sign',
   },
   {
     index: 3,
-    label: 'Thanh toán VietQR',
-    shortLabel: 'Thanh toán VietQR',
+    label: 'Thanh toán',
+    shortLabel: 'Thanh toán',
     href: '/booking/payment',
+  },
+  {
+    index: 4,
+    label: 'Kích hoạt',
+    shortLabel: 'Kích hoạt',
+    href: '/booking/status',
   },
 ];
 
@@ -43,10 +49,18 @@ export const BOOKING_STEPS: BookingStepDefinition[] = [
  */
 export function resolveBookingStepIndex(pathname: string | null | undefined): number {
   const normalized = (pathname ?? '').split('?')[0].replace(/\/+$/, '') || '/booking';
+  if (normalized === '/booking/status' || normalized.startsWith('/booking/status/')) {
+    return 3;
+  }
   if (normalized === '/booking/payment' || normalized.startsWith('/booking/payment/')) {
     return 2;
   }
-  if (normalized === '/booking/tracking' || normalized.startsWith('/booking/tracking/')) {
+  if (
+    normalized === '/booking/sign' ||
+    normalized.startsWith('/booking/sign/') ||
+    normalized === '/booking/tracking' ||
+    normalized.startsWith('/booking/tracking/')
+  ) {
     return 1;
   }
   return 0;
@@ -92,6 +106,11 @@ function BookingOnboardingFrame({ children }: { children: React.ReactNode }) {
         ? null
         : { href: stepOneHref, label: 'Quay lại bước xác nhận gói' };
     }
+    if (currentStepIndex === 3) {
+      return isContractActive
+        ? null
+        : { href: stepTwoHref, label: 'Quay lại theo dõi ký hợp đồng' };
+    }
     return { href: stepTwoHref, label: 'Quay lại theo dõi ký hợp đồng' };
   })();
 
@@ -136,18 +155,18 @@ function BookingOnboardingFrame({ children }: { children: React.ReactNode }) {
               </button>
             )}
 
-            {/* Bản gọn cho màn hình nhỏ: chỉ báo Bước N/3 kèm tên bước hiện tại */}
+            {/* Bản gọn cho màn hình nhỏ: chỉ báo Bước N/4 kèm tên bước hiện tại */}
             <span
               data-testid="booking-step-compact"
               aria-live="polite"
               className="text-xs font-semibold text-slate-700 md:hidden"
             >
-              Bước {currentStep.index}/3: {currentStep.shortLabel}
+              Bước {currentStep.index}/{BOOKING_STEPS.length}: {currentStep.shortLabel}
             </span>
           </div>
 
           <nav aria-label="Tiến trình đặt gói" className="hidden md:block">
-            <ol className="grid grid-cols-3 gap-2">
+            <ol className="grid grid-cols-4 gap-2">
               {BOOKING_STEPS.map((step, index) => {
                 const isCurrent = index === currentStepIndex;
                 const isDone = index < currentStepIndex;

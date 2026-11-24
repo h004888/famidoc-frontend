@@ -56,7 +56,7 @@ describe('CTA đăng ký trên /doctors dẫn vào hồ sơ bác sĩ thay vì /f
       expect(screen.getByText('BS. Lê Thị Bích')).toBeInTheDocument();
     });
 
-    const registerLink = screen.getByRole('link', { name: /Đăng ký Bác sĩ/i });
+    const registerLink = screen.getByRole('link', { name: /Xem hồ sơ & Đặt gói/i });
     expect(registerLink).toHaveAttribute('href', '/doctors/doc-real-1');
 
     const allHrefs = screen.getAllByRole('link').map((el) => el.getAttribute('href') ?? '');
@@ -73,7 +73,7 @@ describe('CTA đăng ký trên /doctors dẫn vào hồ sơ bác sĩ thay vì /f
     const banner = screen.getByTestId('selected-package-banner');
     expect(banner).toHaveTextContent('FAMILY');
     expect(
-      screen.getByRole('link', { name: /Đăng ký Bác sĩ/i })
+      screen.getByRole('link', { name: /Xem hồ sơ & Đặt gói/i })
     ).toHaveAttribute('href', '/doctors/doc-real-1?packageId=FAMILY');
     expect(screen.getByRole('link', { name: 'BS. Lê Thị Bích' })).toHaveAttribute(
       'href',

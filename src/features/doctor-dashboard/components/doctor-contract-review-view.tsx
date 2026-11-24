@@ -1,53 +1,109 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import {
+  CheckCircle2,
+  Clock,
+  Download,
+  ExternalLink,
+  FileText,
+  Lock,
+  RefreshCw,
+} from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
+  type DigitalSignature,
   type FourPartyContract,
-  CONTRACT_STATUS_LABELS,
-  ContractDocumentSheet,
   DocumensoSigningEmbed,
 } from '@/features/four-party-contract';
 import { contractsApi } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 export interface DoctorContractReviewViewProps {
   contract?: FourPartyContract;
   contractId?: string;
   onSignSuccess?: (updatedContract: FourPartyContract) => void;
+  /** Chu kỳ tự cập nhật khi chờ đủ 4/4 chữ ký (ms). Mặc định 10000ms. */
+  pollingIntervalMs?: number;
+}
+
+const TOTAL_PARTIES = 4;
+
+function formatSignedDateTime(value?: string): string | null {
+  if (!value) return null;
+  const ts = Date.parse(value);
+  if (Number.isNaN(ts)) return null;
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(ts));
+}
+
+function countSignedParties(contract: FourPartyContract): number {
+  const sigs = contract.signatures;
+  if (!sigs) return 0;
+  return [sigs.family, sigs.facility, sigs.doctor, sigs.platform].filter(Boolean)
+    .length;
 }
 
 export function DoctorContractReviewView({
   contract,
   contractId,
   onSignSuccess,
+  pollingIntervalMs = 10_000,
 }: DoctorContractReviewViewProps) {
   const [currentContract, setCurrentContract] = useState<FourPartyContract | null>(
     contract ?? null
   );
-  const [isLoading, setIsLoading] = useState<boolean>(Boolean(contractId) && !contract);
+  const [isLoading, setIsLoading] = useState<boolean>(
+    Boolean(contractId) && !contract
+  );
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'summary' | 'full'>('summary');
-  const [successBanner, setSuccessBanner] = useState<string | null>(null);
-  const [reloadTick, setReloadTick] = useState(0);
+  const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [isLoadingPdf, setIsLoadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfReloadTick, setPdfReloadTick] = useState(0);
 
-  const triggerReload = () => {
-    if (!contractId) return;
-    setIsLoading(true);
-    setLoadError(null);
-    setReloadTick((t) => t + 1);
-  };
+  const loadContractDetail = useCallback(
+    async (options?: { showSpinner?: boolean }) => {
+      if (!contractId) return;
+      if (options?.showSpinner) {
+        setIsRefreshing(true);
+      }
+      try {
+        const data = await contractsApi.getMedicalContractById(contractId);
+        setCurrentContract(data);
+        setLoadError(null);
+      } catch (err) {
+        if (!currentContract) {
+          setLoadError(
+            err instanceof Error
+              ? err.message
+              : 'Không thể tải chi tiết hợp đồng y tế 4 bên.'
+          );
+        }
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    [contractId, currentContract]
+  );
 
   useEffect(() => {
-    if (!contractId) return;
-    const targetContractId = contractId;
+    if (!contractId || contract) return;
     let active = true;
-    async function loadContract() {
+    async function initLoad() {
       try {
-        const data = await contractsApi.getMedicalContractById(targetContractId);
+        const data = await contractsApi.getMedicalContractById(contractId!);
         if (!active) return;
         setCurrentContract(data);
         setLoadError(null);
@@ -59,21 +115,139 @@ export function DoctorContractReviewView({
             : 'Không thể tải chi tiết hợp đồng y tế 4 bên.'
         );
       } finally {
-        if (active) {
-          setIsLoading(false);
-        }
+        if (active) setIsLoading(false);
       }
     }
-    void loadContract();
+    void initLoad();
     return () => {
       active = false;
     };
-  }, [contractId, reloadTick]);
+  }, [contract, contractId]);
+
+  const signedCount = currentContract ? countSignedParties(currentContract) : 0;
+  const hasDoctorSigned = Boolean(
+    currentContract?.signatures?.doctor ||
+      currentContract?.status === 'DOCTOR_ACCEPTED' ||
+      currentContract?.status === 'ACTIVE'
+  );
+  const isAllFourSigned = Boolean(
+    currentContract &&
+      (signedCount >= TOTAL_PARTIES || currentContract.status === 'ACTIVE')
+  );
+  const isWaitingOthersAfterDoctorSigned =
+    Boolean(currentContract) && hasDoctorSigned && !isAllFourSigned;
+
+  // Tự động kiểm tra tiến độ mỗi 10s khi bác sĩ đã ký và đang chờ các bên còn lại.
+  useEffect(() => {
+    if (
+      !contractId ||
+      !isWaitingOthersAfterDoctorSigned ||
+      pollingIntervalMs <= 0
+    ) {
+      return;
+    }
+    const timer = setInterval(() => {
+      if (
+        typeof document !== 'undefined' &&
+        document.visibilityState === 'hidden'
+      ) {
+        return;
+      }
+      void loadContractDetail();
+    }, pollingIntervalMs);
+    return () => clearInterval(timer);
+  }, [
+    contractId,
+    isWaitingOthersAfterDoctorSigned,
+    loadContractDetail,
+    pollingIntervalMs,
+  ]);
+
+  // Tải trực tiếp PDF đầy đủ chữ ký để preview ngay trên trang khi đủ 4/4 bên.
+  const targetId = currentContract?.id;
+  useEffect(() => {
+    if (!targetId || !isAllFourSigned) {
+      setPdfBlobUrl(null);
+      setPdfError(null);
+      return;
+    }
+    let active = true;
+    let createdUrl: string | null = null;
+    setIsLoadingPdf(true);
+    setPdfError(null);
+
+    contractsApi
+      .downloadSignedPdf(targetId)
+      .then((blob) => {
+        if (!active) return;
+        createdUrl = URL.createObjectURL(blob);
+        setPdfBlobUrl(createdUrl);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setPdfError(
+          err instanceof Error
+            ? err.message
+            : 'Không thể tải bản PDF hợp đồng đã ký.'
+        );
+      })
+      .finally(() => {
+        if (active) setIsLoadingPdf(false);
+      });
+
+    return () => {
+      active = false;
+      if (createdUrl) {
+        URL.revokeObjectURL(createdUrl);
+      }
+    };
+  }, [isAllFourSigned, pdfReloadTick, targetId]);
+
+  const parties = useMemo(() => {
+    if (!currentContract) return [];
+    const sigs = currentContract.signatures;
+    return [
+      {
+        key: 'family',
+        label: 'Gia đình',
+        name: currentContract.familyRepresentativeName || 'Đại diện Hộ gia đình',
+        signature: sigs?.family,
+      },
+      {
+        key: 'doctor',
+        label: 'Bác sĩ phụ trách (Bạn)',
+        name: currentContract.doctorName || 'Bác sĩ Gia đình phụ trách',
+        signature: sigs?.doctor,
+      },
+      {
+        key: 'facility',
+        label: 'Cơ sở y tế điều phối',
+        name: currentContract.facilityName || 'Cơ sở y tế đối tác',
+        signature: sigs?.facility,
+      },
+      {
+        key: 'platform',
+        label: 'Nền tảng FamiDoc',
+        name: 'Hệ thống FamiDoc',
+        signature: sigs?.platform,
+      },
+    ];
+  }, [currentContract]);
+
+  const handleDownloadPdfFile = () => {
+    if (!pdfBlobUrl || !currentContract) return;
+    const link = document.createElement('a');
+    link.href = pdfBlobUrl;
+    link.download = `hop-dong-${currentContract.contractNumber}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50/50 p-6 flex items-center justify-center text-xs text-slate-500">
-        Đang tải thông tin hợp đồng và phiên ký Documenso...
+      <div className="flex min-h-screen items-center justify-center bg-slate-50/50 p-6 text-xs text-slate-500">
+        Đang tải hợp đồng và phiên ký Documenso...
       </div>
     );
   }
@@ -84,7 +258,7 @@ export function DoctorContractReviewView({
         <Alert
           role="alert"
           variant="destructive"
-          className="max-w-3xl mx-auto rounded-xl border-rose-200 bg-rose-50 p-6 space-y-3"
+          className="mx-auto max-w-3xl space-y-3 rounded-xl border-rose-200 bg-rose-50 p-6"
         >
           <AlertTitle className="text-sm font-bold text-rose-900">
             Không thể tải hợp đồng y tế
@@ -98,13 +272,18 @@ export function DoctorContractReviewView({
                 type="button"
                 variant="destructive"
                 size="sm"
-                onClick={triggerReload}
+                onClick={() => void loadContractDetail({ showSpinner: true })}
                 className="rounded-lg text-xs font-semibold"
               >
                 Thử lại
               </Button>
             )}
-            <Button asChild variant="outline" size="sm" className="rounded-lg text-xs font-semibold">
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="rounded-lg text-xs font-semibold"
+            >
               <Link href="/doctor/contracts">Quay lại danh sách hợp đồng</Link>
             </Button>
           </div>
@@ -113,302 +292,319 @@ export function DoctorContractReviewView({
     );
   }
 
-  const isAccepted =
-    Boolean(currentContract.signatures?.doctor) ||
-    currentContract.status === 'DOCTOR_ACCEPTED' ||
-    currentContract.status === 'PENDING_PAYMENT' ||
-    currentContract.status === 'ACTIVE';
-
-  const membersList = currentContract.members ?? [];
+  const progressPercent = Math.min(
+    100,
+    Math.round((signedCount / TOTAL_PARTIES) * 100)
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50/50 p-4 sm:p-6 lg:p-8 font-sans text-slate-800">
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Navigation Breadcrumb & Back Link */}
-        <div className="flex items-center justify-between">
+    <div className="min-h-screen bg-slate-50/50 p-4 font-sans text-slate-800 sm:p-6">
+      <div className="mx-auto max-w-5xl space-y-4">
+        {/* Top bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Link
             href="/doctor/contracts"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-800 transition-colors"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-slate-800"
           >
             <span className="material-symbols-outlined text-[16px]">arrow_back</span>
             Quay lại Danh sách Hợp đồng
           </Link>
-          <div className="text-xs text-slate-500">
-            Mã định danh hồ sơ:{' '}
-            <span className="tabular-nums font-medium text-slate-700">
-              {currentContract.id}
-            </span>
-          </div>
+
+          {isWaitingOthersAfterDoctorSigned && contractId && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isRefreshing}
+              onClick={() => void loadContractDetail({ showSpinner: true })}
+              className="h-8 rounded-lg bg-white text-xs font-semibold"
+            >
+              <RefreshCw
+                className={cn('mr-1.5 size-3.5', isRefreshing && 'animate-spin')}
+              />
+              {isRefreshing ? 'Đang cập nhật...' : 'Cập nhật tiến độ'}
+            </Button>
+          )}
+
+          {isAllFourSigned && (
+            <Badge
+              variant="outline"
+              className="rounded-full border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800"
+            >
+              Đã đủ 4/4 chữ ký ·{' '}
+              {currentContract.status === 'ACTIVE'
+                ? 'Đang hiệu lực'
+                : 'Chờ gia đình thanh toán'}
+            </Badge>
+          )}
         </div>
 
-        {/* Success Banner */}
-        {successBanner && (
-          <div className="p-4 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-start gap-3">
-            <span className="material-symbols-outlined text-emerald-600 shrink-0 text-[20px] mt-0.5">
-              check_circle
-            </span>
-            <div className="space-y-1">
-              <p className="text-sm font-semibold">{successBanner}</p>
-              <p className="text-xs text-emerald-700">
-                Trạng thái hợp đồng đã được đồng bộ từ Documenso. Khi đủ 4/4 chữ ký, hộ gia đình sẽ thanh toán VietQR để kích hoạt gói.
-              </p>
-            </div>
+        {/* Trạng thái 1: Chưa ký -> Khung đọc & ký Documenso */}
+        {!hasDoctorSigned && (
+          <div data-testid="doctor-Documenso-signing-section">
+            <DocumensoSigningEmbed
+              contractId={currentContract.id}
+              onSyncCompleted={(res) => {
+                const updatedSignatures: FourPartyContract['signatures'] = {
+                  ...currentContract.signatures,
+                };
+                const nowIso = new Date().toISOString();
+                const makeSig = (
+                  signerRole: DigitalSignature['signerRole'],
+                  signedBy: string
+                ): DigitalSignature => ({
+                  signedBy,
+                  signerRole,
+                  signedAt: nowIso,
+                  sha256Hash: 'Documenso-verified-signature',
+                });
+
+                if (res.signedRoles.includes('FAMILY_REP') && !updatedSignatures.family) {
+                  updatedSignatures.family = makeSig(
+                    'FAMILY',
+                    currentContract.familyRepresentativeName || 'Đại diện Hộ gia đình'
+                  );
+                }
+                if (
+                  res.signedRoles.includes('HEALTHCARE_FACILITY') &&
+                  !updatedSignatures.facility
+                ) {
+                  updatedSignatures.facility = makeSig(
+                    'FACILITY',
+                    currentContract.facilityName || 'Cơ sở y tế'
+                  );
+                }
+                if (
+                  res.signedRoles.includes('ASSIGNED_DOCTOR') &&
+                  !updatedSignatures.doctor
+                ) {
+                  updatedSignatures.doctor = makeSig(
+                    'DOCTOR',
+                    currentContract.doctorName || 'Bác sĩ Gia đình phụ trách'
+                  );
+                }
+                if (res.signedRoles.includes('ADMIN') && !updatedSignatures.platform) {
+                  updatedSignatures.platform = makeSig('PLATFORM', 'Nền tảng FamiDoc');
+                }
+
+                const updated: FourPartyContract = {
+                  ...currentContract,
+                  status:
+                    res.contractStatus === 'PENDING_PAYMENT'
+                      ? 'PENDING_PAYMENT'
+                      : res.contractStatus === 'ACTIVE'
+                      ? 'ACTIVE'
+                      : 'DOCTOR_ACCEPTED',
+                  signatures: updatedSignatures,
+                };
+                setCurrentContract(updated);
+                onSignSuccess?.(updated);
+                if (contractId) {
+                  void loadContractDetail();
+                }
+              }}
+            />
           </div>
         )}
 
-        {/* Header Hero Card */}
-        <Card className="bg-white rounded-xl border-slate-200/90 p-5 sm:p-6 shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline" className="px-2.5 py-0.5 rounded text-xs font-semibold bg-primary/10 text-primary border-primary/20">
-                  Hợp đồng 4 Bên
-                </Badge>
-                <Badge variant="secondary" className="text-xs font-medium px-2.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 tabular-nums">
-                  {currentContract.contractNumber}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className={`text-xs font-medium px-2.5 py-0.5 rounded ${
-                    isAccepted
-                      ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                      : 'bg-amber-50 text-amber-800 border-amber-200'
-                  }`}
+        {/* Trạng thái 2A: Bác sĩ đã ký xong, đang chờ các bên còn lại (2/4 hoặc 3/4) */}
+        {isWaitingOthersAfterDoctorSigned && (
+          <div
+            data-testid="doctor-post-signing-tracking"
+            className="space-y-4"
+          >
+            <div className="flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-emerald-900">
+              <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+              <div className="space-y-1">
+                <p className="text-sm font-bold">
+                  Bác sĩ phụ trách đã hoàn tất ký số
+                </p>
+                <p className="text-xs text-emerald-800">
+                  Hợp đồng{' '}
+                  <span className="font-semibold">{currentContract.contractNumber}</span>{' '}
+                  đã ghi nhận chữ ký của bạn. Hệ thống sẽ tự động cập nhật khi các bên còn lại hoàn tất.
+                </p>
+              </div>
+            </div>
+
+            <Card className="gap-0 space-y-4 rounded-2xl border-slate-200 bg-white p-5 shadow-xs sm:p-6">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="text-sm font-bold text-slate-900">
+                    Tiến độ ký hợp đồng 4 bên
+                  </h2>
+                  <span
+                    data-testid="doctor-signing-progress-count"
+                    className="text-xs font-semibold tabular-nums text-slate-700"
+                  >
+                    {signedCount} / {TOTAL_PARTIES} bên ({progressPercent}%)
+                  </span>
+                </div>
+                <div
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={TOTAL_PARTIES}
+                  aria-valuenow={signedCount}
+                  className="h-2 w-full overflow-hidden rounded-full bg-slate-100"
                 >
-                  {CONTRACT_STATUS_LABELS[currentContract.status]}
-                </Badge>
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                {currentContract.packageName}
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500">
-                Cơ sở y tế điều phối (Bên B):{' '}
-                <span className="font-medium text-slate-700">
-                  {currentContract.facilityName || 'Đang cập nhật'}
-                </span>
-                {' • '}
-                Bác sĩ phụ trách (Bên C):{' '}
-                <span className="font-medium text-slate-700">
-                  {currentContract.doctorName || 'Bác sĩ Gia đình phụ trách'}
-                </span>
-              </p>
-            </div>
-
-            <div className="shrink-0">
-              {isAccepted ? (
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium">
-                  <span className="w-2 h-2 rounded-full bg-emerald-600" />
-                  Bác sĩ đã chấp thuận chuyên môn
-                </div>
-              ) : (
-                <Badge variant="outline" className="gap-2 px-4 py-2 rounded-lg bg-primary/10 border-primary/20 text-primary text-xs font-semibold">
-                  Ký trực tiếp trên Documenso bên dưới
-                </Badge>
-              )}
-            </div>
-          </div>
-
-          {/* View Mode Navigation Tabs */}
-          <div className="flex border-b border-slate-200 mt-6 -mb-1 gap-6">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'summary'}
-              onClick={() => setActiveTab('summary')}
-              className={`pb-3 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-                activeTab === 'summary'
-                  ? 'border-primary text-primary font-semibold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">medical_information</span>
-              Tóm tắt Nhu cầu &amp; Ký Documenso (Bên C)
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'full'}
-              onClick={() => setActiveTab('full')}
-              className={`pb-3 text-xs sm:text-sm font-medium border-b-2 transition-colors flex items-center gap-2 cursor-pointer ${
-                activeTab === 'full'
-                  ? 'border-primary text-primary font-semibold'
-                  : 'border-transparent text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">description</span>
-              Toàn văn Hợp đồng &amp; 4 Chữ ký
-            </button>
-          </div>
-        </Card>
-
-        {/* Tab 1: Care Needs Summary + Documenso Signing Embed */}
-        {activeTab === 'summary' && (
-          <div className="space-y-6">
-            {/* Family Demographics & Overview */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-xs">
-              <div className="border-b border-slate-100 pb-3 mb-4">
-                <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider">
-                  Thông tin Nhân khẩu học Hộ Gia đình
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Dữ liệu định danh và số suất thành viên đăng ký theo gói chăm sóc
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
-                <div className="p-3 rounded-lg bg-slate-50/70 border border-slate-200/80">
-                  <span className="text-slate-500 block mb-1">Đại diện hộ gia đình</span>
-                  <span className="font-semibold text-slate-900 text-sm block">
-                    {currentContract.familyRepresentativeName}
-                  </span>
-                </div>
-                <div className="p-3 rounded-lg bg-slate-50/70 border border-slate-200/80">
-                  <span className="text-slate-500 block mb-1">Số điện thoại liên hệ</span>
-                  <span className="font-semibold text-slate-900 text-sm block tabular-nums">
-                    {currentContract.familyRepresentativePhone}
-                  </span>
-                </div>
-                <div className="p-3 rounded-lg bg-slate-50/70 border border-slate-200/80">
-                  <span className="text-slate-500 block mb-1">Quy mô gia đình</span>
-                  <span className="font-semibold text-slate-900 text-sm block tabular-nums">
-                    {currentContract.membersCount ?? membersList.length ?? 1} thành viên
-                  </span>
-                </div>
-                <div className="p-3 rounded-lg bg-slate-50/70 border border-slate-200/80">
-                  <span className="text-slate-500 block mb-1">Thời hạn hợp đồng</span>
-                  <span className="font-semibold text-slate-900 text-sm block tabular-nums">
-                    {currentContract.durationMonths || 12} tháng
-                  </span>
+                  <div
+                    className="h-full rounded-full bg-emerald-500 transition-all duration-300"
+                    style={{ width: `${progressPercent}%` }}
+                  />
                 </div>
               </div>
 
-              <div className="mt-3 p-3 rounded-lg bg-slate-50/70 border border-slate-200/80 text-xs">
-                <span className="text-slate-500 block mb-0.5">Địa chỉ lưu trú đăng ký khám tại nhà (Home Visit)</span>
-                <span className="font-medium text-slate-800">
-                  {currentContract.familyAddress || 'Chưa cập nhật'}
-                </span>
-              </div>
-            </div>
-
-            {/* Members Clinical Roster & Care Needs */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-xs">
-              <div className="border-b border-slate-100 pb-3 mb-4">
-                <h2 className="text-sm font-semibold text-slate-900 uppercase tracking-wider">
-                  Hồ sơ Sức khỏe Thành viên &amp; Phân tầng Nguy cơ
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Hồ sơ bệnh lý chi tiết sẽ hiển thị ngay khi Hộ gia đình kê khai sau bước kích hoạt gói
-                </p>
-              </div>
-
-              {membersList.length === 0 ? (
-                <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs text-slate-600">
-                  Hộ gia đình đã đăng ký gói cho{' '}
-                  <strong className="text-slate-900 tabular-nums">
-                    {currentContract.membersCount ?? 1} thành viên
-                  </strong>
-                  . Danh sách hồ sơ sức khỏe từng thành viên sẽ được gia đình bổ sung ngay sau khi hợp đồng được kích hoạt.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                  {membersList.map((member) => {
-                    const isElderly = member.age >= 60;
-                    const isPediatric = member.age <= 12;
-                    return (
-                      <div
-                        key={member.id}
-                        className="p-4 rounded-lg border border-slate-200 bg-slate-50/40 space-y-2"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold text-slate-900 text-sm">
-                            {member.name}
-                          </span>
-                          <span className="text-xs text-slate-600 tabular-nums">
-                            {member.age} tuổi
-                          </span>
-                        </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[11px]">
-                            {member.relation}
-                          </span>
-                          {isElderly && (
-                            <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[11px]">
-                              Cao tuổi
-                            </span>
-                          )}
-                          {isPediatric && (
-                            <span className="px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200 text-[11px]">
-                              Trẻ nhỏ
-                            </span>
-                          )}
-                        </div>
-                        {member.chronic && (
-                          <p className="text-slate-700">
-                            <span className="text-slate-500">Bệnh mạn tính:</span> {member.chronic}
-                          </p>
+              <ul className="space-y-2.5">
+                {parties.map((party) => {
+                  const isSigned = Boolean(party.signature);
+                  const signedAt = formatSignedDateTime(party.signature?.signedAt);
+                  return (
+                    <li
+                      key={party.key}
+                      data-testid={`doctor-party-status-${party.key}`}
+                      className={cn(
+                        'flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3.5',
+                        isSigned
+                          ? 'border-emerald-200 bg-emerald-50/50'
+                          : 'border-slate-200 bg-white'
+                      )}
+                    >
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        {isSigned ? (
+                          <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                        ) : (
+                          <Clock className="size-4 shrink-0 text-amber-500" />
                         )}
-                        {member.allergies && (
-                          <p className="text-slate-700">
-                            <span className="text-slate-500">Dị ứng:</span> {member.allergies}
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-900 sm:text-sm">
+                            {party.label}
+                          </p>
+                          <p className="truncate text-xs text-slate-500">
+                            {party.name}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            'rounded-full px-2.5 py-0.5 text-[11px] font-semibold',
+                            isSigned
+                              ? 'border-emerald-200 bg-emerald-100 text-emerald-800'
+                              : 'border-amber-200 bg-amber-50 text-amber-800'
+                          )}
+                        >
+                          {isSigned ? 'Đã ký' : 'Đang chờ ký'}
+                        </Badge>
+                        {isSigned && signedAt && (
+                          <p className="mt-1 text-[11px] tabular-nums text-emerald-800">
+                            {signedAt}
                           </p>
                         )}
                       </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* Clinical Commitment */}
-            <div className="bg-white rounded-xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-3 text-xs text-slate-700">
-              <h2 className="text-sm font-semibold text-slate-900">
-                Cam kết trách nhiệm chuyên môn theo dõi sức khỏe ban đầu
-              </h2>
-              <ul className="space-y-1.5 list-disc pl-5">
-                <li>Theo dõi và quản lý hồ sơ sức khỏe điện tử liên tục cho toàn bộ thành viên được bảo trợ.</li>
-                <li>Thực hiện thăm khám tại nhà và tư vấn Telehealth đúng hạn mức và tiêu chuẩn chuyên môn của Bộ Y tế.</li>
-                <li>Bảo mật tuyệt đối thông tin bệnh án y khoa theo Luật Bảo vệ dữ liệu cá nhân và Luật Khám bệnh, chữa bệnh.</li>
-              </ul>
-            </div>
-
-            {/* Documenso E-Signing Section */}
-            <div data-testid="doctor-Documenso-signing-section">
-              <DocumensoSigningEmbed
-                contractId={currentContract.id}
-                onSyncCompleted={(res) => {
-                  const updated: FourPartyContract = {
-                    ...currentContract,
-                    status:
-                      res.contractStatus === 'PENDING_PAYMENT'
-                        ? 'PENDING_PAYMENT'
-                        : res.contractStatus === 'ACTIVE'
-                        ? 'ACTIVE'
-                        : 'DOCTOR_ACCEPTED',
-                    signatures: {
-                      ...currentContract.signatures,
-                      doctor: {
-                        signedBy:
-                          currentContract.doctorName || 'Bác sĩ Gia đình phụ trách',
-                        signerRole: 'DOCTOR',
-                        signedAt: new Date().toISOString(),
-                        sha256Hash: 'Documenso-verified-signature',
-                      },
-                    },
-                  };
-                  setCurrentContract(updated);
-                  setSuccessBanner(
-                    `Đã đồng bộ chữ ký Bác sĩ trên Documenso thành công (${res.signedRoles.length}/4 bên).`
+                    </li>
                   );
-                  onSignSuccess?.(updated);
-                }}
-              />
-            </div>
+                })}
+              </ul>
+
+              <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5 text-xs text-slate-600">
+                <Lock className="size-4 shrink-0 text-slate-500" />
+                <span>
+                  Bản PDF hợp đồng đầy đủ 4 chữ ký sẽ tự động hiển thị trực tiếp tại đây ngay khi cả 4/4 bên hoàn tất ký số.
+                </span>
+              </div>
+            </Card>
           </div>
         )}
 
-        {/* Tab 2: Full Legal Document Sheet */}
-        {activeTab === 'full' && (
-          <ContractDocumentSheet contract={currentContract} />
+        {/* Trạng thái 2B: Đủ 4/4 chữ ký -> Preview trực tiếp PDF đầy đủ chữ ký */}
+        {isAllFourSigned && (
+          <div
+            data-testid="doctor-signed-pdf-preview-section"
+            className="space-y-4"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-emerald-200 bg-emerald-50/80 p-4 text-emerald-900">
+              <div className="flex items-start gap-3">
+                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+                <div className="space-y-0.5">
+                  <p className="text-sm font-bold">
+                    Hợp đồng đã hoàn tất đủ 4/4 chữ ký
+                  </p>
+                  <p className="text-xs text-emerald-800">
+                    Gia đình ✓ · Cơ sở y tế ✓ · Bác sĩ ✓ · Nền tảng FamiDoc ✓
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Card className="gap-0 overflow-hidden rounded-2xl border-slate-200 bg-white py-0 shadow-xs">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
+                <div className="flex items-center gap-2">
+                  <FileText className="size-4 text-primary" />
+                  <span className="text-xs font-bold text-slate-900 sm:text-sm">
+                    Bản hợp đồng đã ký đầy đủ 4 bên ({currentContract.contractNumber})
+                  </span>
+                </div>
+
+                {pdfBlobUrl && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="h-8 rounded-lg text-xs font-semibold"
+                    >
+                      <a
+                        href={pdfBlobUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <ExternalLink className="mr-1.5 size-3.5" />
+                        Mở tab mới
+                      </a>
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={handleDownloadPdfFile}
+                      className="h-8 rounded-lg text-xs font-semibold"
+                    >
+                      <Download className="mr-1.5 size-3.5" />
+                      Tải PDF
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {isLoadingPdf ? (
+                <div className="flex h-[520px] items-center justify-center bg-slate-50 text-xs text-slate-500">
+                  Đang tải bản xem trước PDF hợp đồng đầy đủ chữ ký...
+                </div>
+              ) : pdfError ? (
+                <div className="space-y-3 p-6 text-center">
+                  <p className="text-xs font-medium text-rose-700">{pdfError}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPdfReloadTick((t) => t + 1)}
+                    className="rounded-lg text-xs font-semibold"
+                  >
+                    <RefreshCw className="mr-1.5 size-3.5" />
+                    Thử tải lại PDF
+                  </Button>
+                </div>
+              ) : pdfBlobUrl ? (
+                <iframe
+                  data-testid="doctor-signed-pdf-iframe"
+                  src={pdfBlobUrl}
+                  title={`Bản hợp đồng đã ký ${currentContract.contractNumber}`}
+                  className="h-[740px] w-full border-0 bg-slate-100"
+                />
+              ) : null}
+            </Card>
+          </div>
         )}
       </div>
     </div>

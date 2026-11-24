@@ -86,6 +86,9 @@ export interface ContractDocumentDto {
 export type BackendContractStatus =
   | 'PENDING_APPROVAL'
   | 'PENDING_PAYMENT'
+  | 'PAID_PENDING_APPROVAL'
+  | 'APPROVAL_REJECTED'
+  | 'APPROVAL_EXPIRED'
   | 'ACTIVE'
   | 'EXPIRED'
   | 'TERMINATED';
@@ -307,6 +310,7 @@ export interface CreateFourPartyContractPayload {
   videoConsultations?: number;
   extraHomeVisits?: number;
   additionalTerms?: string;
+  homeVisitAddress?: string;
   /** ID hợp đồng nháp chưa thanh toán cần hủy nguyên tử trước khi tạo hợp đồng mới. */
   replaceContractId?: string;
   /** ID phiên gợi ý bác sĩ tự động (Track B) đã khớp thành công. */
@@ -551,8 +555,6 @@ export function mapMedicalContractToFourParty(
   let status: ContractStatus = 'DRAFT';
   if (dto.contractStatus === 'ACTIVE') {
     status = 'ACTIVE';
-  } else if (dto.contractStatus === 'PENDING_PAYMENT') {
-    status = 'PENDING_PAYMENT';
   } else if (
     dto.contractStatus === 'EXPIRED' ||
     dto.contractStatus === 'TERMINATED'
@@ -787,6 +789,73 @@ export const contractsApi = {
         signingUrl?: string | null;
       }
     >(response);
+  },
+
+  /** Xem trước bản nháp PDF stateless có watermark BẢN NHÁP. */
+  previewFourPartyDraftPdf: async (payload: {
+    packageId: string;
+    doctorId?: string;
+    facilityId?: string;
+    memberCount: number;
+    homeVisitAddress?: string;
+    additionalTerms?: string;
+  }): Promise<Blob> => {
+    return httpClient.getBlob('/api/v1/contracts/four-party/preview-pdf', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+  },
+
+  /** Đổi bác sĩ thay thế & bảo lưu 100% tiền tạm giữ (credit transfer). */
+  replaceDoctorWithCredit: async (
+    sourceContractId: string,
+    doctorId: string
+  ): Promise<{ id: string; contractNumber: string; creditSourceContractId?: string }> => {
+    const response = await httpClient.post<unknown>(
+      `/api/v1/contracts/four-party/${encodeURIComponent(sourceContractId)}/replace-doctor`,
+      { doctorId }
+    );
+    return unwrapEnvelope(response);
+  },
+
+  /** Gửi yêu cầu hoàn tiền 100% về tài khoản ngân hàng thụ hưởng. */
+  createRefundRequest: async (
+    contractId: string,
+    payload: { bankName: string; accountNumber: string; accountHolder: string }
+  ): Promise<{
+    id: string;
+    refundCode: string;
+    amountVnd: number;
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+    status: string;
+  }> => {
+    const response = await httpClient.post<unknown>(
+      `/api/v1/contracts/four-party/${encodeURIComponent(contractId)}/refund-request`,
+      payload
+    );
+    return unwrapEnvelope(response);
+  },
+
+  /** Lấy trạng thái yêu cầu hoàn tiền của hợp đồng. */
+  getRefundRequest: async (
+    contractId: string
+  ): Promise<{
+    id: string;
+    refundCode: string;
+    amountVnd: number;
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+    status: string;
+    createdAt: string;
+  }> => {
+    const response = await httpClient.get<unknown>(
+      `/api/v1/contracts/four-party/${encodeURIComponent(contractId)}/refund-request`
+    );
+    return unwrapEnvelope(response);
   },
 
   signContract: (contractId: string, payload: SignContractPayload): Promise<{ signatureHash: string }> => {
