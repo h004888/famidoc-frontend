@@ -1,9 +1,13 @@
 import { unwrapApiEnvelope } from './envelope';
 import { httpClient } from './http-client';
+import type { EncounterParticipant } from './encounters.api';
 
 export type EncounterStatus =
   | 'PROPOSED'
+  | 'REQUESTED'
   | 'CONFIRMED'
+  | 'ON_THE_WAY'
+  | 'ARRIVED'
   | 'IN_PROGRESS'
   | 'WRAP_UP'
   | 'COMPLETED'
