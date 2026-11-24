@@ -101,6 +101,9 @@ export type BackendSignerRole =
 
 /** Payload thật của GET /api/v1/contracts/medical/:id (shape Prisma, đã bóc envelope). */
 export interface MedicalContractDetailDto {
+  signingDeadlineAt?: string | null;
+  serverTime?: string;
+  terminationReason?: string | null;
   id: string;
   contractNumber: string;
   contractStatus: BackendContractStatus;
