@@ -78,6 +78,7 @@ interface InspectResult {
 function runSeedScript<T>(action: 'seed' | 'inspect' | 'cleanup'): T {
   const out = execFileSync('python', [SEED_SCRIPT, action], {
     encoding: 'utf8',
+    env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   return JSON.parse(out) as T;
@@ -212,7 +213,7 @@ test.describe.serial('Dual-Lane Encounter Full-Stack E2E (Playwright + PostgreSQ
     const docSession = await loginSession(page, seed.emails.doctor, seed.password);
     await page.goto(`${docSession.origin}/doctor/encounters?encounterId=${seed.ids.enc_confirm_pending}`);
 
-    await expect(page.getByText(/1\. Chọn thành viên/i)).toBeVisible();
+    await expect(page.getByText('THÀNH VIÊN KHÁM')).toBeVisible();
     await expect(page.getByText(/Đã xác nhận có đến/i)).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).not.toContainText('1970-');
     await expect(page.getByRole('heading', { level: 1 })).toContainText(/\(\d{2}:\d{2}\)/);
@@ -221,7 +222,7 @@ test.describe.serial('Dual-Lane Encounter Full-Stack E2E (Playwright + PostgreSQ
     await page.getByLabel(/Triệu chứng & Khám thực thể/i).fill('Huyết áp 130/80 mmHg, tim đều, phổi trong');
     await page.getByLabel(/Mã ICD-10/i).fill('I10');
     await page.getByLabel(/Chẩn đoán/i).fill('Tăng huyết áp vô căn');
-    await page.getByLabel(/Dặn dò \/ Kế hoạch tái khám/i).fill('Tiếp tục đo huyết áp hằng ngày và tái khám sau 1 tháng');
+    await page.getByLabel(/Dặn dò \/ Kế hoạch điều trị/i).fill('Tiếp tục đo huyết áp hằng ngày và tái khám sau 1 tháng');
     const confirmVisitPromise = page.waitForResponse(
       (res) =>
         res.url().includes(`/medical-books/visits/${seed.ids.enc_confirm_pending}/confirm`) &&
@@ -422,5 +423,104 @@ test.describe.serial('Dual-Lane Encounter Full-Stack E2E (Playwright + PostgreSQ
     expect(newRx).toBeDefined();
     expect(newRx?.status).toBe('ISSUED');
     expect(newRx?.replacement_reason).toContain('Điều chỉnh hàm lượng Amlodipine');
+  });
+
+  test('E2E-06: 2-Column Workspace — Thẻ tóm tắt đã chốt, Lưu nháp localStorage, Collapsible A11y & Mobile Responsive', async ({
+    page,
+  }) => {
+    const docSession = await loginSession(page, seed.emails.doctor, seed.password);
+
+    // 1. Kiểm tra thẻ tóm tắt chỉ đọc cho thành viên đã chốt (enc_confirm_complete)
+    await page.goto(`${docSession.origin}/doctor/encounters?encounterId=${seed.ids.enc_confirm_complete}`);
+    await expect(page.getByText('THÀNH VIÊN KHÁM')).toBeVisible();
+    await expect(page.getByText(/Hồ sơ đã chốt:/i)).toBeVisible();
+    await expect(page.getByRole('link', { name: /Xem \/ Kê đơn thay thế/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Lưu Nháp/i })).toHaveCount(0);
+
+    // 2. Kiểm tra Mobile Viewport (375x812), aria-expanded của 2 mục tùy chọn & khôi phục Nháp localStorage
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.goto(`${docSession.origin}/doctor/encounters?encounterId=${seed.ids.enc_future_guard}`);
+    await expect(page.getByText('THÀNH VIÊN KHÁM')).toBeVisible();
+
+    const noHorizontalOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 2,
+    );
+    expect(noHorizontalOverflow).toBe(true);
+
+    const vitalsToggle = page.getByRole('button', {
+      name: /Chỉ số sinh tồn & Bệnh nền \/ Dị ứng mới/i,
+    });
+    const rxToggle = page.getByRole('button', {
+      name: /Kê đơn thuốc điện tử cho lần khám này/i,
+    });
+    await expect(vitalsToggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(rxToggle).toHaveAttribute('aria-expanded', 'false');
+
+    await vitalsToggle.click();
+    await expect(vitalsToggle).toHaveAttribute('aria-expanded', 'true');
+    await page.getByLabel(/Lý do khám/i).fill('Nháp E2E kiểm thử lưu localStorage');
+    await page.getByLabel(/Huyết áp tâm thu/i).fill('125');
+    await page.getByRole('button', { name: /Lưu Nháp/i }).click();
+    await expect(page.getByRole('status')).toContainText(/Đã lưu nháp/i);
+
+    await page.reload();
+    await expect(page.getByLabel(/Lý do khám/i)).toHaveValue('Nháp E2E kiểm thử lưu localStorage');
+  });
+
+  test('E2E-07: Negative / Boundary & RBAC 403 — Chặn gia đình chốt EMR, 404 encounter không tồn tại & validate lý do thay thế đơn', async ({
+    page,
+  }) => {
+    // 1. RBAC: Family user không được phép chốt hồ sơ khám (POST confirm -> 403)
+    const familySession = await loginSession(page, seed.emails.family, seed.password);
+    const forbiddenConfirm = await page.request.post(
+      `${BACKEND_URL}/api/v1/medical-books/visits/${seed.ids.enc_future_guard}/confirm`,
+      {
+        headers: { Authorization: `Bearer ${familySession.accessToken}` },
+        data: { patientId: seed.ids.patient, confirmed: true },
+      },
+    );
+    expect(forbiddenConfirm.status()).toBe(403);
+
+    // 2. Boundary: Encounter ID không tồn tại -> 404
+    const notFoundRes = await page.request.get(
+      `${BACKEND_URL}/api/v1/encounters/00000000-0000-4000-8000-000000000999`,
+      { headers: { Authorization: `Bearer ${familySession.accessToken}` } },
+    );
+    expect(notFoundRes.status()).toBe(404);
+
+    // 3. Negative UI: Nút submit thay thế đơn bị disable khi chưa nhập lý do / chưa tick xác nhận
+    const docSession = await loginSession(page, seed.emails.doctor, seed.password);
+    await page.goto(`${docSession.origin}/doctor/encounters?patientId=${seed.ids.patient}`);
+    const visitTrigger = page
+      .getByRole('button', {
+        name: new RegExp(`${seed.dates.enc_confirm_complete} · 09:00`, 'i'),
+      })
+      .first();
+    await visitTrigger.click();
+    await page.getByRole('button', { name: /Kê đơn thay thế/i }).click();
+    await expect(
+      page.getByRole('button', { name: /Lưu đơn thay thế và thông báo gia đình/i }),
+    ).toBeDisabled();
+  });
+
+  test('E2E-08: Concurrency — Hai request GET /api/v1/encounters/:id đồng thời đều trả 200 OK ổn định', async ({
+    page,
+  }) => {
+    const docSession = await loginSession(page, seed.emails.doctor, seed.password);
+    const [res1, res2] = await Promise.all([
+      page.request.get(`${BACKEND_URL}/api/v1/encounters/${seed.ids.enc_future_guard}`, {
+        headers: { Authorization: `Bearer ${docSession.accessToken}` },
+      }),
+      page.request.get(`${BACKEND_URL}/api/v1/encounters/${seed.ids.enc_future_guard}`, {
+        headers: { Authorization: `Bearer ${docSession.accessToken}` },
+      }),
+    ]);
+
+    expect(res1.status()).toBe(200);
+    expect(res2.status()).toBe(200);
+    const body1 = await res1.json();
+    const body2 = await res2.json();
+    expect((body1.data ?? body1).contract.members.length).toBeGreaterThanOrEqual(1);
+    expect((body2.data ?? body2).contract.members.length).toBeGreaterThanOrEqual(1);
   });
 });

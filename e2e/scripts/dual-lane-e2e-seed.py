@@ -487,6 +487,8 @@ def inspect_data(conn) -> dict:
 
 
 def main():
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="Dual-Lane Encounter E2E PostgreSQL Seed/Cleanup")
     parser.add_argument("action", choices=["seed", "inspect", "cleanup"])
     args = parser.parse_args()
