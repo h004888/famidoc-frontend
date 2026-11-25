@@ -629,6 +629,71 @@ export function FamilyDashboardView() {
           </aside>
         )}
 
+        {/* DẢI TÓM TẮT GÓI ĐANG HIỆU LỰC & LỐI VÀO HÓA ĐƠN / BIÊN LAI */}
+        {activeContract && activeContract.contractStatus === 'ACTIVE' && (
+          <section
+            aria-label="Thông tin gói dịch vụ đang hiệu lực"
+            className="flex flex-col justify-between gap-4 rounded-2xl border border-slate-200/80 bg-white px-5 py-4 shadow-xs lg:flex-row lg:items-center"
+          >
+            <div className="min-w-0 space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-slate-900 sm:text-sm">
+                  {activeContract.packageName}
+                </span>
+                <Badge
+                  variant="outline"
+                  className="border-emerald-200/80 bg-emerald-50 text-emerald-800 text-[11px] font-semibold"
+                >
+                  Đang hiệu lực
+                </Badge>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600 tabular-nums">
+                {activeContract.endDate && (
+                  <span>
+                    Hiệu lực đến:{' '}
+                    {new Intl.DateTimeFormat('vi-VN', {
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric',
+                      timeZone: 'Asia/Ho_Chi_Minh',
+                    }).format(new Date(activeContract.endDate))}
+                    {daysUntilExpiry !== null && daysUntilExpiry >= 0
+                      ? ` (còn ${daysUntilExpiry} ngày)`
+                      : ''}
+                  </span>
+                )}
+                {typeof activeContract.totalHomeVisits === 'number' && (
+                  <span>
+                    · Khám tại nhà: {activeContract.remainingHomeVisits ?? 0}/
+                    {activeContract.totalHomeVisits}
+                  </span>
+                )}
+                {typeof activeContract.totalTelehealth === 'number' && (
+                  <span>
+                    · Video: {activeContract.remainingTelehealth ?? 0}/
+                    {activeContract.totalTelehealth}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <Link
+                href="/family/subscription"
+                className="inline-flex h-9 items-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition-colors hover:border-primary hover:text-primary"
+              >
+                Xem gói &amp; HĐ
+              </Link>
+              <Link
+                href="/family/billing"
+                className="inline-flex h-9 items-center rounded-xl border border-primary/25 bg-primary/5 px-3 text-xs font-semibold text-primary transition-colors hover:bg-primary/10"
+              >
+                Xem biên lai
+              </Link>
+            </div>
+          </section>
+        )}
+
         {/* 2. BENTO GRID TRÊN: CẦN LÀM HÔM NAY (7/12) & BÁC SĨ PHỤ TRÁCH + ĐƠN THUỐC (5/12) */}
         <section
           aria-label="Cần làm hôm nay và Bác sĩ phụ trách"

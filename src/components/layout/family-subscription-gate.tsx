@@ -46,6 +46,18 @@ function hasSupportCaseQuery(
   return Boolean(toSearchParams(query).get('supportCaseId')?.trim());
 }
 
+export function canAccessFamilyBillingHistory(
+  pathname: string | null | undefined,
+  gateStatus: FamilyGateStatusDto | null,
+): boolean {
+  if (!pathname) return false;
+  const normalized = normalizePath(pathname);
+  return (
+    (normalized === '/family/billing' || normalized.startsWith('/family/billing/')) &&
+    Boolean(gateStatus?.hasHistoricalContracts)
+  );
+}
+
 /**
  * Các tính năng chăm sóc yêu cầu hợp đồng ACTIVE. Gia đình vẫn có thể xem
  * sổ khám và đơn đã chia sẻ sau khi gói hết hạn, hoặc mở trực tiếp một hồ sơ
@@ -327,7 +339,13 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
   const isFamily = isAuthenticated && isFamilyRole(role);
   const isRestricted = isFamily && isRestrictedFamilyPath(pathname, currentSearch);
   const isPermissionDeniedForRoute = isRestricted && isPermissionDenied;
-  const shouldBlock = isRestricted && !authLoading && !isLoadingGate && gateStatus !== null && !gateStatus.hasActiveContract;
+  const shouldBlock =
+    isRestricted &&
+    !authLoading &&
+    !isLoadingGate &&
+    gateStatus !== null &&
+    !gateStatus.hasActiveContract &&
+    !canAccessFamilyBillingHistory(pathname, gateStatus);
   const redirectTarget = resolveBlockedFamilyRedirect(gateStatus, {
     pathname,
     search: currentSearch,

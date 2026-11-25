@@ -315,4 +315,82 @@ describe('FamilyDashboardView', () => {
     const fallbackImg = screen.getByRole('img', { name: 'Lê Thị Lan' });
     expect(fallbackImg).toHaveAttribute('src', '/images/medsev/home-one/doctor/1.jpg');
   });
+
+  it('renders Compact Plan Strip with links to subscription and billing when contract is ACTIVE', async () => {
+    mockGetFamilyMembers.mockResolvedValue([
+      {
+        id: 'p1',
+        fullName: 'Trần Văn B',
+        relationshipToHead: 'SELF',
+        gender: 'MALE',
+        dateOfBirth: '1970-01-01',
+      },
+    ]);
+    mockGetMedicalContracts.mockResolvedValue([
+      {
+        id: 'ctr-active-1',
+        contractNumber: 'HD-2026-0042',
+        status: 'ACTIVE',
+        packageName: 'Gói Đồng Hành Gia Đình (3 Tháng)',
+        memberCount: 4,
+        endDate: '2027-01-31T00:00:00.000Z',
+        remainingHomeVisits: 2,
+        totalHomeVisits: 3,
+        remainingTelehealth: 8,
+        totalTelehealth: 10,
+      },
+    ]);
+    mockGetFamilyGateStatus.mockResolvedValue({
+      activeContract: {
+        id: 'ctr-active-1',
+        contractNumber: 'HD-2026-0042',
+        memberCount: 4,
+        endDate: '2027-01-31T00:00:00.000Z',
+        packageName: 'Gói Đồng Hành Gia Đình (3 Tháng)',
+      },
+    });
+
+    render(<FamilyDashboardView />);
+
+    const strip = await screen.findByLabelText('Thông tin gói dịch vụ đang hiệu lực');
+    expect(strip).toBeInTheDocument();
+    expect(strip).toHaveTextContent('Gói Đồng Hành Gia Đình (3 Tháng)');
+    expect(strip).toHaveTextContent('Đang hiệu lực');
+    expect(
+      screen.getByRole('link', { name: /Xem gói & HĐ/i }),
+    ).toHaveAttribute('href', '/family/subscription');
+    expect(
+      screen.getByRole('link', { name: /Xem biên lai/i }),
+    ).toHaveAttribute('href', '/family/billing');
+  });
+
+  it('does not render Compact Plan Strip when contract is PENDING_PAYMENT', async () => {
+    mockGetFamilyMembers.mockResolvedValue([
+      {
+        id: 'p1',
+        fullName: 'Trần Văn B',
+        relationshipToHead: 'SELF',
+        gender: 'MALE',
+        dateOfBirth: '1970-01-01',
+      },
+    ]);
+    mockGetMedicalContracts.mockResolvedValue([
+      {
+        id: 'ctr-pending-1',
+        contractNumber: 'HD-2026-0099',
+        status: 'PENDING_PAYMENT',
+        packageName: 'Gói Trải Nghiệm',
+        packagePrice: 1000000,
+      },
+    ]);
+
+    render(<FamilyDashboardView />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/Thanh Toán VietQR Ngay/i)).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByLabelText('Thông tin gói dịch vụ đang hiệu lực'),
+    ).not.toBeInTheDocument();
+  });
 });

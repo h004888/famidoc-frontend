@@ -2,15 +2,33 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { paymentsApi, supportCasesApi, type SupportCaseDetail } from '@/lib/api';
 import { ApiError } from '@/lib/http/errors';
+import { FamilyBillingDetailView } from '../family-billing-detail-view';
 import { FamilyBillingView } from '../family-billing-view';
 
 let query: URLSearchParams;
 let pending: { id: string; contractStatus: string } | undefined;
+let activeContract:
+  | {
+      id: string;
+      contractNumber: string;
+      memberCount: number;
+      endDate: string;
+      packageName?: string | null;
+    }
+  | undefined;
+const mockPush = vi.fn();
 
-vi.mock('next/navigation', () => ({ useSearchParams: () => query }));
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => query,
+  useRouter: () => ({ push: mockPush, replace: vi.fn() }),
+}));
 vi.mock('@/components/layout/family-subscription-gate', () => ({
   useFamilySubscriptionGateState: () => ({
-    gateStatus: { pendingContract: pending },
+    gateStatus: {
+      hasActiveContract: Boolean(activeContract),
+      activeContract: activeContract ?? null,
+      pendingContract: pending ?? null,
+    },
     isLoadingGate: false,
     gateError: null,
   }),
@@ -37,11 +55,12 @@ vi.mock('@/lib/api', async (importOriginal) => {
   };
 });
 
-describe('FamilyBillingView', () => {
+describe('FamilyBillingView & FamilyBillingDetailView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     query = new URLSearchParams();
     pending = undefined;
+    activeContract = undefined;
     vi.mocked(paymentsApi.listMyPaymentRequests).mockResolvedValue([]);
     vi.mocked(supportCasesApi.list).mockResolvedValue({
       items: [],
@@ -63,13 +82,88 @@ describe('FamilyBillingView', () => {
     expect(screen.getByTestId('payment-step')).toHaveTextContent('contract-1 addendum-1');
   });
 
-  it('shows an empty state without a demo payment option', () => {
+  it('shows an empty state without back button, KPI strip, or filter bar', async () => {
     render(<FamilyBillingView />);
-    expect(screen.getByText(/Không có hợp đồng nào đang chờ thanh toán/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Không có hợp đồng nào đang chờ thanh toán/),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('payment-step')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Bảng sức khỏe gia đình/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Tổng đã thanh toán/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
   });
 
-  it.each(['new', 'duplicate', 'notification'])('opens the payment support thread via %s', async (mode) => {
+  it('renders invoices as a table without filters/back-link and navigates to /family/billing/[id] on row click', async () => {
+    activeContract = {
+      id: 'ctr-active-1',
+      contractNumber: 'MCFDA0E65',
+      memberCount: 4,
+      endDate: '2026-12-24T00:00:00.000Z',
+      packageName: 'Đồng hành 124',
+    };
+    vi.mocked(paymentsApi.listMyPaymentRequests).mockResolvedValue([
+      {
+        id: 'inv-paid-1',
+        contractId: 'ctr-active-1',
+        contractNumber: 'MCFDA0E65',
+        contractStatus: 'ACTIVE',
+        packageName: 'Đồng hành 124',
+        facilityName: 'Bệnh viện Nhi Đồng 1',
+        paymentCode: 'INV-20261124-882',
+        transferContent: 'FAMIDOC INV20261124882',
+        amountVnd: 150000,
+        status: 'PAID',
+        expectedAccountNumber: '0123456789',
+        expectedGateway: 'MBBank',
+        createdAt: '2026-11-24T02:00:00Z',
+        expiresAt: '2026-11-24T02:15:00Z',
+        paidAt: '2026-11-24T02:14:00Z',
+        latestTransaction: null,
+        openSupportCase: null,
+      },
+      {
+        id: 'inv-exp-1',
+        contractId: 'ctr-active-1',
+        contractNumber: 'MCFDA0E65',
+        contractStatus: 'ACTIVE',
+        packageName: 'Đồng hành 124',
+        facilityName: 'Bệnh viện Nhi Đồng 1',
+        paymentCode: 'FD-EXP-001',
+        transferContent: 'FAMIDOC EXP1',
+        amountVnd: 150000,
+        status: 'EXPIRED',
+        expectedAccountNumber: '0123456789',
+        expectedGateway: 'MBBank',
+        createdAt: '2026-11-24T01:00:00Z',
+        expiresAt: '2026-11-24T01:15:00Z',
+        paidAt: null,
+        latestTransaction: null,
+        openSupportCase: null,
+      },
+    ]);
+
+    render(<FamilyBillingView />);
+
+    const table = await screen.findByRole('table');
+    expect(table).toBeInTheDocument();
+    expect(screen.getByText('INV-20261124-882')).toBeInTheDocument();
+    expect(screen.queryByText(/Bảng sức khỏe gia đình/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Tổng đã thanh toán/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+
+    // Mã QR hết hạn thu gọn mặc định khi đã có hóa đơn PAID
+    expect(screen.queryByText('FD-EXP-001')).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: /Xem thêm 1 mã QR cũ đã hết hạn \/ hủy/i }),
+    );
+    expect(screen.getByText('FD-EXP-001')).toBeInTheDocument();
+
+    // Bấm vào hàng PAID để đi vào trang chi tiết
+    fireEvent.click(screen.getByText('INV-20261124-882'));
+    expect(mockPush).toHaveBeenCalledWith('/family/billing/inv-paid-1');
+  });
+
+  it.each(['new', 'duplicate', 'notification'])('opens the payment support thread via %s on detail view or notification query', async (mode) => {
     vi.mocked(paymentsApi.listMyPaymentRequests).mockResolvedValue([
       {
         id: 'inv-1',
@@ -81,6 +175,8 @@ describe('FamilyBillingView', () => {
         paymentCode: 'FD998877',
         transferContent: 'NGUYEN VAN A FD998877',
         amountVnd: 1500000,
+        grossAmountVnd: 1500000,
+        vatAmountVnd: 0,
         status: 'EXPIRED',
         expectedAccountNumber: '0987654321',
         expectedGateway: 'MBBank',
@@ -155,10 +251,10 @@ describe('FamilyBillingView', () => {
       vi.mocked(supportCasesApi.createPaymentIssueCase).mockResolvedValue(createdCase);
     }
 
-    render(<FamilyBillingView />);
+    render(<FamilyBillingDetailView invoiceId="inv-1" />);
 
-    expect(await screen.findByText('FD998877')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Báo lỗi chuyển khoản/ }));
+    expect(await screen.findByText(/Chi tiết Hóa đơn #FD998877/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Báo lỗi chuyển khoản/i }));
 
     const dialog = within(await screen.findByRole('dialog'));
     expect(dialog.getByText('FD998877')).toBeInTheDocument();

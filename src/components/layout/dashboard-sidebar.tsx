@@ -16,6 +16,7 @@ import {
   useDoctorVerificationGateState,
 } from './doctor-verification-gate';
 import {
+  canAccessFamilyBillingHistory,
   isRestrictedFamilyPath,
   useFamilySubscriptionGateState,
 } from './family-subscription-gate';
@@ -373,7 +374,9 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
             const facilityLock = getFacilityItemLock(item.href);
             const doctorItemLocked = isDoctorRestricted(item.href);
             const isItemLocked =
-              (isFamilyLocked && isRestrictedFamilyPath(item.href)) ||
+              (isFamilyLocked &&
+                isRestrictedFamilyPath(item.href) &&
+                !canAccessFamilyBillingHistory(item.href, gateStatus)) ||
               facilityLock.locked ||
               doctorItemLocked;
             const lockTooltip = facilityLock.locked
@@ -657,7 +660,9 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
             const facilityLock = getFacilityItemLock(item.href);
             const doctorItemLocked = isDoctorRestricted(item.href);
             const isItemLocked =
-              (isFamilyLocked && isRestrictedFamilyPath(item.href)) ||
+              (isFamilyLocked &&
+                isRestrictedFamilyPath(item.href) &&
+                !canAccessFamilyBillingHistory(item.href, gateStatus)) ||
               facilityLock.locked ||
               doctorItemLocked;
             const lockTooltip = facilityLock.locked
