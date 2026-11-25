@@ -22,6 +22,7 @@ import { toast } from 'sonner';
 import { PageHeader } from '@/components/shared';
 import { AdminPageNavigation } from '@/components/shared/admin-page-navigation';
 import { SupportCaseThread } from '@/components/shared/support-case-thread';
+import { DualLaneReconciliationTable } from './dual-lane-reconciliation-table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -158,11 +159,11 @@ export function AdminDisputesView({ facility = false }: { facility?: boolean } =
             </div>
           </div>
 
-          {/* Tabs Gia đình / Bác sĩ / Xem xét lại & Câu hỏi (chỉ Admin) */}
+          {/* Tabs Gia đình / Bác sĩ / Xem xét lại & Câu hỏi / Đối soát ca khám 2 làn */}
           <Tabs defaultValue="FAMILY_REP" className="min-w-0 gap-5">
             <TabsList
               aria-label="Người gửi khiếu nại"
-              className="grid w-full max-w-3xl grid-cols-1 items-stretch gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 group-data-[orientation=horizontal]/tabs:h-auto shadow-xs sm:grid-cols-3"
+              className="grid w-full max-w-4xl grid-cols-1 items-stretch gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 group-data-[orientation=horizontal]/tabs:h-auto shadow-xs sm:grid-cols-4"
             >
               {senderTabs.map(({ role, label, icon: Icon }) => (
                 <TabsTrigger
@@ -181,6 +182,13 @@ export function AdminDisputesView({ facility = false }: { facility?: boolean } =
                 <MessageSquareMore aria-hidden="true" className="h-4 w-4 shrink-0" />
                 <span>Xem xét lại &amp; Câu hỏi</span>
               </TabsTrigger>
+              <TabsTrigger
+                value="DUAL_LANE"
+                className="h-auto min-h-11 justify-center gap-2 rounded-xl border border-transparent bg-slate-50 px-3 py-2 text-xs sm:text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100 data-[state=active]:border-primary/20 data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-xs cursor-pointer"
+              >
+                <Scale aria-hidden="true" className="h-4 w-4 shrink-0" />
+                <span>Đối soát ca khám 2 làn</span>
+              </TabsTrigger>
             </TabsList>
             {senderTabs.map(({ role, label }) => (
               <TabsContent key={role} value={role}>
@@ -189,6 +197,9 @@ export function AdminDisputesView({ facility = false }: { facility?: boolean } =
             ))}
             <TabsContent value="SUPPORT_CASES">
               <ComplaintSupportCaseList />
+            </TabsContent>
+            <TabsContent value="DUAL_LANE">
+              <DualLaneReconciliationTable />
             </TabsContent>
           </Tabs>
         </>

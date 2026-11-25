@@ -312,15 +312,23 @@ export function FamilyPrescriptionDetailView({ id }: { id: string }) {
             </p>
             {record.replacedBy && (
               <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
-                Đơn đã được thay thế.{' '}
+                Đơn này đã được thay thế.{' '}
                 <Link
                   href={`/family/prescriptions/${record.replacedBy.id}`}
                   className="font-semibold underline"
                 >
-                  Mở đơn mới
+                  Xem đơn mới ({record.replacedBy.prescriptionCode})
                 </Link>
               </p>
             )}
+            <div className="pt-1">
+              <Link
+                href={`/family/members/${record.patient.id}`}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal-800 hover:underline"
+              >
+                Xem hồ sơ sức khỏe thành viên →
+              </Link>
+            </div>
             {record.replaces && (
               <p className="text-sm text-slate-700">
                 Thay thế đơn {record.replaces.prescriptionCode}. Lý do:{' '}
@@ -383,11 +391,27 @@ export function FamilyPrescriptionDetailView({ id }: { id: string }) {
               </p>
             )}
           </Card>
+          <Card className="gap-2 border-slate-200 p-5">
+            <h2 className="text-base font-bold text-slate-900">
+              Phần 1: Bác sĩ kết luận &amp; dặn dò
+            </h2>
+            <p className="text-sm text-slate-700">
+              <span className="font-semibold">Chẩn đoán:</span>{' '}
+              {(record as any).exam?.icd10Diagnosis || record.diagnosis || 'Chưa ghi nhận'}
+              {(record as any).exam?.icd10Code ? ` (${(record as any).exam.icd10Code})` : ''}
+            </p>
+            {(record as any).exam?.treatmentPlan && (
+              <p className="text-sm text-slate-700">
+                <span className="font-semibold">Dặn dò:</span>{' '}
+                {(record as any).exam.treatmentPlan}
+              </p>
+            )}
+          </Card>
           <PrescriptionContextSummary context={record.clinicalContext} />
           <section className="space-y-3">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
               <Pill size={20} className="text-teal-700" aria-hidden="true" />{' '}
-              Thuốc và cách dùng
+              Phần 2: Đơn thuốc điện tử ({record.prescriptionCode})
             </h2>
             {record.details.map((detail) => (
               <Card key={detail.id} className="gap-3 p-4 sm:p-5">

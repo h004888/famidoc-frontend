@@ -21,6 +21,10 @@ import {
   type EncounterItem,
   type EncounterRescheduleRequestItem,
 } from '@/lib/api';
+import {
+  deriveDualLaneState,
+  formatRemainingRecordDeadline,
+} from '@/lib/encounter-dual-lane';
 
 function formatVnDate(isoDate: string): string {
   if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate;
@@ -522,31 +526,81 @@ export function DoctorTimetableView() {
                 return (
                   <div
                     key={`today-${enc.id}`}
-                    className="rounded-xl border border-slate-200 bg-slate-50/70 p-3 flex items-center justify-between gap-3 text-xs"
+                    className="rounded-xl border border-teal-200 bg-teal-50/40 p-3 flex items-center justify-between gap-3 text-xs"
                   >
-                    <div className="space-y-0.5 min-w-0">
-                      <div className="font-bold text-slate-900 truncate">
-                        {getPatientLabel(enc)} · {isHome ? 'Khám tại nhà' : 'Video'}
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-teal-700 text-white text-[10px]">ACTIVE</Badge>
+                        <div className="font-bold text-slate-900 truncate">
+                          {getPatientLabel(enc)} · {isHome ? 'Khám tại nhà' : 'Video'}
+                        </div>
                       </div>
                       <div className="text-[#2E37A4] font-semibold">
                         {isHome ? slotLabel : timeStr}
                       </div>
                       {addr && <div className="text-slate-500 truncate">{addr}</div>}
                     </div>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelectedWeeklyEnc(enc)}
-                      className="h-8 rounded-lg text-xs shrink-0"
-                    >
-                      Chi tiết
-                    </Button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Button asChild size="sm" className="h-8 rounded-lg bg-teal-700 hover:bg-teal-800 text-white text-xs">
+                        <Link href={`/doctor/encounters?encounterId=${enc.id}`}>Mở ca</Link>
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedWeeklyEnc(enc)}
+                        className="h-8 rounded-lg text-xs"
+                      >
+                        Chi tiết
+                      </Button>
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
+
+          {(() => {
+            const pendingEhr = encounters.filter(
+              (enc) =>
+                getEncounterDate(enc) !== todayIso &&
+                deriveDualLaneState(enc).reconciledStatus === 'PENDING_RECORD',
+            );
+            if (pendingEhr.length === 0) return null;
+            return (
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                <p className="text-xs font-bold text-amber-900">Ca đang chờ hoàn tất hồ sơ (24h)</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {pendingEhr.map((enc) => {
+                    const lane = deriveDualLaneState(enc);
+                    return (
+                      <div
+                        key={`pending-ehr-${enc.id}`}
+                        className="rounded-xl border border-amber-200 bg-amber-50/70 p-2.5 flex items-center justify-between gap-2 text-xs"
+                      >
+                        <div className="min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <Badge variant="outline" className="border-amber-300 bg-white text-amber-900 text-[10px]">
+                              Chờ EHR
+                            </Badge>
+                            <span className="font-bold text-slate-900 truncate">
+                              {getPatientLabel(enc)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-amber-900">
+                            {formatRemainingRecordDeadline(lane.remainingRecordHours)}
+                          </p>
+                        </div>
+                        <Button asChild size="sm" variant="outline" className="h-7 text-xs shrink-0">
+                          <Link href={`/doctor/encounters?encounterId=${enc.id}`}>Chốt hồ sơ</Link>
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
         </section>
 
         {/* 3. PRIORITY INBOX (TELEHEALTH REQUESTS + RESCHEDULE REQUESTS) */}
@@ -1086,29 +1140,13 @@ export function DoctorTimetableView() {
                 </div>
 
                 <div className="flex flex-wrap justify-end gap-2">
-                  {selectedWeeklyEnc.encounterType === 'HOME_VISIT' &&
-                    selectedWeeklyEnc.encounterStatus === 'CONFIRMED' && (
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={() => {
-                          const id = selectedWeeklyEnc.id;
-                          setSelectedWeeklyEnc(null);
-                          void handleMarkArrived(id);
-                        }}
-                        className="bg-emerald-700 hover:bg-emerald-800 text-white"
-                      >
-                        Check-in đã đến nhà
-                      </Button>
-                    )}
-                  {selectedWeeklyEnc.encounterType === 'HOME_VISIT' &&
-                    selectedWeeklyEnc.encounterStatus === 'IN_PROGRESS' && (
-                      <Button asChild size="sm">
-                        <Link href={`/doctor/encounters?encounterId=${selectedWeeklyEnc.id}`}>
-                          Mở bệnh án &amp; Khám
-                        </Link>
-                      </Button>
-                    )}
+                  {selectedWeeklyEnc.encounterType === 'HOME_VISIT' && (
+                    <Button asChild size="sm" className="bg-teal-700 hover:bg-teal-800 text-white">
+                      <Link href={`/doctor/encounters?encounterId=${selectedWeeklyEnc.id}`}>
+                        Mở Workspace Ca khám
+                      </Link>
+                    </Button>
+                  )}
                   {selectedWeeklyEnc.encounterType !== 'HOME_VISIT' && (
                     <Button asChild size="sm" className="bg-sky-600 hover:bg-sky-700 text-white">
                       <Link href={`/doctor/telemedicine?encounterId=${selectedWeeklyEnc.id}`}>

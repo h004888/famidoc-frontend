@@ -11,9 +11,11 @@ export type EncounterStatus =
   | 'ARRIVED'
   | 'IN_PROGRESS'
   | 'WRAP_UP'
+  | 'PENDING_RECORD'
   | 'COMPLETED'
   | 'CANCELLED'
   | 'NO_SHOW'
+  | 'DISPUTED'
   | 'RESCHEDULE_REQUESTED';
 
 export type EncounterScheduleStage =
