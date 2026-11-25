@@ -590,4 +590,105 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
       expect(mockReplace).not.toHaveBeenCalled();
     },
   );
+
+  it('keeps /family/billing locked for brand-new users with hasHistoricalContracts=false', async () => {
+    mockPathname = '/family/billing';
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      hasHistoricalContracts: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 0,
+    });
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="protected-content">Thanh toán & Biên lai</div>
+        </FamilySubscriptionGateGuard>
+        <DashboardSidebar />
+      </FamilySubscriptionGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/doctors');
+    });
+    expect(screen.queryByTestId('protected-content')).toBeNull();
+    const billingNav = screen.getAllByRole('button', { name: /Thanh toán VietQR & Biên lai/i })[0];
+    expect(billingNav).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('unlocks /family/billing in guard and sidebar when hasHistoricalContracts=true (EXPIRED package)', async () => {
+    mockPathname = '/family/billing';
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      hasHistoricalContracts: true,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 2,
+    });
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="protected-content">Lịch sử Hóa đơn & Biên lai</div>
+        </FamilySubscriptionGateGuard>
+        <DashboardSidebar />
+      </FamilySubscriptionGateProvider>,
+    );
+
+    expect(await screen.findByTestId('protected-content')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
+    const billingNav = screen.getAllByRole('link', { name: /Thanh toán VietQR & Biên lai/i })[0];
+    expect(billingNav).not.toHaveAttribute('aria-disabled', 'true');
+    const appointmentsNav = screen.getAllByRole('button', { name: /Lịch khám bác sĩ/i })[0];
+    expect(appointmentsNav).toHaveAttribute('aria-disabled', 'true');
+  });
+
+  it('unlocks /family/billing and /family/billing/[id] in guard when hasHistoricalContracts=true', async () => {
+    mockPathname = '/family/billing/inv-1';
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      hasHistoricalContracts: true,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 2,
+    });
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="protected-content">Chi tiết Hóa đơn</div>
+        </FamilySubscriptionGateGuard>
+      </FamilySubscriptionGateProvider>,
+    );
+
+    expect(await screen.findByTestId('protected-content')).toBeTruthy();
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+
+  it('preserves 403 shell guard on /family/billing when gate check returns HTTP 403', async () => {
+    mockPathname = '/family/billing';
+    vi.mocked(contractsApi.getFamilyGateStatus).mockRejectedValue(
+      new ApiError('Forbidden', 403),
+    );
+
+    render(
+      <FamilySubscriptionGateProvider>
+        <DashboardShellGate>
+          <div data-testid="dashboard-shell">
+            <FamilySubscriptionGateGuard>
+              <div data-testid="protected-content">Thanh toán & Biên lai</div>
+            </FamilySubscriptionGateGuard>
+          </div>
+        </DashboardShellGate>
+      </FamilySubscriptionGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/403');
+    });
+    expect(screen.queryByTestId('dashboard-shell')).toBeNull();
+    expect(screen.queryByTestId('protected-content')).toBeNull();
+  });
 });

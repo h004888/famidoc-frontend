@@ -1,13 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
-  AlertTriangle,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
   History,
-  MessageSquare,
-  ReceiptText,
   RefreshCw,
 } from 'lucide-react';
 import { useFamilySubscriptionGateState } from '@/components/layout/family-subscription-gate';
@@ -19,14 +19,12 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BookingPaymentStep } from '@/features/booking';
 import {
-  contractsApi,
   getSupportCaseStatusLabel,
   isOpenSupportCaseStatus,
   paymentsApi,
   SUPPORT_CASE_STATUS_STYLES,
   supportCasesApi,
   type FamilyPaymentRequestItem,
-  type FourPartyContract,
   type SupportCaseSummary,
 } from '@/lib/api';
 import { extractErrorMessage } from '@/lib/api/error-handler';
@@ -69,51 +67,25 @@ function formatDate(value?: string | null): string {
 }
 
 export function FamilyBillingView() {
+  const router = useRouter();
   const search = useSearchParams();
   const requestedCaseId = search.get('supportCaseId')?.trim();
   const { gateStatus, gateError, isLoadingGate, refreshGateStatus } =
     useFamilySubscriptionGateState();
   const pending = gateStatus?.pendingContract;
+  const gateActive = gateStatus?.activeContract ?? null;
   const contractId =
     search.get('contractId')?.trim() ||
-    (!requestedCaseId && pending?.contractStatus === 'PENDING_PAYMENT' ? pending.id : undefined);
+    (!requestedCaseId && pending?.contractStatus === 'PENDING_PAYMENT'
+      ? pending.id
+      : undefined);
   const addendumId = search.get('addendumId')?.trim() || undefined;
-  const [receipts, setReceipts] = useState<FourPartyContract[]>([]);
-  const [loadingReceipts, setLoadingReceipts] = useState(true);
-
-  useEffect(() => {
-    let active = true;
-    const req = contractsApi?.getMedicalContracts?.();
-    if (!req || typeof req.then !== 'function') {
-      setLoadingReceipts(false);
-      return;
-    }
-    req
-      .then((res) => {
-        if (!active) return;
-        const list = Array.isArray(res) ? res : [];
-        setReceipts(
-          list.filter((c) => {
-            const st = String(c.status);
-            return st === 'ACTIVE' || st === 'COMPLETED' || st === 'EXPIRED';
-          })
-        );
-      })
-      .catch(() => {
-        if (active) setReceipts([]);
-      })
-      .finally(() => {
-        if (active) setLoadingReceipts(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
 
   const [requests, setRequests] = useState<FamilyPaymentRequestItem[]>([]);
   const [supportCases, setSupportCases] = useState<SupportCaseSummary[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState('');
+  const [showArchivedQrs, setShowArchivedQrs] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogContext, setDialogContext] =
@@ -155,22 +127,6 @@ export function FamilyBillingView() {
     void loadBillingHistory();
   }, [loadBillingHistory]);
 
-  const openReportForRequest = (item: FamilyPaymentRequestItem) => {
-    setDialogContext({
-      contractId: item.contractId,
-      contractNumber: item.contractNumber,
-      packageName: item.packageName,
-      invoiceId: item.id,
-      paymentCode: item.paymentCode,
-      transferContent: item.transferContent,
-      amountVnd: item.amountVnd,
-      paymentStatus: item.status,
-      latestTransaction: item.latestTransaction,
-    });
-    setDialogCaseId(item.openSupportCase?.id ?? null);
-    setDialogOpen(true);
-  };
-
   const openExistingCase = (sc: SupportCaseSummary) => {
     const snap = sc.contextSnapshot ?? {};
     setDialogContext({
@@ -194,21 +150,57 @@ export function FamilyBillingView() {
     setDialogOpen(true);
   };
 
+  const paidRequests = useMemo(
+    () => requests.filter((item) => item.status === 'PAID'),
+    [requests],
+  );
+  const archivedRequests = useMemo(
+    () =>
+      requests.filter(
+        (item) => item.status === 'EXPIRED' || item.status === 'CANCELLED',
+      ),
+    [requests],
+  );
+  const hasAttentionArchivedItem = useMemo(
+    () =>
+      archivedRequests.some(
+        (item) =>
+          Boolean(item.openSupportCase) ||
+          item.latestTransaction?.outcome === 'REVIEW_REQUIRED',
+      ),
+    [archivedRequests],
+  );
+
+  // Bảo toàn luồng báo lỗi chuyển khoản: chỉ thu gọn QR hết hạn khi đã có biên lai PAID và không có item cần soát xét.
+  const shouldCollapseArchived =
+    paidRequests.length > 0 && !hasAttentionArchivedItem;
+
+  const visibleRequests = useMemo(() => {
+    if (!shouldCollapseArchived || showArchivedQrs) {
+      return requests;
+    }
+    return requests.filter(
+      (item) => item.status !== 'EXPIRED' && item.status !== 'CANCELLED',
+    );
+  }, [requests, shouldCollapseArchived, showArchivedQrs]);
+
+  const collapsedArchivedCount = shouldCollapseArchived
+    ? archivedRequests.length
+    : 0;
+
   return (
     <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <Link href="/family" className="text-sm font-semibold text-primary">
-        ← Bảng sức khỏe gia đình
-      </Link>
-
       {contractId ? (
         <BookingPaymentStep
           key={`${contractId}:${addendumId ?? ''}`}
           contractId={contractId}
           addendumId={addendumId}
         />
-      ) : (
+      ) : !gateActive && (gateError || isLoadingGate || !gateStatus) ? (
         <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-          <h1 className="text-xl font-bold text-slate-900">Thanh toán VietQR</h1>
+          <h1 className="text-xl font-bold text-slate-900">
+            Hóa đơn, Biên lai &amp; Thanh toán
+          </h1>
           {gateError ? (
             <>
               <p role="alert" className="text-sm text-destructive">
@@ -222,39 +214,24 @@ export function FamilyBillingView() {
                 Thử lại
               </button>
             </>
-          ) : isLoadingGate || !gateStatus ? (
+          ) : (
             <p role="status" className="text-sm text-slate-600">
               Đang kiểm tra hợp đồng chờ thanh toán…
             </p>
-          ) : (
-            <>
-              <p className="text-sm text-slate-600">
-                Không có hợp đồng nào đang chờ thanh toán. Nếu gia đình đã
-                chuyển khoản trước đó nhưng gặp sự cố, bạn có thể báo lỗi hoặc
-                theo dõi kết quả đối soát ngay bên dưới.
-              </p>
-              <Link
-                href="/family/subscription"
-                className="inline-block text-sm font-semibold text-primary hover:underline"
-              >
-                Xem gói và hợp đồng
-              </Link>
-            </>
           )}
         </section>
-      )}
-      {/* Lịch sử yêu cầu thanh toán & Báo lỗi chuyển khoản */}
+      ) : null}
+
+      {/* Bảng Hóa đơn, Biên lai & Thanh toán */}
       <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3.5">
           <div className="space-y-0.5 min-w-0">
-            <h2 className="flex items-center gap-2 text-base font-bold text-slate-900">
+            <h1 className="flex items-center gap-2 text-lg sm:text-xl font-bold text-slate-900">
               <History className="size-4 text-primary shrink-0" aria-hidden="true" />
-              <span>Lịch sử yêu cầu thanh toán &amp; Hỗ trợ chuyển khoản</span>
-            </h2>
+              <span>Hóa đơn, Biên lai &amp; Thanh toán</span>
+            </h1>
             <p className="text-xs text-slate-600">
-              Bấm <strong>Báo lỗi chuyển khoản</strong> trực tiếp trên hóa đơn nếu
-              ngân hàng đã trừ tiền nhưng gói chưa kích hoạt — hệ thống sẽ tự điền
-              sẵn thông tin để Admin đối soát với SePay.
+              Bấm vào một dòng để xem chi tiết biên lai điện tử hoặc đối soát chuyển khoản.
             </p>
           </div>
           <Button
@@ -294,145 +271,166 @@ export function FamilyBillingView() {
               className="size-4 animate-spin text-primary"
               aria-hidden="true"
             />
-            <span>Đang tải lịch sử yêu cầu thanh toán…</span>
+            <span>Đang tải danh sách hóa đơn…</span>
           </div>
-        ) : requests.length === 0 ? (
+        ) : visibleRequests.length === 0 && collapsedArchivedCount === 0 ? (
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-6 text-center text-xs text-slate-600">
-            Hộ gia đình chưa có yêu cầu thanh toán VietQR nào.
+            <p>
+              {gateActive
+                ? 'Hộ gia đình chưa có hóa đơn thanh toán nào được ghi nhận.'
+                : 'Không có hợp đồng nào đang chờ thanh toán. Hộ gia đình chưa có yêu cầu thanh toán VietQR nào.'}
+            </p>
+            {!gateActive && (
+              <Link
+                href="/family/subscription"
+                className="mt-2 inline-block font-semibold text-primary hover:underline"
+              >
+                Xem gói và hợp đồng
+              </Link>
+            )}
           </div>
         ) : (
           <div className="space-y-3">
-            {requests.map((item) => {
-              const statusInfo = PAYMENT_STATUS_BADGE[item.status] ?? {
-                label: item.status,
-                className: 'border-slate-200 bg-slate-50 text-slate-700',
-              };
-              const hasOpenCase = Boolean(item.openSupportCase);
-              const isReviewTx =
-                item.latestTransaction?.outcome === 'REVIEW_REQUIRED';
+            <div className="overflow-x-auto rounded-xl border border-slate-200/80">
+              <table className="w-full min-w-[680px] border-collapse text-left text-xs sm:text-sm">
+                <thead className="bg-slate-50/90 text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  <tr className="border-b border-slate-200">
+                    <th className="px-4 py-3">Mã hóa đơn</th>
+                    <th className="px-4 py-3">Loại / Gói dịch vụ</th>
+                    <th className="px-4 py-3">Hợp đồng</th>
+                    <th className="px-4 py-3 text-right">Số tiền</th>
+                    <th className="px-4 py-3">Trạng thái</th>
+                    <th className="w-10 px-3 py-3" aria-label="Chi tiết" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {visibleRequests.map((item) => {
+                    const statusInfo = PAYMENT_STATUS_BADGE[item.status] ?? {
+                      label: item.status,
+                      className: 'border-slate-200 bg-slate-50 text-slate-700',
+                    };
+                    const isReviewTx =
+                      item.latestTransaction?.outcome === 'REVIEW_REQUIRED';
 
-              return (
-                <article
-                  key={item.id}
-                  className="flex flex-col gap-3 rounded-2xl border border-slate-200/90 p-4 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0 flex-1 space-y-1.5 text-xs sm:text-sm">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-bold text-slate-900 tabular-nums wrap-anywhere">
-                        {item.paymentCode}
-                      </span>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          'text-[11px] font-semibold',
-                          statusInfo.className,
-                        )}
+                    return (
+                      <tr
+                        key={item.id}
+                        tabIndex={0}
+                        onClick={() => router.push(`/family/billing/${item.id}`)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            router.push(`/family/billing/${item.id}`);
+                          }
+                        }}
+                        className="cursor-pointer transition-colors hover:bg-slate-50/90 focus-visible:bg-slate-50 focus-visible:outline-none"
                       >
-                        {statusInfo.label}
-                      </Badge>
-                      {isReviewTx && (
-                        <Badge
-                          variant="outline"
-                          className="border-amber-300 bg-amber-50 text-amber-900 text-[11px] font-semibold"
-                        >
-                          SePay chờ soát xét
-                        </Badge>
-                      )}
-                      {item.openSupportCase && (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            'text-[11px] font-semibold',
-                            SUPPORT_CASE_STATUS_STYLES[
-                              item.openSupportCase
-                                .status as keyof typeof SUPPORT_CASE_STATUS_STYLES
-                            ] || 'border-blue-300 bg-blue-50 text-blue-900',
-                          )}
-                        >
-                          Hỗ trợ:{' '}
-                          {getSupportCaseStatusLabel(
-                            item.openSupportCase
-                              .status as Parameters<
-                              typeof getSupportCaseStatusLabel
-                            >[0],
-                            'PAYMENT_ISSUE',
-                          )}
-                        </Badge>
-                      )}
-                    </div>
+                        <td className="px-4 py-3.5 align-top">
+                          <div className="font-bold text-slate-900 tabular-nums">
+                            {item.paymentCode}
+                          </div>
+                          <div className="mt-0.5 text-[11px] text-slate-500 tabular-nums">
+                            {item.paidAt
+                              ? formatDate(item.paidAt)
+                              : formatDate(item.createdAt)}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 align-top">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className="border-slate-200 bg-slate-50 text-slate-700 text-[10px] font-semibold"
+                            >
+                              {item.addendumId || item.addendumNumber
+                                ? `Phụ lục ${item.addendumNumber ? `#${item.addendumNumber}` : ''}`.trim()
+                                : 'HĐ Gốc'}
+                            </Badge>
+                            <span className="font-medium text-slate-900">
+                              {item.packageName}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3.5 align-top font-semibold text-slate-700 tabular-nums">
+                          #{item.contractNumber}
+                        </td>
+                        <td className="px-4 py-3.5 align-top text-right font-bold text-primary tabular-nums whitespace-nowrap">
+                          {item.amountVnd.toLocaleString('vi-VN')} đ
+                        </td>
+                        <td className="px-4 py-3.5 align-top">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                'text-[11px] font-semibold',
+                                statusInfo.className,
+                              )}
+                            >
+                              {statusInfo.label}
+                            </Badge>
+                            {isReviewTx && (
+                              <Badge
+                                variant="outline"
+                                className="border-amber-300 bg-amber-50 text-amber-900 text-[10px] font-semibold"
+                              >
+                                Chờ soát xét
+                              </Badge>
+                            )}
+                            {item.openSupportCase && (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  'text-[10px] font-semibold',
+                                  SUPPORT_CASE_STATUS_STYLES[
+                                    item.openSupportCase
+                                      .status as keyof typeof SUPPORT_CASE_STATUS_STYLES
+                                  ] || 'border-blue-300 bg-blue-50 text-blue-900',
+                                )}
+                              >
+                                Hỗ trợ:{' '}
+                                {getSupportCaseStatusLabel(
+                                  item.openSupportCase
+                                    .status as Parameters<
+                                    typeof getSupportCaseStatusLabel
+                                  >[0],
+                                  'PAYMENT_ISSUE',
+                                )}
+                              </Badge>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-3.5 align-middle text-right text-slate-400">
+                          <ChevronRight className="inline size-4" aria-hidden="true" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
-                      <span>
-                        Hợp đồng:{' '}
-                        <strong className="text-slate-900 tabular-nums">
-                          {item.contractNumber}
-                        </strong>
-                      </span>
-                      <span>·</span>
-                      <span className="truncate">{item.packageName}</span>
-                      <span>·</span>
-                      <strong className="text-primary tabular-nums">
-                        {item.amountVnd.toLocaleString('vi-VN')} đ
-                      </strong>
-                    </div>
-
-                    <div className="text-[11px] text-slate-500 tabular-nums">
-                      Tạo lúc: {formatDate(item.createdAt)}
-                      {item.paidAt
-                        ? ` · Ghi nhận thanh toán: ${formatDate(item.paidAt)}`
-                        : ` · Hết hạn: ${formatDate(item.expiresAt)}`}
-                    </div>
-
-                    {hasOpenCase && (
-                      <div className="flex items-start gap-1.5 rounded-lg border border-blue-200 bg-blue-50/70 px-2.5 py-1.5 text-[11px] text-blue-900">
-                        <AlertTriangle
-                          className="mt-0.5 size-3.5 shrink-0 text-blue-700"
-                          aria-hidden="true"
-                        />
-                        <span>
-                          Đang có hồ sơ đối soát{' '}
-                          <strong>{item.openSupportCase?.caseCode}</strong>. Vui
-                          lòng chờ Admin phản hồi trước khi chuyển khoản lại.
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant={hasOpenCase ? 'default' : 'outline'}
-                      onClick={() => openReportForRequest(item)}
-                      className={cn(
-                        'rounded-xl text-xs font-semibold cursor-pointer',
-                        hasOpenCase
-                          ? 'bg-primary text-white hover:bg-primary/90'
-                          : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100',
-                      )}
-                    >
-                      {hasOpenCase ? (
-                        <>
-                          <MessageSquare
-                            className="size-3.5 mr-1.5"
-                            aria-hidden="true"
-                          />
-                          <span>Xem trao đổi với Admin</span>
-                        </>
-                      ) : (
-                        <>
-                          <ReceiptText
-                            className="size-3.5 mr-1.5"
-                            aria-hidden="true"
-                          />
-                          <span>Báo lỗi chuyển khoản</span>
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </article>
-              );
-            })}
+            {collapsedArchivedCount > 0 && (
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowArchivedQrs((prev) => !prev)}
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-900 cursor-pointer"
+                >
+                  {showArchivedQrs ? (
+                    <>
+                      <ChevronUp className="size-3.5 mr-1.5" aria-hidden="true" />
+                      Thu gọn {collapsedArchivedCount} mã QR cũ đã hết hạn / hủy
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="size-3.5 mr-1.5" aria-hidden="true" />
+                      Xem thêm {collapsedArchivedCount} mã QR cũ đã hết hạn / hủy
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
@@ -487,48 +485,6 @@ export function FamilyBillingView() {
                   </div>
                 ))}
             </div>
-          </div>
-        )}
-      </section>
-
-      {/* Lịch sử thanh toán & Biên lai hợp đồng đã kích hoạt */}
-      <section className="space-y-3 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 shadow-xs">
-        <h2 className="text-base font-bold text-slate-900">
-          Lịch sử thanh toán &amp; Biên lai
-        </h2>
-        {loadingReceipts ? (
-          <p role="status" className="text-sm text-slate-500">
-            Đang tải lịch sử biên lai…
-          </p>
-        ) : receipts.length === 0 ? (
-          <p className="text-sm text-slate-600">
-            Chưa có biên lai thanh toán nào được ghi nhận.
-          </p>
-        ) : (
-          <div className="divide-y divide-slate-100 text-sm">
-            {receipts.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-2 py-3"
-              >
-                <div>
-                  <p className="font-semibold text-slate-900">
-                    {item.packageName || 'Gói chăm sóc gia đình'}
-                  </p>
-                  <p className="text-xs text-slate-500 tabular-nums">
-                    HĐ #{item.contractNumber}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold tabular-nums text-slate-900">
-                    {(item.packagePrice ?? 0).toLocaleString('vi-VN')} đ
-                  </p>
-                  <span className="text-xs font-medium text-emerald-700">
-                    Đã thanh toán
-                  </span>
-                </div>
-              </div>
-            ))}
           </div>
         )}
       </section>

@@ -277,6 +277,7 @@ export interface FamilyGateDoctorSummaryDto {
 
 export interface FamilyGateStatusDto {
   hasActiveContract: boolean;
+  hasHistoricalContracts?: boolean;
   activeContract: {
     id: string;
     contractNumber: string;
@@ -670,6 +671,8 @@ export function mapMedicalContractToFourParty(
     assignedDoctorName: dto.doctor?.doctorName || dto.doctor?.user?.fullName,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt,
+    startDate: dto.startDate,
+    endDate: dto.endDate,
     documensoEnvelopeId: dto.documensoEnvelopeId,
     signatures: mappedSignatures,
     ...(mappedAddenda ? { addenda: mappedAddenda } : {}),

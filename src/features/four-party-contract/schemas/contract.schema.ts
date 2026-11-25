@@ -82,6 +82,8 @@ export const contractSchema = z.object({
   assignedDoctorName: z.string().optional(),
   createdAt: z.string().min(1, 'Ngày tạo hợp đồng không được để trống'),
   updatedAt: z.string().optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   activatedAt: z.string().optional(),
   expiresAt: z.string().optional(),
   documensoEnvelopeId: z.string().nullable().optional(),

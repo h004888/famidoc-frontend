@@ -164,4 +164,33 @@ describe('FamilyAppointmentsView (/family/appointments)', () => {
     const bookLink = await screen.findByRole('link', { name: /\+ Đặt Tư vấn Video/i });
     expect(bookLink).toHaveAttribute('href', '/family/appointments/book-video');
   });
+
+  it('hiển thị lịch tháng gọn cho mobile và agenda chi tiết khi chạm chọn ngày (không cắt ngang)', async () => {
+    const todayIso = new Date().toISOString().slice(0, 10);
+    vi.spyOn(encountersApi, 'getFamilyTimetable').mockResolvedValue({
+      data: [
+        {
+          id: 'enc-mobile-1',
+          contractId: 'ctr-1',
+          doctorId: 'doc-1',
+          encounterType: 'HOME_VISIT',
+          category: 'PERIODIC_ROUTINE',
+          encounterStatus: 'CONFIRMED',
+          scheduledDate: `${todayIso}T00:00:00.000Z`,
+          scheduledTime: '1970-01-01T08:00:00.000Z',
+          doctor: { doctorName: 'BS. Nguyễn Văn A' },
+        } as any,
+      ],
+      pagination: { page: 1, pageSize: 50, totalItems: 1, totalPages: 1 },
+    });
+
+    render(<FamilyAppointmentsView />);
+
+    const mobileGrid = await screen.findByTestId('mobile-month-calendar');
+    expect(mobileGrid).toBeInTheDocument();
+
+    const mobileAgenda = screen.getByTestId('mobile-agenda-list');
+    expect(mobileAgenda).toHaveTextContent('08:00');
+    expect(mobileAgenda).toHaveTextContent(/BS\. Nguyễn Văn A/i);
+  });
 });

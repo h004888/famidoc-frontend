@@ -266,6 +266,7 @@ export function FamilyAppointmentsView() {
 
   const todayIso = new Date().toISOString().slice(0, 10);
   const [calendarAnchorIso, setCalendarAnchorIso] = useState(todayIso);
+  const [mobileSelectedDate, setMobileSelectedDate] = useState(todayIso);
   const [rescheduleDate, setRescheduleDate] = useState(todayIso);
   const [rescheduleTime, setRescheduleTime] = useState('14:00');
   const [rescheduleError, setRescheduleError] = useState('');
@@ -864,9 +865,116 @@ export function FamilyAppointmentsView() {
                 byDate.set(apt.date, list);
               }
 
+              const selectedDayApts = byDate.get(mobileSelectedDate) ?? [];
+
               return (
-                <div className="p-3 sm:p-5 overflow-x-auto">
-                  <div className="min-w-[720px]">
+                <>
+                  {/* MOBILE: Compact Month Grid + Selected-Day Agenda (no horizontal scroll) */}
+                  <div className="md:hidden p-3 space-y-4">
+                    <div data-testid="mobile-month-calendar" className="space-y-1.5">
+                      <div className="grid grid-cols-7 gap-1">
+                        {weekdayHeaders.map((label) => (
+                          <div
+                            key={label}
+                            className="text-center text-[11px] font-semibold text-slate-500 py-1"
+                          >
+                            {label}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-1">
+                        {monthCells.map((cell) => {
+                          const dayApts = byDate.get(cell.iso) ?? [];
+                          const isToday = cell.iso === todayIso;
+                          const isSelected = cell.iso === mobileSelectedDate;
+                          const hasHome = dayApts.some((a) => a.type === 'home');
+                          const hasVideo = dayApts.some((a) => a.type === 'telehealth');
+                          return (
+                            <button
+                              key={cell.iso}
+                              type="button"
+                              onClick={() => setMobileSelectedDate(cell.iso)}
+                              className={`h-11 rounded-xl border flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'border-[#2E37A4] bg-indigo-50/70 ring-1 ring-[#2E37A4]/30'
+                                  : isToday
+                                    ? 'border-indigo-300 bg-indigo-50/20'
+                                    : cell.isCurrentMonth
+                                      ? 'border-slate-200/80 bg-white'
+                                      : 'border-slate-100 bg-slate-50/60 opacity-50'
+                              }`}
+                            >
+                              <span
+                                className={`text-xs font-semibold tabular-nums leading-none ${
+                                  isToday
+                                    ? 'inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#2E37A4] text-white text-[11px]'
+                                    : isSelected
+                                      ? 'text-[#2E37A4]'
+                                      : cell.isCurrentMonth
+                                        ? 'text-slate-800'
+                                        : 'text-slate-400'
+                                }`}
+                              >
+                                {cell.dayNumber}
+                              </span>
+                              <div className="flex items-center justify-center gap-0.5 h-1.5">
+                                {hasHome && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+                                )}
+                                {hasVideo && (
+                                  <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+                                )}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div data-testid="mobile-agenda-list" className="space-y-2 border-t border-slate-100 pt-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold text-slate-800">
+                          {formatTimelineDayHeading(mobileSelectedDate, todayIso)}
+                        </span>
+                        <span className="text-[11px] text-slate-500 tabular-nums">
+                          {selectedDayApts.length} lịch hẹn
+                        </span>
+                      </div>
+                      {selectedDayApts.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-center text-xs text-slate-500">
+                          Không có lịch khám trong ngày này.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {selectedDayApts.map((apt) => (
+                            <button
+                              key={apt.id}
+                              type="button"
+                              onClick={() => setSelectedTimetableApt(apt)}
+                              className={`w-full text-left rounded-xl border p-3 transition-colors cursor-pointer ${getCalendarPillStyle(
+                                apt
+                              )}`}
+                            >
+                              <div className="flex items-center justify-between gap-2 text-xs font-bold">
+                                <span>
+                                  {apt.type === 'home' ? 'Khám tại nhà' : 'Tư vấn Video'}
+                                </span>
+                                <span className="tabular-nums">{apt.time}</span>
+                              </div>
+                              <div className="text-xs font-medium mt-1">
+                                {apt.doctorName} · {apt.patientName}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* DESKTOP: 7-column full month grid */}
+                  <div className="hidden md:block p-3 sm:p-5 overflow-x-auto">
+                    <div className="min-w-[720px]">
                     <div className="grid grid-cols-7 gap-2 mb-2">
                       {weekdayHeaders.map((label) => (
                         <div
@@ -942,6 +1050,7 @@ export function FamilyAppointmentsView() {
                     </div>
                   </div>
                 </div>
+                </>
               );
             })()
           ) : (
@@ -957,9 +1066,82 @@ export function FamilyAppointmentsView() {
                 { key: 'afternoon', label: 'Chiều', range: '13:30 – 17:30' },
               ];
 
+              const weekSelectedIso = weekDays.some((d) => d.iso === mobileSelectedDate)
+                ? mobileSelectedDate
+                : weekDays[0]?.iso ?? todayIso;
+              const mobileWeekApts = filteredAppointments.filter((a) => a.date === weekSelectedIso);
+
               return (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[780px] border-collapse text-xs">
+                <>
+                  {/* MOBILE: 7-day strip + agenda */}
+                  <div className="md:hidden p-3 space-y-4">
+                    <div className="grid grid-cols-7 gap-1">
+                      {weekDays.map((day) => {
+                        const isSelected = day.iso === weekSelectedIso;
+                        const isToday = day.iso === todayIso;
+                        const count = filteredAppointments.filter((a) => a.date === day.iso).length;
+                        return (
+                          <button
+                            key={day.iso}
+                            type="button"
+                            onClick={() => setMobileSelectedDate(day.iso)}
+                            className={`rounded-xl border py-2 px-1 flex flex-col items-center gap-1 transition-colors cursor-pointer ${
+                              isSelected
+                                ? 'border-[#2E37A4] bg-indigo-50/70 text-[#2E37A4]'
+                                : isToday
+                                  ? 'border-indigo-300 bg-indigo-50/20 text-slate-800'
+                                  : 'border-slate-200/80 bg-white text-slate-700'
+                            }`}
+                          >
+                            <span className="text-[10px] font-semibold uppercase">{day.dayLabel}</span>
+                            <span className="text-xs font-bold tabular-nums">{day.shortDate.slice(0, 2)}</span>
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                count > 0 ? 'bg-sky-500' : 'bg-transparent'
+                              }`}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="space-y-2 border-t border-slate-100 pt-3">
+                      <div className="text-xs font-bold text-slate-800">
+                        {formatTimelineDayHeading(weekSelectedIso, todayIso)}
+                      </div>
+                      {mobileWeekApts.length === 0 ? (
+                        <p className="rounded-xl border border-dashed border-slate-200 bg-slate-50/60 px-3 py-4 text-center text-xs text-slate-500">
+                          Không có lịch khám trong ngày này.
+                        </p>
+                      ) : (
+                        <div className="space-y-2">
+                          {mobileWeekApts.map((apt) => (
+                            <button
+                              key={apt.id}
+                              type="button"
+                              onClick={() => setSelectedTimetableApt(apt)}
+                              className={`w-full text-left rounded-xl border p-3 transition-colors cursor-pointer ${getCalendarPillStyle(
+                                apt
+                              )}`}
+                            >
+                              <div className="flex items-center justify-between gap-2 text-xs font-bold">
+                                <span>
+                                  {apt.type === 'home' ? 'Khám tại nhà' : 'Tư vấn Video'}
+                                </span>
+                                <span className="tabular-nums">{apt.time}</span>
+                              </div>
+                              <div className="text-xs font-medium mt-1">
+                                {apt.doctorName} · {apt.patientName}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* DESKTOP: 7-column week timetable */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full min-w-[780px] border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50/40">
                         <th className="w-28 px-3 py-2.5 text-left font-semibold text-slate-500 uppercase tracking-wider">
@@ -1029,6 +1211,7 @@ export function FamilyAppointmentsView() {
                     </tbody>
                   </table>
                 </div>
+                </>
               );
             })()
           )}
