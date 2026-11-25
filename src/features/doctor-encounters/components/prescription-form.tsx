@@ -178,7 +178,171 @@ export function PrescriptionForm({
   const [authorized, setAuthorized] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [showReplaceModal, setShowReplaceModal] = useState(false);
+  const [replaceDrugs, setReplaceDrugs] = useState<DrugRow[]>(() =>
+    visit.prescription
+      ? visit.prescription.details.map((line, index) => ({
+          ...blankDrug(index + 1),
+          ...Object.fromEntries(
+            Object.entries(line)
+              .filter(([key]) => key !== "id")
+              .map(([key, value]) => [key, value == null ? "" : String(value)]),
+          ),
+          medicationType: line.medicationType ?? "SINGLE_INGREDIENT",
+        }))
+      : [blankDrug(1)],
+  );
   const { recipient } = visit;
+
+  if (visit.prescription && visit.prescription.status === "ISSUED" && !isReplacement) {
+    const canSubmitReplacement = replacementReason.trim().length >= 10 && !pending;
+    const handleConfirmReplacement = async () => {
+      if (!canSubmitReplacement || !visit.prescription) return;
+      setPending(true);
+      setError("");
+      try {
+        await prescriptionsApi.replace(visit.prescription.id, {
+          clinicalContext: visit.prescription.clinicalContext ?? undefined,
+          replacementReason: replacementReason.trim(),
+          instructions: instructions.trim() || visit.prescription.instructions || "",
+          recipientUserId: recipient?.id ?? "",
+          recipientAuthorized: true,
+          details: replaceDrugs.map((row) => ({
+            medicationType: row.medicationType,
+            medicationCode: row.medicationCode.trim() || undefined,
+            activeIngredient: row.activeIngredient.trim() || undefined,
+            medicationName: row.medicationName.trim(),
+            strength: row.strength.trim(),
+            administrationRoute: row.administrationRoute.trim() || "Uống",
+            dosage: row.dosage.trim(),
+            frequency: row.frequency.trim(),
+            durationDays: Number(row.durationDays) || 1,
+            quantity: Number(row.quantity) || 1,
+            unit: row.unit.trim() || "viên",
+          })),
+        });
+        setShowReplaceModal(false);
+        onConfirmed();
+      } catch (failure) {
+        setError(
+          prescriptionErrorMessage(
+            failure,
+            "Không thể phát hành đơn thay thế. Vui lòng thử lại.",
+          ),
+        );
+      } finally {
+        setPending(false);
+      }
+    };
+
+    return (
+      <Card className="space-y-4 border-amber-200 bg-amber-50/50 p-4 sm:p-5">
+        <div className="space-y-1">
+          <p className="text-sm font-bold text-amber-950">
+            Đơn thuốc #{visit.prescription.prescriptionCode} — Đơn thuốc đã phát hành (Đã khóa — Không thể sửa đè)
+          </p>
+          <p className="text-xs text-slate-700">
+            Quy định y khoa: Để điều chỉnh thuốc, bác sĩ cần hủy đơn cũ và lập đơn mới thay thế để giữ vết y khoa.
+          </p>
+        </div>
+
+        <ul className="space-y-1 rounded-lg border border-amber-200 bg-white p-3 text-xs text-slate-800">
+          {visit.prescription.details.map((line, i) => (
+            <li key={line.id || i}>
+              {i + 1}. {line.medicationName} {line.strength} · {line.dosage} · {line.frequency} · {line.durationDays} ngày ({line.quantity} {line.unit})
+            </li>
+          ))}
+        </ul>
+
+        {!showReplaceModal ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="border-amber-400 bg-white text-amber-950 hover:bg-amber-100"
+            onClick={() => setShowReplaceModal(true)}
+          >
+            Hủy đơn cũ &amp; Lập đơn thay thế
+          </Button>
+        ) : (
+          <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4">
+            <h3 className="text-sm font-bold text-slate-900">
+              Lập đơn thuốc thay thế cho #{visit.prescription.prescriptionCode}
+            </h3>
+            <div className="space-y-1">
+              <Label htmlFor={`${formId}-d4-reason`}>Lý do hủy đơn cũ (Bắt buộc)</Label>
+              <Textarea
+                id={`${formId}-d4-reason`}
+                rows={2}
+                placeholder="Nhập lý do hủy đơn cũ (tối thiểu 10 ký tự)..."
+                value={replacementReason}
+                onChange={(e) => setReplacementReason(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-slate-700">Nội dung đơn thay thế:</p>
+              {replaceDrugs.map((drug, idx) => (
+                <div key={drug.rowId} className="grid grid-cols-2 gap-2 rounded-lg border p-2.5 sm:grid-cols-4">
+                  <Input
+                    aria-label={`Tên thuốc thay thế ${idx + 1}`}
+                    value={drug.medicationName}
+                    onChange={(e) =>
+                      setReplaceDrugs((cur) =>
+                        cur.map((r) => (r.rowId === drug.rowId ? { ...r, medicationName: e.target.value } : r)),
+                      )
+                    }
+                  />
+                  <Input
+                    aria-label={`Hàm lượng thay thế ${idx + 1}`}
+                    value={drug.strength}
+                    onChange={(e) =>
+                      setReplaceDrugs((cur) =>
+                        cur.map((r) => (r.rowId === drug.rowId ? { ...r, strength: e.target.value } : r)),
+                      )
+                    }
+                  />
+                  <Input
+                    aria-label={`Liều dùng thay thế ${idx + 1}`}
+                    value={drug.dosage}
+                    onChange={(e) =>
+                      setReplaceDrugs((cur) =>
+                        cur.map((r) => (r.rowId === drug.rowId ? { ...r, dosage: e.target.value } : r)),
+                      )
+                    }
+                  />
+                  <Input
+                    aria-label={`Số lượng thay thế ${idx + 1}`}
+                    value={drug.quantity}
+                    onChange={(e) =>
+                      setReplaceDrugs((cur) =>
+                        cur.map((r) => (r.rowId === drug.rowId ? { ...r, quantity: e.target.value } : r)),
+                      )
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+            {error && (
+              <p role="alert" className="text-xs text-red-700">
+                {error}
+              </p>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowReplaceModal(false)}>
+                Đóng
+              </Button>
+              <Button
+                type="button"
+                disabled={!canSubmitReplacement}
+                onClick={() => void handleConfirmReplacement()}
+              >
+                ✓ Xác nhận Hủy đơn cũ &amp; Phát hành đơn thay thế
+              </Button>
+            </div>
+          </div>
+        )}
+      </Card>
+    );
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

@@ -28,6 +28,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FamilyMemberAvatar } from '@/components/shared/family-member-avatar';
 import { MedicalDomainIcon } from '@/components/shared/medical-domain-icon';
+import { isEncounterActiveToday } from '@/lib/encounter-dual-lane';
+import { FamilyTodayVisitCard } from './family-today-visit-card';
 
 type FamilyMemberOverviewData = MemberHealthData & {
   measuredToday: boolean;
@@ -692,6 +694,14 @@ export function FamilyDashboardView() {
               </Link>
             </div>
           </section>
+        )}
+
+        {/* 1B. THĂM KHÁM HÔM NAY (ACTIVE) */}
+        {nextEncounter && isEncounterActiveToday(nextEncounter) && (
+          <FamilyTodayVisitCard
+            encounter={nextEncounter}
+            onUpdated={() => setReloadNonce((n) => n + 1)}
+          />
         )}
 
         {/* 2. BENTO GRID TRÊN: CẦN LÀM HÔM NAY (7/12) & BÁC SĨ PHỤ TRÁCH + ĐƠN THUỐC (5/12) */}

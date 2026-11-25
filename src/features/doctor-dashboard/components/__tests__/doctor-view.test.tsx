@@ -301,4 +301,62 @@ describe('DoctorDashboardView — Daily Clinical Hub (5s Scanability IA)', () =>
       );
     }
   });
+
+  it('D1: shows ACTIVE today card with Mở Workspace Ca khám, PENDING_RECORD 24h card, and no check-in buttons', async () => {
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const yesterday = new Date(now.getTime() - 20 * 3600 * 1000);
+    const yesterdayIso = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+    vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValueOnce({
+      data: [
+        {
+          id: 'enc-active-today',
+          contractId: 'ctr-1',
+          doctorId: 'doc-real-1',
+          scheduledDate: todayIso,
+          scheduledTime: '14:00',
+          encounterType: 'HOME_VISIT',
+          category: 'PERIODIC_ROUTINE',
+          encounterStatus: 'CONFIRMED',
+          familyConfirmedArrivalAt: null,
+          clinicalEmrs: [],
+          patient: { id: 'pt-1', fullName: 'Nguyễn Văn A' },
+        },
+        {
+          id: 'enc-pending-24h',
+          contractId: 'ctr-2',
+          doctorId: 'doc-real-1',
+          scheduledDate: yesterdayIso,
+          scheduledTime: '09:00',
+          encounterType: 'HOME_VISIT',
+          category: 'PERIODIC_ROUTINE',
+          encounterStatus: 'CONFIRMED',
+          familyConfirmedArrivalAt: '2026-11-24T09:15:00+07:00',
+          clinicalEmrs: [],
+          patient: { id: 'pt-2', fullName: 'Lê Thị B' },
+        },
+      ] as any,
+      pagination: { page: 1, pageSize: 50, totalItems: 2, totalPages: 1 },
+    });
+
+    render(<DoctorDashboardView />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/ĐANG DIỄN RA \(ACTIVE\)/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Mở Workspace Ca khám/i })).toHaveAttribute(
+        'href',
+        '/doctor/encounters?encounterId=enc-active-today',
+      );
+      expect(screen.getByText(/Ca cần bổ sung & chốt hồ sơ/i)).toBeInTheDocument();
+      expect(screen.getByRole('link', { name: /Tiếp tục hoàn tất hồ sơ/i })).toHaveAttribute(
+        'href',
+        '/doctor/encounters?encounterId=enc-pending-24h',
+      );
+    });
+
+    expect(screen.queryByRole('button', { name: /Đang di chuyển/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Check-in/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Đã đến nhà/i })).not.toBeInTheDocument();
+  });
 });

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import { DualLaneReconciliationTable } from '@/features/admin-disputes/components/dual-lane-reconciliation-table';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -497,6 +498,8 @@ export function FacilityCoordinationView() {
             </div>
           </section>
         )}
+
+        {viewMode === 'timeline' && <DualLaneReconciliationTable />}
 
         {/* 4. FILTER TABS & VIEW MODE SWITCHER */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

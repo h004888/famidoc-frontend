@@ -22,9 +22,13 @@ vi.mock('@/lib/contract-workflow-storage', () => ({
   useContractWorkflow: () => ({ step: 'ACTIVE' }),
 }));
 
-vi.mock('@/lib/auth-storage', () => ({
-  getStoredAuthSession: () => ({ user: { id: 'u1', name: 'Nguyễn Văn A' }, role: 'FAMILY', token: 'tok' }),
-}));
+vi.mock('@/lib/auth-storage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/auth-storage')>();
+  return {
+    ...actual,
+    getStoredAuthSession: () => ({ user: { id: 'u1', name: 'Nguyễn Văn A' }, role: 'FAMILY', token: 'tok' }),
+  };
+});
 
 vi.mock('@/lib/api', () => ({
   encountersApi: {

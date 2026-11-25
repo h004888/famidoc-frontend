@@ -22,7 +22,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  canFamilyConfirmAttendance,
+  deriveDualLaneState,
+  formatEncounterTime,
+} from '@/lib/encounter-dual-lane';
+import { FamilyVisitConfirmModal } from './family-visit-confirm-modal';
 
 interface Appointment {
   id: string;
@@ -225,6 +232,11 @@ function mapEncounterToAppointment(item: EncounterItem): Appointment {
 
 export function FamilyAppointmentsView() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [rawEncounters, setRawEncounters] = useState<EncounterItem[]>([]);
+  const [confirmModal, setConfirmModal] = useState<{
+    encounter: EncounterItem;
+    mode: 'ARRIVED' | 'NO_SHOW';
+  } | null>(null);
   const [pendingReschedules, setPendingReschedules] = useState<EncounterRescheduleRequestItem[]>(
     []
   );
@@ -287,6 +299,7 @@ export function FamilyAppointmentsView() {
         encountersApi.getPendingRescheduleRequests().catch(() => []),
       ]);
       if (Array.isArray(res.data)) {
+        setRawEncounters(res.data);
         setAppointments(res.data.map(mapEncounterToAppointment));
       }
       setPendingReschedules(
@@ -635,56 +648,6 @@ export function FamilyAppointmentsView() {
                 </div>
               );
             })}
-            {arrivedEncounters.map((apt) => (
-              <div
-                key={`arrived-${apt.id}`}
-                className="rounded-2xl border border-emerald-300 bg-emerald-50/90 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-sm font-bold text-emerald-900">
-                    <span className="material-symbols-outlined text-[20px] text-emerald-700">
-                      location_on
-                    </span>
-                    <span>Bác sĩ {apt.doctorName} đã có mặt tại nhà bạn</span>
-                  </div>
-                  <p className="text-xs text-emerald-800">
-                    Lịch khám lúc {apt.time} ({apt.displayDate}) · Vui lòng chạm xác nhận để bắt đầu
-                    buổi thăm khám.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  disabled={confirmingArrivalId === apt.id}
-                  onClick={() => void handleConfirmArrival(apt.id)}
-                  className="min-h-10 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs sm:text-sm font-semibold gap-1.5 shrink-0"
-                >
-                  <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                  <span>
-                    {confirmingArrivalId === apt.id
-                      ? 'Đang xác nhận...'
-                      : 'Xác nhận Bác sĩ đã đến nhà'}
-                  </span>
-                </Button>
-              </div>
-            ))}
-
-            {onTheWayEncounters.map((apt) => (
-              <div
-                key={`way-${apt.id}`}
-                className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 flex items-center gap-3 text-xs text-sky-900"
-              >
-                <span className="material-symbols-outlined text-[20px] text-sky-600 shrink-0">
-                  directions_car
-                </span>
-                <div>
-                  <strong className="font-bold">
-                    Bác sĩ {apt.doctorName} đang trên đường đến nhà bạn
-                  </strong>{' '}
-                  cho buổi khám lúc {apt.time} ({apt.displayDate}).
-                </div>
-              </div>
-            ))}
-
             {pendingReschedules.map((req) => {
               const initiatorLabel =
                 req.requestedByRole === 'HEALTHCARE_FACILITY'
@@ -743,6 +706,148 @@ export function FamilyAppointmentsView() {
             })}
           </section>
         )}
+
+        {/* 3B. DANH SÁCH CA KHÁM 2 LÀN (3 TAB RÕ VIỆC CẦN LÀM) */}
+        {(() => {
+          const now = new Date();
+          const enriched = rawEncounters.map((enc) => ({
+            enc,
+            lane: deriveDualLaneState(enc, now),
+            canConfirm: canFamilyConfirmAttendance(enc, now),
+          }));
+          const todayOrNeedConfirm = enriched.filter(
+            (x) =>
+              x.lane.reconciledStatus === 'ACTIVE' ||
+              x.lane.reconciledStatus === 'PENDING_RECORD' ||
+              x.canConfirm,
+          );
+          const upcomingList = enriched.filter((x) => x.lane.reconciledStatus === 'UPCOMING');
+          const historyList = enriched.filter(
+            (x) =>
+              x.lane.reconciledStatus === 'COMPLETED' ||
+              x.lane.reconciledStatus === 'DISPUTED' ||
+              x.lane.reconciledStatus === 'CANCELLED',
+          );
+
+          const renderEncounterCard = (item: (typeof enriched)[number]) => {
+            const { enc, lane, canConfirm } = item;
+            const doctorName =
+              enc.doctor?.doctorName || enc.doctor?.user?.name || 'Bác sĩ phụ trách';
+            const dateLabel = formatVnDate(String(enc.scheduledDate || '').slice(0, 10));
+            const timeLabel = formatEncounterTime(enc.scheduledTime);
+            const isHome =
+              String(enc.encounterType || '').toUpperCase() === 'HOME_VISIT';
+            return (
+              <Card key={enc.id} className="rounded-xl border border-slate-200 bg-white p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-sm font-bold text-slate-900">
+                    {dateLabel} • {timeLabel} • {isHome ? 'Khám tại nhà' : 'Khám trực tuyến'}
+                  </div>
+                  <Badge variant="outline">{lane.familyStatusLabel}</Badge>
+                </div>
+                <p className="text-sm text-slate-700">Bác sĩ: {doctorName}</p>
+                <div className="rounded-lg bg-slate-50 p-3 text-xs text-slate-700 space-y-1">
+                  <div>
+                    <span className="font-semibold">Phía Gia đình:</span>{' '}
+                    {!isHome
+                      ? 'Khám trực tuyến qua phòng Video'
+                      : lane.familyReportedNoShow
+                        ? 'Đã báo không đến'
+                        : lane.familyConfirmed
+                          ? 'Đã xác nhận bác sĩ có đến'
+                          : canConfirm
+                            ? 'Chờ xác nhận bác sĩ có đến không'
+                            : 'Chưa đến giờ xác nhận'}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Phía Bác sĩ:</span>{' '}
+                    {lane.hasFinalizedRecord
+                      ? 'Đã gửi hồ sơ khám'
+                      : lane.familyReportedNoShow
+                        ? 'Đang kiểm tra sự cố'
+                        : 'Chưa gửi hồ sơ khám'}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {canConfirm && (
+                    <>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="bg-emerald-700 text-white hover:bg-emerald-800"
+                        onClick={() => setConfirmModal({ encounter: enc, mode: 'ARRIVED' })}
+                      >
+                        Bác sĩ ĐÃ ĐẾN
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="border-red-300 text-red-700 hover:bg-red-50"
+                        onClick={() => setConfirmModal({ encounter: enc, mode: 'NO_SHOW' })}
+                      >
+                        Bác sĩ KHÔNG ĐẾN
+                      </Button>
+                    </>
+                  )}
+                  {lane.hasFinalizedRecord && !lane.familyReportedNoShow && (
+                    <Link
+                      href="/family/prescriptions"
+                      className="inline-flex h-8 items-center rounded-lg border border-teal-300 bg-teal-50 px-3 text-xs font-semibold text-teal-900 hover:bg-teal-100"
+                    >
+                      Xem kết quả &amp; Đơn thuốc
+                    </Link>
+                  )}
+                </div>
+              </Card>
+            );
+          };
+
+          return (
+            <section aria-label="Danh sách ca khám theo trạng thái" className="rounded-2xl border border-slate-200/80 bg-white p-4 sm:p-5 shadow-xs">
+              <Tabs defaultValue="today" className="space-y-4">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="today">
+                    Hôm nay / Cần xác nhận ({todayOrNeedConfirm.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="upcoming">Sắp tới ({upcomingList.length})</TabsTrigger>
+                  <TabsTrigger value="history">Đã hoàn tất ({historyList.length})</TabsTrigger>
+                </TabsList>
+                <TabsContent value="today" className="space-y-3">
+                  {todayOrNeedConfirm.length === 0 ? (
+                    <p className="text-sm text-slate-600">Không có ca khám nào cần xác nhận hôm nay.</p>
+                  ) : (
+                    todayOrNeedConfirm.map(renderEncounterCard)
+                  )}
+                </TabsContent>
+                <TabsContent value="upcoming" className="space-y-3">
+                  {upcomingList.length === 0 ? (
+                    <p className="text-sm text-slate-600">Chưa có lịch khám sắp tới.</p>
+                  ) : (
+                    upcomingList.map(renderEncounterCard)
+                  )}
+                </TabsContent>
+                <TabsContent value="history" className="space-y-3">
+                  {historyList.length === 0 ? (
+                    <p className="text-sm text-slate-600">Chưa có lịch sử ca khám.</p>
+                  ) : (
+                    historyList.map(renderEncounterCard)
+                  )}
+                </TabsContent>
+              </Tabs>
+              <FamilyVisitConfirmModal
+                open={confirmModal !== null}
+                mode={confirmModal?.mode ?? 'ARRIVED'}
+                encounter={confirmModal?.encounter ?? null}
+                onClose={() => setConfirmModal(null)}
+                onCompleted={() => {
+                  setConfirmModal(null);
+                  void loadTimetable();
+                }}
+              />
+            </section>
+          );
+        })()}
 
         {/* 4. CALENDAR & TIMELINE VIEW */}
         <section className="rounded-2xl border border-slate-200/80 bg-white shadow-xs overflow-hidden">

@@ -13,6 +13,11 @@ import {
   type MedicalContractListItem,
 } from '@/lib/api';
 import { useDoctorVerificationGate } from '@/components/layout/doctor-verification-gate';
+import {
+  deriveDualLaneState,
+  formatRemainingRecordDeadline,
+  isEncounterActiveToday,
+} from '@/lib/encounter-dual-lane';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -654,6 +659,93 @@ export function DoctorDashboardView() {
             </div>
           </div>
         </section>
+
+        {/* KHỐI 2B: CA KHÁM HÔM NAY (ACTIVE) & CA CHỜ HOÀN TẤT HỒ SƠ 24H (D1) */}
+        {(() => {
+          const now = new Date();
+          const activeTodayList = encounters.filter((e) => isEncounterActiveToday(e, now));
+          const pendingRecordList = encounters.filter(
+            (e) =>
+              !isEncounterActiveToday(e, now) &&
+              deriveDualLaneState(e, now).reconciledStatus === 'PENDING_RECORD',
+          );
+          if (activeTodayList.length === 0 && pendingRecordList.length === 0) return null;
+          return (
+            <section aria-label="Ca khám cần xử lý theo 2 làn" className="space-y-3">
+              {activeTodayList.map((enc) => {
+                const lane = deriveDualLaneState(enc, now);
+                return (
+                  <Card
+                    key={`active-${enc.id}`}
+                    className="rounded-2xl border-2 border-teal-200 bg-teal-50/40 p-4 sm:p-5 shadow-xs"
+                  >
+                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge className="bg-teal-700 text-white">ĐANG DIỄN RA (ACTIVE)</Badge>
+                          <span className="text-xs font-semibold text-slate-700">
+                            {String(enc.scheduledTime || '').slice(0, 5)} •{' '}
+                            {enc.encounterType === 'HOME_VISIT' ? 'Khám tại nhà' : 'Video'}
+                          </span>
+                        </div>
+                        <p className="text-sm font-bold text-slate-900">
+                          {getPrimaryPatientName(enc)}
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          Gia đình: {lane.familyConfirmed ? '✓ Đã xác nhận có đến' : 'Chưa xác nhận'}{' '}
+                          • Hồ sơ: {lane.doctorStatusLabel}
+                        </p>
+                      </div>
+                      <Link
+                        href={`/doctor/encounters?encounterId=${enc.id}`}
+                        className="inline-flex h-10 shrink-0 items-center justify-center rounded-xl bg-teal-700 px-4 text-xs font-semibold text-white hover:bg-teal-800"
+                      >
+                        Mở Workspace Ca khám
+                      </Link>
+                    </div>
+                  </Card>
+                );
+              })}
+
+              {pendingRecordList.length > 0 && (
+                <div className="space-y-2">
+                  <h2 className="text-sm font-bold text-amber-900">
+                    Ca cần bổ sung &amp; chốt hồ sơ (Hạn 24h)
+                  </h2>
+                  {pendingRecordList.map((enc) => {
+                    const lane = deriveDualLaneState(enc, now);
+                    return (
+                      <Card
+                        key={`pending-${enc.id}`}
+                        className="rounded-xl border border-amber-300 bg-amber-50/70 p-4 shadow-2xs"
+                      >
+                        <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+                          <div className="space-y-1">
+                            <p className="text-sm font-bold text-slate-900">
+                              {getPrimaryPatientName(enc)} • {String(enc.scheduledDate).slice(0, 10)}
+                            </p>
+                            <p className="text-xs text-amber-900">
+                              {lane.familyConfirmed
+                                ? 'Gia đình: ✓ Đã xác nhận có đến'
+                                : 'Chờ xác nhận'}{' '}
+                              • {formatRemainingRecordDeadline(lane.remainingRecordHours)}
+                            </p>
+                          </div>
+                          <Link
+                            href={`/doctor/encounters?encounterId=${enc.id}`}
+                            className="inline-flex h-9 shrink-0 items-center justify-center rounded-xl border border-amber-400 bg-white px-3.5 text-xs font-semibold text-amber-950 hover:bg-amber-100"
+                          >
+                            Tiếp tục hoàn tất hồ sơ
+                          </Link>
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          );
+        })()}
 
         {/* KHỐI 3 (CỐ ĐỊNH 2 CỘT 5/12 + 7/12): LỊCH KHÁM & HỒ SƠ TRƯỚC KHÁM */}
         <section aria-label="Lịch khám hôm nay" className="space-y-3">

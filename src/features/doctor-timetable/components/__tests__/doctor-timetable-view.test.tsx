@@ -1,91 +1,96 @@
-import React from 'react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { DoctorTimetableView } from '../doctor-timetable-view';
-import { encountersApi } from '@/lib/api';
+import { DoctorTimetableView } from '@/features/doctor-timetable/components/doctor-timetable-view';
+import { encountersApi } from '@/lib/api/encounters.api';
+import { doctorsApi } from '@/lib/api/doctors.api';
 
 vi.mock('sonner', () => ({
   toast: {
     success: vi.fn(),
-    warning: vi.fn(),
     error: vi.fn(),
   },
 }));
 
-describe('DoctorTimetableView (/doctor/timetable)', () => {
+vi.mock('@/lib/api/encounters.api', () => ({
+  encountersApi: {
+    getDoctorTimetable: vi.fn(),
+    getPendingRescheduleRequests: vi.fn(),
+    decideRescheduleRequest: vi.fn(),
+    requestReschedule: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/api/doctors.api', () => ({
+  doctorsApi: {
+    getDoctorMe: vi.fn(),
+  },
+}));
+
+describe('DoctorTimetableView (D2)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(doctorsApi.getDoctorMe).mockResolvedValue({
+      id: 'doc-1',
+      doctorName: 'BS. Trần Minh Tâm',
+      onboardingStatus: 'ACTIVE',
+    } as any);
+    vi.mocked(encountersApi.getPendingRescheduleRequests).mockResolvedValue([]);
+  });
 
-    vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValue({
+  it('shows ACTIVE badge and direct Workspace link, Chờ EHR badge, and no check-in buttons', async () => {
+    const user = userEvent.setup();
+    const now = new Date();
+    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const yesterday = new Date(now.getTime() - 18 * 3600 * 1000);
+    const yesterdayIso = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+
+    vi.mocked(encountersApi.getDoctorTimetable).mockResolvedValue({
       data: [
         {
-          id: 'enc-home-confirmed',
-          contractId: 'ctr-1',
-          patientId: 'p-1',
+          id: 'enc-week-active',
+          contractId: 'c-1',
           doctorId: 'doc-1',
-          scheduledDate: `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`,
-          scheduledTime: '08:30:00',
+          scheduledDate: todayIso,
+          scheduledTime: '14:00',
           encounterType: 'HOME_VISIT',
           category: 'PERIODIC_ROUTINE',
           encounterStatus: 'CONFIRMED',
-          participants: [{ patientId: 'p-1', patient: { id: 'p-1', fullName: 'Phạm Ngọc Thọ' } }],
-          contract: {
-            familyUnit: { homeAddress: '123 Nguyễn Trãi, Q.1' },
-          },
-          rescheduleRequests: [],
+          familyConfirmedArrivalAt: null,
+          clinicalEmrs: [],
+          patient: { id: 'p-1', fullName: 'Hộ Nguyễn Văn A' },
         },
         {
-          id: 'enc-tele-req',
-          contractId: 'ctr-1',
-          patientId: 'p-1',
+          id: 'enc-week-pending',
+          contractId: 'c-2',
           doctorId: 'doc-1',
-          scheduledDate: '2026-11-26T00:00:00.000Z',
-          scheduledTime: '16:00:00',
-          encounterType: 'TELEHEALTH',
-          category: 'AD_HOC_ON_DEMAND',
-          encounterStatus: 'REQUESTED',
-          subjectiveNote: 'Đo huyết áp sáng nay hơi cao',
-          participants: [{ patientId: 'p-1', patient: { id: 'p-1', fullName: 'Phạm Ngọc Thọ' } }],
-          rescheduleRequests: [],
+          scheduledDate: yesterdayIso,
+          scheduledTime: '09:00',
+          encounterType: 'HOME_VISIT',
+          category: 'PERIODIC_ROUTINE',
+          encounterStatus: 'CONFIRMED',
+          familyConfirmedArrivalAt: '2026-11-24T09:15:00+07:00',
+          clinicalEmrs: [],
+          patient: { id: 'p-2', fullName: 'Hộ Lê Thị B' },
         },
-      ],
-      pagination: { page: 1, pageSize: 100, totalItems: 2, totalPages: 1 },
-    } as any);
-
-    vi.spyOn(encountersApi, 'getPendingRescheduleRequests').mockResolvedValue([]);
-  });
-
-  it('shows priority telehealth approval, 1-step arrival check-in, and omits Panel Cap / radius clutter', async () => {
-    const arriveSpy = vi
-      .spyOn(encountersApi, 'markArrived')
-      .mockResolvedValue({ id: 'enc-home-confirmed', encounterStatus: 'ARRIVED' } as any);
-    const confirmTeleSpy = vi
-      .spyOn(encountersApi, 'confirmEncounter')
-      .mockResolvedValue({ id: 'enc-tele-req', encounterStatus: 'CONFIRMED' } as any);
+      ] as any,
+      pagination: { page: 1, pageSize: 50, totalItems: 2, totalPages: 1 },
+    });
 
     render(<DoctorTimetableView />);
 
     await waitFor(() => {
-      expect(screen.getAllByText(/Phạm Ngọc Thọ/i).length).toBeGreaterThan(0);
-      expect(screen.getByText('Đo huyết áp sáng nay hơi cao')).toBeInTheDocument();
+      expect(screen.getByText('ACTIVE')).toBeInTheDocument();
+      expect(screen.getByText(/Chờ EHR/i)).toBeInTheDocument();
     });
 
-    // Clutter removed
-    expect(screen.queryByText(/Hạn mức Gia đình \(Panel Cap\)/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Bán Kính Khám Tại Nhà/i)).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Bắt đầu di chuyển/i })).not.toBeInTheDocument();
+    const activeWorkspaceLink = screen.getByRole('link', { name: /Mở ca/i });
+    expect(activeWorkspaceLink).toHaveAttribute(
+      'href',
+      '/doctor/encounters?encounterId=enc-week-active',
+    );
 
-    // 1-step check-in arrival (open detail modal from today's encounter card)
-    fireEvent.click(screen.getByRole('button', { name: /Chi tiết/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /Check-in đã đến nhà/i }));
-    await waitFor(() => {
-      expect(arriveSpy).toHaveBeenCalledWith('enc-home-confirmed');
-    });
-
-    // Priority telehealth approval
-    fireEvent.click(screen.getByRole('button', { name: /Duyệt & Chốt 14:30/i }));
-    await waitFor(() => {
-      expect(confirmTeleSpy).toHaveBeenCalledWith('enc-tele-req', true, '14:30');
-    });
+    await user.click(screen.getByRole('button', { name: /Chi tiết/i }));
+    expect(screen.queryByRole('button', { name: /Check-in đã đến nhà/i })).not.toBeInTheDocument();
   });
 });
