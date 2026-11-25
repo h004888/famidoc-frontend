@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { ChevronLeft, CheckCircle2, FilePenLine, Plus, Trash2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  CheckCircle2,
+  FilePenLine,
+  Plus,
+  Trash2,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -121,6 +129,97 @@ function toOptionalNumber(raw: string): number | undefined {
   return raw.trim() && Number.isFinite(n) ? n : undefined;
 }
 
+export function resolveWorkspaceMembers(encounter: EncounterItem | null): EncounterPatient[] {
+  if (!encounter) return [];
+  const fromContract =
+    encounter.contract?.members
+      ?.map((m) => m.patient)
+      .filter((p): p is EncounterPatient => Boolean(p)) ?? [];
+  const source =
+    fromContract.length > 0
+      ? fromContract
+      : encounter.participants
+          ?.map((p) => p.patient)
+          .filter((p): p is EncounterPatient => Boolean(p)) ?? [];
+
+  const resolved = source.length > 0 ? source : encounter.patient ? [encounter.patient] : [];
+  const seen = new Set<string>();
+  return resolved.filter((patient) => {
+    if (!patient.id || seen.has(patient.id)) return false;
+    seen.add(patient.id);
+    return true;
+  });
+}
+
+function FinalizedMemberSummaryCard({
+  encounterId,
+  member,
+  visitDetail,
+}: {
+  encounterId: string;
+  member: EncounterPatient;
+  visitDetail?: BookVisitDetail;
+}) {
+  const exam = visitDetail?.exam;
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
+        <div>
+          <h2 className="text-base font-bold text-slate-900">
+            Hồ sơ đã chốt: {member.fullName}
+          </h2>
+          <p className="text-xs text-slate-600">
+            Tiền sử:{' '}
+            {Array.isArray(member.chronicDiseases)
+              ? member.chronicDiseases.join(', ')
+              : member.chronicDiseases || 'Chưa ghi nhận'}
+          </p>
+        </div>
+        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
+          <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+          Đã chốt hồ sơ
+        </Badge>
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-2 text-sm">
+        {exam ? (
+          <>
+            <div>
+              <span className="font-semibold text-slate-700">Lý do khám:</span>{' '}
+              <span className="text-slate-900">{exam.chiefComplaint || '—'}</span>
+            </div>
+            <div>
+              <span className="font-semibold text-slate-700">Triệu chứng &amp; Khám thực thể:</span>{' '}
+              <span className="text-slate-900">{exam.clinicalFindings || '—'}</span>
+            </div>
+            <div>
+              <span className="font-semibold text-slate-700">Chẩn đoán:</span>{' '}
+              <span className="text-slate-900">
+                {[exam.icd10Code, exam.icd10Diagnosis].filter(Boolean).join(' — ') || '—'}
+              </span>
+            </div>
+            <div>
+              <span className="font-semibold text-slate-700">Dặn dò / Kế hoạch điều trị:</span>{' '}
+              <span className="text-slate-900">{exam.treatmentPlan || '—'}</span>
+            </div>
+          </>
+        ) : (
+          <p className="text-slate-600">Hồ sơ thành viên này đã chốt &amp; đồng bộ EHR.</p>
+        )}
+      </div>
+
+      <div className="flex justify-end">
+        <Link
+          href={`/doctor/encounters/${encounterId}/wrap-up?patientId=${member.id}`}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-teal-700 px-3 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-50"
+        >
+          Xem / Kê đơn thay thế
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export function DoctorVisitWorkspace({
   encounterId,
   initialPatientId,
@@ -139,6 +238,8 @@ export function DoctorVisitWorkspace({
   const [visitDetailsByPatient, setVisitDetailsByPatient] = useState<
     Record<string, BookVisitDetail>
   >({});
+  const [showVitalsSection, setShowVitalsSection] = useState(false);
+  const [showPrescriptionSection, setShowPrescriptionSection] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -158,10 +259,7 @@ export function DoctorVisitWorkspace({
       }
       setFinalizedIds(finalizedMap);
 
-      const members =
-        detail.contract?.members?.map((m) => m.patient).filter(Boolean) ??
-        (detail.patient ? [detail.patient] : []);
-      const validMembers = members as EncounterPatient[];
+      const validMembers = resolveWorkspaceMembers(detail);
 
       const initialSelected = validMembers.map((m) => m.id);
       setSelectedPatientIds((prev) => (prev.length > 0 ? prev : initialSelected));
@@ -198,12 +296,7 @@ export function DoctorVisitWorkspace({
   }, [loadWorkspace]);
 
   const members = useMemo<EncounterPatient[]>(() => {
-    if (!encounter) return [];
-    const fromContract = encounter.contract?.members
-      ?.map((m) => m.patient)
-      .filter((p): p is EncounterPatient => Boolean(p));
-    if (fromContract && fromContract.length > 0) return fromContract;
-    return encounter.patient ? [encounter.patient] : [];
+    return resolveWorkspaceMembers(encounter);
   }, [encounter]);
 
   const familyId = encounter?.contract?.familyUnit?.id ?? '';
@@ -399,18 +492,12 @@ export function DoctorVisitWorkspace({
         </div>
       </div>
 
-      <Card className="p-4 space-y-3">
+      <Card className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-lg font-bold text-slate-900">
             CA KHÁM: {encounter.contract?.familyUnit?.familyName || 'Hộ gia đình'} •{' '}
             {String(encounter.scheduledDate).slice(0, 10)} ({formatEncounterTime(encounter.scheduledTime)})
           </h1>
-        </div>
-        <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 p-3 text-xs font-semibold text-slate-700 sm:grid-cols-4">
-          <span>1. Chọn thành viên</span>
-          <span>2. Ghi khám &amp; EHR</span>
-          <span>3. Đơn thuốc</span>
-          <span>4. Chốt hồ sơ</span>
         </div>
       </Card>
 
@@ -431,10 +518,10 @@ export function DoctorVisitWorkspace({
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        {/* BƯỚC 1: CHỌN THÀNH VIÊN KHÁM */}
-        <Card className="p-4 space-y-3 lg:col-span-4">
-          <h2 className="text-sm font-bold text-slate-900">BƯỚC 1: CHỌN THÀNH VIÊN KHÁM</h2>
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[28%_1fr]">
+        {/* CỘT TRÁI (~28%): THÀNH VIÊN KHÁM */}
+        <Card className="p-4 space-y-3">
+          <h2 className="text-sm font-bold text-slate-900">THÀNH VIÊN KHÁM</h2>
           <p className="text-xs text-slate-600">Tích chọn thành viên thực tế có thăm khám hôm nay:</p>
           <ul className="space-y-2">
             {members.map((member) => {
@@ -493,361 +580,382 @@ export function DoctorVisitWorkspace({
           </div>
         </Card>
 
-        {/* BƯỚC 2, 3, 4 */}
-        <Card className="p-4 sm:p-5 space-y-5 lg:col-span-8">
+        {/* CỘT PHẢI (~72%): FORM TỐI GIẢN HOẶC THẺ TÓM TẮT ĐÃ CHỐT */}
+        <Card className="p-4 sm:p-5 space-y-5">
           {activeMember ? (
-            <>
-              <div className="border-b border-slate-200 pb-3">
-                <h2 className="text-base font-bold text-slate-900">
-                  Đang làm việc với: {activeMember.fullName}
-                </h2>
-                <p className="text-xs text-slate-600">
-                  Tiền sử:{' '}
-                  {Array.isArray(activeMember.chronicDiseases)
-                    ? activeMember.chronicDiseases.join(', ')
-                    : activeMember.chronicDiseases || 'Chưa ghi nhận'}
-                </p>
-              </div>
-
-              {/* BƯỚC 2A */}
-              <section className="space-y-3">
-                <h3 className="text-sm font-bold text-slate-900">
-                  BƯỚC 2A: DIỄN BIẾN BUỔI KHÁM (Encounter)
-                </h3>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1 sm:col-span-2">
-                    <Label htmlFor="ws-chief-complaint">Lý do khám</Label>
-                    <Textarea
-                      id="ws-chief-complaint"
-                      rows={2}
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.chiefComplaint}
-                      onChange={(e) => updateCurrentDraft({ chiefComplaint: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <Label htmlFor="ws-clinical-findings">Triệu chứng &amp; Khám thực thể</Label>
-                    <Textarea
-                      id="ws-clinical-findings"
-                      rows={2}
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.clinicalFindings}
-                      onChange={(e) => updateCurrentDraft({ clinicalFindings: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-icd10">Mã ICD-10</Label>
-                    <Input
-                      id="ws-icd10"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.icd10Code}
-                      onChange={(e) => updateCurrentDraft({ icd10Code: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-diagnosis">Chẩn đoán</Label>
-                    <Input
-                      id="ws-diagnosis"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.icd10Diagnosis}
-                      onChange={(e) => updateCurrentDraft({ icd10Diagnosis: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1 sm:col-span-2">
-                    <Label htmlFor="ws-treatment-plan">Dặn dò / Kế hoạch tái khám</Label>
-                    <Textarea
-                      id="ws-treatment-plan"
-                      rows={2}
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.treatmentPlan}
-                      onChange={(e) => updateCurrentDraft({ treatmentPlan: e.target.value })}
-                    />
-                  </div>
+            isMemberFinalized ? (
+              <FinalizedMemberSummaryCard
+                encounterId={encounterId}
+                member={activeMember}
+                visitDetail={visitDetailsByPatient[activeMember.id]}
+              />
+            ) : (
+              <>
+                <div className="border-b border-slate-200 pb-3">
+                  <h2 className="text-base font-bold text-slate-900">
+                    Đang làm việc với: {activeMember.fullName}
+                  </h2>
+                  <p className="text-xs text-slate-600">
+                    Tiền sử:{' '}
+                    {Array.isArray(activeMember.chronicDiseases)
+                      ? activeMember.chronicDiseases.join(', ')
+                      : activeMember.chronicDiseases || 'Chưa ghi nhận'}
+                  </p>
                 </div>
-              </section>
 
-              {/* BƯỚC 2B */}
-              <section className="space-y-3 border-t border-slate-200 pt-4">
-                <h3 className="text-sm font-bold text-slate-900">
-                  BƯỚC 2B: ĐỒNG BỘ EHR DÀI HẠN (Tự đẩy khi Chốt)
-                </h3>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-sbp">Huyết áp tâm thu (mmHg)</Label>
-                    <Input
-                      id="ws-sbp"
-                      type="number"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.systolicBp}
-                      onChange={(e) => updateCurrentDraft({ systolicBp: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-dbp">Huyết áp tâm trương (mmHg)</Label>
-                    <Input
-                      id="ws-dbp"
-                      type="number"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.diastolicBp}
-                      onChange={(e) => updateCurrentDraft({ diastolicBp: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-hr">Nhịp tim (lần/phút)</Label>
-                    <Input
-                      id="ws-hr"
-                      type="number"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.heartRate}
-                      onChange={(e) => updateCurrentDraft({ heartRate: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-spo2">SpO2 (%)</Label>
-                    <Input
-                      id="ws-spo2"
-                      type="number"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.spo2}
-                      onChange={(e) => updateCurrentDraft({ spo2: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-glucose">Đường huyết (mmol/L)</Label>
-                    <Input
-                      id="ws-glucose"
-                      type="number"
-                      step="0.1"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.bloodGlucose}
-                      onChange={(e) => updateCurrentDraft({ bloodGlucose: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-weight">Cân nặng (kg)</Label>
-                    <Input
-                      id="ws-weight"
-                      type="number"
-                      step="0.1"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.weightKg}
-                      onChange={(e) => updateCurrentDraft({ weightKg: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-chronic">Bệnh nền mới (nếu phát hiện)</Label>
-                    <Input
-                      id="ws-chronic"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.newChronicDisease}
-                      onChange={(e) => updateCurrentDraft({ newChronicDisease: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="ws-allergy">Dị ứng mới (nếu phát hiện)</Label>
-                    <Input
-                      id="ws-allergy"
-                      disabled={isMemberFinalized || submitting}
-                      value={currentDraft.newAllergy}
-                      onChange={(e) => updateCurrentDraft({ newAllergy: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </section>
-
-              {/* BƯỚC 3 */}
-              <section className="space-y-3 border-t border-slate-200 pt-4">
-                <h3 className="text-sm font-bold text-slate-900">
-                  BƯỚC 3: ĐƠN THUỐC ĐIỆN TỬ (Tùy chọn)
-                </h3>
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-900">
-                  <input
-                    type="checkbox"
-                    checked={currentDraft.includePrescription}
-                    disabled={isMemberFinalized || submitting}
-                    onChange={(e) => updateCurrentDraft({ includePrescription: e.target.checked })}
-                  />
-                  <span>Có phát sinh đơn thuốc cho thành viên này</span>
-                </label>
-
-                {currentDraft.includePrescription && (
-                  <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
-                    {currentDraft.drugs.map((drug, idx) => (
-                      <div key={idx} className="grid grid-cols-1 gap-2 rounded-lg border bg-white p-3 sm:grid-cols-3">
-                        <div className="space-y-1">
-                          <Label htmlFor={`drug-name-${idx}`}>Tên thuốc</Label>
-                          <Input
-                            id={`drug-name-${idx}`}
-                            value={drug.medicationName}
-                            disabled={isMemberFinalized || submitting}
-                            onChange={(e) => {
-                              const next = [...currentDraft.drugs];
-                              next[idx] = { ...drug, medicationName: e.target.value };
-                              updateCurrentDraft({ drugs: next });
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor={`drug-strength-${idx}`}>Hàm lượng</Label>
-                          <Input
-                            id={`drug-strength-${idx}`}
-                            value={drug.strength}
-                            disabled={isMemberFinalized || submitting}
-                            onChange={(e) => {
-                              const next = [...currentDraft.drugs];
-                              next[idx] = { ...drug, strength: e.target.value };
-                              updateCurrentDraft({ drugs: next });
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor={`drug-dosage-${idx}`}>Liều mỗi lần</Label>
-                          <Input
-                            id={`drug-dosage-${idx}`}
-                            value={drug.dosage}
-                            disabled={isMemberFinalized || submitting}
-                            onChange={(e) => {
-                              const next = [...currentDraft.drugs];
-                              next[idx] = { ...drug, dosage: e.target.value };
-                              updateCurrentDraft({ drugs: next });
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor={`drug-freq-${idx}`}>Tần suất</Label>
-                          <Input
-                            id={`drug-freq-${idx}`}
-                            value={drug.frequency}
-                            disabled={isMemberFinalized || submitting}
-                            onChange={(e) => {
-                              const next = [...currentDraft.drugs];
-                              next[idx] = { ...drug, frequency: e.target.value };
-                              updateCurrentDraft({ drugs: next });
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor={`drug-days-${idx}`}>Số ngày dùng</Label>
-                          <Input
-                            id={`drug-days-${idx}`}
-                            type="number"
-                            value={drug.durationDays}
-                            disabled={isMemberFinalized || submitting}
-                            onChange={(e) => {
-                              const next = [...currentDraft.drugs];
-                              next[idx] = { ...drug, durationDays: e.target.value };
-                              updateCurrentDraft({ drugs: next });
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor={`drug-qty-${idx}`}>Tổng số lượng</Label>
-                          <Input
-                            id={`drug-qty-${idx}`}
-                            type="number"
-                            value={drug.quantity}
-                            disabled={isMemberFinalized || submitting}
-                            onChange={(e) => {
-                              const next = [...currentDraft.drugs];
-                              next[idx] = { ...drug, quantity: e.target.value };
-                              updateCurrentDraft({ drugs: next });
-                            }}
-                          />
-                        </div>
-                        <div className="space-y-1 sm:col-span-2">
-                          <Label htmlFor={`drug-unit-${idx}`}>Đơn vị</Label>
-                          <Input
-                            id={`drug-unit-${idx}`}
-                            value={drug.unit}
-                            disabled={isMemberFinalized || submitting}
-                            onChange={(e) => {
-                              const next = [...currentDraft.drugs];
-                              next[idx] = { ...drug, unit: e.target.value };
-                              updateCurrentDraft({ drugs: next });
-                            }}
-                          />
-                        </div>
-                        {currentDraft.drugs.length > 1 && (
-                          <div className="flex items-end justify-end">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={isMemberFinalized || submitting}
-                              onClick={() =>
-                                updateCurrentDraft({
-                                  drugs: currentDraft.drugs.filter((_, i) => i !== idx),
-                                })
-                              }
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={isMemberFinalized || submitting}
-                      onClick={() =>
-                        updateCurrentDraft({ drugs: [...currentDraft.drugs, emptyDrugLine()] })
-                      }
-                    >
-                      <Plus className="mr-1 h-4 w-4" />
-                      Thêm dòng thuốc
-                    </Button>
-                    <div className="space-y-1">
-                      <Label htmlFor="ws-rx-instructions">Lời dặn đơn thuốc</Label>
+                {/* 5 Ô BẮT BUỘC MỞ SẴN */}
+                <section className="space-y-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label htmlFor="ws-chief-complaint">Lý do khám</Label>
                       <Textarea
-                        id="ws-rx-instructions"
+                        id="ws-chief-complaint"
                         rows={2}
-                        disabled={isMemberFinalized || submitting}
-                        value={currentDraft.prescriptionInstructions}
-                        onChange={(e) =>
-                          updateCurrentDraft({ prescriptionInstructions: e.target.value })
-                        }
+                        disabled={submitting}
+                        value={currentDraft.chiefComplaint}
+                        onChange={(e) => updateCurrentDraft({ chiefComplaint: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label htmlFor="ws-clinical-findings">Triệu chứng &amp; Khám thực thể</Label>
+                      <Textarea
+                        id="ws-clinical-findings"
+                        rows={2}
+                        disabled={submitting}
+                        value={currentDraft.clinicalFindings}
+                        onChange={(e) => updateCurrentDraft({ clinicalFindings: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="ws-icd10">Mã ICD-10</Label>
+                      <Input
+                        id="ws-icd10"
+                        disabled={submitting}
+                        value={currentDraft.icd10Code}
+                        onChange={(e) => updateCurrentDraft({ icd10Code: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="ws-diagnosis">Chẩn đoán</Label>
+                      <Input
+                        id="ws-diagnosis"
+                        disabled={submitting}
+                        value={currentDraft.icd10Diagnosis}
+                        onChange={(e) => updateCurrentDraft({ icd10Diagnosis: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-1 sm:col-span-2">
+                      <Label htmlFor="ws-treatment-plan">Dặn dò / Kế hoạch điều trị</Label>
+                      <Textarea
+                        id="ws-treatment-plan"
+                        rows={2}
+                        disabled={submitting}
+                        value={currentDraft.treatmentPlan}
+                        onChange={(e) => updateCurrentDraft({ treatmentPlan: e.target.value })}
                       />
                     </div>
                   </div>
-                )}
-              </section>
+                </section>
 
-              {/* BƯỚC 4 */}
-              <section className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
-                {isMemberFinalized ? (
-                  <div className="flex items-center gap-2 text-sm font-semibold text-emerald-700">
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Hồ sơ thành viên này đã chốt &amp; đồng bộ EHR.</span>
-                  </div>
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={submitting}
-                      onClick={handleSaveDraft}
-                    >
-                      <FilePenLine className="mr-1.5 h-4 w-4" />
-                      Lưu Nháp (Gia đình chưa thấy)
-                    </Button>
-                    <Button
-                      type="button"
-                      className="bg-teal-700 text-white hover:bg-teal-800"
-                      disabled={submitting}
-                      onClick={handleFinalizeMember}
-                    >
-                      {currentDraft.includePrescription
-                        ? '✓ Chốt hồ sơ & Phát hành đơn'
-                        : '✓ Chốt hồ sơ'}
-                    </Button>
-                  </>
-                )}
-              </section>
-            </>
+                {/* MỤC TÙY CHỌN 1: CHỈ SỐ SINH TỒN & BỆNH NỀN / DỊ ỨNG */}
+                <section className="border-t border-slate-200 pt-3">
+                  <button
+                    type="button"
+                    aria-expanded={showVitalsSection}
+                    onClick={() => setShowVitalsSection((prev) => !prev)}
+                    className="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-800 hover:text-teal-800"
+                  >
+                    <span>Chỉ số sinh tồn &amp; Bệnh nền / Dị ứng mới (Tùy chọn)</span>
+                    {showVitalsSection ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+
+                  {showVitalsSection && (
+                    <div className="mt-3 space-y-3">
+                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                        <div className="space-y-1">
+                          <Label htmlFor="ws-sbp">Huyết áp tâm thu (mmHg)</Label>
+                          <Input
+                            id="ws-sbp"
+                            type="number"
+                            disabled={submitting}
+                            value={currentDraft.systolicBp}
+                            onChange={(e) => updateCurrentDraft({ systolicBp: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="ws-dbp">Huyết áp tâm trương (mmHg)</Label>
+                          <Input
+                            id="ws-dbp"
+                            type="number"
+                            disabled={submitting}
+                            value={currentDraft.diastolicBp}
+                            onChange={(e) => updateCurrentDraft({ diastolicBp: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="ws-hr">Nhịp tim (lần/phút)</Label>
+                          <Input
+                            id="ws-hr"
+                            type="number"
+                            disabled={submitting}
+                            value={currentDraft.heartRate}
+                            onChange={(e) => updateCurrentDraft({ heartRate: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="ws-spo2">SpO2 (%)</Label>
+                          <Input
+                            id="ws-spo2"
+                            type="number"
+                            disabled={submitting}
+                            value={currentDraft.spo2}
+                            onChange={(e) => updateCurrentDraft({ spo2: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="ws-glucose">Đường huyết (mmol/L)</Label>
+                          <Input
+                            id="ws-glucose"
+                            type="number"
+                            step="0.1"
+                            disabled={submitting}
+                            value={currentDraft.bloodGlucose}
+                            onChange={(e) => updateCurrentDraft({ bloodGlucose: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="ws-weight">Cân nặng (kg)</Label>
+                          <Input
+                            id="ws-weight"
+                            type="number"
+                            step="0.1"
+                            disabled={submitting}
+                            value={currentDraft.weightKg}
+                            onChange={(e) => updateCurrentDraft({ weightKg: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="space-y-1">
+                          <Label htmlFor="ws-chronic">Bệnh nền mới (nếu phát hiện)</Label>
+                          <Input
+                            id="ws-chronic"
+                            disabled={submitting}
+                            value={currentDraft.newChronicDisease}
+                            onChange={(e) =>
+                              updateCurrentDraft({ newChronicDisease: e.target.value })
+                            }
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label htmlFor="ws-allergy">Dị ứng mới (nếu phát hiện)</Label>
+                          <Input
+                            id="ws-allergy"
+                            disabled={submitting}
+                            value={currentDraft.newAllergy}
+                            onChange={(e) => updateCurrentDraft({ newAllergy: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* MỤC TÙY CHỌN 2: ĐƠN THUỐC ĐIỆN TỬ */}
+                <section className="border-t border-slate-200 pt-3">
+                  <button
+                    type="button"
+                    aria-expanded={showPrescriptionSection}
+                    onClick={() => {
+                      const nextOpen = !showPrescriptionSection;
+                      setShowPrescriptionSection(nextOpen);
+                      updateCurrentDraft({ includePrescription: nextOpen });
+                    }}
+                    className="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-800 hover:text-teal-800"
+                  >
+                    <span>Kê đơn thuốc điện tử cho lần khám này (Tùy chọn)</span>
+                    {showPrescriptionSection ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                  </button>
+
+                  {showPrescriptionSection && (
+                    <div className="mt-3 space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
+                      {currentDraft.drugs.map((drug, idx) => (
+                        <div
+                          key={idx}
+                          className="grid grid-cols-1 gap-2 rounded-lg border bg-white p-3 sm:grid-cols-3"
+                        >
+                          <div className="space-y-1">
+                            <Label htmlFor={`drug-name-${idx}`}>Tên thuốc</Label>
+                            <Input
+                              id={`drug-name-${idx}`}
+                              value={drug.medicationName}
+                              disabled={submitting}
+                              onChange={(e) => {
+                                const next = [...currentDraft.drugs];
+                                next[idx] = { ...drug, medicationName: e.target.value };
+                                updateCurrentDraft({ drugs: next });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`drug-strength-${idx}`}>Hàm lượng</Label>
+                            <Input
+                              id={`drug-strength-${idx}`}
+                              value={drug.strength}
+                              disabled={submitting}
+                              onChange={(e) => {
+                                const next = [...currentDraft.drugs];
+                                next[idx] = { ...drug, strength: e.target.value };
+                                updateCurrentDraft({ drugs: next });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`drug-dosage-${idx}`}>Liều mỗi lần</Label>
+                            <Input
+                              id={`drug-dosage-${idx}`}
+                              value={drug.dosage}
+                              disabled={submitting}
+                              onChange={(e) => {
+                                const next = [...currentDraft.drugs];
+                                next[idx] = { ...drug, dosage: e.target.value };
+                                updateCurrentDraft({ drugs: next });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`drug-freq-${idx}`}>Tần suất</Label>
+                            <Input
+                              id={`drug-freq-${idx}`}
+                              value={drug.frequency}
+                              disabled={submitting}
+                              onChange={(e) => {
+                                const next = [...currentDraft.drugs];
+                                next[idx] = { ...drug, frequency: e.target.value };
+                                updateCurrentDraft({ drugs: next });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`drug-days-${idx}`}>Số ngày dùng</Label>
+                            <Input
+                              id={`drug-days-${idx}`}
+                              type="number"
+                              value={drug.durationDays}
+                              disabled={submitting}
+                              onChange={(e) => {
+                                const next = [...currentDraft.drugs];
+                                next[idx] = { ...drug, durationDays: e.target.value };
+                                updateCurrentDraft({ drugs: next });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`drug-qty-${idx}`}>Tổng số lượng</Label>
+                            <Input
+                              id={`drug-qty-${idx}`}
+                              type="number"
+                              value={drug.quantity}
+                              disabled={submitting}
+                              onChange={(e) => {
+                                const next = [...currentDraft.drugs];
+                                next[idx] = { ...drug, quantity: e.target.value };
+                                updateCurrentDraft({ drugs: next });
+                              }}
+                            />
+                          </div>
+                          <div className="space-y-1 sm:col-span-2">
+                            <Label htmlFor={`drug-unit-${idx}`}>Đơn vị</Label>
+                            <Input
+                              id={`drug-unit-${idx}`}
+                              value={drug.unit}
+                              disabled={submitting}
+                              onChange={(e) => {
+                                const next = [...currentDraft.drugs];
+                                next[idx] = { ...drug, unit: e.target.value };
+                                updateCurrentDraft({ drugs: next });
+                              }}
+                            />
+                          </div>
+                          {currentDraft.drugs.length > 1 && (
+                            <div className="flex items-end justify-end">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={submitting}
+                                onClick={() =>
+                                  updateCurrentDraft({
+                                    drugs: currentDraft.drugs.filter((_, i) => i !== idx),
+                                  })
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={submitting}
+                        onClick={() =>
+                          updateCurrentDraft({ drugs: [...currentDraft.drugs, emptyDrugLine()] })
+                        }
+                      >
+                        <Plus className="mr-1 h-4 w-4" />
+                        Thêm dòng thuốc
+                      </Button>
+                      <div className="space-y-1">
+                        <Label htmlFor="ws-rx-instructions">Lời dặn đơn thuốc</Label>
+                        <Textarea
+                          id="ws-rx-instructions"
+                          rows={2}
+                          disabled={submitting}
+                          value={currentDraft.prescriptionInstructions}
+                          onChange={(e) =>
+                            updateCurrentDraft({ prescriptionInstructions: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                {/* HÀNH ĐỘNG */}
+                <section className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={submitting}
+                    onClick={handleSaveDraft}
+                  >
+                    <FilePenLine className="mr-1.5 h-4 w-4" />
+                    Lưu Nháp (Gia đình chưa thấy)
+                  </Button>
+                  <Button
+                    type="button"
+                    className="bg-teal-700 text-white hover:bg-teal-800"
+                    disabled={submitting}
+                    onClick={handleFinalizeMember}
+                  >
+                    {currentDraft.includePrescription
+                      ? '✓ Chốt hồ sơ & Phát hành đơn'
+                      : '✓ Chốt hồ sơ'}
+                  </Button>
+                </section>
+              </>
+            )
           ) : (
             <p className="text-sm text-slate-600">Chưa có thành viên trong hộ gia đình.</p>
           )}

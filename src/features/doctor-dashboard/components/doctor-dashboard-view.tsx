@@ -684,7 +684,7 @@ export function DoctorDashboardView() {
                         <div className="flex flex-wrap items-center gap-2">
                           <Badge className="bg-teal-700 text-white">ĐANG DIỄN RA (ACTIVE)</Badge>
                           <span className="text-xs font-semibold text-slate-700">
-                            {String(enc.scheduledTime || '').slice(0, 5)} •{' '}
+                            {formatEncounterTime(enc.scheduledTime)} •{' '}
                             {enc.encounterType === 'HOME_VISIT' ? 'Khám tại nhà' : 'Video'}
                           </span>
                         </div>
