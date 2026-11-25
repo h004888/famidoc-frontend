@@ -414,21 +414,21 @@ export function FacilityStaffView() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="grid w-full grid-cols-1 gap-2.5 sm:w-auto sm:grid-cols-3">
             <button
               type="button"
               onClick={handleRefreshList}
-              className="px-3.5 py-2 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl transition-colors shadow-2xs cursor-pointer flex items-center gap-1.5"
+              className="inline-flex h-10 w-full items-center justify-center gap-1.5 px-4 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs sm:text-sm font-semibold rounded-xl transition-colors shadow-2xs cursor-pointer whitespace-nowrap"
               title="Làm mới danh sách bác sĩ"
             >
-              <span className="material-symbols-outlined text-[16px] text-slate-500">refresh</span>
+              <span className="material-symbols-outlined text-[18px] text-slate-500">refresh</span>
               <span>Làm mới</span>
             </button>
             <button
               type="button"
               disabled={hasExplicitNoActiveB2b}
               onClick={() => setIsImportModalOpen(true)}
-              className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs sm:text-sm rounded-xl transition-colors cursor-pointer disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+              className="inline-flex h-10 w-full items-center justify-center gap-1.5 px-4 border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold text-xs sm:text-sm rounded-xl transition-colors cursor-pointer whitespace-nowrap disabled:bg-slate-100 disabled:border-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-[18px]">upload_file</span>
               <span>Import Excel</span>
@@ -437,7 +437,7 @@ export function FacilityStaffView() {
               type="button"
               disabled={hasExplicitNoActiveB2b}
               onClick={openCreateDoctorModal}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md shadow-blue-600/20 cursor-pointer disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
+              className="inline-flex h-10 w-full items-center justify-center gap-1.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm rounded-xl transition-all shadow-md shadow-blue-600/20 cursor-pointer whitespace-nowrap disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed"
             >
               <span className="material-symbols-outlined text-[18px]">person_add</span>
               <span>Thêm Bác Sĩ Mới</span>

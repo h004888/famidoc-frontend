@@ -12,7 +12,7 @@ import {
   useFacilityVerificationGateState,
 } from './facility-verification-gate';
 import {
-  isRestrictedDoctorPath,
+  isRestrictedDoctorPathForProfile,
   useDoctorVerificationGateState,
 } from './doctor-verification-gate';
 import {
@@ -279,7 +279,7 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
   const { role, isAuthenticated, logout } = useAuth();
   const { isFamilyLocked, unlockTargetHref, gateStatus } = useFamilySubscriptionGateState();
   const { facilityProfile, isFacilityLocked } = useFacilityVerificationGateState();
-  const { isDoctorLocked } = useDoctorVerificationGateState();
+  const { doctorProfile, isDoctorLocked } = useDoctorVerificationGateState();
   const sidebar = useOptionalSidebar();
 
   const [mounted, setMounted] = useState(false);
@@ -310,13 +310,20 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
       : { locked: false, stage: null, redirectTo: '/facility' };
 
   const isDoctorRestricted = (href: string) =>
-    effectiveRole === 'DOCTOR' && isDoctorLocked && isRestrictedDoctorPath(href);
+    effectiveRole === 'DOCTOR' &&
+    isDoctorLocked &&
+    isRestrictedDoctorPathForProfile(href, doctorProfile);
 
   const logoHref =
     effectiveRole === 'FACILITY' && isFacilityLocked
-      ? '/facility/legal-profile'
+      ? facilityProfile?.onboardingStatus === 'LEGAL_SUBMITTED'
+        ? '/facility'
+        : '/facility/legal-profile'
       : effectiveRole === 'DOCTOR' && isDoctorLocked
-        ? '/doctor/verification'
+        ? doctorProfile?.onboardingStatus === 'PENDING_FACILITY_REVIEW' ||
+          doctorProfile?.onboardingStatus === 'FACILITY_VERIFIED'
+          ? '/doctor'
+          : '/doctor/verification'
         : getDefaultPathForRole(effectiveRole);
 
   const mobileMenuOpen = sidebar ? sidebar.openMobile : localMobileOpen;

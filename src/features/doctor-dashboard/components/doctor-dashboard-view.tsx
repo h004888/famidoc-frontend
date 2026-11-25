@@ -218,57 +218,61 @@ export function DoctorDashboardView() {
       setPartialErrors((prev) => (prev.includes(label) ? prev : [...prev, label]));
     };
 
-    const requests: Promise<void>[] = [];
+    const loadClinicalData = async () => {
+      try {
+        let isActiveDoctor = gateDoctorProfile?.onboardingStatus === 'ACTIVE';
 
-    if (!hasDoctorGateProvider) {
-      requests.push(
-        doctorsApi
-          .getDoctorMe()
-          .then((data) => {
+        if (!hasDoctorGateProvider) {
+          try {
+            const data = await doctorsApi.getDoctorMe();
             if (!isMounted) return;
-            if (data && data.id) setStandaloneDoctorProfile(data);
-          })
-          .catch(() => {
+            if (data && data.id) {
+              setStandaloneDoctorProfile(data);
+              isActiveDoctor = data.onboardingStatus === 'ACTIVE';
+            }
+          } catch {
             addPartialError('Hồ sơ bác sĩ');
-          })
-      );
-    }
-
-    requests.push(
-      contractsApi
-        .getMedicalContracts({ role: 'DOCTOR' })
-        .then((items) => {
-          if (!isMounted) return;
-          if (Array.isArray(items)) {
-            setContracts(items.map(normalizeContract));
           }
-        })
-        .catch(() => {
-          addPartialError('Hợp đồng 4 bên');
-        })
-    );
+        }
 
-    requests.push(
-      encountersApi
-        .getDoctorTimetable({ pageSize: 50 })
-        .then((res) => {
-          if (!isMounted) return;
-          const list = Array.isArray(res?.data) ? res.data : [];
-          setEncounters(list);
-        })
-        .catch(() => {
-          addPartialError('Lịch khám hôm nay');
-        })
-    );
+        if (!isMounted || !isActiveDoctor) {
+          return;
+        }
 
-    Promise.allSettled(requests).finally(() => {
-      if (isMounted) setIsLoadingData(false);
-    });
+        await Promise.allSettled([
+          contractsApi
+            .getMedicalContracts({ role: 'DOCTOR' })
+            .then((items) => {
+              if (!isMounted) return;
+              if (Array.isArray(items)) {
+                setContracts(items.map(normalizeContract));
+              }
+            })
+            .catch(() => {
+              addPartialError('Hợp đồng 4 bên');
+            }),
+          encountersApi
+            .getDoctorTimetable({ pageSize: 50 })
+            .then((res) => {
+              if (!isMounted) return;
+              const list = Array.isArray(res?.data) ? res.data : [];
+              setEncounters(list);
+            })
+            .catch(() => {
+              addPartialError('Lịch khám hôm nay');
+            }),
+        ]);
+      } finally {
+        if (isMounted) setIsLoadingData(false);
+      }
+    };
+
+    void loadClinicalData();
 
     return () => {
       isMounted = false;
     };
-  }, [hasDoctorGateProvider, reloadNonce]);
+  }, [hasDoctorGateProvider, gateDoctorProfile?.onboardingStatus, reloadNonce]);
 
   const activeEncounters = useMemo(
     () => encounters.filter((e) => getEncounterTab(e) !== null),

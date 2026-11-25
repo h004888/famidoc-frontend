@@ -157,4 +157,70 @@ describe('DoctorVerificationGateGuard & DashboardSidebar Doctor Gate', () => {
       expect(clinicalLinks).toHaveLength(1);
     });
   });
+
+  it('allows /doctor hub when PENDING_FACILITY_REVIEW or FACILITY_VERIFIED while keeping sub-routes locked', async () => {
+    for (const waitingStatus of ['PENDING_FACILITY_REVIEW', 'FACILITY_VERIFIED'] as const) {
+      vi.mocked(doctorsApi.getDoctorMe).mockResolvedValue({
+        ...pendingDoctor,
+        onboardingStatus: waitingStatus,
+      });
+
+      mockPathname = '/doctor';
+      mockReplace.mockClear();
+
+      const hubRender = render(
+        <DoctorVerificationGateProvider>
+          <DoctorVerificationGateGuard>
+            <div data-testid="doctor-hub-allowed">Doctor Hub</div>
+          </DoctorVerificationGateGuard>
+        </DoctorVerificationGateProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('doctor-hub-allowed')).toBeInTheDocument();
+      });
+      expect(mockReplace).not.toHaveBeenCalled();
+      hubRender.unmount();
+
+      mockPathname = '/doctor/encounters';
+      mockReplace.mockClear();
+      const subRender = render(
+        <DoctorVerificationGateProvider>
+          <DoctorVerificationGateGuard>
+            <div data-testid="doctor-sub-protected">Sub Protected</div>
+          </DoctorVerificationGateGuard>
+        </DoctorVerificationGateProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('doctor-gate-blocked')).toBeInTheDocument();
+        expect(mockReplace).toHaveBeenCalledWith('/doctor/verification');
+      });
+      subRender.unmount();
+    }
+
+    vi.mocked(doctorsApi.getDoctorMe).mockResolvedValue({
+      ...pendingDoctor,
+      onboardingStatus: 'PENDING_FACILITY_REVIEW',
+    });
+    mockPathname = '/doctor/verification';
+    const sidebarRender = render(
+      <DoctorVerificationGateProvider>
+        <DashboardSidebar initialRole="DOCTOR" />
+      </DoctorVerificationGateProvider>,
+    );
+
+    await waitFor(() => {
+      const mobileNav = sidebarRender.container.querySelector(
+        'nav[aria-label="Điều hướng chính trên điện thoại"]',
+      ) as HTMLElement;
+      const hubLinks = within(mobileNav)
+        .getAllByRole('link')
+        .filter((el) => el.getAttribute('href') === '/doctor');
+      expect(hubLinks).toHaveLength(1);
+      expect(
+        within(mobileNav).getByRole('button', { name: 'Khám bệnh & Kê đơn (Đã khóa)' }),
+      ).toBeDisabled();
+    });
+  });
 });

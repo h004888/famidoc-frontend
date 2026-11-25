@@ -640,8 +640,8 @@ export function AdminFacilitiesView() {
             <div className="space-y-4">
               {/* Filter & Search Bar */}
               <Card className="rounded-2xl border-slate-200/90 py-3.5 shadow-xs">
-                <CardContent className="flex flex-col gap-3 px-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="flex flex-wrap items-center gap-1.5">
+                <CardContent className="flex flex-col gap-3 px-4">
+                  <div className="flex flex-nowrap items-center gap-2 overflow-x-auto pb-0.5">
                     {facilityFilterTabs.map((tab) => {
                       const active = statusFilter === tab.key;
                       return (
@@ -651,7 +651,7 @@ export function AdminFacilitiesView() {
                           aria-pressed={active}
                           onClick={() => selectFacilityFilter(tab.key)}
                           className={cn(
-                            'inline-flex cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40',
+                            'inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold transition-colors whitespace-nowrap outline-hidden focus-visible:ring-2 focus-visible:ring-primary/40',
                             active
                               ? 'bg-primary text-white shadow-xs'
                               : 'bg-slate-100 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
@@ -671,7 +671,7 @@ export function AdminFacilitiesView() {
                     })}
                   </div>
 
-                  <div className="relative w-full lg:w-80 shrink-0">
+                  <div className="relative w-full sm:max-w-md">
                     <Search
                       className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
                       aria-hidden="true"

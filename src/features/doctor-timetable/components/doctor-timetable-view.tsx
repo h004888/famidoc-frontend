@@ -51,6 +51,14 @@ function getEncounterDate(enc: EncounterItem): string {
   return enc.scheduledDate ? enc.scheduledDate.slice(0, 10) : '';
 }
 
+function canRequestRescheduleByDeadline(isoDate: string): boolean {
+  if (!isoDate || !/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return false;
+  const [yyyy, mm, dd] = isoDate.split('-').map(Number);
+  // BR-1: Yêu cầu đổi lịch phải được gửi trước 20:00 tối hôm trước ngày khám (UTC+7 = 13:00 UTC)
+  const deadlineUtcMs = Date.UTC(yyyy, mm - 1, dd - 1, 13, 0, 0, 0);
+  return Date.now() <= deadlineUtcMs;
+}
+
 function getSessionBucket(time: string): 'morning' | 'afternoon' {
   const hour = Number.parseInt(time.split(':')[0] || '8', 10);
   if (!Number.isFinite(hour) || hour < 12) return 'morning';
@@ -1139,6 +1147,14 @@ export function DoctorTimetableView() {
                   </div>
                 </div>
 
+                {selectedWeeklyEnc.encounterStatus === 'CONFIRMED' &&
+                  !canRequestRescheduleByDeadline(getEncounterDate(selectedWeeklyEnc)) && (
+                    <p className="text-[11px] text-slate-500">
+                      Đã quá hạn đổi lịch (yêu cầu đổi lịch phải gửi trước 20:00 tối hôm trước ngày
+                      khám).
+                    </p>
+                  )}
+
                 <div className="flex flex-wrap justify-end gap-2">
                   {selectedWeeklyEnc.encounterType === 'HOME_VISIT' && (
                     <Button asChild size="sm" className="bg-teal-700 hover:bg-teal-800 text-white">
@@ -1154,16 +1170,17 @@ export function DoctorTimetableView() {
                       </Link>
                     </Button>
                   )}
-                  {selectedWeeklyEnc.encounterStatus === 'CONFIRMED' && (
-                    <Button asChild size="sm" variant="outline">
-                      <Link
-                        href={`/doctor/timetable/${selectedWeeklyEnc.id}/reschedule`}
-                        onClick={() => setSelectedWeeklyEnc(null)}
-                      >
-                        Xin đổi lịch
-                      </Link>
-                    </Button>
-                  )}
+                  {selectedWeeklyEnc.encounterStatus === 'CONFIRMED' &&
+                    canRequestRescheduleByDeadline(getEncounterDate(selectedWeeklyEnc)) && (
+                      <Button asChild size="sm" variant="outline">
+                        <Link
+                          href={`/doctor/timetable/${selectedWeeklyEnc.id}/reschedule`}
+                          onClick={() => setSelectedWeeklyEnc(null)}
+                        >
+                          Xin đổi lịch
+                        </Link>
+                      </Button>
+                    )}
                 </div>
               </div>
             </>

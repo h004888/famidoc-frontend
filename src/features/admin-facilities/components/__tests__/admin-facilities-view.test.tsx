@@ -383,4 +383,21 @@ describe('AdminFacilitiesView - Quản trị & Thẩm định Cơ sở Y tế (A
       });
     });
   });
+
+  it('renders 5 facility status filter tabs in a single non-wrapping row separated from search input', async () => {
+    vi.mocked(facilitiesApi.getAdminFacilities).mockResolvedValue({
+      data: [mockFacility],
+      total: 1,
+    });
+
+    render(<AdminFacilitiesView />);
+    await screen.findAllByText('Bệnh viện Kiểm Thử FamiDoc');
+
+    const allTab = screen.getByRole('button', { name: /Tất cả/i });
+    const filterContainer = allTab.parentElement!;
+    expect(filterContainer.className).toContain('flex-nowrap');
+    expect(filterContainer.className).toContain('overflow-x-auto');
+    expect(filterContainer.className).not.toContain('flex-wrap');
+    expect(filterContainer.parentElement?.className).not.toContain('lg:flex-row');
+  });
 });
