@@ -2,8 +2,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
+import { FACILITY_GATE_REFRESH_EVENT } from '@/components/layout/facility-verification-gate';
 import { extractErrorMessage } from '@/lib/api';
 import { getTodayInVietnamYmd, isValidPastOrTodayVietnamDate } from '@/lib/date-vn';
 import { useVietQrBanks } from '@/hooks/use-vietqr-banks';
@@ -19,6 +21,7 @@ import {
 import { BankSelectorCombobox, VietQrPreviewCard } from '@/components/shared';
 
 export function FacilityLegalView() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [facility, setFacility] = useState<AdminFacilityItem | null>(null);
 
@@ -214,7 +217,7 @@ export function FacilityLegalView() {
     }
     if (!businessLicenseFile && !hasExistingBusinessDoc) {
       newErrors.businessLicenseFile =
-        'Vui lòng tải lên bản scan (PDF, PNG hoặc JPEG) Giấy chứng nhận Đăng ký doanh nghiệp';
+        'Vui lòng tải lên bản scan (PDF, PNG hoặc JPEG) Giấy phép kinh doanh';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -296,9 +299,13 @@ export function FacilityLegalView() {
       setHasExistingBusinessDoc(Boolean(updatedFacility.hasBusinessLicense ?? true));
       setOperatingLicenseFile(null);
       setBusinessLicenseFile(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event(FACILITY_GATE_REFRESH_EVENT));
+      }
       toast.success(
         'Nộp hồ sơ pháp lý chuyên sâu thành công! Hồ sơ đã được chuyển tới Quản Trị Viên để thẩm định.'
       );
+      router.replace('/facility');
     } catch (err: any) {
       console.warn('Lỗi nộp hồ sơ pháp lý CSYT:', err);
       toast.error(extractErrorMessage(err, 'Không thể nộp hồ sơ pháp lý lên máy chủ.'));
@@ -310,6 +317,7 @@ export function FacilityLegalView() {
   const isVerifiedActive = facility?.onboardingStatus === 'ACTIVE' || facility?.status === 'ACTIVE';
   const isWaitingReview = facility?.onboardingStatus === 'LEGAL_SUBMITTED';
   const isRejected = facility?.onboardingStatus === 'REJECTED';
+  const isFormLocked = isVerifiedActive || isWaitingReview;
 
   const selectedBank = useMemo(
     () =>
@@ -453,18 +461,8 @@ export function FacilityLegalView() {
             </div>
             <p className="pl-6 text-rose-900 font-medium">
               {facility?.legalRejectionReason ||
-                'Hồ sơ giấy phép hoạt động hoặc mã số thuế chưa khớp với đăng ký kinh doanh. Vui lòng cập nhật lại thông tin chính xác và đính kèm file scan rõ nét để Admin thẩm định lại.'}
+                'Hồ sơ giấy phép hoạt động hoặc mã số thuế chưa khớp với Giấy phép kinh doanh. Vui lòng cập nhật lại thông tin chính xác và đính kèm file scan rõ nét để Admin thẩm định lại.'}
             </p>
-          </div>
-        )}
-
-        {isVerifiedActive && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs sm:text-sm text-emerald-900 flex items-center gap-3">
-            <span className="material-symbols-outlined text-xl text-emerald-600">verified</span>
-            <div>
-              <p className="font-bold text-emerald-800">Cơ sở y tế đã hoàn tất hậu kiểm pháp lý và được kích hoạt đối tác ACTIVE!</p>
-              <p className="text-emerald-700 text-xs">Đơn vị đã đủ điều kiện ký kết hợp đồng cung ứng nhân lực y tế B2B và điều phối bác sĩ gia đình.</p>
-            </div>
           </div>
         )}
 
@@ -491,7 +489,7 @@ export function FacilityLegalView() {
                 </label>
                 <input
                   type="text"
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   value={facilityName}
                   onChange={(e) => setFacilityName(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed"
@@ -505,7 +503,7 @@ export function FacilityLegalView() {
                 </label>
                 <input
                   type="text"
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   value={licenseNumber}
                   onChange={(e) => setLicenseNumber(e.target.value)}
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.licenseNumber ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
@@ -521,7 +519,7 @@ export function FacilityLegalView() {
                 </label>
                 <input
                   type="text"
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   value={licenseIssuer}
                   onChange={(e) => setLicenseIssuer(e.target.value)}
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.licenseIssuer ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
@@ -538,7 +536,7 @@ export function FacilityLegalView() {
                 <input
                   type="date"
                   max={getTodayInVietnamYmd()}
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   value={licenseDate}
                   onChange={(e) => setLicenseDate(e.target.value)}
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.licenseDate ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
@@ -553,7 +551,7 @@ export function FacilityLegalView() {
                 </label>
                 <input
                   type="text"
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   value={taxCode}
                   onChange={(e) => setTaxCode(e.target.value)}
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.taxCode ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
@@ -569,7 +567,7 @@ export function FacilityLegalView() {
                 </label>
                 <input
                   type="text"
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   value={hotline}
                   onChange={(e) => setHotline(e.target.value)}
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.hotline ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
@@ -585,7 +583,7 @@ export function FacilityLegalView() {
                 </label>
                 <input
                   type="text"
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   className={`w-full px-3.5 py-2.5 rounded-xl border text-xs sm:text-sm text-slate-800 focus:outline-hidden focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 disabled:bg-slate-100 disabled:cursor-not-allowed ${errors.address ? 'border-rose-400 bg-rose-50/30' : 'border-slate-200'
@@ -619,7 +617,7 @@ export function FacilityLegalView() {
                   selectedBank={selectedBank}
                   fallbackBankName={bankName}
                   loading={isLoadingBanks}
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   hasError={Boolean(errors.bankName)}
                   onSelect={(bank) => {
                     setBankName(formatFacilityBankName(bank));
@@ -642,7 +640,7 @@ export function FacilityLegalView() {
                 </label>
                 <input
                   type="text"
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   value={bankAccountNumber}
                   onChange={(e) =>
                     setBankAccountNumber(e.target.value.replace(/\s+/g, '').slice(0, 19))
@@ -660,7 +658,7 @@ export function FacilityLegalView() {
                 </label>
                 <input
                   type="text"
-                  disabled={isVerifiedActive}
+                  disabled={isFormLocked}
                   value={bankAccountHolder}
                   onChange={(e) => setBankAccountHolder(e.target.value.toUpperCase())}
                   onBlur={() => setBankAccountHolder((prev) => normalizeVietQrAccountHolder(prev))}
@@ -698,7 +696,7 @@ export function FacilityLegalView() {
             />
           </div>
 
-          {/* Nhóm 3: Tài liệu đính kèm (2 tệp riêng: GPHĐ KBCB & ĐKKD) */}
+          {/* Nhóm 3: Tài liệu đính kèm (2 tệp riêng: GPHĐ KBCB & Giấy phép kinh doanh) */}
           <div className="bg-white rounded-2xl p-6 sm:p-7 border border-slate-200/80 shadow-xs space-y-5">
             <div className="border-b border-slate-100 pb-3">
               <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -729,7 +727,7 @@ export function FacilityLegalView() {
                   )}
                 </div>
 
-                {!isVerifiedActive && (
+                {!isFormLocked && (
                   <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-xl p-4 text-center bg-white transition-colors">
                     <input
                       type="file"
@@ -773,7 +771,7 @@ export function FacilityLegalView() {
                           Xem lại
                         </button>
                       )}
-                      {!isVerifiedActive && (
+                      {!isFormLocked && (
                         <button
                           type="button"
                           onClick={() => handleRemoveFile('operating')}
@@ -788,15 +786,15 @@ export function FacilityLegalView() {
                 )}
               </div>
 
-              {/* Slot 2: Giấy chứng nhận Đăng ký doanh nghiệp */}
+              {/* Slot 2: Giấy phép kinh doanh */}
               <div className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4 space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div>
                     <h3 className="text-xs sm:text-sm font-bold text-slate-900">
-                      2. Giấy chứng nhận Đăng ký doanh nghiệp (ĐKKD) <span className="text-rose-500">*</span>
+                      2. Giấy phép kinh doanh <span className="text-rose-500">*</span>
                     </h3>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Bản scan Giấy chứng nhận ĐKKD / Mã số thuế khớp pháp nhân ký B2B.
+                      Bản scan Giấy phép kinh doanh (hoặc Quyết định thành lập nếu là cơ sở công lập) có Mã số thuế
                     </p>
                   </div>
                   {(businessLicenseFile || hasExistingBusinessDoc) && (
@@ -806,7 +804,7 @@ export function FacilityLegalView() {
                   )}
                 </div>
 
-                {!isVerifiedActive && (
+                {!isFormLocked && (
                   <div className="border-2 border-dashed border-slate-200 hover:border-blue-400 rounded-xl p-4 text-center bg-white transition-colors">
                     <input
                       type="file"
@@ -819,7 +817,7 @@ export function FacilityLegalView() {
                     <label htmlFor="businessLicenseInput" className="cursor-pointer space-y-1.5 block">
                       <span className="material-symbols-outlined text-2xl text-blue-600">cloud_upload</span>
                       <div className="text-xs font-semibold text-slate-800">
-                        Chọn tệp scan Giấy ĐKKD
+                        Chọn tệp scan Giấy phép kinh doanh
                       </div>
                       <p className="text-[11px] text-slate-400">PDF, PNG, JPG · Tối đa 10MB</p>
                     </label>
@@ -837,7 +835,7 @@ export function FacilityLegalView() {
                       <span className="font-medium text-slate-800 truncate">
                         {businessLicenseFile
                           ? businessLicenseFile.name
-                          : 'Giấy chứng nhận ĐKKD đã lưu trên hệ thống'}
+                          : 'Giấy phép kinh doanh đã lưu trên hệ thống'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
@@ -850,12 +848,12 @@ export function FacilityLegalView() {
                           Xem lại
                         </button>
                       )}
-                      {!isVerifiedActive && (
+                      {!isFormLocked && (
                         <button
                           type="button"
                           onClick={() => handleRemoveFile('business')}
                           className="text-slate-400 hover:text-rose-600 p-0.5 transition-colors"
-                          title="Xóa tệp ĐKKD"
+                          title="Xóa tệp Giấy phép kinh doanh"
                         >
                           ✕
                         </button>
@@ -868,7 +866,7 @@ export function FacilityLegalView() {
           </div>
 
           {/* Action Bar */}
-          {!isVerifiedActive && (
+          {!isFormLocked && (
             <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2">
               <Link
                 href="/facility"

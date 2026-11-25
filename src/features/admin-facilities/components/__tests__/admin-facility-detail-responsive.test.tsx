@@ -100,7 +100,7 @@ describe('AdminFacilityDetailView Responsive Contracts Table', () => {
     expect(screen.getByTestId('facility-contracts-mobile')).toBeInTheDocument();
   });
 
-  it('displays separate preview buttons for Operating License and Business Registration Certificate on LEGAL tab', async () => {
+  it('displays separate preview buttons for Operating License and Business License on LEGAL tab', async () => {
     render(<AdminFacilityDetailView facilityId="FAC-1" />);
     await screen.findAllByText('Bệnh viện Kiểm Thử');
 
@@ -108,7 +108,13 @@ describe('AdminFacilityDetailView Responsive Contracts Table', () => {
     fireEvent.click(legalTab);
 
     expect(screen.getByRole('button', { name: /Xem \/ Tải GPHĐ KBCB/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Xem \/ Tải Giấy ĐKKD/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Xem \/ Tải Giấy phép kinh doanh/i })).toBeInTheDocument();
+    expect(screen.getByText(/2\. Giấy phép kinh doanh/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Bản scan Giấy phép kinh doanh \(hoặc Quyết định thành lập nếu là cơ sở công lập\) có Mã số thuế/i,
+      ),
+    ).toBeInTheDocument();
   });
 
   it('uses real backend contract response with adminSigned=false when creating B2B contract', async () => {

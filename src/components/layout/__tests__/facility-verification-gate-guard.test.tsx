@@ -304,4 +304,46 @@ describe('FacilityVerificationGateGuard & DashboardSidebar Facility Gate', () =>
     });
     expect(mockReplace).not.toHaveBeenCalledWith('/facility/legal-profile');
   });
+
+  it('allows /facility hub when LEGAL_SUBMITTED while keeping operational sub-routes locked', async () => {
+    const submittedProfile: AdminFacilityItem = {
+      ...pendingProfile,
+      onboardingStatus: 'LEGAL_SUBMITTED',
+    };
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValue(submittedProfile);
+
+    mockPathname = '/facility';
+    mockReplace.mockClear();
+    const hubRender = render(
+      <FacilityVerificationGateProvider>
+        <FacilityVerificationGateGuard>
+          <div data-testid="facility-hub-allowed">Facility Hub</div>
+        </FacilityVerificationGateGuard>
+      </FacilityVerificationGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('facility-hub-allowed')).toBeInTheDocument();
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+    hubRender.unmount();
+
+    for (const lockedSubRoute of ['/facility/doctors', '/facility/contracts']) {
+      mockPathname = lockedSubRoute;
+      mockReplace.mockClear();
+      const { unmount } = render(
+        <FacilityVerificationGateProvider>
+          <FacilityVerificationGateGuard>
+            <div data-testid="facility-sub-protected">Protected</div>
+          </FacilityVerificationGateGuard>
+        </FacilityVerificationGateProvider>,
+      );
+
+      await waitFor(() => {
+        expect(screen.getByTestId('facility-gate-blocked')).toBeInTheDocument();
+        expect(mockReplace).toHaveBeenCalledWith('/facility/legal-profile');
+      });
+      unmount();
+    }
+  });
 });

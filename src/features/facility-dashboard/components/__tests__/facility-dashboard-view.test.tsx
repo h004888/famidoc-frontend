@@ -271,4 +271,23 @@ describe('FacilityDashboardView', () => {
     const doctorsCta = await screen.findByRole('link', { name: /Quản lý Bác sĩ/i });
     expect(doctorsCta).toHaveAttribute('href', '/facility/doctors');
   });
+
+  it('displays waiting-review banner when facility onboardingStatus is LEGAL_SUBMITTED', async () => {
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValueOnce({
+      id: 'FAC-1',
+      facilityName: 'Bệnh viện An Sinh',
+      onboardingStatus: 'LEGAL_SUBMITTED',
+      verificationStatus: 'PENDING',
+      status: 'PENDING',
+      legalRejectionReason: null,
+    } as any);
+
+    render(<FacilityDashboardView />);
+
+    expect(
+      await screen.findByText(/Hồ sơ pháp lý đã nộp · Đang chờ Admin FamiDoc thẩm định/i),
+    ).toBeInTheDocument();
+    const viewSubmittedLink = screen.getByRole('link', { name: /Xem hồ sơ đã nộp/i });
+    expect(viewSubmittedLink).toHaveAttribute('href', '/facility/legal-profile');
+  });
 });

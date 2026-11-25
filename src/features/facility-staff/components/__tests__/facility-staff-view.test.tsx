@@ -372,4 +372,21 @@ describe('FacilityStaffView - Quản lý Đội ngũ Bác sĩ Trực thuộc (Fl
       );
     });
   });
+
+  it('renders the 3 toolbar action buttons with equal size classes inside a 3-column grid', async () => {
+    render(<FacilityStaffView />);
+    await screen.findAllByText('BS.CKII Trần Thanh Mai');
+
+    const refreshBtn = screen.getByRole('button', { name: /Làm mới/i });
+    const importBtn = screen.getByRole('button', { name: /Import Excel/i });
+    const addBtn = screen.getByRole('button', { name: /Thêm Bác Sĩ Mới/i });
+
+    expect(refreshBtn.parentElement?.className).toContain('sm:grid-cols-3');
+    for (const btn of [refreshBtn, importBtn, addBtn]) {
+      expect(btn.className).toContain('h-10');
+      expect(btn.className).toContain('w-full');
+      expect(btn.className).toContain('justify-center');
+      expect(btn.className).toContain('whitespace-nowrap');
+    }
+  });
 });

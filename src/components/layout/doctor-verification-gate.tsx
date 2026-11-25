@@ -21,7 +21,10 @@ function normalizePath(pathname: string | null | undefined): string {
  * `/doctor/telemedicine*` bị khóa khi bác sĩ chưa hoàn tất thẩm định 2 cấp (`ACTIVE`).
  * Cho phép `/doctor/verification*`, `/doctor/credentials*`, `/doctor/profile*`, `/doctor/login`.
  */
-export function isRestrictedDoctorPath(pathname: string | null | undefined): boolean {
+export function isRestrictedDoctorPathForProfile(
+  pathname: string | null | undefined,
+  profile?: DoctorProfileDto | null,
+): boolean {
   if (!pathname) return false;
   const normalized = normalizePath(pathname);
   if (
@@ -35,7 +38,18 @@ export function isRestrictedDoctorPath(pathname: string | null | undefined): boo
   ) {
     return false;
   }
+  if (
+    normalized === '/doctor' &&
+    (profile?.onboardingStatus === 'PENDING_FACILITY_REVIEW' ||
+      profile?.onboardingStatus === 'FACILITY_VERIFIED')
+  ) {
+    return false;
+  }
   return normalized === '/doctor' || normalized.startsWith('/doctor/');
+}
+
+export function isRestrictedDoctorPath(pathname: string | null | undefined): boolean {
+  return isRestrictedDoctorPathForProfile(pathname, null);
 }
 
 export function isDoctorProfileActive(profile: DoctorProfileDto | null): boolean {
@@ -229,7 +243,7 @@ export function DoctorVerificationGateGuard({
   } = useDoctorVerificationGateState();
 
   const isDoctor = isAuthenticated && isDoctorRole(role);
-  const isRestricted = isDoctor && isRestrictedDoctorPath(pathname);
+  const isRestricted = isDoctor && isRestrictedDoctorPathForProfile(pathname, doctorProfile);
 
   const currentPath = pathname ?? null;
   const [settledPathname, setSettledPathname] = useState<string | null>(currentPath);

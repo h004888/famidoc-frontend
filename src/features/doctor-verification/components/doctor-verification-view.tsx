@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import {
   doctorsApi,
@@ -53,6 +54,7 @@ const ALLOWED_EXTENSIONS = ['.pdf', '.png', '.jpg', '.jpeg'];
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 
 export function DoctorVerificationView() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<DoctorProfileDto | null>(null);
   const [onboardingStatus, setOnboardingStatus] = useState<string>('PENDING_SUBMISSION');
@@ -266,6 +268,7 @@ export function DoctorVerificationView() {
       toast.success(
         'Đã nộp đủ 3 chứng chỉ & hồ sơ cá nhân! Hồ sơ đang chờ Cơ sở y tế thẩm định Cấp 1.',
       );
+      router.replace('/doctor');
     } catch (err: any) {
       console.warn('Lỗi khi nộp hồ sơ chuyên môn:', err?.message || err);
       toast.error(extractErrorMessage(err, 'Có lỗi khi nộp hồ sơ chuyên môn lên máy chủ.'));
@@ -299,6 +302,7 @@ export function DoctorVerificationView() {
   const isLevel2Approved = onboardingStatus === 'ACTIVE';
   const isFormLocked =
     isLevel2Approved ||
+    onboardingStatus === 'PENDING_FACILITY_REVIEW' ||
     onboardingStatus === 'FACILITY_VERIFIED' ||
     onboardingStatus === 'SUSPENDED';
 

@@ -359,4 +359,21 @@ describe('DoctorDashboardView — Daily Clinical Hub (5s Scanability IA)', () =>
     expect(screen.queryByRole('button', { name: /Check-in/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Đã đến nhà/i })).not.toBeInTheDocument();
   });
+
+  it('renders 2-tier verification card and skips clinical API calls when doctor is PENDING_FACILITY_REVIEW', async () => {
+    vi.spyOn(doctorsApi, 'getDoctorMe').mockResolvedValueOnce({
+      ...MOCK_ACTIVE_PROFILE,
+      onboardingStatus: 'PENDING_FACILITY_REVIEW',
+    } as any);
+    const contractsSpy = vi.spyOn(contractsApi, 'getMedicalContracts');
+    const timetableSpy = vi.spyOn(encountersApi, 'getDoctorTimetable');
+
+    render(<DoctorDashboardView />);
+
+    expect(
+      await screen.findByText(/Hồ sơ Bác sĩ đang trong quy trình thẩm định 2 cấp/i),
+    ).toBeInTheDocument();
+    expect(contractsSpy).not.toHaveBeenCalled();
+    expect(timetableSpy).not.toHaveBeenCalled();
+  });
 });

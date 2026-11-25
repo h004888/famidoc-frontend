@@ -3,6 +3,12 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DoctorVerificationView } from '../doctor-verification-view';
 import { doctorsApi } from '@/lib/api';
+import { DOCTOR_GATE_REFRESH_EVENT } from '@/components/layout/doctor-verification-gate';
+
+const mockRouterReplace = vi.fn();
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockRouterReplace, push: vi.fn() }),
+}));
 
 vi.mock('@/lib/api', () => ({
   extractErrorMessage: (_err: unknown, fallback = 'Error') => fallback,
@@ -256,5 +262,90 @@ describe('DoctorVerificationView Component (Full-Page Inline Form)', () => {
     expect(specialtyInput).toBeDisabled();
     expect(screen.queryByRole('button', { name: /Gửi Thẩm Định/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Cập nhật & Gửi lại Thẩm định/i })).not.toBeInTheDocument();
+  });
+
+  it('redirects to /doctor after successful submit and locks form when PENDING_FACILITY_REVIEW', async () => {
+    mockRouterReplace.mockClear();
+    const refreshListener = vi.fn();
+    window.addEventListener(DOCTOR_GATE_REFRESH_EVENT, refreshListener);
+
+    try {
+      vi.mocked(doctorsApi.getDoctorMe).mockResolvedValueOnce({
+        id: 'doc-uuid-123',
+        doctorName: 'BS. Phan Văn Minh',
+        specialty: 'Y học gia đình',
+        experienceYears: 5,
+        onboardingStatus: 'PENDING_SUBMISSION',
+        facilityId: 'fac-1',
+        facilityName: 'Bệnh viện An Sinh',
+        credentials: [
+          {
+            id: 'c1',
+            credentialType: 'PRACTICE_LICENSE_CCHN',
+            certificateNumber: 'CCHN-1',
+            issueDate: '2022-01-01',
+            issuingAuthority: 'Bộ Y tế',
+            fileUrl: 'c1.pdf',
+          },
+          {
+            id: 'c2',
+            credentialType: 'DEGREE',
+            certificateNumber: 'DEG-1',
+            issueDate: '2020-01-01',
+            issuingAuthority: 'ĐH Y',
+            fileUrl: 'c2.pdf',
+          },
+          {
+            id: 'c3',
+            credentialType: 'FAMILY_MEDICINE_CERT',
+            certificateNumber: 'FM-1',
+            issueDate: '2023-01-01',
+            issuingAuthority: 'Bộ Y tế',
+            fileUrl: 'c3.pdf',
+          },
+        ],
+      });
+      vi.mocked(doctorsApi.submitMyCredentials).mockResolvedValueOnce({
+        id: 'doc-uuid-123',
+        doctorName: 'BS. Phan Văn Minh',
+        specialty: 'Y học gia đình',
+        experienceYears: 5,
+        onboardingStatus: 'PENDING_FACILITY_REVIEW',
+        facilityId: 'fac-1',
+        credentials: [],
+      });
+
+      const firstRender = render(<DoctorVerificationView />);
+      const submitBtn = await screen.findByRole('button', { name: /Gửi Thẩm Định/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(doctorsApi.submitMyCredentials).toHaveBeenCalled();
+        expect(refreshListener).toHaveBeenCalled();
+        expect(mockRouterReplace).toHaveBeenCalledWith('/doctor');
+      });
+      firstRender.unmount();
+
+      vi.mocked(doctorsApi.getDoctorMe).mockResolvedValueOnce({
+        id: 'doc-uuid-123',
+        doctorName: 'BS. Phan Văn Minh',
+        specialty: 'Y học gia đình',
+        experienceYears: 5,
+        onboardingStatus: 'PENDING_FACILITY_REVIEW',
+        facilityId: 'fac-1',
+        facilityName: 'Bệnh viện An Sinh',
+        credentials: [],
+      });
+
+      render(<DoctorVerificationView />);
+      const specialtyInput = await screen.findByLabelText(/Chuyên khoa hành nghề/i);
+      expect(specialtyInput).toBeDisabled();
+      expect(screen.queryByRole('button', { name: /Gửi Thẩm Định/i })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /Cập nhật & Gửi lại Thẩm định/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      window.removeEventListener(DOCTOR_GATE_REFRESH_EVENT, refreshListener);
+    }
   });
 });

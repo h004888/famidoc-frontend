@@ -75,6 +75,14 @@ export function getFacilityPathLockInfo(
   }
 
   if (!isFacilityProfileActive(profile)) {
+    const normalized = normalizePath(pathname);
+    if (profile.onboardingStatus === 'LEGAL_SUBMITTED' && normalized === '/facility') {
+      return {
+        locked: false,
+        stage: null,
+        redirectTo: '/facility',
+      };
+    }
     const locked = isRestrictedFacilityPath(pathname);
     return {
       locked,

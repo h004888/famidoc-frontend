@@ -391,7 +391,7 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
               {facility.onboardingStatus === 'PENDING_LEGAL' &&
                 'CSYT đã có tài khoản Portal nhưng chưa nộp đủ hồ sơ pháp lý (GPHĐ, MST và 2 tệp scan).'}
               {facility.onboardingStatus === 'LEGAL_SUBMITTED' &&
-                'CSYT đã nộp hồ sơ pháp lý. Kiểm tra GPHĐ & ĐKKD bản scan rồi duyệt kích hoạt ACTIVE hoặc yêu cầu bổ sung.'}
+                'CSYT đã nộp hồ sơ pháp lý. Kiểm tra GPHĐ & Giấy phép kinh doanh bản scan rồi duyệt kích hoạt ACTIVE hoặc yêu cầu bổ sung.'}
               {facility.onboardingStatus === 'ACTIVE' &&
                 'Hồ sơ đã kích hoạt ACTIVE. Admin có thể thiết lập hợp đồng cung ứng nhân lực y tế B2B cho cơ sở này.'}
               {facility.onboardingStatus === 'REJECTED' &&
@@ -642,12 +642,12 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                 )}
               </div>
 
-              {/* 2. Giấy chứng nhận ĐKKD */}
+              {/* 2. Giấy phép kinh doanh */}
               <div className="border border-slate-200 rounded-xl bg-slate-50 p-5 flex flex-col justify-between gap-4">
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-900">
-                      2. Giấy chứng nhận Đăng ký doanh nghiệp (ĐKKD)
+                      2. Giấy phép kinh doanh
                     </span>
                     {facility.hasBusinessLicense ? (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-100 text-emerald-800">
@@ -659,6 +659,9 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                       </span>
                     )}
                   </div>
+                  <p className="text-[11px] text-slate-500">
+                    Bản scan Giấy phép kinh doanh (hoặc Quyết định thành lập nếu là cơ sở công lập) có Mã số thuế
+                  </p>
                   <p className="text-xs text-slate-500">
                     Mã số thuế: <strong className="text-slate-700">{facility.taxCode || '—'}</strong>
                   </p>
@@ -671,10 +674,10 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
                     className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-primary bg-white border border-slate-300 rounded-lg hover:bg-slate-100 transition-colors cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm">open_in_new</span>
-                    Xem / Tải Giấy ĐKKD
+                    Xem / Tải Giấy phép kinh doanh
                   </button>
                 ) : (
-                  <p className="text-xs text-slate-400 italic">CSYT chưa tải lên tệp scan Giấy ĐKKD.</p>
+                  <p className="text-xs text-slate-400 italic">CSYT chưa tải lên tệp scan Giấy phép kinh doanh.</p>
                 )}
               </div>
             </div>

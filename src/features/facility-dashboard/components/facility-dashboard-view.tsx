@@ -83,6 +83,7 @@ export function FacilityDashboardView() {
   const [facilityName, setFacilityName] = useState<string>('Cơ sở Y tế Đối tác');
   const [facilityCode, setFacilityCode] = useState<string>('CSYT-VN');
   const [isFacilityActive, setIsFacilityActive] = useState<boolean | null>(null);
+  const [facilityOnboardingStatus, setFacilityOnboardingStatus] = useState<string | null>(null);
   const [hasActiveB2b, setHasActiveB2b] = useState<boolean>(false);
   const [legalRejectionReason, setLegalRejectionReason] = useState<string | null>(null);
   const [pendingContract, setPendingContract] = useState<StaffingContractItem | null>(null);
@@ -111,6 +112,7 @@ export function FacilityDashboardView() {
       if (data.id) setFacilityCode(data.id);
       const active = Boolean(data.verificationStatus === 'ACTIVE' || data.status === 'ACTIVE');
       setIsFacilityActive(active);
+      setFacilityOnboardingStatus(data.onboardingStatus ?? null);
       setHasActiveB2b(Boolean(data.hasActiveStaffingContract));
       setLegalRejectionReason(data.legalRejectionReason ?? null);
 
@@ -305,28 +307,49 @@ export function FacilityDashboardView() {
           </CardContent>
         </Card>
 
-        {/* Action Banner: Hoàn thiện hồ sơ pháp lý khi chưa ACTIVE */}
+        {/* Action Banner: Hoàn thiện hồ sơ pháp lý hoặc đang chờ thẩm định khi chưa ACTIVE */}
         {isFacilityActive === false && (
-          <div className="p-4 sm:p-5 rounded-2xl border border-amber-300 bg-amber-50 text-amber-950 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800">
-                <span className="material-symbols-outlined text-base">policy</span>
-                <span>Tài khoản cơ sở y tế đang chờ duyệt pháp lý</span>
+          facilityOnboardingStatus === 'LEGAL_SUBMITTED' ? (
+            <div className="p-4 sm:p-5 rounded-2xl border border-indigo-200 bg-indigo-50 text-indigo-950 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-indigo-800">
+                  <span className="material-symbols-outlined text-base">hourglass_top</span>
+                  <span>Hồ sơ pháp lý đã nộp · Đang chờ Admin FamiDoc thẩm định</span>
+                </div>
+                <p className="text-xs sm:text-sm text-indigo-900 leading-relaxed">
+                  Hệ thống đã tiếp nhận hồ sơ pháp lý của cơ sở y tế và đang chờ Quản trị viên đối soát CSDL Quốc gia. Các chức năng B2B &amp; quản lý bác sĩ sẽ tự động mở khóa ngay khi được kích hoạt ACTIVE.
+                </p>
               </div>
-              <p className="text-xs sm:text-sm text-amber-900 leading-relaxed">
-                {legalRejectionReason
-                  ? `Hồ sơ pháp lý cần bổ sung: "${legalRejectionReason}". Vui lòng cập nhật và nộp lại để Admin kích hoạt.`
-                  : 'Vui lòng hoàn thiện và nộp hồ sơ pháp lý (GPHĐ, Mã số thuế, Tài khoản ngân hàng và bản scan PDF/Ảnh). Các chức năng B2B & quản lý bác sĩ sẽ tự động mở khóa sau khi Admin duyệt.'}
-              </p>
+              <Link
+                href="/facility/legal-profile"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all shrink-0 self-start md:self-auto"
+              >
+                <span>Xem hồ sơ đã nộp</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </Link>
             </div>
-            <Link
-              href="/facility/legal-profile"
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all shrink-0 self-start md:self-auto"
-            >
-              <span>Nộp / Cập nhật Hồ sơ Pháp lý</span>
-              <span className="material-symbols-outlined text-sm">arrow_forward</span>
-            </Link>
-          </div>
+          ) : (
+            <div className="p-4 sm:p-5 rounded-2xl border border-amber-300 bg-amber-50 text-amber-950 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-800">
+                  <span className="material-symbols-outlined text-base">policy</span>
+                  <span>Tài khoản cơ sở y tế đang chờ duyệt pháp lý</span>
+                </div>
+                <p className="text-xs sm:text-sm text-amber-900 leading-relaxed">
+                  {legalRejectionReason
+                    ? `Hồ sơ pháp lý cần bổ sung: "${legalRejectionReason}". Vui lòng cập nhật và nộp lại để Admin kích hoạt.`
+                    : 'Vui lòng hoàn thiện và nộp hồ sơ pháp lý (GPHĐ, Mã số thuế, Tài khoản ngân hàng và bản scan PDF/Ảnh). Các chức năng B2B & quản lý bác sĩ sẽ tự động mở khóa sau khi Admin duyệt.'}
+                </p>
+              </div>
+              <Link
+                href="/facility/legal-profile"
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs sm:text-sm font-bold shadow-xs transition-all shrink-0 self-start md:self-auto"
+              >
+                <span>Nộp / Cập nhật Hồ sơ Pháp lý</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </Link>
+            </div>
+          )
         )}
 
         {/* Action Banner: Hợp đồng B2B chờ ký kết (Flow 2.1) */}

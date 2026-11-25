@@ -26,11 +26,14 @@ export function MustChangePasswordBanner() {
     <div
       role="status"
       data-testid="must-change-password-banner"
-      className="mx-4 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-300/80 bg-amber-50 px-4 py-3 text-xs text-amber-950 shadow-2xs sm:mx-6 lg:mx-8"
+      className="mx-4 mt-4 flex flex-col gap-3 rounded-xl border border-amber-300/80 bg-amber-50 px-4 py-3 text-xs text-amber-950 shadow-2xs sm:mx-6 md:flex-row md:flex-nowrap md:items-center md:justify-between lg:mx-8"
     >
-      <div className="flex items-start gap-2.5 sm:items-center">
-        <KeyRound className="mt-0.5 size-4 shrink-0 text-amber-700 sm:mt-0" aria-hidden="true" />
-        <p className="leading-relaxed">
+      <div className="flex min-w-0 flex-1 items-start gap-2.5 md:items-center">
+        <KeyRound className="mt-0.5 size-4 shrink-0 text-amber-700 md:mt-0" aria-hidden="true" />
+        <p
+          className="leading-relaxed md:truncate"
+          title="Đề xuất bảo mật tài khoản: Bạn đang sử dụng mật khẩu khởi tạo được cấp qua email. Bạn vẫn có thể nộp hồ sơ ngay bây giờ và nên đổi mật khẩu cá nhân khi thuận tiện."
+        >
           <strong className="font-semibold">Đề xuất bảo mật tài khoản:</strong> Bạn đang sử dụng mật khẩu khởi tạo được cấp qua email. Bạn vẫn có thể nộp hồ sơ ngay bây giờ và nên{' '}
           <Link href="/change-password" className="font-semibold text-blue-700 underline hover:text-blue-900">
             đổi mật khẩu cá nhân
@@ -38,10 +41,10 @@ export function MustChangePasswordBanner() {
           khi thuận tiện.
         </p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <Link
           href="/change-password"
-          className="inline-flex h-8 items-center rounded-lg bg-amber-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-amber-700"
+          className="inline-flex h-8 items-center whitespace-nowrap rounded-lg bg-amber-600 px-3 text-xs font-semibold text-white transition-colors hover:bg-amber-700"
         >
           Đổi mật khẩu
         </Link>

@@ -5,6 +5,12 @@ import { FacilityLegalView } from '../facility-legal-view';
 import { AdminFacilitiesView } from '@/features/admin-facilities/components/admin-facilities-view';
 import { facilitiesApi } from '@/lib/api/facilities.api';
 import { doctorsApi } from '@/lib/api/doctors.api';
+import { FACILITY_GATE_REFRESH_EVENT } from '@/components/layout/facility-verification-gate';
+
+const mockRouterReplace = vi.fn();
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ replace: mockRouterReplace, push: vi.fn() }),
+}));
 
 vi.mock('@/lib/api/public.api', () => ({
   publicApi: {
@@ -314,7 +320,8 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
         email: 'ansinh@famidoc.vn',
         phone: '0903456789',
         address: '10 Trần Huy Liệu, TP.HCM',
-        onboardingStatus: 'LEGAL_SUBMITTED',
+        onboardingStatus: 'REJECTED',
+        legalRejectionReason: 'Cần cập nhật lại ngày cấp',
         status: 'PENDING',
         hasOperatingLicense: true,
         hasBusinessLicense: true,
@@ -334,7 +341,8 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
         email: 'ansinh@famidoc.vn',
         phone: '0903456789',
         address: '10 Trần Huy Liệu, TP.HCM',
-        onboardingStatus: 'LEGAL_SUBMITTED',
+        onboardingStatus: 'REJECTED',
+        legalRejectionReason: 'Cần cập nhật lại ngày cấp',
         status: 'PENDING',
         hasOperatingLicense: true,
         hasBusinessLicense: true,
@@ -366,6 +374,114 @@ describe('Flow 2.1 - Nộp hồ sơ pháp lý CSYT (Cấp 2) và Admin Portal', 
       vi.useRealTimers();
       URL.revokeObjectURL = originalRevoke;
       openSpy.mockRestore();
+    }
+  });
+
+  it('omits redundant ACTIVE banner and uses "Giấy phép kinh doanh" wording everywhere', async () => {
+    vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValue({
+      id: 'fac-123',
+      facilityName: 'Bệnh viện Đa khoa An Sinh',
+      representativeName: 'TS. Nguyễn Văn A',
+      email: 'ansinh@famidoc.vn',
+      phone: '0903456789',
+      address: '10 Trần Huy Liệu, TP.HCM',
+      onboardingStatus: 'ACTIVE',
+      status: 'ACTIVE',
+      hasOperatingLicense: true,
+      hasBusinessLicense: true,
+      createdAt: '2026-11-13T10:00:00.000Z',
+    });
+
+    const { container } = render(<FacilityLegalView />);
+    await screen.findByText(/Hồ Sơ Pháp Lý & Giấy Phép Hoạt Động/i);
+
+    expect(
+      screen.queryByText(/Cơ sở y tế đã hoàn tất hậu kiểm pháp lý và được kích hoạt đối tác ACTIVE!/i),
+    ).not.toBeInTheDocument();
+
+    expect(screen.getByText(/2\. Giấy phép kinh doanh/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Bản scan Giấy phép kinh doanh \(hoặc Quyết định thành lập nếu là cơ sở công lập\) có Mã số thuế/i,
+      ),
+    ).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/ĐKKD|Đăng ký doanh nghiệp|đăng ký kinh doanh/i);
+  });
+
+  it('dispatches FACILITY_GATE_REFRESH_EVENT and redirects to /facility after successful submit, and locks form when LEGAL_SUBMITTED', async () => {
+    mockRouterReplace.mockClear();
+    const refreshListener = vi.fn();
+    window.addEventListener(FACILITY_GATE_REFRESH_EVENT, refreshListener);
+
+    try {
+      vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValueOnce({
+        id: 'fac-123',
+        facilityName: 'Bệnh viện Đa khoa An Sinh',
+        representativeName: 'TS. Nguyễn Văn A',
+        email: 'ansinh@famidoc.vn',
+        phone: '0903456789',
+        address: '10 Trần Huy Liệu, TP.HCM',
+        onboardingStatus: 'PENDING_LEGAL',
+        status: 'PENDING',
+        hasOperatingLicense: true,
+        hasBusinessLicense: true,
+        operatingLicense: '09988/BYT-GPHĐ',
+        licenseIssuer: 'Bộ Y tế',
+        licenseDate: '2024-01-15',
+        taxCode: '0315999888',
+        bankName: 'Vietcombank',
+        bankAccount: '9988776655',
+        bankAccountHolder: 'CONG TY AN SINH',
+        createdAt: '2026-11-13T10:00:00.000Z',
+      });
+      vi.mocked(facilitiesApi.updateLegalProfile).mockResolvedValueOnce({
+        id: 'fac-123',
+        facilityName: 'Bệnh viện Đa khoa An Sinh',
+        representativeName: 'TS. Nguyễn Văn A',
+        email: 'ansinh@famidoc.vn',
+        phone: '0903456789',
+        address: '10 Trần Huy Liệu, TP.HCM',
+        onboardingStatus: 'LEGAL_SUBMITTED',
+        status: 'PENDING',
+        hasOperatingLicense: true,
+        hasBusinessLicense: true,
+        createdAt: '2026-11-13T10:00:00.000Z',
+      });
+
+      const firstRender = render(<FacilityLegalView />);
+      const submitBtn = await screen.findByRole('button', { name: /Gửi Hồ Sơ Pháp Lý Thẩm Định/i });
+      fireEvent.click(submitBtn);
+
+      await waitFor(() => {
+        expect(facilitiesApi.updateLegalProfile).toHaveBeenCalled();
+        expect(refreshListener).toHaveBeenCalled();
+        expect(mockRouterReplace).toHaveBeenCalledWith('/facility');
+      });
+      firstRender.unmount();
+
+      vi.mocked(facilitiesApi.getMyFacilityProfile).mockResolvedValueOnce({
+        id: 'fac-123',
+        facilityName: 'Bệnh viện Đa khoa An Sinh',
+        representativeName: 'TS. Nguyễn Văn A',
+        email: 'ansinh@famidoc.vn',
+        phone: '0903456789',
+        address: '10 Trần Huy Liệu, TP.HCM',
+        onboardingStatus: 'LEGAL_SUBMITTED',
+        status: 'PENDING',
+        hasOperatingLicense: true,
+        hasBusinessLicense: true,
+        operatingLicense: '09988/BYT-GPHĐ',
+        createdAt: '2026-11-13T10:00:00.000Z',
+      });
+
+      render(<FacilityLegalView />);
+      const gphdInput = await screen.findByPlaceholderText(/08921\/BYT-GPHĐ/i);
+      expect(gphdInput).toBeDisabled();
+      expect(
+        screen.queryByRole('button', { name: /Gửi Hồ Sơ Pháp Lý Thẩm Định/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      window.removeEventListener(FACILITY_GATE_REFRESH_EVENT, refreshListener);
     }
   });
 });
