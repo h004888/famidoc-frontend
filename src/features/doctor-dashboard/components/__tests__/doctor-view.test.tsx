@@ -304,9 +304,15 @@ describe('DoctorDashboardView — Daily Clinical Hub (5s Scanability IA)', () =>
 
   it('D1: shows ACTIVE today card with Mở Workspace Ca khám, PENDING_RECORD 24h card, and no check-in buttons', async () => {
     const now = new Date();
-    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const yesterday = new Date(now.getTime() - 20 * 3600 * 1000);
-    const yesterdayIso = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+    const vnFmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    });
+    const todayIso = vnFmt.format(now);
+    const yesterday = new Date(now.getTime() - 24 * 3600 * 1000);
+    const yesterdayIso = vnFmt.format(yesterday);
 
     vi.spyOn(encountersApi, 'getDoctorTimetable').mockResolvedValueOnce({
       data: [
@@ -332,7 +338,10 @@ describe('DoctorDashboardView — Daily Clinical Hub (5s Scanability IA)', () =>
           encounterType: 'HOME_VISIT',
           category: 'PERIODIC_ROUTINE',
           encounterStatus: 'CONFIRMED',
-          familyConfirmedArrivalAt: '2026-11-24T09:15:00+07:00',
+          familyConfirmedArrivalAt: yesterday.toISOString(),
+          sessionDeadlines: {
+            recordDeadlineAt: new Date(now.getTime() + 6 * 3600 * 1000).toISOString(),
+          },
           clinicalEmrs: [],
           patient: { id: 'pt-2', fullName: 'Lê Thị B' },
         },
