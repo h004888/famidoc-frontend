@@ -88,6 +88,54 @@ describe('Vietnamese API errors', () => {
     );
   });
 
+  it('đọc đúng invalidParams[].message và conditions[].message theo chuẩn Unified Error (không có root message)', () => {
+    expect(
+      extractErrorMessage({
+        details: {
+          success: false,
+          code: 422,
+          data: null,
+          meta: null,
+          error: {
+            title: 'Unprocessable Content',
+            errorCode: 'VALIDATION_FAILED',
+            detail: 'Tên gói phải có ít nhất 10 ký tự.',
+            invalidParams: [
+              {
+                field: 'name',
+                issue: 'MIN_LENGTH',
+                message: 'Tên gói phải có ít nhất 10 ký tự.',
+              },
+            ],
+          },
+        },
+      }),
+    ).toBe('Tên gói phải có ít nhất 10 ký tự.');
+
+    expect(
+      extractErrorMessage({
+        details: {
+          success: false,
+          code: 409,
+          data: null,
+          meta: null,
+          error: {
+            title: 'Conflict',
+            errorCode: 'CARE_PACKAGE_RISK_ACK_REQUIRED',
+            detail: 'Cần xác nhận cảnh báo P2.',
+            conditions: [
+              {
+                code: 'P2',
+                condition: 'acknowledgedWarnings phải chứa P2',
+                message: 'Đơn giá 1.500.000đ lệch 58% so với giá tham chiếu 950.000đ.',
+              },
+            ],
+          },
+        },
+      }),
+    ).toBe('Đơn giá 1.500.000đ lệch 58% so với giá tham chiếu 950.000đ.');
+  });
+
   it('localizes legacy English payment eligibility errors to Vietnamese', () => {
     expect(localizeApiErrorMessage('Contract is not pending')).toContain(
       'Hợp đồng không ở trạng thái chờ thanh toán',

@@ -2,44 +2,39 @@ import type { AdminCarePackageItem, PackageTerms } from '@/lib/api/admin-package
 import { extractErrorMessage } from '@/lib/api/error-handler';
 import { ApiError } from '@/lib/http/errors';
 
-export const packageDurations = [1, 3, 6, 12];
 const maxPrice = 9_999_999_999;
 const maxVisits = 100_000;
 const integerFormat = new Intl.NumberFormat('vi-VN');
 
 export const packageNumberFields = {
-  includedMembers: { label: 'Số người trong giá', min: 1, max: 10 },
-  maxMembers: { label: 'Số người tối đa', min: 1, max: 10 },
+  durationMonths: { label: 'Thời hạn gói (tháng)', min: 1, max: 1200 },
+  includedMembers: { label: 'Số thành viên mặc định', min: 1, max: 10 },
+  maxMembers: { label: 'Số thành viên tối đa', min: 1, max: 10 },
   additionalMemberMonthlyPriceVnd: { label: 'Phụ phí mỗi người thêm / tháng (VND)', min: 0, max: maxPrice },
   homeVisitUnitPriceVnd: { label: 'Đơn giá lượt khám tại nhà (VND)', min: 1, max: maxPrice },
-  homeVisits: { label: 'Lượt khám tại nhà', min: 0, max: maxVisits },
-  videoConsultations: { label: 'Lượt tư vấn video', min: 0, max: maxVisits },
+  homeVisits: { label: 'Lượt khám tại nhà', min: 1, max: maxVisits },
+  videoConsultations: { label: 'Lượt tư vấn video', min: 1, max: maxVisits },
   priceVnd: { label: 'Giá gói trọn kỳ (VND)', min: 1, max: maxPrice },
 };
 
 export type PackageNumberField = keyof typeof packageNumberFields;
-type PackageFormSettings = Pick<PackageTerms, 'name' | 'description' | 'durationMonths'> & {
-  code: string;
-  videoQuotaPolicy: NonNullable<PackageTerms['videoQuotaPolicy']>;
-};
+type PackageFormSettings = Pick<PackageTerms, 'name' | 'description'>;
 export type PackageForm = PackageFormSettings & { amounts: Record<PackageNumberField, string> };
 export type PackageField = keyof PackageFormSettings | PackageNumberField;
 export type PackageFieldErrors = Partial<Record<PackageField, string>>;
 
 export function createPackageForm(item: AdminCarePackageItem | null): PackageForm {
   return {
-    code: item?.code ?? '',
     name: item?.name ?? '',
     description: item?.description ?? '',
-    durationMonths: item?.durationMonths ?? 1,
-    videoQuotaPolicy: item?.videoQuotaPolicy ?? 'FIXED',
     amounts: {
+      durationMonths: String(item?.durationMonths ?? 1),
       includedMembers: String(item?.includedMembers ?? 1),
       maxMembers: String(item?.maxMembers ?? 1),
       additionalMemberMonthlyPriceVnd: String(item?.additionalMemberMonthlyPriceVnd ?? 0),
       homeVisitUnitPriceVnd: item?.homeVisitUnitPriceVnd?.toString() ?? '',
-      homeVisits: String(item?.quotas.homeVisits ?? 0),
-      videoConsultations: String(item?.quotas.videoConsultations ?? 0),
+      homeVisits: String(item?.quotas.homeVisits ?? 1),
+      videoConsultations: String(item?.quotas.videoConsultations ?? 1),
       priceVnd: item?.priceVnd.toString() ?? '',
     },
   };
@@ -52,77 +47,69 @@ export function getPackagePrice(form: PackageForm, requiresUnitPrice: boolean): 
   return String(Number(homeVisitUnitPriceVnd) * Number(homeVisits));
 }
 
-export function usesContractVideoQuota(form: PackageForm): boolean {
-  return form.durationMonths === 12 && form.videoQuotaPolicy === 'CONTRACT';
-}
-
 function getPackageNumberError(field: PackageNumberField, value: string): string | undefined {
   const { min, max } = packageNumberFields[field];
   if (!value) return 'Vui lòng nhập giá trị cho ô này.';
   if (!/^\d+$/.test(value)) return 'Chỉ nhập chữ số từ 0 đến 9.';
   const amount = Number(value);
   if (amount < min || amount > max) {
+    if (field === 'durationMonths' && amount < 1) {
+      return 'Thời hạn gói phải lớn hơn 0 tháng.';
+    }
+    if ((field === 'homeVisits' || field === 'videoConsultations') && amount < 1) {
+      return `${packageNumberFields[field].label} phải lớn hơn 0.`;
+    }
     return `Vui lòng nhập từ ${integerFormat.format(min)} đến ${integerFormat.format(max)}.`;
   }
 }
 
-const codeRequiredError = 'Vui lòng nhập mã gói.';
-const codeError = 'Vui lòng nhập mã gói có tối đa 40 ký tự.';
 const nameError = 'Tên gói phải có từ 10 đến 120 ký tự, trong đó có ít nhất một chữ cái.';
 const descriptionError = 'Mô tả phải có từ 20 đến 2.000 ký tự, trong đó có ít nhất một chữ cái.';
-const videoPolicyError = 'Chỉ gói 12 tháng được chốt lượt tư vấn video theo hợp đồng.';
-const durationError = 'Chọn kỳ hạn 1, 3, 6 hoặc 12 tháng.';
-const minimumBenefitsError = 'Gói phải có ít nhất một lượt khám tại nhà hoặc một lượt tư vấn video.';
 
 export function validatePackageForm(form: PackageForm, item: AdminCarePackageItem | null): PackageFieldErrors {
   const errors: PackageFieldErrors = {};
   const needsUnitPrice = item?.homeVisitUnitPriceVnd !== undefined;
-  const contractVideo = usesContractVideoQuota(form);
   const name = form.name.trim();
   const description = form.description.trim();
-  const code = form.code.trim();
-  if (!item && !code) errors.code = codeRequiredError;
-  else if (!item && [...code].length > 40) errors.code = codeError;
   const nameLength = [...name].length;
   const descriptionLength = [...description].length;
   if (nameLength < 10 || nameLength > 120 || !/\p{L}/u.test(name)) errors.name = nameError;
   if (descriptionLength < 20 || descriptionLength > 2000 || !/\p{L}/u.test(description)) errors.description = descriptionError;
-  if (!packageDurations.includes(form.durationMonths)) errors.durationMonths = durationError;
-  if (form.videoQuotaPolicy !== 'FIXED' && !contractVideo) errors.videoQuotaPolicy = videoPolicyError;
 
   const fields = Object.keys(packageNumberFields) as PackageNumberField[];
   for (const field of fields) {
     if (field === 'homeVisitUnitPriceVnd' && !needsUnitPrice && !form.amounts[field]) continue;
-    if (field === 'videoConsultations' && contractVideo) continue;
     const value = field === 'priceVnd' ? getPackagePrice(form, needsUnitPrice) : form.amounts[field];
     const error = getPackageNumberError(field, value);
     if (error) errors[field] = error;
   }
 
-  const { includedMembers, maxMembers, additionalMemberMonthlyPriceVnd, homeVisits, videoConsultations, homeVisitUnitPriceVnd } = form.amounts;
+  const { includedMembers, maxMembers, additionalMemberMonthlyPriceVnd } = form.amounts;
   if (!errors.includedMembers && !errors.maxMembers && Number(maxMembers) < Number(includedMembers)) {
     errors.maxMembers = 'Số người tối đa phải từ số người trong giá trở lên.';
   }
   if (!errors.includedMembers && !errors.maxMembers && Number(includedMembers) === Number(maxMembers) && Number(additionalMemberMonthlyPriceVnd) > 0) {
     errors.additionalMemberMonthlyPriceVnd = 'Nhập phụ phí bằng 0 khi gói đã đủ số người tối đa.';
   }
-  if (!errors.homeVisits && !errors.videoConsultations && Number(homeVisits) === 0 && (contractVideo || Number(videoConsultations) === 0)) {
-    errors.homeVisits = minimumBenefitsError;
+  if (errors.homeVisitUnitPriceVnd || (homeVisitUnitPriceVndError(form) && errors.homeVisits)) {
+    delete errors.priceVnd;
   }
-  if (!errors.homeVisits && homeVisitUnitPriceVnd && Number(homeVisits) === 0) {
-    errors.homeVisits = 'Nhập ít nhất một lượt khám tại nhà khi đã có đơn giá.';
-  }
-  if (errors.homeVisitUnitPriceVnd || (homeVisitUnitPriceVnd && errors.homeVisits)) delete errors.priceVnd;
   return errors;
 }
 
-export function toPackageTerms(form: PackageForm, requiresUnitPrice: boolean): Omit<PackageTerms, 'quotaPeriod'> {
+function homeVisitUnitPriceVndError(form: PackageForm): boolean {
+  return Boolean(form.amounts.homeVisitUnitPriceVnd);
+}
+
+export function toPackageTerms(
+  form: PackageForm,
+  requiresUnitPrice: boolean,
+): Omit<PackageTerms, 'quotaPeriod' | 'videoQuotaPolicy'> {
   const { amounts } = form;
   return {
     name: form.name.trim(),
     description: form.description.trim(),
-    durationMonths: form.durationMonths,
-    videoQuotaPolicy: form.videoQuotaPolicy,
+    durationMonths: Number(amounts.durationMonths),
     homeVisitUnitPriceVnd: amounts.homeVisitUnitPriceVnd ? Number(amounts.homeVisitUnitPriceVnd) : undefined,
     priceVnd: Number(getPackagePrice(form, requiresUnitPrice)),
     includedMembers: Number(amounts.includedMembers),
@@ -130,14 +117,51 @@ export function toPackageTerms(form: PackageForm, requiresUnitPrice: boolean): O
     additionalMemberMonthlyPriceVnd: Number(amounts.additionalMemberMonthlyPriceVnd),
     quotas: {
       homeVisits: Number(amounts.homeVisits),
-      videoConsultations: usesContractVideoQuota(form) ? 0 : Number(amounts.videoConsultations),
-      facilityVisits: 0,
+      videoConsultations: Number(amounts.videoConsultations),
     },
   };
 }
 
+const formFieldKeys = new Set<PackageField>([
+  'name',
+  'description',
+  'durationMonths',
+  'includedMembers',
+  'maxMembers',
+  'additionalMemberMonthlyPriceVnd',
+  'homeVisitUnitPriceVnd',
+  'homeVisits',
+  'videoConsultations',
+  'priceVnd',
+]);
+
+export function getPackageApiFieldErrors(cause: unknown): PackageFieldErrors {
+  if (!(cause instanceof ApiError)) return {};
+  const payload = cause.details as
+    | { error?: { invalidParams?: { field?: unknown; message?: unknown }[] } }
+    | undefined;
+  const params = payload?.error?.invalidParams;
+  if (!Array.isArray(params) || params.length === 0) return {};
+
+  const fieldErrors: PackageFieldErrors = {};
+  for (const param of params) {
+    const rawField = typeof param?.field === 'string' ? param.field : '';
+    const mappedField = rawField.replace(/^quotas\./, '') as PackageField;
+    if (!formFieldKeys.has(mappedField)) continue;
+    const serverMessage = typeof param?.message === 'string' ? param.message.trim() : '';
+    const message =
+      serverMessage && /[\u00C0-\u01B0\u1EA0-\u1EF9]/u.test(serverMessage)
+        ? serverMessage
+        : translatePackageField(rawField) ?? 'Giá trị không hợp lệ.';
+    if (!fieldErrors[mappedField]) {
+      fieldErrors[mappedField] = message;
+    }
+  }
+  return fieldErrors;
+}
+
 const apiMessages: Record<string, string> = {
-  'package code exists; create a new version instead': 'Mã gói đã tồn tại. Vui lòng dùng mã khác.',
+  'package code exists; create a new version instead': 'Mã gói đã tồn tại. Vui lòng thử lại.',
   'package code and version already exist': 'Mã gói và phiên bản đã tồn tại.',
   'package version changed or a draft already exists': 'Phiên bản gói đã thay đổi hoặc mã gói đã tồn tại. Hãy làm mới danh mục rồi thử lại.',
   'care package not found': 'Không tìm thấy gói dịch vụ.',
@@ -145,7 +169,7 @@ const apiMessages: Record<string, string> = {
   'provide at least one field to update': 'Vui lòng nhập ít nhất một thông tin cần cập nhật.',
   'maxmembers cannot be below includedmembers': 'Số người tối đa phải từ số người trong giá trở lên.',
   'additional-member fee must be zero when extra members are disabled': 'Nhập phụ phí bằng 0 khi gói đã đủ số người tối đa.',
-  'a package must include at least one consultation or visit': minimumBenefitsError,
+  'a package must include at least one consultation or visit': 'Gói phải có ít nhất một lượt khám tại nhà và một lượt tư vấn video.',
   'only a draft can be published': 'Chỉ có thể xuất bản gói đang ở trạng thái bản nháp.',
   'only draft packages can be published': 'Chỉ có thể xuất bản gói đang ở trạng thái bản nháp.',
   'only the latest version can be published': 'Chỉ có thể xuất bản phiên bản mới nhất của gói.',
@@ -156,14 +180,9 @@ const apiMessages: Record<string, string> = {
 };
 
 const apiFieldMessages: Record<string, string> = {
-  code: codeError,
   name: nameError,
   description: descriptionError,
-  durationMonths: durationError,
-  quotaPeriod: 'Cách tính hạn mức của gói không hợp lệ.',
-  videoQuotaPolicy: videoPolicyError,
   quotas: 'Vui lòng kiểm tra hạn mức khám và tư vấn.',
-  'quotas.facilityVisits': 'Hạn mức khám tại cơ sở y tế phải bằng 0.',
 };
 
 function translatePackageField(path: string): string | undefined {
@@ -178,15 +197,37 @@ function translatePackageField(path: string): string | undefined {
 export function getPackageApiError(cause: unknown, fallback: string): string {
   const status = cause instanceof ApiError ? cause.status : undefined;
   const payload = cause instanceof ApiError
-    ? cause.details as { error?: { invalidParams?: { field?: unknown }[] } } | undefined
+    ? cause.details as {
+        error?: {
+          detail?: unknown;
+          invalidParams?: { field?: unknown; message?: unknown }[];
+          conditions?: { message?: unknown }[];
+        };
+      } | undefined
     : undefined;
   const params = payload?.error?.invalidParams;
   if (Array.isArray(params) && params.length) {
     const messages = params.map((param) => {
+      const serverMsg = typeof param?.message === 'string' ? param.message.trim() : '';
+      if (serverMsg && /[\u00C0-\u01B0\u1EA0-\u1EF9]/u.test(serverMsg)) {
+        return serverMsg;
+      }
       const field = typeof param?.field === 'string' ? param.field : '';
       return translatePackageField(field) ?? 'Vui lòng kiểm tra dữ liệu gói đã nhập.';
     });
     return [...new Set(messages)].join(' ');
+  }
+  const conditions = payload?.error?.conditions;
+  if (Array.isArray(conditions) && conditions.length) {
+    const messages = conditions
+      .map((item) => (typeof item?.message === 'string' ? item.message.trim() : ''))
+      .filter(Boolean);
+    if (messages.length) return [...new Set(messages)].join(' ');
+  }
+
+  const detailMsg = typeof payload?.error?.detail === 'string' ? payload.error.detail.trim() : '';
+  if (detailMsg && /[\u00C0-\u01B0\u1EA0-\u1EF9]/u.test(detailMsg)) {
+    return detailMsg;
   }
 
   const rawMessage =

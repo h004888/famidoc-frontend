@@ -123,7 +123,7 @@ def seed() -> dict:
         },
         "members": {"requestedCount": 2, "includedCount": 4, "additionalCount": 0, "maxAllowedCount": 6},
         "pricing": {"basePriceVnd": 3500000, "additionalMembersTotalVnd": 0, "totalPriceVnd": 3500000, "currency": "VND"},
-        "benefits": {"quotas": {"homeVisits": 3, "videoConsultations": 20, "facilityVisits": 0}, "quotaPeriod": "PER_TERM", "unlimitedMessaging": True},
+        "benefits": {"quotas": {"homeVisits": 3, "videoConsultations": 20}, "quotaPeriod": "PER_TERM", "unlimitedMessaging": True},
     }
 
     with get_conn() as conn:

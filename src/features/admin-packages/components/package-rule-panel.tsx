@@ -13,34 +13,40 @@ import { cn } from '@/lib/utils';
 // Kết quả kiểm tra quy tắc mà form cần để quyết định có cho lưu hay không.
 export interface PackageRuleState {
   result: PackageValidationResult | null;
-  acknowledged: string[];
   blocked: boolean;
-  missingAck: boolean;
+  validationError: string;
 }
 
 // Gọi POST /validate sau khi người dùng ngừng gõ 400 ms; backend là nguồn quy tắc duy nhất.
 export function usePackageRules(
-  terms: (Omit<PackageTerms, 'quotaPeriod'> & { code?: string }) | null,
+  terms: Omit<PackageTerms, 'quotaPeriod' | 'videoQuotaPolicy'> | null,
   packageId?: string,
-) {
+): PackageRuleState {
   const [result, setResult] = useState<PackageValidationResult | null>(null);
-  const [acknowledged, setAcknowledged] = useState<string[]>([]);
+  const [validationError, setValidationError] = useState('');
   const key = terms ? JSON.stringify(terms) : '';
 
   useEffect(() => {
     if (!key) {
       setResult(null);
+      setValidationError('');
       return;
     }
     let cancelled = false;
     const timer = setTimeout(() => {
       adminPackagesApi
-        .validatePackage({ ...JSON.parse(key), quotaPeriod: 'PER_TERM', packageId })
+        .validatePackage({ ...JSON.parse(key), packageId })
         .then((value) => {
-          if (!cancelled) setResult(value);
+          if (!cancelled) {
+            setResult(value);
+            setValidationError('');
+          }
         })
         .catch(() => {
-          if (!cancelled) setResult(null);
+          if (!cancelled) {
+            setResult(null);
+            setValidationError('Không kiểm tra được quy tắc tải lịch từ máy chủ.');
+          }
         });
     }, 400);
     return () => {
@@ -49,18 +55,11 @@ export function usePackageRules(
     };
   }, [key, packageId]);
 
-  const required = result?.requiresAcknowledgement ?? [];
-  const state: PackageRuleState = {
+  return {
     result,
-    acknowledged: acknowledged.filter((code) => required.includes(code)),
     blocked: Boolean(result && !result.ok),
-    missingAck: required.some((code) => !acknowledged.includes(code)),
+    validationError,
   };
-  const toggle = (code: string, checked: boolean) =>
-    setAcknowledged((previous) =>
-      checked ? [...new Set([...previous, code])] : previous.filter((c) => c !== code),
-    );
-  return { state, toggle };
 }
 
 const gaugeTone = {
@@ -75,16 +74,15 @@ const findingStyle = {
   INFO: { icon: Info, box: 'border-slate-200 bg-slate-50 text-slate-700' },
 } as const;
 
-export function PackageRulePanel({
-  state,
-  onToggle,
-  disabled,
-}: {
-  state: PackageRuleState;
-  onToggle: (code: string, checked: boolean) => void;
-  disabled?: boolean;
-}) {
-  const { result } = state;
+export function PackageRulePanel({ state }: { state: PackageRuleState }) {
+  const { result, validationError } = state;
+  if (validationError) {
+    return (
+      <p role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-900">
+        {validationError}
+      </p>
+    );
+  }
   if (!result) return null;
   const { load } = result;
   const tone = gaugeTone[load.level];
@@ -112,13 +110,7 @@ export function PackageRulePanel({
       {findings.length > 0 && (
         <ul className="space-y-2">
           {findings.map((finding) => (
-            <FindingRow
-              key={finding.code}
-              finding={finding}
-              checked={state.acknowledged.includes(finding.code)}
-              onToggle={onToggle}
-              disabled={disabled}
-            />
+            <FindingRow key={finding.code} finding={finding} />
           ))}
         </ul>
       )}
@@ -126,17 +118,7 @@ export function PackageRulePanel({
   );
 }
 
-function FindingRow({
-  finding,
-  checked,
-  onToggle,
-  disabled,
-}: {
-  finding: PackageRuleFinding;
-  checked: boolean;
-  onToggle: (code: string, checked: boolean) => void;
-  disabled?: boolean;
-}) {
+function FindingRow({ finding }: { finding: PackageRuleFinding }) {
   const style = findingStyle[finding.level];
   const Icon = style.icon;
   return (
@@ -145,17 +127,6 @@ function FindingRow({
         <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
         <span>{finding.message}</span>
       </div>
-      {finding.level === 'WARN' && (
-        <label className="mt-2 flex items-center gap-2 pl-6 text-xs font-medium">
-          <input
-            type="checkbox"
-            checked={checked}
-            disabled={disabled}
-            onChange={(event) => onToggle(finding.code, event.target.checked)}
-          />
-          Tôi đã hiểu rủi ro và vẫn muốn lưu
-        </label>
-      )}
     </li>
   );
 }

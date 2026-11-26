@@ -13,6 +13,7 @@ import {
   Plus,
   RefreshCw,
   Stethoscope,
+  Trash2,
   Users,
   Video,
 } from 'lucide-react';
@@ -33,11 +34,10 @@ import { PackageRulePanel, usePackageRules } from './package-rule-panel';
 import {
   createPackageForm,
   getPackageApiError,
+  getPackageApiFieldErrors,
   getPackagePrice,
-  packageDurations,
   packageNumberFields,
   toPackageTerms,
-  usesContractVideoQuota,
   validatePackageForm,
   type PackageField,
   type PackageFieldErrors,
@@ -57,10 +57,9 @@ const statusFilters: { value: CatalogStatusFilter; label: string }[] = [
   { value: 'ACTIVE', label: statuses.ACTIVE },
   { value: 'DEPRECATED', label: statuses.DEPRECATED },
 ];
-const actionLabel = { retire: 'Ngừng bán', reopen: 'Mở bán' };
+const actionLabel = { retire: 'Ngừng bán', reopen: 'Mở bán', delete: 'Xóa gói dịch vụ' };
 type PackageAction = keyof typeof actionLabel;
 const pageSize = 6;
-const selectClass = 'h-9 w-full rounded-md border border-input bg-background px-3 text-sm font-normal focus-visible:outline-2 focus-visible:outline-ring';
 
 export function AdminPackagesView() {
   const [page, setPage] = useState(1);
@@ -87,10 +86,17 @@ export function AdminPackagesView() {
     try {
       if (action === 'reopen') {
         await adminPackagesApi.reopenPackage(item.id);
+        toast.success('Đã mở bán lại gói dịch vụ.');
+      } else if (action === 'delete') {
+        await adminPackagesApi.deletePackage(item.id);
+        toast.success('Đã xóa gói dịch vụ.');
+        if (page > 1 && data?.items.length === 1) {
+          setPage(page - 1);
+        }
       } else {
         await adminPackagesApi.retirePackage(item.id);
+        toast.success('Đã cập nhật danh mục gói.');
       }
-      toast.success(action === 'reopen' ? 'Đã mở bán lại gói dịch vụ.' : 'Đã cập nhật danh mục gói.');
       setDecision(null);
       refresh();
     } catch (cause) {
@@ -187,6 +193,11 @@ export function AdminPackagesView() {
             setActionError('');
             setDecision({ item: viewing, action: 'reopen' });
           }}
+          onDelete={() => {
+            setViewing(null);
+            setActionError('');
+            setDecision({ item: viewing, action: 'delete' });
+          }}
         />
       )}
 
@@ -208,12 +219,23 @@ export function AdminPackagesView() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{decision && actionLabel[decision.action]}</DialogTitle>
-            <DialogDescription>{decision?.item.name} · v{decision?.item.version}</DialogDescription>
+            <DialogDescription>
+              {decision?.action === 'delete'
+                ? `"${decision.item.name} · v${decision.item.version}" sẽ bị xóa khỏi danh mục quản trị và không thể khôi phục trên giao diện.`
+                : `${decision?.item.name} · v${decision?.item.version}`}
+            </DialogDescription>
           </DialogHeader>
           {actionError && <p role="alert" className="text-sm text-destructive">{actionError}</p>}
           <DialogFooter>
             <Button type="button" variant="outline" disabled={acting} onClick={() => setDecision(null)}>Hủy</Button>
-            <Button type="button" variant={decision?.action === 'retire' ? 'destructive' : 'default'} disabled={acting} onClick={() => void runDecision()}>{acting ? 'Đang xử lý…' : 'Xác nhận'}</Button>
+            <Button
+              type="button"
+              variant={decision?.action === 'retire' || decision?.action === 'delete' ? 'destructive' : 'default'}
+              disabled={acting}
+              onClick={() => void runDecision()}
+            >
+              {acting ? (decision?.action === 'delete' ? 'Đang xóa…' : 'Đang xử lý…') : decision?.action === 'delete' ? 'Xóa gói' : 'Xác nhận'}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -229,7 +251,7 @@ function PackageCard({ item, onView, onEdit, onAction }: {
 }) {
   const quotas = [
     { label: 'Khám tại nhà', value: item.quotas.homeVisits, icon: House },
-    { label: 'Tư vấn video', value: item.videoQuotaPolicy === 'CONTRACT' ? 'Theo hợp đồng' : item.quotas.videoConsultations, icon: Video },
+    { label: 'Tư vấn video', value: item.quotas.videoConsultations, icon: Video },
     { label: 'Bác sĩ phụ trách', value: 'Bác sĩ CCHN riêng', icon: Stethoscope },
   ];
 
@@ -285,9 +307,14 @@ function PackageCard({ item, onView, onEdit, onAction }: {
           </>
         )}
         {item.status === 'DEPRECATED' && (
-          <Button type="button" size="sm" onClick={() => onAction('reopen')}>
-            <PackageCheck aria-hidden="true" className="size-4" />{actionLabel.reopen}
-          </Button>
+          <>
+            <Button type="button" size="sm" onClick={() => onAction('reopen')}>
+              <PackageCheck aria-hidden="true" className="size-4" />{actionLabel.reopen}
+            </Button>
+            <Button type="button" size="sm" variant="ghost" className="text-destructive hover:bg-red-50 hover:text-destructive" onClick={() => onAction('delete')}>
+              <Trash2 aria-hidden="true" className="size-4" />Xóa
+            </Button>
+          </>
         )}
       </CardFooter>
     </Card>
@@ -299,11 +326,13 @@ function PackageDetailDialog({
   close,
   onEdit,
   onReopen,
+  onDelete,
 }: {
   item: AdminCarePackageItem;
   close: () => void;
   onEdit: () => void;
   onReopen: () => void;
+  onDelete: () => void;
 }) {
   return (
     <Dialog open onOpenChange={(open) => { if (!open) close(); }}>
@@ -397,7 +426,7 @@ function PackageDetailDialog({
                   <span>Tư vấn video Telehealth</span>
                 </div>
                 <span className="font-bold text-slate-900 tabular-nums">
-                  {item.videoQuotaPolicy === 'CONTRACT' ? 'Theo hợp đồng' : `${item.quotas.videoConsultations} lượt`}
+                  {item.quotas.videoConsultations} lượt
                 </span>
               </div>
 
@@ -445,10 +474,16 @@ function PackageDetailDialog({
             </Button>
           )}
           {item.status === 'DEPRECATED' && (
-            <Button type="button" onClick={onReopen}>
-              <PackageCheck aria-hidden="true" className="size-4" />
-              Mở bán
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="ghost" className="text-destructive hover:bg-red-50 hover:text-destructive" onClick={onDelete}>
+                <Trash2 aria-hidden="true" className="size-4" />
+                Xóa gói
+              </Button>
+              <Button type="button" onClick={onReopen}>
+                <PackageCheck aria-hidden="true" className="size-4" />
+                Mở bán
+              </Button>
+            </div>
           )}
         </div>
       </DialogContent>
@@ -478,33 +513,44 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
   const [form, setForm] = useState(() => createPackageForm(item));
   const [submitted, setSubmitted] = useState(false);
   const [invalidNumbers, setInvalidNumbers] = useState<PackageFieldErrors>({});
+  const [apiFieldErrors, setApiFieldErrors] = useState<PackageFieldErrors>({});
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const requiresUnitPrice = item?.homeVisitUnitPriceVnd !== undefined;
   const calculatesPrice = requiresUnitPrice || form.amounts.homeVisitUnitPriceVnd !== '';
-  const contractVideo = usesContractVideoQuota(form);
   const price = getPackagePrice(form, requiresUnitPrice);
-  const errors = submitted ? validatePackageForm(form, item) : {};
+  const clientErrors = submitted ? validatePackageForm(form, item) : {};
   const inputErrors = { ...invalidNumbers };
   if (calculatesPrice) delete inputErrors.priceVnd;
-  if (contractVideo) delete inputErrors.videoConsultations;
-  Object.assign(errors, inputErrors);
+  const errors: PackageFieldErrors = { ...apiFieldErrors, ...clientErrors, ...inputErrors };
   // Chỉ gửi kiểm tra quy tắc khi form không còn lỗi nhập liệu.
   const clientValid =
     Object.keys({ ...validatePackageForm(form, item), ...inputErrors }).length === 0;
-  const rules = usePackageRules(
-    clientValid ? { ...toPackageTerms(form, requiresUnitPrice), code: item?.code ?? form.code.trim() } : null,
+  const ruleState = usePackageRules(
+    clientValid ? toPackageTerms(form, requiresUnitPrice) : null,
     item?.id,
   );
-  const ruleState = rules.state;
+
+  function clearApiFieldError(field: PackageField) {
+    if (!apiFieldErrors[field]) return;
+    setApiFieldErrors((previous) => {
+      const next = { ...previous };
+      delete next[field];
+      return next;
+    });
+  }
 
   function set<K extends keyof PackageForm>(key: K, value: PackageForm[K]) {
     setError('');
+    if (key === 'name' || key === 'description') {
+      clearApiFieldError(key);
+    }
     setForm((previous) => ({ ...previous, [key]: value }));
   }
 
   function setNumber(field: PackageNumberField, value: string) {
     setError('');
+    clearApiFieldError(field);
     if (!/^\d*$/.test(value)) {
       setInvalidNumbers((previous) => ({ ...previous, [field]: 'Chỉ nhập chữ số từ 0 đến 9.' }));
       return;
@@ -555,34 +601,40 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
     event.preventDefault();
     if (busy) return;
     setError('');
+    setApiFieldErrors({});
     setSubmitted(true);
-    const firstError = Object.keys({ ...validatePackageForm(form, item), ...inputErrors })[0];
+    const formErrors = { ...validatePackageForm(form, item), ...inputErrors };
+    const firstError = Object.keys(formErrors)[0];
     if (firstError) {
       const field = event.currentTarget.elements.namedItem(firstError);
       if (field instanceof HTMLElement) field.focus();
+      setError('Vui lòng kiểm tra và sửa các ô đang báo lỗi phía trên.');
       return;
     }
     if (ruleState.blocked) {
-      setError('Gói vi phạm quy tắc xếp lịch hoặc giá. Sửa các lỗi màu đỏ trước khi lưu.');
+      setError('Gói vi phạm quy tắc xếp lịch. Vui lòng sửa các lỗi màu đỏ trước khi lưu.');
       return;
     }
-    if (ruleState.missingAck) {
-      setError('Hãy tick xác nhận các cảnh báo màu vàng trước khi lưu.');
-      return;
-    }
-    const terms = { ...toPackageTerms(form, requiresUnitPrice), acknowledgedWarnings: ruleState.acknowledged };
+    const terms = toPackageTerms(form, requiresUnitPrice);
     setBusy(true);
     try {
       if (item) {
         await adminPackagesApi.updatePackage(item.id, terms);
         toast.success('Đã lưu thay đổi gói dịch vụ.');
       } else {
-        await adminPackagesApi.createPackage({ ...terms, code: form.code.trim(), quotaPeriod: 'PER_TERM' });
+        await adminPackagesApi.createPackage(terms);
         toast.success('Đã tạo và mở bán gói dịch vụ.');
       }
       onSaved();
       close();
     } catch (cause) {
+      const fieldErrors = getPackageApiFieldErrors(cause);
+      if (Object.keys(fieldErrors).length > 0) {
+        setApiFieldErrors(fieldErrors);
+        const firstApiField = Object.keys(fieldErrors)[0];
+        const fieldEl = event.currentTarget?.elements?.namedItem(firstApiField);
+        if (fieldEl instanceof HTMLElement) fieldEl.focus();
+      }
       setError(getPackageApiError(cause, 'Không lưu được gói dịch vụ. Vui lòng thử lại.'));
     } finally {
       setBusy(false);
@@ -595,16 +647,17 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
         <form noValidate className="flex max-h-[calc(100dvh-2rem)] min-w-0 flex-col" onSubmit={submit}>
           <DialogHeader className="shrink-0 border-b border-slate-200 px-5 py-4 pr-12 text-left sm:px-6">
             <DialogTitle>{item ? 'Sửa gói dịch vụ' : 'Tạo gói dịch vụ'}</DialogTitle>
-            <DialogDescription>{item ? 'Giá gói tính cho toàn bộ kỳ hạn đã chọn.' : 'Gói sẽ được mở bán ngay sau khi tạo thành công.'}</DialogDescription>
+            <DialogDescription>
+              {item
+                ? `Mã gói: ${item.code} · Giá gói tính cho toàn bộ kỳ hạn đã chọn.`
+                : 'Gói sẽ được mở bán ngay sau khi tạo thành công.'}
+            </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 space-y-5 overflow-y-auto px-5 py-4 sm:px-6">
             <fieldset disabled={busy} className="min-w-0">
               <legend className="mb-3 text-sm font-semibold text-slate-900">Thông tin gói</legend>
               <div className="grid gap-3 sm:grid-cols-2">
-                <PackageFormField field="code" label="Mã gói" error={errors.code}>
-                  <Input {...fieldProps('code')} required disabled={Boolean(item)} value={form.code} onChange={(event) => set('code', event.target.value)} />
-                </PackageFormField>
-                <PackageFormField field="name" label="Tên gói" error={errors.name}>
+                <PackageFormField field="name" label="Tên gói" error={errors.name} className="sm:col-span-2">
                   <Input {...fieldProps('name')} required value={form.name} onChange={(event) => set('name', event.target.value)} />
                 </PackageFormField>
                 <PackageFormField field="description" label="Mô tả" error={errors.description} className="sm:col-span-2">
@@ -616,13 +669,7 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
             <fieldset disabled={busy} className="min-w-0">
               <legend className="mb-3 text-sm font-semibold text-slate-900">Kỳ hạn và thành viên</legend>
               <div className="grid gap-3 sm:grid-cols-2">
-                <PackageFormField field="durationMonths" label="Kỳ hạn" error={errors.durationMonths}>
-                  <select {...fieldProps('durationMonths')} className={selectClass} value={form.durationMonths} onChange={(event) => {
-                    const months = Number(event.target.value);
-                    setError('');
-                    setForm((value) => ({ ...value, durationMonths: months, videoQuotaPolicy: months === 12 ? value.videoQuotaPolicy : 'FIXED' }));
-                  }}>{packageDurations.map((months) => <option key={months} value={months}>{months} tháng</option>)}</select>
-                </PackageFormField>
+                {numberField('durationMonths', { help: 'Nhập số tháng nguyên dương lớn hơn 0.' })}
                 {numberField('includedMembers')}
                 {numberField('maxMembers')}
                 {numberField('additionalMemberMonthlyPriceVnd')}
@@ -633,18 +680,9 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
               <legend className="mb-3 text-sm font-semibold text-slate-900">Hạn mức khám, tư vấn và giá gói</legend>
               <div className="grid gap-3 sm:grid-cols-2">
                 {numberField('homeVisitUnitPriceVnd', { help: requiresUnitPrice ? undefined : 'Có thể để trống để nhập giá gói thủ công.' })}
-                {form.durationMonths === 12 && (
-                  <PackageFormField field="videoQuotaPolicy" label="Hạn mức video" error={errors.videoQuotaPolicy} className="sm:col-span-2">
-                    <select {...fieldProps('videoQuotaPolicy')} className={selectClass} value={form.videoQuotaPolicy} onChange={(event) => set('videoQuotaPolicy', event.target.value as PackageForm['videoQuotaPolicy'])}>
-                      <option value="FIXED">Cố định</option><option value="CONTRACT">Chốt khi ký hợp đồng</option>
-                    </select>
-                  </PackageFormField>
-                )}
                 {numberField('homeVisits')}
                 {numberField('videoConsultations', {
-                  value: contractVideo ? '' : undefined,
-                  disabled: contractVideo,
-                  help: contractVideo ? 'Số lượt video sẽ được chốt khi ký hợp đồng.' : 'Lượt video đã bao gồm trong giá gói.',
+                  help: 'Lượt video đã bao gồm trong giá gói.',
                 })}
                 {numberField('priceVnd', {
                   value: price,
@@ -657,7 +695,7 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
           </div>
           <div className="shrink-0 space-y-2 border-t border-slate-200 bg-slate-50 px-5 py-3 sm:px-6">
             <div className="max-h-56 overflow-y-auto">
-              <PackageRulePanel state={ruleState} onToggle={rules.toggle} disabled={busy} />
+              <PackageRulePanel state={ruleState} />
             </div>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <DialogFooter className="min-[340px]:flex-row min-[340px]:justify-end">

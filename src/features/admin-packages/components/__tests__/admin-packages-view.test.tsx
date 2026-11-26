@@ -9,9 +9,17 @@ import { AdminPackagesView } from '../admin-packages-view';
 vi.mock('@/lib/api/admin-packages.api', () => ({
   adminPackagesApi: {
     listPackages: vi.fn(),
+    validatePackage: vi.fn().mockResolvedValue({
+      ok: true,
+      requiresAcknowledgement: [],
+      findings: [],
+      load: { totalVisits: 2, maxTotalVisits: 7, visitsPerMonth: 2, doctorUtilization: 0.2, level: 'SAFE' },
+      maxContractVideoConsultations: null,
+    }),
     createPackage: vi.fn(),
     reopenPackage: vi.fn(),
     updatePackage: vi.fn(),
+    deletePackage: vi.fn(),
   },
 }));
 vi.mock('sonner', () => ({ toast: { success: vi.fn() } }));
@@ -20,7 +28,7 @@ const packageItem: AdminCarePackageItem = {
   id: 'package-id', code: 'VISITS', version: 1, status: 'ACTIVE', name: 'Gói theo dõi',
   description: 'Theo dõi sức khỏe định kỳ tại nhà.', durationMonths: 3, priceVnd: 990000, includedMembers: 1,
   maxMembers: 2, additionalMemberMonthlyPriceVnd: 75000, quotaPeriod: 'PER_TERM',
-  quotas: { homeVisits: 2, videoConsultations: 3, facilityVisits: 0 },
+  quotas: { homeVisits: 2, videoConsultations: 3 },
 };
 
 it('renders page header as Quản lý gói dịch vụ, layout with 3 packages per row (lg:grid-cols-3), and replaces Khám tại CSYT with Bác sĩ phụ trách', async () => {
@@ -187,17 +195,18 @@ async function openCreatePackage() {
   return { dialog, change, save: () => fireEvent.click(dialog.getByRole('button', { name: 'Lưu gói' })) };
 }
 
-it('normalizes leading zeros and saves the calculated term price with both quotas as numbers', async () => {
+it('normalizes leading zeros and saves the calculated term price with both quotas as numbers (no code, no facilityVisits)', async () => {
   vi.mocked(adminPackagesApi.createPackage).mockResolvedValue({ ...packageItem, status: 'ACTIVE' });
   vi.clearAllMocks();
   const { dialog, change, save } = await openCreatePackage();
   expect(dialog.getByText('Gói sẽ được mở bán ngay sau khi tạo thành công.')).toBeInTheDocument();
+  expect(dialog.queryByLabelText('Mã gói')).not.toBeInTheDocument();
+  expect(dialog.queryByLabelText('Hạn mức video')).not.toBeInTheDocument();
   expect(dialog.queryByLabelText('Áp dụng hạn mức')).not.toBeInTheDocument();
-  change('Mã gói', '  3-gói Cơ bản  ');
-  change('Tên gói', '  Gói 3 tuần  ');
-  change('Mô tả', '  Khám tại nhà 2 lượt.  ');
-  change('Kỳ hạn', '3');
-  change('Số người tối đa', '0004');
+  change('Tên gói', '  Gói 4 tháng gia đình  ');
+  change('Mô tả', '  Khám tại nhà 2 lượt và tư vấn video 4 lượt.  ');
+  change(/Thời hạn gói/, '4');
+  change('Số thành viên tối đa', '0004');
   change(/Phụ phí/, '0000');
   change(/Đơn giá lượt khám tại nhà/, '000250000');
   change('Lượt khám tại nhà', '0002');
@@ -207,7 +216,7 @@ it('normalizes leading zeros and saves the calculated term price with both quota
   expect(price).toHaveAttribute('readonly');
   expect(price).toHaveValue('500000');
   expect(dialog.getByLabelText(/Đơn giá lượt khám tại nhà/)).toHaveValue('250000');
-  expect(dialog.getByLabelText('Số người tối đa')).toHaveValue('4');
+  expect(dialog.getByLabelText('Số thành viên tối đa')).toHaveValue('4');
   expect(dialog.getByLabelText(/Phụ phí/)).toHaveValue('0');
   expect(dialog.getByLabelText('Lượt tư vấn video')).toHaveValue('4');
   expect(dialog.getByText('Lượt video đã bao gồm trong giá gói.')).toBeInTheDocument();
@@ -215,11 +224,17 @@ it('normalizes leading zeros and saves the calculated term price with both quota
   change('Lượt khám tại nhà', '3');
   expect(price).toHaveValue('750000');
   save();
-  await waitFor(() => expect(adminPackagesApi.createPackage).toHaveBeenCalledWith(expect.objectContaining({
-    code: '3-gói Cơ bản', name: 'Gói 3 tuần', description: 'Khám tại nhà 2 lượt.',
-    durationMonths: 3, priceVnd: 750000, homeVisitUnitPriceVnd: 250000, maxMembers: 4, quotaPeriod: 'PER_TERM',
-    quotas: { homeVisits: 3, videoConsultations: 4, facilityVisits: 0 },
-  })));
+  await waitFor(() => expect(adminPackagesApi.createPackage).toHaveBeenCalledWith({
+    name: 'Gói 4 tháng gia đình',
+    description: 'Khám tại nhà 2 lượt và tư vấn video 4 lượt.',
+    durationMonths: 4,
+    priceVnd: 750000,
+    homeVisitUnitPriceVnd: 250000,
+    includedMembers: 1,
+    maxMembers: 4,
+    additionalMemberMonthlyPriceVnd: 0,
+    quotas: { homeVisits: 3, videoConsultations: 4 },
+  }));
   expect(adminPackagesApi.createPackage).toHaveBeenCalledTimes(1);
   expect(adminPackagesApi.reopenPackage).not.toHaveBeenCalled();
   expect(adminPackagesApi.updatePackage).not.toHaveBeenCalled();
@@ -227,82 +242,64 @@ it('normalizes leading zeros and saves the calculated term price with both quota
   expect(screen.getByRole('button', { name: 'Đang bán' })).toHaveAttribute('aria-pressed', 'true');
 });
 
-it('rejects wrong text, invalid numeric input, and inconsistent terms with Vietnamese field errors', async () => {
+it('rejects wrong text, invalid numeric input, zero duration/quotas and inconsistent terms with Vietnamese field errors', async () => {
   const { dialog, change, save } = await openCreatePackage();
-  change('Mã gói', '  ');
   change('Tên gói', '  Gói tháng  ');
   change('Mô tả', '  Khám tại nhà 2 lượt  ');
-  change('Số người trong giá', '3');
-  change('Số người tối đa', '2');
+  change(/Thời hạn gói/, '0');
+  change('Số thành viên mặc định', '3');
+  change('Số thành viên tối đa', '2');
+  change('Lượt khám tại nhà', '0');
   change('Lượt tư vấn video', '001.5');
-  expect(dialog.getByLabelText('Lượt tư vấn video')).toHaveValue('0');
+  expect(dialog.getByLabelText('Lượt tư vấn video')).toHaveValue('1');
   expect(dialog.getByText('Chỉ nhập chữ số từ 0 đến 9.')).toBeInTheDocument();
   save();
 
-  expect(dialog.getByLabelText('Mã gói')).toHaveFocus();
-  expect(dialog.getByLabelText('Mã gói')).toHaveAccessibleDescription('Vui lòng nhập mã gói.');
+  expect(dialog.getByLabelText('Tên gói')).toHaveFocus();
   expect(dialog.getByLabelText('Tên gói')).toHaveAccessibleDescription(/Tên gói phải có từ 10 đến 120 ký tự/);
   expect(dialog.getByLabelText('Mô tả')).toHaveAccessibleDescription(/Mô tả phải có từ 20 đến 2.000 ký tự/);
-  expect(dialog.getByLabelText('Số người tối đa')).toHaveAccessibleDescription(/Số người tối đa phải từ số người trong giá/);
-  expect(dialog.getByText(/Gói phải có ít nhất một lượt khám/)).toBeInTheDocument();
-  expect(adminPackagesApi.createPackage).not.toHaveBeenCalled();
-
-  change('Mã gói', 'GOI_TEST');
-  change('Tên gói', 'Gói gia đình');
-  change('Mô tả', packageItem.description);
-  change('Số người tối đa', '0003');
-  change(/Phụ phí/, '1000');
-  change(/Đơn giá lượt khám tại nhà/, '9999999999');
-  change('Lượt khám tại nhà', '2');
-  change('Lượt tư vấn video', '100001');
-  expect(dialog.queryByText('Chỉ nhập chữ số từ 0 đến 9.')).not.toBeInTheDocument();
-  expect(dialog.getByLabelText(/Phụ phí/)).toHaveAccessibleDescription(/Nhập phụ phí bằng 0/);
-  expect(dialog.getByLabelText('Lượt tư vấn video')).toHaveAccessibleDescription(/đến 100\.000/);
-  expect(dialog.getByLabelText(/Giá gói trọn kỳ/)).toHaveAccessibleDescription(/đến 9\.999\.999\.999/);
-  save();
+  expect(dialog.getByLabelText(/Thời hạn gói/)).toHaveAccessibleDescription(/Thời hạn gói phải lớn hơn 0 tháng/);
+  expect(dialog.getByLabelText('Số thành viên tối đa')).toHaveAccessibleDescription(/Số người tối đa phải từ số người trong giá/);
+  expect(dialog.getByLabelText('Lượt khám tại nhà')).toHaveAccessibleDescription(/phải lớn hơn 0/);
   expect(adminPackagesApi.createPackage).not.toHaveBeenCalled();
 });
 
-it('keeps an annual contract video quota out of the calculation and preserves manual pricing without a unit price', async () => {
-  vi.mocked(adminPackagesApi.createPackage).mockResolvedValue(packageItem);
-  const { dialog, change, save } = await openCreatePackage();
-  change('Mã gói', 'GOI_NAM');
-  change('Tên gói', 'Gói gia đình cả năm');
-  change('Mô tả', packageItem.description);
-  change('Kỳ hạn', '12');
-  change('Lượt tư vấn video', '24');
-  change('Hạn mức video', 'CONTRACT');
-  expect(dialog.getByLabelText('Lượt tư vấn video')).toBeDisabled();
-  change('Lượt khám tại nhà', '10');
-  change(/Giá gói trọn kỳ/, '001000000');
-  expect(dialog.getByLabelText(/Giá gói trọn kỳ/)).not.toHaveAttribute('readonly');
-  expect(dialog.getByLabelText(/Giá gói trọn kỳ/)).toHaveValue('1000000');
-  save();
-  await waitFor(() => expect(adminPackagesApi.createPackage).toHaveBeenCalledWith(expect.objectContaining({
-    priceVnd: 1000000, homeVisitUnitPriceVnd: undefined, videoQuotaPolicy: 'CONTRACT',
-    quotas: { homeVisits: 10, videoConsultations: 0, facilityVisits: 0 },
-  })));
-});
+it('hiển thị lỗi validate tiếng Việt từ API ngay dưới từng ô input tương ứng và tự xóa khi người dùng sửa lại', async () => {
+  vi.mocked(adminPackagesApi.createPackage).mockRejectedValueOnce(
+    new ApiError('Tên gói phải có ít nhất 10 ký tự.', 422, {
+      success: false,
+      code: 422,
+      data: null,
+      meta: null,
+      error: {
+        title: 'Unprocessable Content',
+        errorCode: 'VALIDATION_FAILED',
+        detail: 'Tên gói phải có ít nhất 10 ký tự. Số lượt tư vấn video phải lớn hơn 0.',
+        invalidParams: [
+          { field: 'name', issue: 'MIN_LENGTH', message: 'Tên gói phải có ít nhất 10 ký tự.' },
+          { field: 'quotas.videoConsultations', issue: 'MIN_VALUE', message: 'Số lượt tư vấn video phải lớn hơn 0.' },
+        ],
+      },
+    }),
+  );
 
-it('translates duplicate codes and structured API validation errors', async () => {
-  vi.mocked(adminPackagesApi.createPackage)
-    .mockRejectedValueOnce(new ApiError('Package code exists; create a new version instead', 409))
-    .mockRejectedValueOnce(new ApiError('quotas.homeVisits must be an integer number', 422, {
-      error: { invalidParams: [{ field: 'quotas.homeVisits' }, { field: 'durationMonths' }] },
-    }));
   const { dialog, change, save } = await openCreatePackage();
-  change('Mã gói', 'GOI_TRUNG');
   change('Tên gói', 'Gói gia đình');
   change('Mô tả', packageItem.description);
   change('Lượt khám tại nhà', '1');
-  change(/Đơn giá lượt khám tại nhà/, '250000');
+  change('Lượt tư vấn video', '2');
+  change(/Giá gói trọn kỳ/, '1000000');
   save();
-  expect(await dialog.findByRole('alert')).toHaveTextContent('Mã gói đã tồn tại. Vui lòng dùng mã khác.');
-  change('Mã gói', 'GOI_MOI');
-  save();
-  const error = await dialog.findByRole('alert');
-  expect(error).toHaveTextContent('Lượt khám tại nhà phải là số nguyên từ 0 đến 100.000.');
-  expect(error).toHaveTextContent('Chọn kỳ hạn 1, 3, 6 hoặc 12 tháng.');
+
+  await waitFor(() => {
+    expect(dialog.getByLabelText('Tên gói')).toHaveAttribute('aria-invalid', 'true');
+    expect(dialog.getByLabelText('Tên gói')).toHaveAccessibleDescription('Tên gói phải có ít nhất 10 ký tự.');
+    expect(dialog.getByLabelText('Lượt tư vấn video')).toHaveAttribute('aria-invalid', 'true');
+    expect(dialog.getByLabelText('Lượt tư vấn video')).toHaveAccessibleDescription(/Số lượt tư vấn video phải lớn hơn 0\./);
+  });
+
+  change('Tên gói', 'Gói gia đình mới');
+  expect(dialog.getByLabelText('Tên gói')).toHaveAttribute('aria-invalid', 'false');
 });
 
 it('excludes drafts from all packages and only shows reopening for retired packages', async () => {
@@ -357,4 +354,45 @@ it('starts with active packages, loads six per page, and returns to page one whe
   fireEvent.click(await screen.findByRole('button', { name: 'Xem tất cả gói' }));
   expect(within(filters).getByRole('button', { name: 'Tất cả' })).toHaveAttribute('aria-pressed', 'true');
   await waitFor(() => expect(adminPackagesApi.listPackages).toHaveBeenLastCalledWith({ page: 1, limit: 6, excludeDrafts: true }));
+});
+
+it('xóa gói ngừng bán sau khi xác nhận và hiển thị lỗi tiếng Việt nếu gói đang được sử dụng', async () => {
+  const retiredItem: AdminCarePackageItem = { ...packageItem, id: 'retired-del-1', status: 'DEPRECATED' };
+  let deleted = false;
+  vi.mocked(adminPackagesApi.listPackages).mockImplementation(async () => ({
+    items: deleted ? [] : [retiredItem],
+    total: deleted ? 0 : 1,
+    page: 1,
+    limit: 6,
+  }));
+  vi.mocked(adminPackagesApi.deletePackage)
+    .mockRejectedValueOnce(new ApiError('Không thể xóa gói vì đang có 2 hợp đồng hoặc yêu cầu ghép nối sử dụng gói này.', 409, {
+      success: false,
+      code: 409,
+      data: null,
+      meta: null,
+      error: {
+        title: 'Conflict',
+        errorCode: 'CARE_PACKAGE_IN_USE',
+        detail: 'Không thể xóa gói vì đang có 2 hợp đồng hoặc yêu cầu ghép nối sử dụng gói này.',
+      },
+    }))
+    .mockImplementationOnce(async () => {
+      deleted = true;
+      return { id: retiredItem.id, deletedAt: '2026-11-27T02:50:00.000Z' };
+    });
+
+  render(<AdminPackagesView />);
+  const filters = within(screen.getByRole('group', { name: 'Trạng thái gói' }));
+  fireEvent.click(filters.getByRole('button', { name: 'Ngừng bán' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Xóa' }));
+
+  const confirmDialog = within(screen.getByRole('dialog', { name: 'Xóa gói dịch vụ' }));
+  fireEvent.click(confirmDialog.getByRole('button', { name: 'Xóa gói' }));
+  expect(await confirmDialog.findByRole('alert')).toHaveTextContent('Không thể xóa gói vì đang có 2 hợp đồng');
+
+  fireEvent.click(confirmDialog.getByRole('button', { name: 'Xóa gói' }));
+  await waitFor(() => expect(adminPackagesApi.deletePackage).toHaveBeenCalledWith(retiredItem.id));
+  expect(toast.success).toHaveBeenCalledWith('Đã xóa gói dịch vụ.');
+  expect(await screen.findByText('Không có gói phù hợp.')).toBeInTheDocument();
 });
