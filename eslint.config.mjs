@@ -7,13 +7,19 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // Custom rules for third-party images and Google Fonts
   {
+    files: ["**/*.{js,jsx,mjs,ts,tsx,mts,cts}"],
     rules: {
       "@next/next/no-img-element": "off",
       "@next/next/no-page-custom-font": "off",
-      "@typescript-eslint/no-explicit-any": "warn",
       "react-hooks/set-state-in-effect": "off",
       "react-hooks/purity": "warn",
       "react/no-unescaped-entities": "off",
+    },
+  },
+  {
+    files: ["**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -21,6 +27,12 @@ const eslintConfig = defineConfig([
           varsIgnorePattern: "^_",
         },
       ],
+    },
+  },
+  {
+    files: ["**/*.cjs"],
+    rules: {
+      "@typescript-eslint/no-require-imports": "off",
     },
   },
   // Override default ignores of eslint-config-next.

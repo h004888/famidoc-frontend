@@ -78,6 +78,29 @@ export interface BookDocument {
   recordedDate: string;
 }
 
+export interface TimelineEvent {
+  id: string;
+  type: 'VISIT' | 'PRESCRIPTION' | 'DOCUMENT';
+  occurredAt: string;
+  title: string;
+  summary: string | null;
+  actorName: string | null;
+  source: 'CLINICAL' | 'FAMILY_UPLOAD';
+  link: { encounterId?: string; documentId?: string };
+  canOpenDetail: boolean;
+  attachments: {
+    id: string;
+    name: string;
+    downloadAvailable: boolean;
+    isImage: boolean;
+  }[];
+}
+
+export interface TimelinePage {
+  items: TimelineEvent[];
+  nextCursor: string | null;
+}
+
 export interface ConfirmBookVisit {
   patientId: string;
   confirmed: true;
@@ -164,6 +187,21 @@ export const medicalBooksApi = {
       await httpClient.get(
         `${patientPath(familyId, patientId)}/documents`,
         undefined,
+        { signal, cache: 'no-store' },
+      ),
+    );
+  },
+  async timeline(
+    familyId: string,
+    patientId: string,
+    cursor: string | null,
+    signal: AbortSignal,
+  ) {
+    const params = cursor ? { cursor, limit: 20 } : { limit: 20 };
+    return unwrapApiEnvelope<TimelinePage>(
+      await httpClient.get(
+        `${patientPath(familyId, patientId)}/timeline`,
+        params,
         { signal, cache: 'no-store' },
       ),
     );

@@ -49,15 +49,18 @@ export default function DoctorManualSchedulePage() {
     void loadManualQueue();
   }, [loadManualQueue]);
 
+  const selectedDoctorId = selectedItem?.doctorId;
+  const selectedContractId = selectedItem?.contractId;
+
   const reloadAvailability = useCallback(() => {
-    if (!selectedItem?.doctorId) return;
+    if (!selectedDoctorId) return;
     setLoadingCal(true);
     encountersApi
-      .getDoctorMonthlyAvailability(selectedItem.doctorId, month, selectedItem.contractId)
+      .getDoctorMonthlyAvailability(selectedDoctorId, month, selectedContractId)
       .then((res) => setDays(res.days ?? []))
       .catch(() => setDays([]))
       .finally(() => setLoadingCal(false));
-  }, [selectedItem?.doctorId, selectedItem?.contractId, month]);
+  }, [selectedDoctorId, selectedContractId, month]);
 
   useEffect(() => {
     reloadAvailability();

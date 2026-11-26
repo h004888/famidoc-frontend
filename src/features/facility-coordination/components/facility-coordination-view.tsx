@@ -294,7 +294,7 @@ export function FacilityCoordinationView() {
 
   const handleOpenFacilityReschedule = (apt: FacilityScheduleItem) => {
     setRescheduleTarget(apt);
-    setRescheduleDate(apt.rawDate || todayIso);
+    setRescheduleDate(apt.rawDate && apt.rawDate >= todayIso ? apt.rawDate : todayIso);
     setRescheduleTime(apt.rawTime || '09:30');
     setRescheduleReason('');
     setRescheduleError('');

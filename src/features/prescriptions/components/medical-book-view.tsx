@@ -25,6 +25,8 @@ import { DashboardPageShell } from '@/components/shared';
 import { Button } from '@/components/ui/button';
 import { PrescriptionForm } from '@/features/doctor-encounters/components/prescription-form';
 import { FamilyPrescriptionPanel } from '@/features/doctor-encounters/components/family-prescription-panel';
+import { downloadBookDocument } from './download-book-document';
+import { HealthTimeline } from './health-timeline';
 import {
   medicalBooksApi,
   type BookDocument,
@@ -630,6 +632,12 @@ function FamilyBook({
   );
 }
 
+const MEMBER_TABS = {
+  timeline: 'Dòng thời gian',
+  visits: 'Lần khám',
+  documents: 'Tài liệu',
+} as const;
+
 function MemberBook({
   familyId,
   member,
@@ -643,7 +651,8 @@ function MemberBook({
   pending: boolean;
   setPending: (value: boolean) => void;
 }) {
-  const [tab, setTab] = useState<'visits' | 'documents'>('visits');
+  const [tab, setTab] = useState<keyof typeof MEMBER_TABS>('visits');
+  const [timelineVisitId, setTimelineVisitId] = useState<string | null>(null);
   const [encounterMode, setEncounterMode] = useState<
     'TELEHEALTH' | 'HOME_VISIT'
   >('HOME_VISIT');
@@ -667,20 +676,25 @@ function MemberBook({
           role="group"
           aria-label="Nội dung sổ khám"
         >
-          {(['visits', 'documents'] as const).map((key) => (
-            <Button
-              key={key}
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={pending}
-              aria-pressed={tab === key}
-              className="rounded-lg aria-pressed:bg-white aria-pressed:text-teal-900 aria-pressed:shadow-xs"
-              onClick={() => setTab(key)}
-            >
-              {key === 'visits' ? 'Lần khám' : 'Tài liệu'}
-            </Button>
-          ))}
+          {(Object.keys(MEMBER_TABS) as Array<keyof typeof MEMBER_TABS>).map(
+            (key) => (
+              <Button
+                key={key}
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={pending}
+                aria-pressed={tab === key}
+                className="rounded-lg aria-pressed:bg-white aria-pressed:text-teal-900 aria-pressed:shadow-xs"
+                onClick={() => {
+                  setTab(key);
+                  setTimelineVisitId(null);
+                }}
+              >
+                {MEMBER_TABS[key]}
+              </Button>
+            ),
+          )}
         </div>
       </div>
 
@@ -727,7 +741,37 @@ function MemberBook({
         </div>
       )}
 
-      {tab === 'documents' ? (
+      {tab === 'timeline' ? (
+        <div className="space-y-4">
+          <div hidden={Boolean(timelineVisitId)}>
+            <HealthTimeline
+              familyId={familyId}
+              patientId={member.id}
+              onOpenVisit={setTimelineVisitId}
+            />
+          </div>
+          {timelineVisitId && (
+            <div className="space-y-3">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => setTimelineVisitId(null)}
+              >
+                <ChevronLeft size={16} aria-hidden="true" />
+                Quay lại dòng thời gian
+              </Button>
+              <VisitPage
+                key={timelineVisitId}
+                id={timelineVisitId}
+                patientId={member.id}
+                doctor={doctor}
+                setPending={setPending}
+              />
+            </div>
+          )}
+        </div>
+      ) : tab === 'documents' ? (
         <MemberDocuments
           familyId={familyId}
           patientId={member.id}
@@ -771,25 +815,12 @@ function MemberDocuments({
     setDownloading(record.id);
     setDownloadError('');
     try {
-      const blob = await medicalBooksApi.downloadDocument(
+      await downloadBookDocument(
         familyId,
         patientId,
         record.id,
+        record.documentName,
       );
-      const url = URL.createObjectURL(blob);
-      const extension =
-        blob.type === 'application/pdf'
-          ? '.pdf'
-          : blob.type === 'image/png'
-            ? '.png'
-            : '.jpg';
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = record.documentName.endsWith(extension)
-        ? record.documentName
-        : record.documentName + extension;
-      link.click();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
       setDownloadError(
         prescriptionErrorMessage(error, 'Chưa tải được tệp. Vui lòng thử lại.'),

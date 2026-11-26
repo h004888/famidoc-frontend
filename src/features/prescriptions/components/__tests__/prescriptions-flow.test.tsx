@@ -16,7 +16,7 @@ import {
 } from '@/lib/api/medical-books.api';
 import { prescriptionsApi } from '@/lib/api/prescriptions.api';
 import { FamilyPrescriptionDetailView } from '../family-prescriptions-view';
-import { MedicalBookView } from '../medical-book-view';
+import { DoctorBookVisitView, MedicalBookView } from '../medical-book-view';
 
 vi.mock('@/lib/api/medical-books.api', () => ({
   medicalBooksApi: {
@@ -216,7 +216,7 @@ describe('Chia sẻ đơn thuốc với gia đình', () => {
       .mockResolvedValueOnce(visit)
       .mockResolvedValue({ ...visit, isFinalized: true });
 
-    render(<DoctorEncountersView encounterId="visit-1" patientId="child-5" />);
+    render(<DoctorBookVisitView id="visit-1" patientId="child-5" />);
 
     expect(await screen.findByText('Con 5 · Bác sĩ mẫu')).toBeInTheDocument();
     expect(medicalBooksApi.visit).toHaveBeenCalledWith(
