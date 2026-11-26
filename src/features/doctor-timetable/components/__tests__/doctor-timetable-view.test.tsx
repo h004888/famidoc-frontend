@@ -42,7 +42,7 @@ describe('DoctorTimetableView (D2)', () => {
     const user = userEvent.setup();
     const now = new Date();
     const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-    const yesterday = new Date(now.getTime() - 18 * 3600 * 1000);
+    const yesterday = new Date(now.getTime() - 24 * 3600 * 1000);
     const yesterdayIso = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
 
     vi.mocked(encountersApi.getDoctorTimetable).mockResolvedValue({

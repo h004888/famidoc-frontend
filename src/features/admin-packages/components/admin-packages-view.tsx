@@ -29,6 +29,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { adminPackagesApi, type AdminCarePackageItem, type PackageStatus } from '@/lib/api/admin-packages.api';
 import { useAdminQuery } from '@/hooks/use-admin-query';
 import { cn, formatCurrencyVND } from '@/lib/utils';
+import { PackageRulePanel, usePackageRules } from './package-rule-panel';
 import {
   createPackageForm,
   getPackageApiError,
@@ -488,6 +489,14 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
   if (calculatesPrice) delete inputErrors.priceVnd;
   if (contractVideo) delete inputErrors.videoConsultations;
   Object.assign(errors, inputErrors);
+  // Chỉ gửi kiểm tra quy tắc khi form không còn lỗi nhập liệu.
+  const clientValid =
+    Object.keys({ ...validatePackageForm(form, item), ...inputErrors }).length === 0;
+  const rules = usePackageRules(
+    clientValid ? { ...toPackageTerms(form, requiresUnitPrice), code: item?.code ?? form.code.trim() } : null,
+    item?.id,
+  );
+  const ruleState = rules.state;
 
   function set<K extends keyof PackageForm>(key: K, value: PackageForm[K]) {
     setError('');
@@ -553,7 +562,15 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
       if (field instanceof HTMLElement) field.focus();
       return;
     }
-    const terms = toPackageTerms(form, requiresUnitPrice);
+    if (ruleState.blocked) {
+      setError('Gói vi phạm quy tắc xếp lịch hoặc giá. Sửa các lỗi màu đỏ trước khi lưu.');
+      return;
+    }
+    if (ruleState.missingAck) {
+      setError('Hãy tick xác nhận các cảnh báo màu vàng trước khi lưu.');
+      return;
+    }
+    const terms = { ...toPackageTerms(form, requiresUnitPrice), acknowledgedWarnings: ruleState.acknowledged };
     setBusy(true);
     try {
       if (item) {
@@ -639,10 +656,13 @@ function PackageDialog({ item, close, onSaved }: { item: AdminCarePackageItem | 
             </fieldset>
           </div>
           <div className="shrink-0 space-y-2 border-t border-slate-200 bg-slate-50 px-5 py-3 sm:px-6">
+            <div className="max-h-56 overflow-y-auto">
+              <PackageRulePanel state={ruleState} onToggle={rules.toggle} disabled={busy} />
+            </div>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <DialogFooter className="min-[340px]:flex-row min-[340px]:justify-end">
               <Button type="button" variant="outline" disabled={busy} onClick={close}>Hủy</Button>
-              <Button type="submit" disabled={busy}>{busy ? 'Đang lưu…' : item ? 'Lưu thay đổi' : 'Lưu gói'}</Button>
+              <Button type="submit" disabled={busy || ruleState.blocked}>{busy ? 'Đang lưu…' : item ? 'Lưu thay đổi' : 'Lưu gói'}</Button>
             </DialogFooter>
           </div>
         </form>

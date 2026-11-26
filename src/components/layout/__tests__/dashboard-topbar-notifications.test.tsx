@@ -140,4 +140,64 @@ describe('DashboardTopbarNotifications - Nút thông báo tiếp nhận 2 loại
       expect(httpClient.patch).toHaveBeenCalledWith('/api/v1/notifications/notif-fac-1/read');
     });
   });
+
+  it('fetches real notifications, generates /doctor/encounters?encounterId=... deep-link, and marks as read via API when role is DOCTOR', async () => {
+    mockUseAuth.mockReturnValue({
+      role: 'DOCTOR',
+      isAuthenticated: true,
+      user: { id: 'doc-user-1', name: 'BS. Trần Minh Tâm' },
+    });
+
+    vi.mocked(httpClient.get).mockResolvedValue({
+      items: [
+        {
+          id: 'notif-doc-1',
+          title: 'Hồ sơ ca khám đã quá hạn',
+          content: 'Ca khám ngày hôm qua chưa được hoàn tất.',
+          type: 'ENCOUNTER_RECORD_OVERDUE',
+          referenceId: 'enc-123',
+          isRead: false,
+          createdAt: '2026-11-25T08:00:00.000Z',
+        },
+        {
+          id: 'notif-doc-2',
+          title: 'Gia đình đã xác nhận bác sĩ có mặt',
+          content: 'Đại diện gia đình đã xác nhận 1 chạm.',
+          type: 'ENCOUNTER_ARRIVAL_CONFIRMED',
+          referenceId: 'enc-123',
+          isRead: false,
+          createdAt: '2026-11-25T07:30:00.000Z',
+        },
+      ],
+      total: 2,
+      unreadCount: 2,
+    });
+    vi.mocked(httpClient.patch).mockResolvedValue({ id: 'notif-doc-1', isRead: true });
+
+    render(<DashboardTopbarNotifications />);
+
+    await waitFor(() => {
+      expect(httpClient.get).toHaveBeenCalledWith(
+        '/api/v1/notifications',
+        expect.objectContaining({ page: 1, limit: 8 }),
+        expect.any(Object),
+      );
+    });
+
+    const bellBtn = screen.getByRole('button', { name: /Thông báo hệ thống/i });
+    fireEvent.click(bellBtn);
+
+    expect(await screen.findByText('Hồ sơ ca khám đã quá hạn')).toBeInTheDocument();
+    expect(screen.queryByText(/Xác nhận lịch bác sĩ khám tại nhà/i)).not.toBeInTheDocument();
+
+    const links = screen.getAllByRole('link', { name: /Mở ca khám/i });
+    expect(links.length).toBeGreaterThanOrEqual(2);
+    expect(links[0]).toHaveAttribute('href', '/doctor/encounters?encounterId=enc-123');
+
+    const markReadButtons = screen.getAllByRole('button', { name: 'Đã đọc' });
+    fireEvent.click(markReadButtons[0]);
+    await waitFor(() => {
+      expect(httpClient.patch).toHaveBeenCalledWith('/api/v1/notifications/notif-doc-1/read');
+    });
+  });
 });

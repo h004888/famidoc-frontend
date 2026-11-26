@@ -1385,12 +1385,8 @@ export function FamilyAppointmentsView() {
                         onChange={(e) => setRescheduleTime(e.target.value)}
                         className="w-full h-10 px-3 rounded-xl border border-input bg-slate-50/50 font-semibold text-slate-900 focus:border-primary outline-none"
                       >
-                        <option value="08:30">08:30 (Sáng)</option>
-                        <option value="09:30">09:30 (Sáng)</option>
-                        <option value="10:30">10:30 (Sáng)</option>
-                        <option value="14:00">14:00 (Chiều)</option>
-                        <option value="15:00">15:00 (Chiều)</option>
-                        <option value="16:00">16:00 (Chiều)</option>
+                        <option value="09:00">Ca Sáng</option>
+                        <option value="14:00">Ca Chiều</option>
                       </select>
                     </div>
                   </div>
@@ -1603,23 +1599,8 @@ export function FamilyAppointmentsView() {
                   onChange={(e) => setTelehealthTime(e.target.value)}
                   className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-medium text-slate-900 tabular-nums focus:outline-hidden focus:ring-2 focus:ring-primary/20"
                 >
-                  {[
-                    '08:30',
-                    '09:00',
-                    '09:30',
-                    '10:00',
-                    '10:30',
-                    '11:00',
-                    '14:00',
-                    '14:30',
-                    '15:00',
-                    '15:30',
-                    '16:00',
-                  ].map((slot) => (
-                    <option key={slot} value={slot}>
-                      {slot}
-                    </option>
-                  ))}
+                  <option value="09:00">Ca Sáng</option>
+                  <option value="14:00">Ca Chiều</option>
                 </select>
               </div>
             </div>

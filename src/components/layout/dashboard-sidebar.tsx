@@ -100,6 +100,7 @@ export const ROLE_MENUS: Record<LoginRole, RoleMenuConfig> = {
       { href: '/admin/packages', label: 'Quản lý Gói dịch vụ', shortLabel: 'Gói DV', icon: 'inventory_2' },
       { href: '/admin/contracts', label: 'Hợp đồng & Pháp lý', shortLabel: 'Hợp đồng', icon: 'handshake' },
       { href: '/admin/reconciliation', label: 'Đối soát doanh thu', shortLabel: 'Đối soát', icon: 'payments' },
+      { href: '/admin/payment-settings', label: 'Cấu hình thanh toán', shortLabel: 'Cấu hình TT', icon: 'account_balance' },
       {
         href: '/admin/disputes',
         label: 'Xử lý khiếu nại',

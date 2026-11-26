@@ -19,6 +19,7 @@ export interface DualLaneState {
   doctorFinalizedCount: number;
   doctorDraftCount: number;
   hasFinalizedRecord: boolean;
+  isOverdue: boolean;
   remainingRecordHours: number | null;
   autoClosedByTimeout: boolean;
   allowReview: boolean;
@@ -125,25 +126,56 @@ export function deriveDualLaneState(
   now: Date = new Date(),
 ): DualLaneState {
   const status = String(encounter.encounterStatus || '').toUpperCase();
+  const isHomeVisit =
+    !encounter.encounterType ||
+    String(encounter.encounterType).toUpperCase() === 'HOME_VISIT';
   const clinicalEmrs = Array.isArray(encounter.clinicalEmrs) ? encounter.clinicalEmrs : [];
   const doctorFinalizedCount = clinicalEmrs.filter((e) => e.isFinalized).length;
   const doctorDraftCount = clinicalEmrs.filter((e) => !e.isFinalized).length;
-  const hasFinalizedRecord =
-    doctorFinalizedCount > 0 || status === 'COMPLETED';
+  const hasFinalizedRecord = isHomeVisit
+    ? Boolean(encounter.doctorCompletedAt) || status === 'COMPLETED'
+    : doctorFinalizedCount > 0 || status === 'COMPLETED';
   const familyConfirmed = Boolean(encounter.familyConfirmedArrivalAt);
   const familyReportedNoShow =
     status === 'NO_SHOW' || status === 'DISPUTED' || Boolean(encounter.hasNoShowDispute);
 
-  const start = parseVnEncounterStart(encounter.scheduledDate, encounter.scheduledTime);
-  const visitEndMs = start
-    ? start.getTime() + DEFAULT_VISIT_DURATION_MINUTES * 60 * 1000
-    : null;
-  const recordDeadlineMs = visitEndMs
-    ? visitEndMs + RECORD_DEADLINE_HOURS * 3600 * 1000
-    : null;
-  const autoCloseDeadlineMs = visitEndMs
-    ? visitEndMs + AUTO_CLOSE_HOURS * 3600 * 1000
-    : null;
+  const dateKey = normalizeDateKey(encounter.scheduledDate);
+  const timeMatch = String(encounter.scheduledTime ?? '08:00').match(/(\d{1,2}):(\d{2})/);
+  const startHour = timeMatch ? Number(timeMatch[1]) : 8;
+  const normalizedSlot = encounter.slotWindow?.trim().toUpperCase();
+  const sessionWindow =
+    normalizedSlot === 'AFTERNOON'
+      ? 'AFTERNOON'
+      : normalizedSlot === 'MORNING'
+        ? 'MORNING'
+        : startHour >= 12
+          ? 'AFTERNOON'
+          : 'MORNING';
+
+  const sessionEndMs = encounter.sessionDeadlines?.sessionEndAt
+    ? new Date(encounter.sessionDeadlines.sessionEndAt).getTime()
+    : dateKey
+      ? new Date(`${dateKey}T${sessionWindow === 'MORNING' ? '11:30:00' : '17:30:00'}+07:00`).getTime()
+      : null;
+
+  const recordDeadlineMs = encounter.sessionDeadlines?.recordDeadlineAt
+    ? new Date(encounter.sessionDeadlines.recordDeadlineAt).getTime()
+    : dateKey
+      ? new Date(`${dateKey}T23:59:59+07:00`).getTime()
+      : null;
+
+  const autoCloseDeadlineMs = encounter.sessionDeadlines?.autoCloseAt
+    ? new Date(encounter.sessionDeadlines.autoCloseAt).getTime()
+    : sessionEndMs !== null
+      ? sessionEndMs + AUTO_CLOSE_HOURS * 3600 * 1000
+      : null;
+
+  const isOverdue =
+    !hasFinalizedRecord &&
+    status !== 'CANCELLED' &&
+    !familyReportedNoShow &&
+    (Boolean(encounter.recordOverdueAt) ||
+      (recordDeadlineMs !== null && now.getTime() > recordDeadlineMs));
 
   const remainingRecordHours =
     recordDeadlineMs !== null
@@ -158,6 +190,7 @@ export function deriveDualLaneState(
       doctorFinalizedCount,
       doctorDraftCount,
       hasFinalizedRecord,
+      isOverdue: false,
       remainingRecordHours: null,
       autoClosedByTimeout: false,
       allowReview: false,
@@ -175,6 +208,7 @@ export function deriveDualLaneState(
       doctorFinalizedCount,
       doctorDraftCount,
       hasFinalizedRecord,
+      isOverdue: false,
       remainingRecordHours: null,
       autoClosedByTimeout: false,
       allowReview: false,
@@ -192,6 +226,7 @@ export function deriveDualLaneState(
       doctorFinalizedCount,
       doctorDraftCount,
       hasFinalizedRecord: true,
+      isOverdue: false,
       remainingRecordHours: 0,
       autoClosedByTimeout: false,
       allowReview: true,
@@ -214,6 +249,7 @@ export function deriveDualLaneState(
       doctorFinalizedCount,
       doctorDraftCount,
       hasFinalizedRecord: true,
+      isOverdue: false,
       remainingRecordHours: 0,
       autoClosedByTimeout: true,
       allowReview: true,
@@ -231,6 +267,7 @@ export function deriveDualLaneState(
       doctorFinalizedCount,
       doctorDraftCount,
       hasFinalizedRecord: false,
+      isOverdue,
       remainingRecordHours,
       autoClosedByTimeout: false,
       allowReview: true,
@@ -240,7 +277,8 @@ export function deriveDualLaneState(
     };
   }
 
-  if (isEncounterActiveToday(encounter, now)) {
+  const isPastSession = sessionEndMs !== null && now.getTime() > sessionEndMs;
+  if (isEncounterActiveToday(encounter, now) && !isPastSession) {
     return {
       reconciledStatus: 'ACTIVE',
       familyConfirmed,
@@ -248,6 +286,7 @@ export function deriveDualLaneState(
       doctorFinalizedCount,
       doctorDraftCount,
       hasFinalizedRecord,
+      isOverdue,
       remainingRecordHours,
       autoClosedByTimeout: false,
       allowReview: false,
@@ -261,8 +300,7 @@ export function deriveDualLaneState(
     };
   }
 
-  const isPast = visitEndMs !== null && now.getTime() > visitEndMs;
-  if (isPast && !hasFinalizedRecord) {
+  if (isPastSession && !hasFinalizedRecord) {
     return {
       reconciledStatus: 'PENDING_RECORD',
       familyConfirmed,
@@ -270,6 +308,7 @@ export function deriveDualLaneState(
       doctorFinalizedCount,
       doctorDraftCount,
       hasFinalizedRecord: false,
+      isOverdue,
       remainingRecordHours,
       autoClosedByTimeout: false,
       allowReview: false,
@@ -286,6 +325,7 @@ export function deriveDualLaneState(
     doctorFinalizedCount,
     doctorDraftCount,
     hasFinalizedRecord,
+    isOverdue: false,
     remainingRecordHours: null,
     autoClosedByTimeout: false,
     allowReview: false,

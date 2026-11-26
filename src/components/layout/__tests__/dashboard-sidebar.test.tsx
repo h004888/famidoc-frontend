@@ -2,6 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { ROLE_MENUS } from '../dashboard-sidebar';
 
 describe('ROLE_MENUS video consultation labels', () => {
+  it('shows payment settings only in the ADMIN menu', () => {
+    expect(ROLE_MENUS.ADMIN.items.some(item => item.href === '/admin/payment-settings')).toBe(true);
+    for (const role of ['FAMILY', 'DOCTOR', 'FACILITY'] as const) expect(ROLE_MENUS[role].items.some(item => item.href === '/admin/payment-settings')).toBe(false);
+  });
   it('uses "Phòng khám Video" instead of "Phòng khám Video 24/7" for FAMILY', () => {
     const telemedItem = ROLE_MENUS.FAMILY.items.find(
       (item) => item.href === '/family/telemedicine',

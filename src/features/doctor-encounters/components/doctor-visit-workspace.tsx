@@ -2,132 +2,25 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle2,
-  FilePenLine,
-  Plus,
-  Trash2,
-} from 'lucide-react';
+import { ChevronLeft } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import { getApiErrorCode } from '@/lib/api/api-error-code';
 import { encountersApi, type EncounterItem, type EncounterPatient } from '@/lib/api/encounters.api';
 import { medicalBooksApi, type BookVisitDetail } from '@/lib/api/medical-books.api';
-import { patientsApi } from '@/lib/api/patients.api';
-import { DoctorBookVisitView } from '@/features/prescriptions/components/medical-book-view';
 import {
   deriveDualLaneState,
   formatEncounterTime,
   formatRemainingRecordDeadline,
 } from '@/lib/encounter-dual-lane';
-
-interface DraftDrugLine {
-  medicationName: string;
-  strength: string;
-  administrationRoute: string;
-  dosage: string;
-  frequency: string;
-  durationDays: string;
-  quantity: string;
-  unit: string;
-}
-
-interface MemberVisitDraft {
-  chiefComplaint: string;
-  clinicalFindings: string;
-  icd10Code: string;
-  icd10Diagnosis: string;
-  treatmentPlan: string;
-  systolicBp: string;
-  diastolicBp: string;
-  heartRate: string;
-  spo2: string;
-  bloodGlucose: string;
-  weightKg: string;
-  newChronicDisease: string;
-  newAllergy: string;
-  includePrescription: boolean;
-  drugs: DraftDrugLine[];
-  prescriptionInstructions: string;
-}
-
-const emptyDrugLine = (): DraftDrugLine => ({
-  medicationName: '',
-  strength: '',
-  administrationRoute: 'Uống',
-  dosage: '',
-  frequency: '',
-  durationDays: '',
-  quantity: '',
-  unit: '',
-});
-
-const emptyDraft = (): MemberVisitDraft => ({
-  chiefComplaint: '',
-  clinicalFindings: '',
-  icd10Code: '',
-  icd10Diagnosis: '',
-  treatmentPlan: '',
-  systolicBp: '',
-  diastolicBp: '',
-  heartRate: '',
-  spo2: '',
-  bloodGlucose: '',
-  weightKg: '',
-  newChronicDisease: '',
-  newAllergy: '',
-  includePrescription: false,
-  drugs: [emptyDrugLine()],
-  prescriptionInstructions: '',
-});
-
-function draftStorageKey(encounterId: string, patientId: string): string {
-  return `famidoc_visit_draft:${encounterId}:${patientId}`;
-}
-
-export function loadVisitDraft(encounterId: string, patientId: string): MemberVisitDraft | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(draftStorageKey(encounterId, patientId));
-    if (!raw) return null;
-    return { ...emptyDraft(), ...JSON.parse(raw) };
-  } catch {
-    return null;
-  }
-}
-
-export function saveVisitDraft(
-  encounterId: string,
-  patientId: string,
-  draft: MemberVisitDraft,
-): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(draftStorageKey(encounterId, patientId), JSON.stringify(draft));
-  } catch {
-    // Ignore storage quota errors
-  }
-}
-
-export function clearVisitDraft(encounterId: string, patientId: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(draftStorageKey(encounterId, patientId));
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-function toOptionalNumber(raw: string): number | undefined {
-  const n = Number(raw.trim());
-  return raw.trim() && Number.isFinite(n) ? n : undefined;
-}
+import { HouseholdVisitOverview } from './household-visit-overview';
+import { MemberExamWizard } from './member-exam-wizard';
+import { MemberVisitRecordView } from './member-visit-record-view';
+import {
+  VisitCompletionSummary,
+  type MemberCompletionSummary,
+} from './visit-completion-summary';
 
 export function resolveWorkspaceMembers(encounter: EncounterItem | null): EncounterPatient[] {
   if (!encounter) return [];
@@ -151,74 +44,29 @@ export function resolveWorkspaceMembers(encounter: EncounterItem | null): Encoun
   });
 }
 
-function FinalizedMemberSummaryCard({
-  encounterId,
-  member,
-  visitDetail,
-}: {
-  encounterId: string;
-  member: EncounterPatient;
-  visitDetail?: BookVisitDetail;
-}) {
-  const exam = visitDetail?.exam;
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-3">
-        <div>
-          <h2 className="text-base font-bold text-slate-900">
-            Hồ sơ đã chốt: {member.fullName}
-          </h2>
-          <p className="text-xs text-slate-600">
-            Tiền sử:{' '}
-            {Array.isArray(member.chronicDiseases)
-              ? member.chronicDiseases.join(', ')
-              : member.chronicDiseases || 'Chưa ghi nhận'}
-          </p>
-        </div>
-        <Badge className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-          <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-          Đã chốt hồ sơ
-        </Badge>
-      </div>
-
-      <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4 space-y-2 text-sm">
-        {exam ? (
-          <>
-            <div>
-              <span className="font-semibold text-slate-700">Lý do khám:</span>{' '}
-              <span className="text-slate-900">{exam.chiefComplaint || '—'}</span>
-            </div>
-            <div>
-              <span className="font-semibold text-slate-700">Triệu chứng &amp; Khám thực thể:</span>{' '}
-              <span className="text-slate-900">{exam.clinicalFindings || '—'}</span>
-            </div>
-            <div>
-              <span className="font-semibold text-slate-700">Chẩn đoán:</span>{' '}
-              <span className="text-slate-900">
-                {[exam.icd10Code, exam.icd10Diagnosis].filter(Boolean).join(' — ') || '—'}
-              </span>
-            </div>
-            <div>
-              <span className="font-semibold text-slate-700">Dặn dò / Kế hoạch điều trị:</span>{' '}
-              <span className="text-slate-900">{exam.treatmentPlan || '—'}</span>
-            </div>
-          </>
-        ) : (
-          <p className="text-slate-600">Hồ sơ thành viên này đã chốt &amp; đồng bộ EHR.</p>
-        )}
-      </div>
-
-      <div className="flex justify-end">
-        <Link
-          href={`/doctor/encounters/${encounterId}/wrap-up?patientId=${member.id}`}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-teal-700 px-3 py-2 text-sm font-semibold text-teal-800 hover:bg-teal-50"
-        >
-          Xem / Kê đơn thay thế
-        </Link>
-      </div>
-    </div>
-  );
+function formatScheduledDateVn(rawDate?: string): string {
+  if (!rawDate) return '';
+  const datePart = String(rawDate).slice(0, 10);
+  const [yyyy, mm, dd] = datePart.split('-');
+  if (yyyy && mm && dd) return `${dd}/${mm}/${yyyy}`;
+  return datePart;
 }
+
+function getVisitStartsAt(scheduledDate?: string, scheduledTime?: string): Date | null {
+  if (!scheduledDate) return null;
+  const datePart = String(scheduledDate).slice(0, 10);
+  const timePart = formatEncounterTime(scheduledTime) || '00:00';
+  const [hh, mm] = timePart.split(':');
+  if (!hh || !mm) return null;
+  const iso = `${datePart}T${hh.padStart(2, '0')}:${mm.padStart(2, '0')}:00+07:00`;
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+type WorkspaceViewMode = 'overview' | 'member-exam' | 'summary';
+type VisitDetailStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+const LOCKED_STATUSES = new Set(['DISPUTED', 'NO_SHOW', 'CANCELLED', 'COMPLETED']);
 
 export function DoctorVisitWorkspace({
   encounterId,
@@ -230,18 +78,18 @@ export function DoctorVisitWorkspace({
   const [encounter, setEncounter] = useState<EncounterItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [selectedPatientIds, setSelectedPatientIds] = useState<string[]>([]);
-  const [activePatientId, setActivePatientId] = useState<string>('');
-  const [draftsByPatient, setDraftsByPatient] = useState<Record<string, MemberVisitDraft>>({});
-  const [savedDraftIds, setSavedDraftIds] = useState<Record<string, boolean>>({});
-  const [finalizedIds, setFinalizedIds] = useState<Record<string, boolean>>({});
+  const [viewMode, setViewMode] = useState<WorkspaceViewMode>('overview');
+  const [activePatientId, setActivePatientId] = useState<string>(initialPatientId ?? '');
   const [visitDetailsByPatient, setVisitDetailsByPatient] = useState<
     Record<string, BookVisitDetail>
   >({});
-  const [showVitalsSection, setShowVitalsSection] = useState(false);
-  const [showPrescriptionSection, setShowPrescriptionSection] = useState(false);
-  const [statusMessage, setStatusMessage] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const [visitDetailStatus, setVisitDetailStatus] = useState<VisitDetailStatus>('idle');
+  const [visitDetailError, setVisitDetailError] = useState<string | null>(null);
+  const [visitFetchNonce, setVisitFetchNonce] = useState(0);
+  const [memberSummaries, setMemberSummaries] = useState<
+    Record<string, MemberCompletionSummary>
+  >({});
+  const [completing, setCompleting] = useState(false);
 
   const loadWorkspace = useCallback(async () => {
     setLoading(true);
@@ -252,34 +100,9 @@ export function DoctorVisitWorkspace({
         throw new Error('Không tìm thấy ca khám.');
       }
       setEncounter(detail);
-
-      const finalizedMap: Record<string, boolean> = {};
-      for (const emr of detail.clinicalEmrs ?? []) {
-        if (emr.isFinalized) finalizedMap[emr.patientId] = true;
+      if (detail.doctorCompletedAt || detail.encounterStatus === 'COMPLETED') {
+        setViewMode('summary');
       }
-      setFinalizedIds(finalizedMap);
-
-      const validMembers = resolveWorkspaceMembers(detail);
-
-      const initialSelected = validMembers.map((m) => m.id);
-      setSelectedPatientIds((prev) => (prev.length > 0 ? prev : initialSelected));
-      const firstId =
-        (initialPatientId && validMembers.some((m) => m.id === initialPatientId)
-          ? initialPatientId
-          : validMembers[0]?.id) ?? '';
-      setActivePatientId((prev) => prev || firstId);
-
-      const loadedDrafts: Record<string, MemberVisitDraft> = {};
-      const hasDraftFlags: Record<string, boolean> = {};
-      for (const m of validMembers) {
-        const stored = loadVisitDraft(encounterId, m.id);
-        if (stored) {
-          loadedDrafts[m.id] = stored;
-          hasDraftFlags[m.id] = true;
-        }
-      }
-      setDraftsByPatient((prev) => ({ ...loadedDrafts, ...prev }));
-      setSavedDraftIds((prev) => ({ ...hasDraftFlags, ...prev }));
     } catch (err) {
       setError(
         err instanceof Error && err.message
@@ -289,7 +112,7 @@ export function DoctorVisitWorkspace({
     } finally {
       setLoading(false);
     }
-  }, [encounterId, initialPatientId]);
+  }, [encounterId]);
 
   useEffect(() => {
     void loadWorkspace();
@@ -302,191 +125,164 @@ export function DoctorVisitWorkspace({
   const familyId = encounter?.contract?.familyUnit?.id ?? '';
 
   useEffect(() => {
-    if (!familyId || !activePatientId || visitDetailsByPatient[activePatientId]) return;
+    if (viewMode !== 'member-exam' || !familyId || !activePatientId) return;
+    if (visitDetailsByPatient[activePatientId]) {
+      setVisitDetailStatus('ready');
+      setVisitDetailError(null);
+      return;
+    }
+
     const controller = new AbortController();
+    setVisitDetailStatus('loading');
+    setVisitDetailError(null);
+
     medicalBooksApi
       .visit(encounterId, controller.signal, activePatientId)
       .then((detail) => {
         if (controller.signal.aborted) return;
         setVisitDetailsByPatient((prev) => ({ ...prev, [activePatientId]: detail }));
-        if (detail.isFinalized) {
-          setFinalizedIds((prev) => ({ ...prev, [activePatientId]: true }));
-        }
+        setVisitDetailStatus('ready');
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        const code = getApiErrorCode(err);
+        if (code === 'VISIT_LOCKED') {
+          setEncounter((prev) =>
+            prev ? { ...prev, encounterStatus: 'DISPUTED' } : prev,
+          );
+          setViewMode('overview');
+          return;
+        }
+        setVisitDetailError(
+          err instanceof Error && err.message
+            ? err.message
+            : 'Không thể tải trang khám của thành viên.',
+        );
+        setVisitDetailStatus('error');
+      });
+
     return () => controller.abort();
-  }, [familyId, activePatientId, encounterId, visitDetailsByPatient]);
+  }, [
+    viewMode,
+    familyId,
+    activePatientId,
+    encounterId,
+    visitDetailsByPatient,
+    visitFetchNonce,
+  ]);
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-6xl p-6 text-sm text-slate-600">
-        Đang mở không gian làm việc ca khám...
+      <div className="mx-auto max-w-5xl p-6 text-sm text-slate-600">
+        Đang tải không gian làm việc ca khám...
       </div>
     );
   }
 
   if (error || !encounter) {
-    if (initialPatientId) {
-      return <DoctorBookVisitView id={encounterId} patientId={initialPatientId} />;
-    }
     return (
-      <div className="mx-auto max-w-4xl p-6">
-        <Card className="p-5 space-y-3">
-          <p role="alert" className="text-sm text-red-700">
-            {error || 'Không tìm thấy ca khám.'}
-          </p>
-          <Link href="/doctor" className="text-sm font-semibold text-teal-800 hover:underline">
-            ◄ Về Bảng lâm sàng
-          </Link>
+      <div className="mx-auto max-w-3xl p-6 space-y-3">
+        <Card className="p-5 border border-rose-200 bg-rose-50 text-sm text-rose-800">
+          {error || 'Không tìm thấy ca khám.'}
         </Card>
+        <Link href="/doctor/timetable" className="inline-flex items-center text-sm font-semibold text-teal-800 hover:underline">
+          <ChevronLeft className="w-4 h-4 mr-1" />
+          Quay về Lịch trực &amp; Ca khám
+        </Link>
       </div>
     );
   }
 
   const lane = deriveDualLaneState(encounter);
   const activeMember = members.find((m) => m.id === activePatientId) ?? members[0];
-  const currentDraft = (activeMember && draftsByPatient[activeMember.id]) || emptyDraft();
-  const finalizedCount = selectedPatientIds.filter((id) => finalizedIds[id]).length;
-  const isMemberFinalized = activeMember ? Boolean(finalizedIds[activeMember.id]) : false;
+  const isLocked = LOCKED_STATUSES.has(String(encounter.encounterStatus));
+  const visitStartsAt = getVisitStartsAt(
+    encounter.scheduledDate,
+    encounter.scheduledTime,
+  );
+  const beforeStartMessage =
+    !isLocked &&
+    encounter.encounterStatus === 'CONFIRMED' &&
+    visitStartsAt &&
+    Date.now() < visitStartsAt.getTime()
+      ? `Chưa đến giờ khám — mở lúc ${formatEncounterTime(encounter.scheduledTime)}`
+      : null;
 
-  const updateCurrentDraft = (patch: Partial<MemberVisitDraft>) => {
-    if (!activeMember) return;
-    setDraftsByPatient((prev) => ({
-      ...prev,
-      [activeMember.id]: { ...(prev[activeMember.id] ?? emptyDraft()), ...patch },
-    }));
+  const handleStartExam = (patientId: string) => {
+    setActivePatientId(patientId);
+    setViewMode('member-exam');
   };
 
-  const handleSaveDraft = () => {
-    if (!activeMember) return;
-    saveVisitDraft(encounterId, activeMember.id, currentDraft);
-    setSavedDraftIds((prev) => ({ ...prev, [activeMember.id]: true }));
-    setStatusMessage(`Đã lưu nháp cho ${activeMember.fullName} (Gia đình chưa thấy).`);
+  const handleChangeAttendance = async (
+    patientId: string,
+    nextStatus: 'PLANNED' | 'ABSENT',
+    absenceReason?: string,
+  ) => {
+    const res = await encountersApi.updateParticipantAttendance(
+      encounterId,
+      patientId,
+      nextStatus,
+      absenceReason,
+    );
+    setEncounter((prev) => {
+      if (!prev) return prev;
+      const participants = (prev.participants ?? []).map((p) =>
+        p.patientId === patientId
+          ? {
+              ...p,
+              attendanceStatus: nextStatus,
+              absenceReason: res.absenceReason ?? (nextStatus === 'ABSENT' ? absenceReason ?? null : null),
+            }
+          : p,
+      );
+      return { ...prev, participants };
+    });
   };
 
-  const handleFinalizeMember = async () => {
-    if (!activeMember) return;
-    setSubmitting(true);
-    setStatusMessage('');
-    setError('');
+  const handleCompleteVisit = async (lateCompletionReason?: string) => {
+    setCompleting(true);
     try {
-      const recipientId =
-        visitDetailsByPatient[activeMember.id]?.recipient?.id ??
-        (encounter.contract?.familyUnit?.representativeUser as { id?: string } | undefined)?.id ??
-        '';
-
-      const validDrugs = currentDraft.drugs.filter((d) => d.medicationName.trim().length > 0);
-      await medicalBooksApi.confirm(encounterId, {
-        patientId: activeMember.id,
-        confirmed: true,
-        exam: {
-          chiefComplaint: currentDraft.chiefComplaint,
-          clinicalFindings: currentDraft.clinicalFindings,
-          icd10Code: currentDraft.icd10Code,
-          icd10Diagnosis: currentDraft.icd10Diagnosis,
-          treatmentPlan: currentDraft.treatmentPlan,
-        },
-        prescription:
-          currentDraft.includePrescription && validDrugs.length > 0
-            ? {
-                details: validDrugs.map((d) => ({
-                  medicationType: 'SINGLE_INGREDIENT',
-                  medicationName: d.medicationName.trim(),
-                  strength: d.strength.trim(),
-                  administrationRoute: d.administrationRoute.trim() || 'Uống',
-                  dosage: d.dosage.trim(),
-                  frequency: d.frequency.trim(),
-                  durationDays: Number(d.durationDays) || 1,
-                  quantity: Number(d.quantity) || 1,
-                  unit: d.unit.trim() || 'viên',
-                })),
-                instructions: currentDraft.prescriptionInstructions.trim(),
-                recipientUserId: recipientId,
-                recipientAuthorized: true,
-              }
-            : undefined,
+      const updated = await encountersApi.completeEncounter(encounterId, {
+        lateCompletionReason,
       });
-
-      const systolicBp = toOptionalNumber(currentDraft.systolicBp);
-      const diastolicBp = toOptionalNumber(currentDraft.diastolicBp);
-      const heartRate = toOptionalNumber(currentDraft.heartRate);
-      const spo2 = toOptionalNumber(currentDraft.spo2);
-      const bloodGlucose = toOptionalNumber(currentDraft.bloodGlucose);
-      const weightKg = toOptionalNumber(currentDraft.weightKg);
-
-      if (
-        systolicBp !== undefined ||
-        diastolicBp !== undefined ||
-        heartRate !== undefined ||
-        spo2 !== undefined ||
-        bloodGlucose !== undefined
-      ) {
-        await patientsApi.addMemberVitalSign(activeMember.id, {
-          systolicBp,
-          diastolicBp,
-          heartRate,
-          spo2,
-          bloodGlucose,
-        });
-      }
-
-      if (currentDraft.newAllergy.trim()) {
-        await patientsApi.addMemberAllergy(activeMember.id, {
-          allergenName: currentDraft.newAllergy.trim(),
-          allergenType: 'DRUG',
-          severity: 'MODERATE',
-        });
-      }
-
-      if (currentDraft.newChronicDisease.trim() || weightKg !== undefined) {
-        const existing = Array.isArray(activeMember.chronicDiseases)
-          ? activeMember.chronicDiseases.join(', ')
-          : activeMember.chronicDiseases || '';
-        const merged = currentDraft.newChronicDisease.trim()
-          ? existing
-            ? `${existing}, ${currentDraft.newChronicDisease.trim()}`
-            : currentDraft.newChronicDisease.trim()
-          : undefined;
-        await patientsApi.updateFamilyMember(activeMember.id, {
-          ...(merged ? { chronicDiseases: merged } : {}),
-          ...(weightKg !== undefined ? { weightKg } : {}),
-        });
-      }
-
-      clearVisitDraft(encounterId, activeMember.id);
-      setSavedDraftIds((prev) => ({ ...prev, [activeMember.id]: false }));
-      setFinalizedIds((prev) => ({ ...prev, [activeMember.id]: true }));
-      setStatusMessage(
-        `Đã chốt hồ sơ cho ${activeMember.fullName}, đồng bộ EHR và gửi kết quả cho gia đình.`,
-      );
-    } catch (err) {
-      setError(
-        err instanceof Error && err.message
-          ? err.message
-          : 'Không thể chốt hồ sơ. Vui lòng kiểm tra lại thông tin.',
-      );
+      setEncounter((prev) => (prev ? { ...prev, ...updated } : updated));
+      setViewMode('summary');
     } finally {
-      setSubmitting(false);
+      setCompleting(false);
     }
   };
+
+  const activeVisitDetail = activeMember
+    ? visitDetailsByPatient[activeMember.id]
+    : undefined;
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 p-4 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
-          href="/doctor"
+          href="/doctor/timetable"
           className="inline-flex items-center gap-1 text-sm font-semibold text-teal-800 hover:underline"
         >
           <ChevronLeft className="h-4 w-4" />
-          Về Bảng lâm sàng
+          Quay về Lịch trực &amp; Ca khám
         </Link>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <Badge variant="outline">
-            Làn Gia đình: {lane.familyConfirmed ? '✓ Đã xác nhận có đến' : 'Chưa xác nhận'}
+            Làn Gia đình:{' '}
+            {lane.familyConfirmed ? '✓ Đã xác nhận có đến' : 'Chờ gia đình xác nhận'}
           </Badge>
-          {lane.remainingRecordHours !== null && (
-            <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-900">
-              Hạn chốt hồ sơ: {formatRemainingRecordDeadline(lane.remainingRecordHours)}
+          {lane.remainingRecordHours !== null && !encounter.doctorCompletedAt && (
+            <Badge
+              variant="outline"
+              className={
+                lane.isOverdue
+                  ? 'border-rose-300 bg-rose-50 text-rose-800'
+                  : 'border-amber-300 bg-amber-50 text-amber-900'
+              }
+            >
+              {lane.isOverdue
+                ? 'Đã quá hạn 23:59 ngày khám'
+                : `Hạn chốt hồ sơ: ${formatRemainingRecordDeadline(lane.remainingRecordHours)}`}
             </Badge>
           )}
         </div>
@@ -495,472 +291,122 @@ export function DoctorVisitWorkspace({
       <Card className="p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h1 className="text-lg font-bold text-slate-900">
-            CA KHÁM: {encounter.contract?.familyUnit?.familyName || 'Hộ gia đình'} •{' '}
-            {String(encounter.scheduledDate).slice(0, 10)} ({formatEncounterTime(encounter.scheduledTime)})
+            CA KHÁM • {formatScheduledDateVn(encounter.scheduledDate)} (
+            {formatEncounterTime(encounter.scheduledTime)})
           </h1>
         </div>
       </Card>
 
-      {statusMessage && (
-        <div
-          role="status"
-          className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-900"
-        >
-          {statusMessage}
-        </div>
-      )}
-      {error && (
+      {isLocked && (
         <div
           role="alert"
-          className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700"
+          className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-900"
         >
-          {error}
+          Ca khám đang bị khóa — chỉ xem.
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[28%_1fr]">
-        {/* CỘT TRÁI (~28%): THÀNH VIÊN KHÁM */}
-        <Card className="p-4 space-y-3">
-          <h2 className="text-sm font-bold text-slate-900">THÀNH VIÊN KHÁM</h2>
-          <p className="text-xs text-slate-600">Tích chọn thành viên thực tế có thăm khám hôm nay:</p>
-          <ul className="space-y-2">
-            {members.map((member) => {
-              const checked = selectedPatientIds.includes(member.id);
-              const isCurrent = activeMember?.id === member.id;
-              const isFinal = Boolean(finalizedIds[member.id]);
-              const isDraft = Boolean(savedDraftIds[member.id]) && !isFinal;
-              return (
-                <li
-                  key={member.id}
-                  className={`rounded-xl border p-3 ${
-                    isCurrent ? 'border-teal-500 bg-teal-50/50' : 'border-slate-200 bg-white'
-                  }`}
-                >
-                  <div className="flex items-start gap-2.5">
-                    <input
-                      type="checkbox"
-                      aria-label={`Chọn khám ${member.fullName}`}
-                      checked={checked}
-                      onChange={(e) => {
-                        setSelectedPatientIds((prev) =>
-                          e.target.checked
-                            ? [...prev, member.id]
-                            : prev.filter((id) => id !== member.id),
-                        );
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="flex-1 text-left"
-                      onClick={() => setActivePatientId(member.id)}
-                    >
-                      <div className="text-sm font-semibold text-slate-900">{member.fullName}</div>
-                      <div className="mt-1 text-xs">
-                        {isFinal ? (
-                          <span className="font-semibold text-emerald-700">✓ Đã chốt hồ sơ</span>
-                        ) : isDraft ? (
-                          <span className="font-semibold text-amber-700">● Đang ghi (Nháp)</span>
-                        ) : checked ? (
-                          <span className="text-slate-600">Chưa ghi nhận</span>
-                        ) : (
-                          <span className="text-slate-400">Không khám ca này</span>
-                        )}
-                      </div>
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="border-t border-slate-200 pt-3 text-xs text-slate-700 space-y-1">
-            <div>Đã chọn: {selectedPatientIds.length} người</div>
-            <div className="font-semibold">
-              Đã chốt: {finalizedCount}/{selectedPatientIds.length} người
-            </div>
-          </div>
-        </Card>
+      {beforeStartMessage && (
+        <div
+          role="alert"
+          className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-2.5 text-xs font-semibold text-sky-900"
+        >
+          {beforeStartMessage}
+        </div>
+      )}
 
-        {/* CỘT PHẢI (~72%): FORM TỐI GIẢN HOẶC THẺ TÓM TẮT ĐÃ CHỐT */}
-        <Card className="p-4 sm:p-5 space-y-5">
-          {activeMember ? (
-            isMemberFinalized ? (
-              <FinalizedMemberSummaryCard
-                encounterId={encounterId}
-                member={activeMember}
-                visitDetail={visitDetailsByPatient[activeMember.id]}
+      {viewMode === 'overview' && (
+        <HouseholdVisitOverview
+          encounter={encounter}
+          members={members}
+          isOverdue={lane.isOverdue}
+          isLocked={isLocked}
+          beforeStartMessage={beforeStartMessage}
+          completing={completing}
+          onStartExam={handleStartExam}
+          onChangeAttendance={handleChangeAttendance}
+          onCompleteVisit={handleCompleteVisit}
+        />
+      )}
+
+      {viewMode === 'member-exam' && activeMember && (
+        <>
+          {visitDetailStatus === 'loading' && (
+            <Card
+              data-testid="wizard-skeleton"
+              className="p-6 border border-slate-200 bg-white space-y-3 animate-pulse"
+            >
+              <div className="h-5 w-48 bg-slate-200 rounded" />
+              <div className="h-24 w-full bg-slate-100 rounded" />
+              <div className="h-10 w-32 bg-slate-200 rounded ml-auto" />
+            </Card>
+          )}
+
+          {visitDetailStatus === 'error' && (
+            <Card className="p-5 border border-rose-200 bg-rose-50 space-y-3 text-xs text-rose-800">
+              <div role="alert" className="font-semibold">
+                {visitDetailError}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setViewMode('overview')}
+                >
+                  Quay lại
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setVisitFetchNonce((n) => n + 1)}
+                >
+                  Tải lại
+                </Button>
+              </div>
+            </Card>
+          )}
+
+          {visitDetailStatus === 'ready' &&
+            activeVisitDetail &&
+            (activeVisitDetail.isFinalized || isLocked ? (
+              <MemberVisitRecordView
+                detail={activeVisitDetail}
+                onBackToOverview={() => setViewMode('overview')}
               />
             ) : (
-              <>
-                <div className="border-b border-slate-200 pb-3">
-                  <h2 className="text-base font-bold text-slate-900">
-                    Đang làm việc với: {activeMember.fullName}
-                  </h2>
-                  <p className="text-xs text-slate-600">
-                    Tiền sử:{' '}
-                    {Array.isArray(activeMember.chronicDiseases)
-                      ? activeMember.chronicDiseases.join(', ')
-                      : activeMember.chronicDiseases || 'Chưa ghi nhận'}
-                  </p>
-                </div>
+              <MemberExamWizard
+                key={activeMember.id}
+                encounterId={encounterId}
+                encounter={encounter}
+                member={activeMember}
+                initialVisitDetail={activeVisitDetail}
+                onBackToOverview={() => setViewMode('overview')}
+                onFinalized={async (summary) => {
+                  setMemberSummaries((prev) => ({
+                    ...prev,
+                    [summary.patientId]: summary,
+                  }));
+                  setVisitDetailsByPatient((prev) => {
+                    const copy = { ...prev };
+                    delete copy[summary.patientId];
+                    return copy;
+                  });
+                  await loadWorkspace();
+                  setViewMode('overview');
+                }}
+              />
+            ))}
+        </>
+      )}
 
-                {/* 5 Ô BẮT BUỘC MỞ SẴN */}
-                <section className="space-y-3">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label htmlFor="ws-chief-complaint">Lý do khám</Label>
-                      <Textarea
-                        id="ws-chief-complaint"
-                        rows={2}
-                        disabled={submitting}
-                        value={currentDraft.chiefComplaint}
-                        onChange={(e) => updateCurrentDraft({ chiefComplaint: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label htmlFor="ws-clinical-findings">Triệu chứng &amp; Khám thực thể</Label>
-                      <Textarea
-                        id="ws-clinical-findings"
-                        rows={2}
-                        disabled={submitting}
-                        value={currentDraft.clinicalFindings}
-                        onChange={(e) => updateCurrentDraft({ clinicalFindings: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="ws-icd10">Mã ICD-10</Label>
-                      <Input
-                        id="ws-icd10"
-                        disabled={submitting}
-                        value={currentDraft.icd10Code}
-                        onChange={(e) => updateCurrentDraft({ icd10Code: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <Label htmlFor="ws-diagnosis">Chẩn đoán</Label>
-                      <Input
-                        id="ws-diagnosis"
-                        disabled={submitting}
-                        value={currentDraft.icd10Diagnosis}
-                        onChange={(e) => updateCurrentDraft({ icd10Diagnosis: e.target.value })}
-                      />
-                    </div>
-                    <div className="space-y-1 sm:col-span-2">
-                      <Label htmlFor="ws-treatment-plan">Dặn dò / Kế hoạch điều trị</Label>
-                      <Textarea
-                        id="ws-treatment-plan"
-                        rows={2}
-                        disabled={submitting}
-                        value={currentDraft.treatmentPlan}
-                        onChange={(e) => updateCurrentDraft({ treatmentPlan: e.target.value })}
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                {/* MỤC TÙY CHỌN 1: CHỈ SỐ SINH TỒN & BỆNH NỀN / DỊ ỨNG */}
-                <section className="border-t border-slate-200 pt-3">
-                  <button
-                    type="button"
-                    aria-expanded={showVitalsSection}
-                    onClick={() => setShowVitalsSection((prev) => !prev)}
-                    className="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-800 hover:text-teal-800"
-                  >
-                    <span>Chỉ số sinh tồn &amp; Bệnh nền / Dị ứng mới (Tùy chọn)</span>
-                    {showVitalsSection ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </button>
-
-                  {showVitalsSection && (
-                    <div className="mt-3 space-y-3">
-                      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        <div className="space-y-1">
-                          <Label htmlFor="ws-sbp">Huyết áp tâm thu (mmHg)</Label>
-                          <Input
-                            id="ws-sbp"
-                            type="number"
-                            disabled={submitting}
-                            value={currentDraft.systolicBp}
-                            onChange={(e) => updateCurrentDraft({ systolicBp: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="ws-dbp">Huyết áp tâm trương (mmHg)</Label>
-                          <Input
-                            id="ws-dbp"
-                            type="number"
-                            disabled={submitting}
-                            value={currentDraft.diastolicBp}
-                            onChange={(e) => updateCurrentDraft({ diastolicBp: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="ws-hr">Nhịp tim (lần/phút)</Label>
-                          <Input
-                            id="ws-hr"
-                            type="number"
-                            disabled={submitting}
-                            value={currentDraft.heartRate}
-                            onChange={(e) => updateCurrentDraft({ heartRate: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="ws-spo2">SpO2 (%)</Label>
-                          <Input
-                            id="ws-spo2"
-                            type="number"
-                            disabled={submitting}
-                            value={currentDraft.spo2}
-                            onChange={(e) => updateCurrentDraft({ spo2: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="ws-glucose">Đường huyết (mmol/L)</Label>
-                          <Input
-                            id="ws-glucose"
-                            type="number"
-                            step="0.1"
-                            disabled={submitting}
-                            value={currentDraft.bloodGlucose}
-                            onChange={(e) => updateCurrentDraft({ bloodGlucose: e.target.value })}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="ws-weight">Cân nặng (kg)</Label>
-                          <Input
-                            id="ws-weight"
-                            type="number"
-                            step="0.1"
-                            disabled={submitting}
-                            value={currentDraft.weightKg}
-                            onChange={(e) => updateCurrentDraft({ weightKg: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <div className="space-y-1">
-                          <Label htmlFor="ws-chronic">Bệnh nền mới (nếu phát hiện)</Label>
-                          <Input
-                            id="ws-chronic"
-                            disabled={submitting}
-                            value={currentDraft.newChronicDisease}
-                            onChange={(e) =>
-                              updateCurrentDraft({ newChronicDisease: e.target.value })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="ws-allergy">Dị ứng mới (nếu phát hiện)</Label>
-                          <Input
-                            id="ws-allergy"
-                            disabled={submitting}
-                            value={currentDraft.newAllergy}
-                            onChange={(e) => updateCurrentDraft({ newAllergy: e.target.value })}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </section>
-
-                {/* MỤC TÙY CHỌN 2: ĐƠN THUỐC ĐIỆN TỬ */}
-                <section className="border-t border-slate-200 pt-3">
-                  <button
-                    type="button"
-                    aria-expanded={showPrescriptionSection}
-                    onClick={() => {
-                      const nextOpen = !showPrescriptionSection;
-                      setShowPrescriptionSection(nextOpen);
-                      updateCurrentDraft({ includePrescription: nextOpen });
-                    }}
-                    className="flex w-full items-center justify-between text-left text-sm font-semibold text-slate-800 hover:text-teal-800"
-                  >
-                    <span>Kê đơn thuốc điện tử cho lần khám này (Tùy chọn)</span>
-                    {showPrescriptionSection ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                  </button>
-
-                  {showPrescriptionSection && (
-                    <div className="mt-3 space-y-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3.5">
-                      {currentDraft.drugs.map((drug, idx) => (
-                        <div
-                          key={idx}
-                          className="grid grid-cols-1 gap-2 rounded-lg border bg-white p-3 sm:grid-cols-3"
-                        >
-                          <div className="space-y-1">
-                            <Label htmlFor={`drug-name-${idx}`}>Tên thuốc</Label>
-                            <Input
-                              id={`drug-name-${idx}`}
-                              value={drug.medicationName}
-                              disabled={submitting}
-                              onChange={(e) => {
-                                const next = [...currentDraft.drugs];
-                                next[idx] = { ...drug, medicationName: e.target.value };
-                                updateCurrentDraft({ drugs: next });
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor={`drug-strength-${idx}`}>Hàm lượng</Label>
-                            <Input
-                              id={`drug-strength-${idx}`}
-                              value={drug.strength}
-                              disabled={submitting}
-                              onChange={(e) => {
-                                const next = [...currentDraft.drugs];
-                                next[idx] = { ...drug, strength: e.target.value };
-                                updateCurrentDraft({ drugs: next });
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor={`drug-dosage-${idx}`}>Liều mỗi lần</Label>
-                            <Input
-                              id={`drug-dosage-${idx}`}
-                              value={drug.dosage}
-                              disabled={submitting}
-                              onChange={(e) => {
-                                const next = [...currentDraft.drugs];
-                                next[idx] = { ...drug, dosage: e.target.value };
-                                updateCurrentDraft({ drugs: next });
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor={`drug-freq-${idx}`}>Tần suất</Label>
-                            <Input
-                              id={`drug-freq-${idx}`}
-                              value={drug.frequency}
-                              disabled={submitting}
-                              onChange={(e) => {
-                                const next = [...currentDraft.drugs];
-                                next[idx] = { ...drug, frequency: e.target.value };
-                                updateCurrentDraft({ drugs: next });
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor={`drug-days-${idx}`}>Số ngày dùng</Label>
-                            <Input
-                              id={`drug-days-${idx}`}
-                              type="number"
-                              value={drug.durationDays}
-                              disabled={submitting}
-                              onChange={(e) => {
-                                const next = [...currentDraft.drugs];
-                                next[idx] = { ...drug, durationDays: e.target.value };
-                                updateCurrentDraft({ drugs: next });
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor={`drug-qty-${idx}`}>Tổng số lượng</Label>
-                            <Input
-                              id={`drug-qty-${idx}`}
-                              type="number"
-                              value={drug.quantity}
-                              disabled={submitting}
-                              onChange={(e) => {
-                                const next = [...currentDraft.drugs];
-                                next[idx] = { ...drug, quantity: e.target.value };
-                                updateCurrentDraft({ drugs: next });
-                              }}
-                            />
-                          </div>
-                          <div className="space-y-1 sm:col-span-2">
-                            <Label htmlFor={`drug-unit-${idx}`}>Đơn vị</Label>
-                            <Input
-                              id={`drug-unit-${idx}`}
-                              value={drug.unit}
-                              disabled={submitting}
-                              onChange={(e) => {
-                                const next = [...currentDraft.drugs];
-                                next[idx] = { ...drug, unit: e.target.value };
-                                updateCurrentDraft({ drugs: next });
-                              }}
-                            />
-                          </div>
-                          {currentDraft.drugs.length > 1 && (
-                            <div className="flex items-end justify-end">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={submitting}
-                                onClick={() =>
-                                  updateCurrentDraft({
-                                    drugs: currentDraft.drugs.filter((_, i) => i !== idx),
-                                  })
-                                }
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={submitting}
-                        onClick={() =>
-                          updateCurrentDraft({ drugs: [...currentDraft.drugs, emptyDrugLine()] })
-                        }
-                      >
-                        <Plus className="mr-1 h-4 w-4" />
-                        Thêm dòng thuốc
-                      </Button>
-                      <div className="space-y-1">
-                        <Label htmlFor="ws-rx-instructions">Lời dặn đơn thuốc</Label>
-                        <Textarea
-                          id="ws-rx-instructions"
-                          rows={2}
-                          disabled={submitting}
-                          value={currentDraft.prescriptionInstructions}
-                          onChange={(e) =>
-                            updateCurrentDraft({ prescriptionInstructions: e.target.value })
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
-                </section>
-
-                {/* HÀNH ĐỘNG */}
-                <section className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={submitting}
-                    onClick={handleSaveDraft}
-                  >
-                    <FilePenLine className="mr-1.5 h-4 w-4" />
-                    Lưu Nháp (Gia đình chưa thấy)
-                  </Button>
-                  <Button
-                    type="button"
-                    className="bg-teal-700 text-white hover:bg-teal-800"
-                    disabled={submitting}
-                    onClick={handleFinalizeMember}
-                  >
-                    {currentDraft.includePrescription
-                      ? '✓ Chốt hồ sơ & Phát hành đơn'
-                      : '✓ Chốt hồ sơ'}
-                  </Button>
-                </section>
-              </>
-            )
-          ) : (
-            <p className="text-sm text-slate-600">Chưa có thành viên trong hộ gia đình.</p>
-          )}
-        </Card>
-      </div>
+      {viewMode === 'summary' && (
+        <VisitCompletionSummary
+          encounter={encounter}
+          members={members}
+          memberSummaries={Object.values(memberSummaries)}
+        />
+      )}
     </div>
   );
 }

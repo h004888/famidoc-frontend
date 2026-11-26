@@ -27,6 +27,7 @@ import {
   PrescriptionContextFields,
   emptyPrescriptionContext,
 } from "./prescription-context-fields";
+import { buildClinicalContext } from "../lib/prescription-context";
 
 const emptyExam: PrescriptionExam = {
   chiefComplaint: "",
@@ -481,20 +482,7 @@ export function PrescriptionForm({
         ...(includePrescription && recipient
           ? {
               prescription: {
-                clinicalContext: Object.fromEntries(
-                  Object.entries(context)
-                    .filter(
-                      ([key, value]) =>
-                        value.trim() !== "" &&
-                        (key !== "longTermReason" || hasLongTermDrug),
-                    )
-                    .map(([key, value]) => [
-                      key,
-                      key === "weightKg" || key === "followUpDays"
-                        ? Number(value)
-                        : value.trim(),
-                    ]),
-                ) as PrescriptionContext,
+                clinicalContext: buildClinicalContext(context, hasLongTermDrug),
                 details: drugs.map(
                   ({
                     rowId: _rowId,

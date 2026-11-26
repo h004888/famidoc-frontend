@@ -42,7 +42,7 @@ export default function FamilyReschedulePage() {
       .catch(() => toast.error('Không thể tải thông tin buổi khám.'));
   }, [encounterId]);
 
-  useEffect(() => {
+  const reloadAvailability = () => {
     if (!encounter?.doctorId) return;
     setLoadingCal(true);
     encountersApi
@@ -50,16 +50,16 @@ export default function FamilyReschedulePage() {
       .then((res) => setDays(res.days ?? []))
       .catch(() => setDays([]))
       .finally(() => setLoadingCal(false));
+  };
+
+  useEffect(() => {
+    reloadAvailability();
   }, [encounter?.doctorId, encounter?.contractId, month]);
 
-  const handleSelectValidDay = (day: MonthlyAvailabilityDay) => {
+  const handleSelectSlot = (day: MonthlyAvailabilityDay, win: 'MORNING' | 'AFTERNOON') => {
     setAlertMessage(null);
     setSelectedDay(day);
-    if (day.morning.available) {
-      setSlotWindow('MORNING');
-    } else if (day.afternoon.available) {
-      setSlotWindow('AFTERNOON');
-    }
+    setSlotWindow(win);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -78,10 +78,17 @@ export default function FamilyReschedulePage() {
       });
       toast.success('Đã gửi đề xuất đổi lịch thành công.');
       router.push('/family/appointments');
-    } catch (err) {
-      setAlertMessage(
-        err instanceof Error ? err.message : 'Không thể gửi đề xuất đổi lịch. Vui lòng thử ngày khác.',
-      );
+    } catch (err: any) {
+      const code = err?.code ?? err?.data?.code ?? err?.response?.data?.code;
+      if (code === 'SLOT_TAKEN' || (err instanceof Error && err.message.includes('Ca này vừa có người đặt'))) {
+        toast.error('Ca này vừa có người đặt, vui lòng chọn ca khác');
+        setSelectedDay(null);
+        reloadAvailability();
+      } else {
+        setAlertMessage(
+          err instanceof Error ? err.message : 'Không thể gửi đề xuất đổi lịch. Vui lòng thử ngày khác.',
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -140,13 +147,10 @@ export default function FamilyReschedulePage() {
               month={month}
               days={days}
               selectedDate={selectedDay?.date ?? null}
+              selectedSlotWindow={slotWindow}
               isLoading={loadingCal}
               onMonthChange={setMonth}
-              onSelectValidDay={handleSelectValidDay}
-              onUnavailableClick={(msg) => {
-                setSelectedDay(null);
-                setAlertMessage(msg);
-              }}
+              onSelectSlot={handleSelectSlot}
             />
             <div className="rounded-xl border border-slate-200/80 bg-white px-4 py-3 text-[11px] text-slate-600 flex flex-wrap gap-x-4 gap-y-1">
               <span>

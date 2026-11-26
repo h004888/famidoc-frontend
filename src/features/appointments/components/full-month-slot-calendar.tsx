@@ -2,16 +2,18 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import type { MonthlyAvailabilityDay } from '@/lib/api/encounters.api';
+import type { MonthlyAvailabilityDay, MonthlySlotStatus } from '@/lib/api/encounters.api';
 
 interface FullMonthSlotCalendarProps {
   month: string; // YYYY-MM
   days: MonthlyAvailabilityDay[];
   selectedDate: string | null;
+  selectedSlotWindow?: 'MORNING' | 'AFTERNOON' | null;
   isLoading?: boolean;
   onMonthChange: (nextMonth: string) => void;
-  onSelectValidDay: (day: MonthlyAvailabilityDay) => void;
-  onUnavailableClick: (message: string, day: MonthlyAvailabilityDay) => void;
+  onSelectSlot?: (day: MonthlyAvailabilityDay, slotWindow: 'MORNING' | 'AFTERNOON') => void;
+  onSelectValidDay?: (day: MonthlyAvailabilityDay) => void;
+  onUnavailableClick?: (message: string, day: MonthlyAvailabilityDay) => void;
 }
 
 function shiftMonth(month: string, delta: number): string {
@@ -20,14 +22,53 @@ function shiftMonth(month: string, delta: number): string {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
+function getSlotVisual(
+  slot: MonthlySlotStatus,
+  isDayMuted: boolean,
+  isSelected: boolean,
+): { className: string; tooltip: string; subLabel?: string } {
+  const tooltip = slot.label || slot.reason || (slot.available ? 'Còn trống' : 'Không khả dụng');
+  if (isSelected && slot.available && !isDayMuted) {
+    return {
+      className: 'border-[#2E37A4] bg-[#2E37A4] text-white font-semibold',
+      tooltip,
+    };
+  }
+  if (isDayMuted || slot.reasonCode === 'DAY_OFF' || slot.reasonCode === 'PAST' || slot.reasonCode === 'OUT_OF_CONTRACT') {
+    return {
+      className: 'border-slate-200 bg-slate-100 text-slate-400 opacity-50 cursor-not-allowed',
+      tooltip,
+    };
+  }
+  if (slot.reasonCode === 'OWN_VISIT') {
+    return {
+      className: 'border-sky-200 bg-sky-50 text-sky-800 opacity-90 cursor-not-allowed',
+      tooltip,
+      subLabel: 'Lịch của bạn',
+    };
+  }
+  if (!slot.available) {
+    return {
+      className: 'border-rose-200 bg-rose-50 text-rose-700 opacity-85 cursor-not-allowed',
+      tooltip,
+    };
+  }
+  return {
+    className:
+      'border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 cursor-pointer',
+    tooltip,
+  };
+}
+
 export function FullMonthSlotCalendar({
   month,
   days,
   selectedDate,
+  selectedSlotWindow,
   isLoading,
   onMonthChange,
+  onSelectSlot,
   onSelectValidDay,
-  onUnavailableClick,
 }: FullMonthSlotCalendarProps) {
   const [yearStr, monthStr] = month.split('-');
   const year = Number(yearStr);
@@ -47,32 +88,14 @@ export function FullMonthSlotCalendar({
   minSelectableDate.setDate(minSelectableDate.getDate() + (now.getHours() >= 20 ? 2 : 1));
   const minSelectableIso = toLocalIso(minSelectableDate);
 
-  const handleCellClick = (day: MonthlyAvailabilityDay) => {
-    if (day.date < minSelectableIso || day.isOutOfContract) {
-      return;
-    }
-    if (day.isDayOff) {
-      onUnavailableClick(
-        `Ngày ${day.date.split('-').reverse().join('/')} là ${day.dayOffReason || 'ngày nghỉ'}. Vui lòng chọn ngày làm việc khác.`,
-        day,
-      );
-      return;
-    }
-    if (day.familyHasVisit) {
-      onUnavailableClick(
-        `Ngày ${day.date.split('-').reverse().join('/')} gia đình đã có 1 lượt khám (quy tắc tối đa 1 lượt/ngày). Vui lòng chọn ngày khác!`,
-        day,
-      );
-      return;
-    }
-    if (!day.morning.available && !day.afternoon.available) {
-      onUnavailableClick(
-        `Ngày ${day.date.split('-').reverse().join('/')} Bác sĩ đã kín lịch (đủ 2/2 khung Sáng & Chiều). Vui lòng chọn ngày khác còn trống!`,
-        day,
-      );
-      return;
-    }
-    onSelectValidDay(day);
+  const handleSlotClick = (
+    day: MonthlyAvailabilityDay,
+    slotWindow: 'MORNING' | 'AFTERNOON',
+    isSlotDisabled: boolean,
+  ) => {
+    if (isSlotDisabled) return;
+    onSelectSlot?.(day, slotWindow);
+    onSelectValidDay?.(day);
   };
 
   return (
@@ -117,7 +140,7 @@ export function FullMonthSlotCalendar({
       {isLoading ? (
         <div className="p-10 text-center text-xs text-slate-500">Đang tải lịch cả tháng...</div>
       ) : (
-        <div className="p-3 sm:p-4 overflow-x-auto">
+        <div className="p-3 sm:p-4 overflow-x-auto space-y-3">
           <div className="min-w-[640px]">
             <div className="grid grid-cols-7 gap-1.5 mb-2">
               {weekdayHeaders.map((w) => (
@@ -129,17 +152,18 @@ export function FullMonthSlotCalendar({
 
             <div className="grid grid-cols-7 gap-1.5">
               {leadingBlanks.map((b) => (
-                <div key={`blank-${b}`} className="h-[88px] rounded-xl bg-slate-50/40 border border-slate-100" />
+                <div
+                  key={`blank-${b}`}
+                  className="min-h-[96px] rounded-xl bg-slate-50/40 border border-slate-100"
+                />
               ))}
 
               {days.map((day) => {
                 const dayNum = Number(day.date.slice(8, 10));
                 const isLockedByCutoff = day.date < minSelectableIso;
                 const isOutOfContract = Boolean(day.isOutOfContract);
-                const isDisabled = isLockedByCutoff || isOutOfContract;
-                const isSelected = selectedDate === day.date;
-                const isFull = !day.morning.available && !day.afternoon.available;
-                const isBlocked = day.isDayOff || day.familyHasVisit || isFull;
+                const isDayMuted = isLockedByCutoff || isOutOfContract || day.isDayOff;
+                const isDaySelected = selectedDate === day.date;
 
                 const cutoffLabel =
                   day.date < todayIso
@@ -148,46 +172,37 @@ export function FullMonthSlotCalendar({
                       ? 'Hôm nay'
                       : 'Quá 20:00';
 
+                const slots: Array<{ win: 'MORNING' | 'AFTERNOON'; label: string; data: MonthlySlotStatus }> = [
+                  { win: 'MORNING', label: 'Sáng', data: day.morning },
+                  { win: 'AFTERNOON', label: 'Chiều', data: day.afternoon },
+                ];
+
                 return (
-                  <button
+                  <div
                     key={day.date}
-                    type="button"
-                    disabled={isDisabled}
-                    aria-disabled={isDisabled}
-                    onClick={() => handleCellClick(day)}
-                    className={`h-[88px] rounded-xl border p-2 text-left flex flex-col justify-between transition-all ${
-                      isDisabled
-                        ? 'border-slate-200/60 bg-slate-100/80 text-slate-400 opacity-55 cursor-not-allowed'
-                        : isSelected
-                          ? 'border-[#2E37A4] bg-indigo-50/50 ring-2 ring-[#2E37A4]/30 cursor-pointer'
-                          : isBlocked
-                            ? 'border-rose-200/70 bg-rose-50/30 hover:bg-rose-50/60 cursor-pointer'
-                            : 'border-slate-200/80 bg-white hover:border-primary/50 hover:bg-slate-50/60 cursor-pointer'
+                    className={`min-h-[96px] rounded-xl border p-1.5 flex flex-col justify-between gap-1 transition-all ${
+                      isDayMuted
+                        ? 'border-slate-200/60 bg-slate-100/70 opacity-60'
+                        : isDaySelected
+                          ? 'border-[#2E37A4] bg-indigo-50/30 ring-1 ring-[#2E37A4]/30'
+                          : 'border-slate-200/80 bg-white'
                     }`}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      {isLockedByCutoff ? (
-                        <span className="text-[10px] font-medium text-slate-400">
-                          {cutoffLabel}
-                        </span>
-                      ) : isOutOfContract ? (
-                        <span className="text-[10px] font-medium text-slate-400">
-                          Ngoài hạn gói
-                        </span>
-                      ) : day.isDayOff ? (
-                        <span className="text-[10px] font-semibold text-slate-400">Nghỉ</span>
-                      ) : day.familyHasVisit ? (
-                        <span className="text-[10px] font-semibold text-amber-700">Đã có lịch</span>
-                      ) : isFull ? (
-                        <span className="text-[10px] font-bold text-rose-600">KÍN</span>
-                      ) : (
-                        <span className="text-[10px] font-semibold text-emerald-700">Trống</span>
-                      )}
+                    <div className="flex items-center justify-between px-0.5">
+                      <span className="text-[10px] font-medium text-slate-400 truncate">
+                        {isLockedByCutoff
+                          ? cutoffLabel
+                          : isOutOfContract
+                            ? 'Ngoài hạn'
+                            : day.isDayOff
+                              ? 'Nghỉ'
+                              : ''}
+                      </span>
                       <span
                         className={`text-xs font-bold tabular-nums ${
-                          isDisabled
+                          isDayMuted
                             ? 'text-slate-400'
-                            : isSelected
+                            : isDaySelected
                               ? 'text-[#2E37A4]'
                               : 'text-slate-800'
                         }`}
@@ -196,20 +211,50 @@ export function FullMonthSlotCalendar({
                       </span>
                     </div>
 
-                    {!isDisabled && !day.isDayOff && !day.familyHasVisit && (
-                      <div className="space-y-0.5 text-[10px] font-medium tabular-nums">
-                        <div className={day.morning.available ? 'text-emerald-700' : 'text-slate-400'}>
-                          S: {day.morning.available ? '✓' : '✗'}
-                        </div>
-                        <div className={day.afternoon.available ? 'text-emerald-700' : 'text-slate-400'}>
-                          C: {day.afternoon.available ? '✓' : '✗'}
-                        </div>
-                      </div>
-                    )}
-                  </button>
+                    <div className="space-y-1">
+                      {slots.map(({ win, label, data }) => {
+                        const isDisabled = isDayMuted || !data.available;
+                        const isSelected = isDaySelected && selectedSlotWindow === win;
+                        const visual = getSlotVisual(data, isDayMuted, isSelected);
+                        return (
+                          <button
+                            key={win}
+                            type="button"
+                            disabled={isDisabled}
+                            aria-disabled={isDisabled}
+                            title={visual.tooltip}
+                            onClick={() => handleSlotClick(day, win, isDisabled)}
+                            className={`w-full rounded-md border px-1.5 py-0.5 text-[10px] font-medium flex items-center justify-between gap-1 transition-colors ${visual.className}`}
+                          >
+                            <span>{label}</span>
+                            {visual.subLabel ? (
+                              <span className="text-[9px] truncate">{visual.subLabel}</span>
+                            ) : (
+                              <span>{!isDisabled ? '✓' : '✗'}</span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-slate-100 text-[11px] text-slate-600">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-emerald-100 border border-emerald-300 inline-block" />
+              <span>Còn trống</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-rose-100 border border-rose-300 inline-block" />
+              <span>Đã có lịch</span>
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-2.5 h-2.5 rounded-xs bg-slate-200 border border-slate-300 inline-block opacity-60" />
+              <span>Không khả dụng</span>
+            </span>
           </div>
         </div>
       )}

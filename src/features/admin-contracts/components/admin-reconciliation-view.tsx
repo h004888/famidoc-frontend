@@ -16,6 +16,7 @@ import { toast } from 'sonner';
 import {
   financeApi,
   type SePayReconciliationRunDto,
+  type SePayReconciliationResultDto,
   type SePayReconciliationStatusDto,
 } from '@/lib/api/finance.api';
 import {
@@ -45,6 +46,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { paymentResultLabels } from './admin-webhook-events-view';
+import { ReconciliationBatchResult } from './reconciliation-batch-result';
 
 const vnd = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 const dateTime = new Intl.DateTimeFormat('vi-VN', {
@@ -118,6 +120,7 @@ export function AdminReconciliationView() {
   } | null>(null);
   const [reconciliationError, setReconciliationError] = useState('');
   const [running, setRunning] = useState(false);
+  const [batchResult, setBatchResult] = useState<SePayReconciliationResultDto | null>(null);
   const [checking, setChecking] = useState<string | null>(null);
   const [selectedTx, setSelectedTx] = useState<PaymentTransactionItem | null>(null);
 
@@ -181,6 +184,7 @@ export function AdminReconciliationView() {
     setRunning(true);
     try {
       const run = await financeApi.runSePayReconciliation({ environment });
+      setBatchResult(run);
       if (run.status === 'FAILED') {
         toast.error('Không đồng bộ được giao dịch từ SePay.');
       } else {
@@ -266,6 +270,7 @@ export function AdminReconciliationView() {
 
   return (
     <section className="space-y-4">
+      {batchResult && <ReconciliationBatchResult result={batchResult} onReload={reload} />}
       {/* Header gọn */}
       <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-2xs sm:px-5">
         <div className="min-w-0 space-y-0.5">

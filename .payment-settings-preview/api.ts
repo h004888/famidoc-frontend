@@ -1,0 +1,7 @@
+let settings = { environment: 'LIVE', activeEnvironment: 'LIVE', revision: 1, persisted: true, accountNumber: '00123456789', gateway: 'MBBank', bankAccountId: '11111111-1111-4111-8111-111111111111', authMethod: 'hmac', hasApiToken: true, hasWebhookSecret: true, hasWebhookApiKey: false, ttlMinutes: 15, webhookUrl: '/api/v1/payments/webhook/vietqr', simulation: false };
+export const paymentSettingsApi = {
+  get: async () => settings,
+  save: async draft => { settings = { ...settings, accountNumber: draft.accountNumber, gateway: draft.gateway, bankAccountId: draft.bankAccountId, revision: settings.revision + 1 }; return settings; },
+  check: async () => ({ draftFingerprint: 'fixture', checks: [{ code: 'REQUIRED_FIELDS', status: 'PASS', message: 'Dữ liệu hợp lệ.' }, { code: 'SEPAY_API_ACCESS', status: 'PASS', message: 'Đọc API thành công.' }, { code: 'ACCOUNT_MATCH', status: 'UNVERIFIED', message: 'Chưa xác minh.' }, { code: 'WEBHOOK_RECEIPT', status: 'UNVERIFIED', message: 'Chưa xác minh webhook.' }] }),
+  createSession: async () => ({ id: 'fixture', environment: 'LIVE', revisionId: 'fixture', amountVnd: 1000, code: 'PTC' + 'A'.repeat(24), account: { gateway: 'MBBank', accountNumber: '00123456789' }, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 900000).toISOString(), finalizeAt: new Date(Date.now() + 87300000).toISOString(), status: 'PENDING', observation: null, qrUrl: null, webhookMatchedAt: null, apiSeenAt: null }),
+};

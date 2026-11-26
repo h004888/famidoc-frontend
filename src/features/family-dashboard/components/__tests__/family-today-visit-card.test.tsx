@@ -132,6 +132,7 @@ describe('FamilyTodayVisitCard (F1)', () => {
       <FamilyTodayVisitCard
         encounter={makeEncounter({
           familyConfirmedArrivalAt: '2026-11-25T14:20:00+07:00',
+          doctorCompletedAt: '2026-11-25T15:00:00+07:00',
           clinicalEmrs: [{ id: 'emr-1', patientId: 'pat-1', isFinalized: true }],
         })}
         now={new Date('2026-11-25T15:30:00+07:00')}

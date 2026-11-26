@@ -112,6 +112,20 @@ export function AdminFacilityDetailView({ facilityId }: AdminFacilityDetailViewP
   const [showCreateContractModal, setShowCreateContractModal] = useState(false);
   const [facilityShare, setFacilityShare] = useState<number>(85);
   const [platformShare, setPlatformShare] = useState<number>(15);
+  useEffect(() => {
+    let active = true;
+    adminApi
+      .revenueConfig()
+      .then((config) => {
+        if (!active) return;
+        setFacilityShare(config.facilityRevenueRate);
+        setPlatformShare(config.platformCommissionRate);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
   const [validFrom, setValidFrom] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const [validTo, setValidTo] = useState<string>(
     () => new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10)

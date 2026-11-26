@@ -185,6 +185,8 @@ export interface RunSePayReconciliationPayload {
 }
 
 export interface SePayReconciliationRunDto {
+  monitoredAccountId?: string | null;
+  batchId?: string | null;
   id: string;
   environment: string;
   trigger: string;
@@ -203,6 +205,12 @@ export interface SePayReconciliationRunDto {
   completedAt?: string | null;
   errors?: unknown[];
 }
+
+export interface SePayReconciliationBatchDto extends SePayReconciliationRunDto {
+  resultKind: 'BATCH';
+  runs: SePayReconciliationRunDto[];
+}
+export type SePayReconciliationResultDto = SePayReconciliationRunDto | SePayReconciliationBatchDto;
 
 export interface SePayReconciliationStatusDto {
   environment: 'TEST' | 'LIVE';
@@ -291,7 +299,7 @@ export const financeApi = {
     return unwrapApiEnvelope(response);
   },
 
-  runSePayReconciliation: async (payload: RunSePayReconciliationPayload): Promise<SePayReconciliationRunDto> => {
+  runSePayReconciliation: async (payload: RunSePayReconciliationPayload): Promise<SePayReconciliationResultDto> => {
     return unwrapApiEnvelope(await httpClient.post('/api/v1/finance/reconciliation/sepay', payload));
   },
 
