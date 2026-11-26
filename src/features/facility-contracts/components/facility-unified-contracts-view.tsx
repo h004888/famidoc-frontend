@@ -74,13 +74,15 @@ function formatShortDate(value?: string): string {
 }
 
 function mapFourPartyRow(contract: FourPartyContract): UnifiedFacilityContractRow {
+  const isRenewal = Boolean(contract.upgradedFromId);
+  const isPendingActivation = contract.rawContractStatus === 'PENDING_ACTIVATION';
   const isAllComplete = contract.status === 'ACTIVE';
   const familySigned =
     Boolean(contract.signatures?.family) || isAllComplete;
   const facilitySigned =
-    Boolean(contract.signatures?.facility) || isAllComplete;
+    Boolean(contract.signatures?.facility) || isAllComplete || isRenewal;
   const isCancelled = contract.status === 'CANCELLED';
-  const isActionRequired = !isCancelled && familySigned && !facilitySigned;
+  const isActionRequired = !isRenewal && !isCancelled && familySigned && !facilitySigned;
 
   let statusKey: UnifiedFacilityContractRow['statusKey'] = 'WAITING_OTHERS';
   let statusLabel = 'Chờ gia đình ký';
@@ -90,6 +92,10 @@ function mapFourPartyRow(contract: FourPartyContract): UnifiedFacilityContractRo
     statusKey = 'CANCELLED';
     statusLabel = 'Đã hủy';
     statusClassName = 'border-rose-200 bg-rose-50 text-rose-700';
+  } else if (isPendingActivation) {
+    statusKey = 'ACTIVE';
+    statusLabel = 'Đã thanh toán – chờ hiệu lực';
+    statusClassName = 'border-sky-200 bg-sky-50 text-sky-700';
   } else if (contract.status === 'ACTIVE') {
     statusKey = 'ACTIVE';
     statusLabel = 'Đang hiệu lực';

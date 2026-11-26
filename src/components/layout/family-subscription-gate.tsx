@@ -58,6 +58,19 @@ export function canAccessFamilyBillingHistory(
   );
 }
 
+export function canAccessFamilyRenewalPages(
+  pathname: string | null | undefined,
+  gateStatus: FamilyGateStatusDto | null,
+): boolean {
+  if (!pathname) return false;
+  const normalized = normalizePath(pathname);
+  return (
+    (normalized === '/family/subscription' ||
+      normalized.startsWith('/family/subscription/')) &&
+    Boolean(gateStatus?.hasHistoricalContracts)
+  );
+}
+
 /**
  * Các tính năng chăm sóc yêu cầu hợp đồng ACTIVE. Gia đình vẫn có thể xem
  * sổ khám và đơn đã chia sẻ sau khi gói hết hạn, hoặc mở trực tiếp một hồ sơ
@@ -345,7 +358,8 @@ export function FamilySubscriptionGateGuard({ children }: { children: React.Reac
     !isLoadingGate &&
     gateStatus !== null &&
     !gateStatus.hasActiveContract &&
-    !canAccessFamilyBillingHistory(pathname, gateStatus);
+    !canAccessFamilyBillingHistory(pathname, gateStatus) &&
+    !canAccessFamilyRenewalPages(pathname, gateStatus);
   const redirectTarget = resolveBlockedFamilyRedirect(gateStatus, {
     pathname,
     search: currentSearch,

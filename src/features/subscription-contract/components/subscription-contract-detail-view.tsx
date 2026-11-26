@@ -16,7 +16,7 @@ import {
   describeSignedPdfError,
   openSignedPdf,
 } from '@/features/four-party-contract/lib/open-signed-pdf';
-import { ContractSigningWizard } from './contract-signing-wizard';
+import { ContractRenewalDialog } from './contract-renewal-dialog';
 
 interface SubscriptionContractDetailViewProps {
   contractId: string;
@@ -53,6 +53,14 @@ const STATUS_LABEL_MAP: Record<string, { label: string; className: string }> = {
   PENDING_PAYMENT: {
     label: 'Chờ thanh toán',
     className: 'bg-amber-50 text-amber-800 border-amber-200',
+  },
+  PENDING_ACTIVATION: {
+    label: 'Đã thanh toán – chờ hiệu lực',
+    className: 'bg-sky-50 text-sky-800 border-sky-200',
+  },
+  CANCELLED: {
+    label: 'Đã hủy',
+    className: 'bg-rose-50 text-rose-800 border-rose-200',
   },
   PENDING_APPROVAL: {
     label: 'Chờ ký 4 bên',
@@ -247,13 +255,24 @@ export function SubscriptionContractDetailView({
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-            <Button
-              type="button"
-              onClick={() => setIsRenewOpen(true)}
-              className="rounded-xl text-xs sm:text-sm font-semibold cursor-pointer"
-            >
-              Gia hạn hợp đồng
-            </Button>
+            {(detail.contractStatus === 'ACTIVE' ||
+              detail.contractStatus === 'EXPIRED') && (
+              <Button
+                type="button"
+                onClick={() => setIsRenewOpen(true)}
+                className="rounded-xl text-xs sm:text-sm font-semibold cursor-pointer"
+              >
+                Gia hạn hợp đồng
+              </Button>
+            )}
+            {detail.contractStatus === 'TERMINATED' && (
+              <Button
+                asChild
+                className="rounded-xl text-xs sm:text-sm font-semibold"
+              >
+                <Link href="/doctors">Mua gói mới</Link>
+              </Button>
+            )}
             <Button
               asChild
               variant="outline"
@@ -358,7 +377,22 @@ export function SubscriptionContractDetailView({
           </div>
 
           <div className="p-4 sm:p-5">
-            {!canHaveSignedPdf ? (
+            {detail.upgradedFromId && !detail.documensoItemId && !detail.signedPdfUrl ? (
+              <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-5 text-sm text-sky-900 space-y-2">
+                <p className="font-bold">Bản ghi xác nhận gia hạn trực tuyến</p>
+                <p>
+                  Kỳ hợp đồng gia hạn được đại diện gia đình xác nhận trực tuyến theo quy trình rút gọn (không ký lại 4 bên).
+                </p>
+                {detail.billingSnapshot?.renewalConfirmation?.confirmedAt && (
+                  <p className="text-xs text-sky-800">
+                    Thời điểm xác nhận: {formatContractDate(detail.billingSnapshot.renewalConfirmation.confirmedAt)}
+                    {detail.billingSnapshot.renewalConfirmation.termsHash
+                      ? ` · Mã điều khoản: ${detail.billingSnapshot.renewalConfirmation.termsHash.slice(0, 12)}…`
+                      : ''}
+                  </p>
+                )}
+              </div>
+            ) : !canHaveSignedPdf ? (
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-600">
                 File PDF hợp đồng sẽ hiển thị trực tiếp tại đây sau khi cả 4 bên
                 hoàn tất ký số điện tử.
@@ -399,11 +433,10 @@ export function SubscriptionContractDetailView({
       </main>
 
       {isRenewOpen && (
-        <ContractSigningWizard
-          packageName={packageName}
-          packagePrice={`${totalAmount.toLocaleString('vi-VN')} đ`}
-          doctorName={detail.doctor?.doctorName || 'Bác sĩ gia đình'}
+        <ContractRenewalDialog
+          contractId={detail.id}
           onClose={() => setIsRenewOpen(false)}
+          onSuccess={() => setPdfNonce((n) => n + 1)}
         />
       )}
     </div>

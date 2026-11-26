@@ -18,6 +18,10 @@ const STATUS_BADGE_MAP: Record<string, { label: string; className: string }> = {
     label: 'Chờ thanh toán',
     className: 'border-amber-300 bg-amber-50 text-amber-900',
   },
+  PENDING_ACTIVATION: {
+    label: 'Đã thanh toán – chờ hiệu lực',
+    className: 'border-sky-300 bg-sky-50 text-sky-900',
+  },
   PENDING_APPROVAL: {
     label: 'Chờ ký 4 bên',
     className: 'border-amber-300 bg-amber-50 text-amber-900',
@@ -28,6 +32,10 @@ const STATUS_BADGE_MAP: Record<string, { label: string; className: string }> = {
   },
   TERMINATED: {
     label: 'Đã chấm dứt',
+    className: 'border-rose-200 bg-rose-50 text-rose-800',
+  },
+  CANCELLED: {
+    label: 'Đã hủy',
     className: 'border-rose-200 bg-rose-50 text-rose-800',
   },
 };

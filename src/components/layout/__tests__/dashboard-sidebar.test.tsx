@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ROLE_MENUS } from '../dashboard-sidebar';
+import { canAccessFamilyRenewalPages } from '../family-subscription-gate';
 
 describe('ROLE_MENUS video consultation labels', () => {
   it('shows payment settings only in the ADMIN menu', () => {
@@ -18,5 +19,18 @@ describe('ROLE_MENUS video consultation labels', () => {
     const doctorHrefs = ROLE_MENUS.DOCTOR.items.map((i) => i.href);
     expect(familyHrefs).not.toContain('/family/appointments/book-video');
     expect(doctorHrefs.some((h) => h.includes('wrap-up'))).toBe(false);
+  });
+
+  it('allows family renewal pages when hasHistoricalContracts is true', () => {
+    const gate = {
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 1,
+      hasHistoricalContracts: true,
+    };
+    expect(canAccessFamilyRenewalPages('/family/subscription', gate)).toBe(true);
+    expect(canAccessFamilyRenewalPages('/family/subscription/ctr-1', gate)).toBe(true);
+    expect(canAccessFamilyRenewalPages('/family/appointments', gate)).toBe(false);
   });
 });

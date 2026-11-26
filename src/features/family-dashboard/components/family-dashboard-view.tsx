@@ -933,9 +933,9 @@ export function FamilyDashboardView() {
                 </Link>
               </div>
 
-              {daysUntilExpiry !== null && daysUntilExpiry <= 15 && daysUntilExpiry >= 0 && (
+              {daysUntilExpiry !== null && daysUntilExpiry <= 7 && daysUntilExpiry >= 0 && (
                 <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs font-medium text-amber-900">
-                  <span>Hợp đồng còn {daysUntilExpiry} ngày hết hạn.</span>
+                  <span>Hợp đồng sắp hết hạn (còn {daysUntilExpiry} ngày) – Gia hạn ngay</span>
                   <Link
                     href="/family/subscription"
                     className="font-semibold text-primary hover:text-primary/80"

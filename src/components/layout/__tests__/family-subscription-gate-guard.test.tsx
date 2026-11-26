@@ -691,4 +691,45 @@ describe('FamilySubscriptionGateGuard & DashboardSidebar gate', () => {
     expect(screen.queryByTestId('dashboard-shell')).toBeNull();
     expect(screen.queryByTestId('protected-content')).toBeNull();
   });
+
+  it('cho phép gia đình có hợp đồng lịch sử (Case B) truy cập /family/subscription và /family/subscription/[id] mà vẫn khóa /family/appointments và /family/telemedicine', async () => {
+    mockPathname = '/family/subscription/ctr-1';
+    vi.mocked(contractsApi.getFamilyGateStatus).mockResolvedValue({
+      hasActiveContract: false,
+      activeContract: null,
+      pendingContract: null,
+      patientCount: 2,
+      hasHistoricalContracts: true,
+    });
+
+    const { unmount } = render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="subscription-detail">Chi tiết gia hạn</div>
+        </FamilySubscriptionGateGuard>
+        <DashboardSidebar />
+      </FamilySubscriptionGateProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('subscription-detail')).toBeTruthy();
+    });
+    expect(mockReplace).not.toHaveBeenCalled();
+    const subLink = screen.getByRole('link', { name: /Gói Chăm sóc & Hợp đồng/i });
+    expect(subLink.getAttribute('href')).toBe('/family/subscription');
+    unmount();
+
+    mockPathname = '/family/appointments';
+    render(
+      <FamilySubscriptionGateProvider>
+        <FamilySubscriptionGateGuard>
+          <div data-testid="appointments-content">Lịch hẹn</div>
+        </FamilySubscriptionGateGuard>
+      </FamilySubscriptionGateProvider>,
+    );
+    await waitFor(() => {
+      expect(mockReplace).toHaveBeenCalledWith('/doctors');
+    });
+    expect(screen.queryByTestId('appointments-content')).toBeNull();
+  });
 });

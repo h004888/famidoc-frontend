@@ -17,6 +17,7 @@ import {
 } from './doctor-verification-gate';
 import {
   canAccessFamilyBillingHistory,
+  canAccessFamilyRenewalPages,
   isRestrictedFamilyPath,
   useFamilySubscriptionGateState,
 } from './family-subscription-gate';
@@ -384,7 +385,8 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
             const isItemLocked =
               (isFamilyLocked &&
                 isRestrictedFamilyPath(item.href) &&
-                !canAccessFamilyBillingHistory(item.href, gateStatus)) ||
+                !canAccessFamilyBillingHistory(item.href, gateStatus) &&
+                !canAccessFamilyRenewalPages(item.href, gateStatus)) ||
               facilityLock.locked ||
               doctorItemLocked;
             const lockTooltip = facilityLock.locked
@@ -670,7 +672,8 @@ function DashboardSidebarInner({ initialRole }: { initialRole?: LoginRole }) {
             const isItemLocked =
               (isFamilyLocked &&
                 isRestrictedFamilyPath(item.href) &&
-                !canAccessFamilyBillingHistory(item.href, gateStatus)) ||
+                !canAccessFamilyBillingHistory(item.href, gateStatus) &&
+                !canAccessFamilyRenewalPages(item.href, gateStatus)) ||
               facilityLock.locked ||
               doctorItemLocked;
             const lockTooltip = facilityLock.locked

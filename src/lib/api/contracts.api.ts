@@ -87,11 +87,13 @@ export type BackendContractStatus =
   | 'PENDING_APPROVAL'
   | 'PENDING_PAYMENT'
   | 'PAID_PENDING_APPROVAL'
+  | 'PENDING_ACTIVATION'
   | 'APPROVAL_REJECTED'
   | 'APPROVAL_EXPIRED'
   | 'ACTIVE'
   | 'EXPIRED'
-  | 'TERMINATED';
+  | 'TERMINATED'
+  | 'CANCELLED';
 
 export type BackendSignerRole =
   | 'FAMILY_REP'
@@ -120,6 +122,24 @@ export interface MedicalContractDetailDto {
   documensoEnvelopeId?: string | null;
   documensoItemId?: string | null;
   signedPdfUrl?: string | null;
+  upgradedFromId?: string | null;
+  holdExpiresAt?: string | null;
+  upgradedFrom?: {
+    id: string;
+    contractNumber: string;
+    contractStatus: BackendContractStatus;
+    startDate: string;
+    endDate: string;
+  } | null;
+  upgrades?: Array<{
+    id: string;
+    contractNumber: string;
+    contractStatus: BackendContractStatus;
+    startDate: string;
+    endDate: string;
+    holdExpiresAt?: string | null;
+    createdAt: string;
+  }>;
   signatures?: Array<{
     id?: string;
     signerRole: BackendSignerRole;
@@ -197,6 +217,13 @@ export interface MedicalContractDetailDto {
   billingSnapshot?: {
     package?: { name?: string };
     pricing?: { totalPriceVnd?: number };
+    renewalConfirmation?: {
+      confirmedByUserId?: string;
+      confirmedAt?: string;
+      ipAddress?: string;
+      termsHash?: string;
+      caseType?: string;
+    };
   };
 }
 
@@ -237,9 +264,66 @@ export interface PaymentLatestTransactionDto {
 
 export interface PaymentRecheckActivationResultDto {
   contractId?: string;
-  status?: 'PENDING' | 'ACTIVE' | 'CANCELLED';
+  status?: 'PENDING' | 'PENDING_ACTIVATION' | 'ACTIVE' | 'CANCELLED';
   activated: boolean;
   blockingReasons: string[];
+}
+
+export interface ContractRenewalPreviewDto {
+  sourceContractId: string;
+  sourceContractNumber: string;
+  sourceStatus: BackendContractStatus;
+  eligible: boolean;
+  suggestBuyNew: boolean;
+  caseType: 'CASE_A' | 'CASE_B' | null;
+  graceDays: number;
+  graceEndsAt: string | null;
+  expectedStartDate: string | null;
+  expectedEndDate: string | null;
+  paymentDeadlineAt: string | null;
+  blockingReasons: Array<{ code: string; message: string }>;
+  existingRenewal: {
+    id: string;
+    contractNumber: string;
+    contractStatus: BackendContractStatus;
+  } | null;
+  package: {
+    id: string;
+    code: string;
+    name: string;
+    durationMonths: number;
+    quotas: {
+      homeVisits: number;
+      videoConsultations: number;
+    };
+  } | null;
+  doctor: {
+    id: string;
+    fullName: string;
+  } | null;
+  facility: {
+    id: string;
+    name: string;
+  } | null;
+  members: Array<{
+    id: string;
+    fullName: string;
+    relationshipToRep: string;
+  }>;
+  pricing: {
+    basePriceVnd: number;
+    additionalMembersTotalVnd: number;
+    totalPriceVnd: number;
+    currency: string;
+  } | null;
+  termsHash: string | null;
+}
+
+export interface ConfirmContractRenewalResultDto {
+  id: string;
+  contractNumber: string;
+  contractStatus: BackendContractStatus;
+  holdExpiresAt?: string | null;
 }
 
 export interface VietQRPaymentRequestDto {
@@ -392,6 +476,24 @@ export interface StaffingContractItem {
   documensoEnvelopeId?: string | null;
   documensoItemId?: string | null;
   signedPdfUrl?: string | null;
+  upgradedFromId?: string | null;
+  holdExpiresAt?: string | null;
+  upgradedFrom?: {
+    id: string;
+    contractNumber: string;
+    contractStatus: BackendContractStatus;
+    startDate: string;
+    endDate: string;
+  } | null;
+  upgrades?: Array<{
+    id: string;
+    contractNumber: string;
+    contractStatus: BackendContractStatus;
+    startDate: string;
+    endDate: string;
+    holdExpiresAt?: string | null;
+    createdAt: string;
+  }>;
   contractTerms?: string;
   rejectionReason?: string;
   revisionReason?: string | null;
@@ -562,9 +664,14 @@ export function mapMedicalContractToFourParty(
     status = 'ACTIVE';
   } else if (
     dto.contractStatus === 'EXPIRED' ||
-    dto.contractStatus === 'TERMINATED'
+    dto.contractStatus === 'TERMINATED' ||
+    dto.contractStatus === 'CANCELLED'
   ) {
     status = 'CANCELLED';
+  } else if (dto.contractStatus === 'PENDING_PAYMENT') {
+    status = 'PENDING_PAYMENT';
+  } else if (dto.contractStatus === 'PENDING_ACTIVATION') {
+    status = 'ACTIVE';
   } else if (signedRoles.length >= 4) {
     status = 'PENDING_PAYMENT';
   } else if (signedRoles.includes('FAMILY_REP')) {
@@ -674,6 +781,9 @@ export function mapMedicalContractToFourParty(
     startDate: dto.startDate,
     endDate: dto.endDate,
     documensoEnvelopeId: dto.documensoEnvelopeId,
+    upgradedFromId: dto.upgradedFromId ?? null,
+    holdExpiresAt: dto.holdExpiresAt ?? null,
+    rawContractStatus: dto.contractStatus,
     signatures: mappedSignatures,
     ...(mappedAddenda ? { addenda: mappedAddenda } : {}),
     hasPaidContractInvoice,
@@ -1109,6 +1219,28 @@ export const contractsApi = {
     if (payload.validTo) cleanBody.endDate = payload.validTo;
     if (payload.contractTerms !== undefined) cleanBody.contractTerms = payload.contractTerms;
     return httpClient.patch(`/api/v1/contracts/staffing/${id}`, cleanBody);
+  },
+
+  getRenewalPreview: async (id: string): Promise<ContractRenewalPreviewDto> => {
+    const response = await httpClient.get<unknown>(
+      `/api/v1/contracts/${id}/renewal-preview`,
+    );
+    return unwrapEnvelope<ContractRenewalPreviewDto>(response);
+  },
+
+  confirmRenewal: async (
+    id: string,
+    payload: {
+      acceptedTerms: boolean;
+      termsHash: string;
+      videoConsultations?: number;
+    },
+  ): Promise<ConfirmContractRenewalResultDto> => {
+    const response = await httpClient.post<unknown>(
+      `/api/v1/contracts/${id}/renew`,
+      payload,
+    );
+    return unwrapEnvelope<ConfirmContractRenewalResultDto>(response);
   },
 };
 
