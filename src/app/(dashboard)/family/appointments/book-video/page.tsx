@@ -108,27 +108,24 @@ export default function BookVideoConsultationPage() {
     };
   }, []);
 
-  useEffect(() => {
+  const reloadAvailability = React.useCallback(async () => {
     if (!doctorId || !contractId) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await (encountersApi as any).getDoctorVideoAvailability(
-          doctorId,
-          monthAnchor,
-          contractId,
-        );
-        if (cancelled) return;
-        setDays(Array.isArray(res?.days) ? res.days : []);
-        setNearestSlot(res?.nearestAvailableSlot ?? null);
-      } catch {
-        if (!cancelled) setDays([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    try {
+      const res = await (encountersApi as any).getDoctorVideoAvailability(
+        doctorId,
+        monthAnchor,
+        contractId,
+      );
+      setDays(Array.isArray(res?.days) ? res.days : []);
+      setNearestSlot(res?.nearestAvailableSlot ?? null);
+    } catch {
+      setDays([]);
+    }
   }, [doctorId, contractId, monthAnchor]);
+
+  useEffect(() => {
+    void reloadAvailability();
+  }, [reloadAvailability]);
 
   const dayMap = useMemo(() => {
     const m = new Map<string, VideoDayAvailability>();
@@ -160,8 +157,15 @@ export default function BookVideoConsultationPage() {
       } as any);
       toast.success('Đã gửi yêu cầu Tư vấn Video tới Bác sĩ phụ trách.');
       router.push('/family/appointments');
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Không thể đặt lịch Tư vấn Video.');
+    } catch (err: any) {
+      const code = err?.code ?? err?.data?.code ?? err?.response?.data?.code;
+      if (code === 'SLOT_TAKEN' || (err instanceof Error && err.message.includes('Ca này vừa có người đặt'))) {
+        toast.error('Ca này vừa có người đặt, vui lòng chọn ca khác');
+        setStep(1);
+        void reloadAvailability();
+      } else {
+        toast.error(err instanceof Error ? err.message : 'Không thể đặt lịch Tư vấn Video.');
+      }
     } finally {
       setSubmitting(false);
     }

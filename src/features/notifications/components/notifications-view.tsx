@@ -12,6 +12,13 @@ import { FamilyNotificationsView } from './family-notifications-view';
 import { FacilityNotificationsView } from './facility-notifications-view';
 import { useFamilyNotificationOwner } from '../hooks/use-family-notifications';
 import { useFacilityNotificationOwner } from '../hooks/use-facility-notifications';
+import {
+  getDoctorNotificationAction,
+  getDoctorNotificationTime,
+  markDoctorNotificationsRead,
+  useDoctorNotificationOwner,
+  useDoctorNotifications,
+} from '../hooks/use-doctor-notifications';
 
 export type NotificationCategory =
   | 'vitals'
@@ -161,9 +168,126 @@ const ADMIN_NOTIFICATIONS: NotificationItem[] = [
 export function NotificationsView() {
   const owner = useFamilyNotificationOwner();
   const facilityOwner = useFacilityNotificationOwner();
+  const doctorOwner = useDoctorNotificationOwner();
   if (owner) return <FamilyNotificationsView key={owner} userId={owner} />;
   if (facilityOwner) return <FacilityNotificationsView key={facilityOwner} userId={facilityOwner} />;
+  if (doctorOwner) return <DoctorNotificationsView key={doctorOwner} userId={doctorOwner} />;
   return <ExistingNotificationsView />;
+}
+
+function DoctorNotificationsView({ userId }: { userId: string }) {
+  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const notifications = useDoctorNotifications(userId, 1, 20, filter);
+  const items = notifications.data?.items ?? [];
+  const unreadCount = notifications.data?.unreadCount ?? 0;
+
+  const markRead = (ids: string[]) => {
+    void markDoctorNotificationsRead(ids).catch((error: Error) => toast.error(error.message));
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f5f6f8] text-slate-900 font-sans antialiased">
+      <main className="w-full max-w-4xl mx-auto py-5 sm:py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900">
+              Trung tâm thông báo Bác sĩ
+            </h1>
+            <p className="text-sm text-slate-500">
+              Theo dõi lịch hẹn, xác nhận từ gia đình và nhắc hạn hồ sơ bệnh án.
+            </p>
+          </div>
+          {items.some((item) => !item.isRead) && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => markRead(items.filter((i) => !i.isRead).map((i) => i.id))}
+              className="rounded-xl bg-white"
+            >
+              Đánh dấu tất cả đã đọc ({unreadCount})
+            </Button>
+          )}
+        </div>
+
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={filter === 'all' ? 'default' : 'outline'}
+            onClick={() => setFilter('all')}
+            className="rounded-xl"
+          >
+            Tất cả
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={filter === 'unread' ? 'default' : 'outline'}
+            onClick={() => setFilter('unread')}
+            className="rounded-xl"
+          >
+            Chưa đọc ({unreadCount})
+          </Button>
+        </div>
+
+        <Card className="overflow-hidden border border-slate-200/80 bg-white shadow-xs">
+          {items.length === 0 ? (
+            <div className="p-8">
+              <EmptyState
+                icon="notifications_none"
+                title="Chưa có thông báo mới"
+                description="Các cập nhật về ca khám và hồ sơ bệnh án sẽ hiển thị tại đây."
+              />
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {items.map((item) => {
+                const action = getDoctorNotificationAction(item);
+                return (
+                  <div
+                    key={item.id}
+                    className={`p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                      !item.isRead ? 'bg-indigo-50/40' : ''
+                    }`}
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className="text-[11px]">
+                          {action.type}
+                        </Badge>
+                        <span className="text-xs text-slate-400">
+                          {getDoctorNotificationTime(item)}
+                        </span>
+                      </div>
+                      <h3 className="text-sm font-bold text-slate-900">{item.title}</h3>
+                      <p className="text-xs text-slate-600">{item.content}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {!item.isRead && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => markRead([item.id])}
+                          className="text-xs"
+                        >
+                          Đã đọc
+                        </Button>
+                      )}
+                      <Button asChild size="sm" variant="secondary" className="rounded-xl text-xs">
+                        <Link href={action.href}>{action.label}</Link>
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+      </main>
+    </div>
+  );
 }
 
 function ExistingNotificationsView() {

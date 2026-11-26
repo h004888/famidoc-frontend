@@ -21,6 +21,7 @@ import {
   type EncounterItem,
   type EncounterRescheduleRequestItem,
 } from '@/lib/api/encounters.api';
+import { isEncounterActiveToday } from '@/lib/encounter-dual-lane';
 
 interface FacilityScheduleItem {
   id: string;
@@ -227,29 +228,37 @@ export function FacilityCoordinationView() {
     return Array.from(new Set(appointments.map((a) => a.assignedDoctor))).sort();
   }, [appointments]);
 
+  const isLiveAppointment = useCallback((a: FacilityScheduleItem) => {
+    if (['ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(a.rawStatus)) {
+      return true;
+    }
+    return (
+      a.encounterType === 'HOME_VISIT' &&
+      isEncounterActiveToday({
+        scheduledDate: a.rawDate,
+        encounterStatus: a.rawStatus,
+      })
+    );
+  }, []);
+
   const counts = useMemo(() => {
     const confirmed = appointments.filter((a) => a.rawStatus === 'CONFIRMED').length;
-    const live = appointments.filter((a) =>
-      ['ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(a.rawStatus)
-    ).length;
+    const live = appointments.filter(isLiveAppointment).length;
     const completed = appointments.filter((a) => a.rawStatus === 'COMPLETED').length;
     return { all: appointments.length, confirmed, live, completed };
-  }, [appointments]);
+  }, [appointments, isLiveAppointment]);
 
   const filteredAppointments = useMemo(() => {
     return appointments.filter((apt) => {
       if (doctorFilter !== '__ALL__' && apt.assignedDoctor !== doctorFilter) return false;
       if (statusFilter === 'CONFIRMED' && apt.rawStatus !== 'CONFIRMED') return false;
-      if (
-        statusFilter === 'LIVE' &&
-        !['ON_THE_WAY', 'ARRIVED', 'IN_PROGRESS'].includes(apt.rawStatus)
-      ) {
+      if (statusFilter === 'LIVE' && !isLiveAppointment(apt)) {
         return false;
       }
       if (statusFilter === 'COMPLETED' && apt.rawStatus !== 'COMPLETED') return false;
       return true;
     });
-  }, [appointments, doctorFilter, statusFilter]);
+  }, [appointments, doctorFilter, statusFilter, isLiveAppointment]);
 
   const groupedByDate = useMemo(() => {
     const groups = new Map<string, FacilityScheduleItem[]>();

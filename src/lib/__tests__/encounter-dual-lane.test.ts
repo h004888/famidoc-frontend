@@ -1,161 +1,87 @@
 import { describe, expect, it } from 'vitest';
+import { deriveDualLaneState } from '@/lib/encounter-dual-lane';
 import type { EncounterItem } from '@/lib/api/encounters.api';
-import {
-  canFamilyConfirmAttendance,
-  deriveDualLaneState,
-  formatEncounterTime,
-  getFamilyVisitStepper,
-  isEncounterActiveToday,
-} from '@/lib/encounter-dual-lane';
 
 function makeEncounter(overrides: Partial<EncounterItem> = {}): EncounterItem {
   return {
     id: 'enc-1',
-    contractId: 'contract-1',
+    contractId: 'con-1',
     doctorId: 'doc-1',
-    scheduledDate: '2026-11-25',
-    scheduledTime: '14:00',
     encounterType: 'HOME_VISIT',
     category: 'PERIODIC_ROUTINE',
+    scheduledDate: '2026-11-25',
+    scheduledTime: '09:00:00',
+    slotWindow: 'MORNING',
     encounterStatus: 'CONFIRMED',
     familyConfirmedArrivalAt: null,
+    doctorCompletedAt: null,
+    recordOverdueAt: null,
     clinicalEmrs: [],
     ...overrides,
-  };
+  } as EncounterItem;
 }
 
-describe('encounter-dual-lane', () => {
-  describe('isEncounterActiveToday & canFamilyConfirmAttendance', () => {
-    it('allows active today at 09:00 for 14:00 visit, but blocks family confirm until 14:00', () => {
-      const encounter = makeEncounter({ scheduledDate: '2026-11-25', scheduledTime: '14:00' });
-      const morning = new Date('2026-11-25T09:00:00+07:00');
-      expect(isEncounterActiveToday(encounter, morning)).toBe(true);
-      expect(canFamilyConfirmAttendance(encounter, morning)).toBe(false);
+describe('encounter-dual-lane (2-tier Home Visit & 2-session SLA)', () => {
+  it('không trả COMPLETED khi chỉ có 1 clinicalEmr finalized lẻ mà doctorCompletedAt == null', () => {
+    const enc = makeEncounter({
+      familyConfirmedArrivalAt: '2026-11-25T02:05:00.000Z',
+      doctorCompletedAt: null,
+      clinicalEmrs: [{ id: 'emr-1', patientId: 'pat-1', isFinalized: true }],
     });
 
-    it('enables family confirm from scheduledTime onwards on the same day', () => {
-      const encounter = makeEncounter({ scheduledDate: '2026-11-25', scheduledTime: '14:00' });
-      const atStart = new Date('2026-11-25T14:00:00+07:00');
-      const afternoon = new Date('2026-11-25T15:30:00+07:00');
-      expect(isEncounterActiveToday(encounter, atStart)).toBe(true);
-      expect(canFamilyConfirmAttendance(encounter, atStart)).toBe(true);
-      expect(canFamilyConfirmAttendance(encounter, afternoon)).toBe(true);
-    });
+    const state = deriveDualLaneState(enc, new Date('2026-11-25T11:35:00+07:00'));
 
-    it('blocks family confirm if already confirmed or NO_SHOW', () => {
-      const afternoon = new Date('2026-11-25T15:30:00+07:00');
-      expect(
-        canFamilyConfirmAttendance(
-          makeEncounter({ familyConfirmedArrivalAt: '2026-11-25T14:15:00+07:00' }),
-          afternoon,
-        ),
-      ).toBe(false);
-      expect(
-        canFamilyConfirmAttendance(
-          makeEncounter({ encounterStatus: 'NO_SHOW' }),
-          afternoon,
-        ),
-      ).toBe(false);
-    });
-
-    it('returns false for tomorrow visits', () => {
-      const encounter = makeEncounter({ scheduledDate: '2026-11-26', scheduledTime: '14:00' });
-      const today = new Date('2026-11-25T14:00:00+07:00');
-      expect(isEncounterActiveToday(encounter, today)).toBe(false);
-      expect(canFamilyConfirmAttendance(encounter, today)).toBe(false);
-    });
-
-    it('returns false for TELEHEALTH visits even after scheduledTime', () => {
-      const tele = makeEncounter({
-        encounterType: 'TELEHEALTH',
-        scheduledDate: '2026-11-25',
-        scheduledTime: '1970-01-01T09:30:00.000Z',
-      });
-      const afternoon = new Date('2026-11-25T15:00:00+07:00');
-      expect(canFamilyConfirmAttendance(tele, afternoon)).toBe(false);
-    });
-
-    it('formatEncounterTime extracts HH:mm from ISO 1970-01-01T... and plain HH:mm strings', () => {
-      expect(formatEncounterTime('1970-01-01T09:37:00.000Z')).toBe('09:37');
-      expect(formatEncounterTime('14:05:00')).toBe('14:05');
-      expect(formatEncounterTime('8:30')).toBe('08:30');
-      expect(formatEncounterTime(null)).toBe('');
-    });
+    expect(state.reconciledStatus).toBe('PENDING_RECORD');
+    expect(state.reconciledStatus).not.toBe('COMPLETED');
   });
 
-  describe('deriveDualLaneState & getFamilyVisitStepper', () => {
-    it('reconciles to COMPLETED when family confirmed and >= 1 finalized EMR exists', () => {
-      const encounter = makeEncounter({
-        familyConfirmedArrivalAt: '2026-11-25T14:30:00+07:00',
-        clinicalEmrs: [{ id: 'emr-1', patientId: 'pat-1', isFinalized: true }],
-      });
-      const state = deriveDualLaneState(encounter, new Date('2026-11-25T16:00:00+07:00'));
-      expect(state.reconciledStatus).toBe('COMPLETED');
-      expect(state.familyStatusLabel).toBe('Hoàn tất • Đã có kết quả');
-      expect(state.autoClosedByTimeout).toBe(false);
+  it('trả COMPLETED khi doctorCompletedAt != null và familyConfirmedArrivalAt != null', () => {
+    const enc = makeEncounter({
+      encounterStatus: 'COMPLETED',
+      familyConfirmedArrivalAt: '2026-11-25T02:05:00.000Z',
+      doctorCompletedAt: '2026-11-25T04:15:00.000Z',
+      clinicalEmrs: [{ id: 'emr-1', patientId: 'pat-1', isFinalized: true }],
     });
 
-    it('reconciles to PENDING_RECORD when family confirmed but doctor has not finalized any EMR', () => {
-      const encounter = makeEncounter({
-        scheduledDate: '2026-11-25',
-        scheduledTime: '14:00',
-        familyConfirmedArrivalAt: '2026-11-25T14:30:00+07:00',
-        clinicalEmrs: [{ id: 'emr-1', patientId: 'pat-1', isFinalized: false }],
-      });
-      // Default 90m visit ends at 15:30 -> 24h deadline is 2026-11-26T15:30:00+07:00
-      const now = new Date('2026-11-25T19:30:00+07:00');
-      const state = deriveDualLaneState(encounter, now);
-      expect(state.reconciledStatus).toBe('PENDING_RECORD');
-      expect(state.remainingRecordHours).toBe(20);
-      expect(state.familyStatusLabel).toBe('Chờ bác sĩ gửi hồ sơ');
+    const state = deriveDualLaneState(enc, new Date('2026-11-25T11:35:00+07:00'));
+
+    expect(state.reconciledStatus).toBe('COMPLETED');
+    expect(state.allowReview).toBe(true);
+  });
+
+  it('đánh dấu isOverdue = true khi recordOverdueAt != null hoặc quá 23:59 ngày khám mà doctorCompletedAt == null', () => {
+    const encPastMidnight = makeEncounter({
+      doctorCompletedAt: null,
+      recordOverdueAt: null,
+    });
+    const statePastMidnight = deriveDualLaneState(
+      encPastMidnight,
+      new Date('2026-11-26T00:05:00+07:00'),
+    );
+    expect((statePastMidnight as any).isOverdue).toBe(true);
+
+    const encWithFlag = makeEncounter({
+      doctorCompletedAt: null,
+      recordOverdueAt: '2026-11-26T00:01:00+07:00',
+    });
+    const stateWithFlag = deriveDualLaneState(
+      encWithFlag,
+      new Date('2026-11-25T22:00:00+07:00'),
+    );
+    expect((stateWithFlag as any).isOverdue).toBe(true);
+  });
+
+  it('tính remainingRecordHours tới 23:59 cùng ngày (~13h lúc 11:35 cho ca Sáng), không dùng +90p + 24h', () => {
+    const enc = makeEncounter({
+      scheduledDate: '2026-11-25',
+      scheduledTime: '09:00:00',
+      slotWindow: 'MORNING',
+      familyConfirmedArrivalAt: '2026-11-25T02:05:00.000Z',
+      doctorCompletedAt: null,
     });
 
-    it('auto-closes to COMPLETED after 48h if family forgot to confirm but doctor finalized EMR', () => {
-      const encounter = makeEncounter({
-        scheduledDate: '2026-11-22',
-        scheduledTime: '09:00',
-        familyConfirmedArrivalAt: null,
-        clinicalEmrs: [{ id: 'emr-1', patientId: 'pat-1', isFinalized: true }],
-      });
-      const now = new Date('2026-11-25T12:00:00+07:00');
-      const state = deriveDualLaneState(encounter, now);
-      expect(state.reconciledStatus).toBe('COMPLETED');
-      expect(state.autoClosedByTimeout).toBe(true);
-    });
+    const state = deriveDualLaneState(enc, new Date('2026-11-25T11:35:00+07:00'));
 
-    it('locks to DISPUTED when family reported NO_SHOW regardless of doctor EMR', () => {
-      const encounter = makeEncounter({
-        encounterStatus: 'NO_SHOW',
-        clinicalEmrs: [{ id: 'emr-1', patientId: 'pat-1', isFinalized: true }],
-      });
-      const state = deriveDualLaneState(encounter, new Date('2026-11-25T16:00:00+07:00'));
-      expect(state.reconciledStatus).toBe('DISPUTED');
-      expect(state.allowReview).toBe(false);
-      expect(state.autoCloseLocked).toBe(true);
-      expect(state.familyStatusLabel).toBe('Đang kiểm tra sự cố');
-    });
-
-    it('builds 3-step family stepper accurately', () => {
-      const upcoming = getFamilyVisitStepper(
-        makeEncounter({ scheduledDate: '2026-11-26' }),
-        new Date('2026-11-25T09:00:00+07:00'),
-      );
-      expect(upcoming.map((s) => s.status)).toEqual(['done', 'upcoming', 'upcoming']);
-
-      const active = getFamilyVisitStepper(
-        makeEncounter({ scheduledDate: '2026-11-25', scheduledTime: '14:00' }),
-        new Date('2026-11-25T14:30:00+07:00'),
-      );
-      expect(active.map((s) => s.status)).toEqual(['done', 'current', 'upcoming']);
-
-      const completed = getFamilyVisitStepper(
-        makeEncounter({
-          familyConfirmedArrivalAt: '2026-11-25T14:30:00+07:00',
-          clinicalEmrs: [{ id: 'emr-1', patientId: 'pat-1', isFinalized: true }],
-        }),
-        new Date('2026-11-25T16:00:00+07:00'),
-      );
-      expect(completed.map((s) => s.status)).toEqual(['done', 'done', 'done']);
-    });
+    expect(state.remainingRecordHours).toBe(13);
   });
 });

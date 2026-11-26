@@ -401,19 +401,6 @@ export function DoctorTimetableView() {
     }
   };
 
-  const handleMarkArrived = async (encounterId: string) => {
-    setActionId(encounterId);
-    try {
-      await encountersApi.markArrived(encounterId);
-      toast.success('Đã check-in có mặt tại nhà. Đang chờ gia đình xác nhận 1 chạm.');
-      await loadTimetableAndRequests();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Không thể check-in có mặt.');
-    } finally {
-      setActionId(null);
-    }
-  };
-
   const handleOpenRescheduleModal = (enc: EncounterItem) => {
     setRescheduleTarget(enc);
     setRescheduleDate(getEncounterDate(enc) || todayIso);
@@ -591,6 +578,11 @@ export function DoctorTimetableView() {
                             <Badge variant="outline" className="border-amber-300 bg-white text-amber-900 text-[10px]">
                               Chờ EHR
                             </Badge>
+                            {lane.isOverdue && (
+                              <Badge variant="destructive" className="text-[10px]">
+                                QUÁ HẠN
+                              </Badge>
+                            )}
                             <span className="font-bold text-slate-900 truncate">
                               {getPatientLabel(enc)}
                             </span>

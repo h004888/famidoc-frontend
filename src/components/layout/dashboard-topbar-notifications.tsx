@@ -12,6 +12,13 @@ import {
   useFacilityNotificationOwner,
   useFacilityNotifications,
 } from '@/features/notifications/hooks/use-facility-notifications';
+import {
+  getDoctorNotificationAction,
+  getDoctorNotificationTime,
+  markDoctorNotificationsRead,
+  useDoctorNotificationOwner,
+  useDoctorNotifications,
+} from '@/features/notifications/hooks/use-doctor-notifications';
 
 export interface TopbarNotificationItem {
   id: string;
@@ -78,6 +85,8 @@ export function DashboardTopbarNotifications() {
   const familyNotifications = useFamilyNotifications(familyOwner, 1, 8);
   const facilityOwner = useFacilityNotificationOwner();
   const facilityNotifications = useFacilityNotifications(facilityOwner, 1, 8);
+  const doctorOwner = useDoctorNotificationOwner();
+  const doctorNotifications = useDoctorNotifications(doctorOwner, 1, 8);
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<TopbarNotificationItem[]>([]);
   const [mounted, setMounted] = useState(false);
@@ -146,12 +155,34 @@ export function DashboardTopbarNotifications() {
             badgeClass: 'bg-blue-50 text-primary border-blue-200',
           };
         })
-      : notifications;
+      : doctorOwner
+        ? (doctorNotifications.data?.items ?? []).map((item): TopbarNotificationItem => {
+            const action = getDoctorNotificationAction(item);
+            return {
+              id: item.id,
+              type: 'GENERAL',
+              typeLabel: action.type,
+              title: item.title,
+              message: item.content,
+              timestamp: getDoctorNotificationTime(item),
+              isRead: item.isRead,
+              actionHref: action.href,
+              actionLabel: action.label,
+              icon: action.icon,
+              badgeClass:
+                item.type === 'ENCOUNTER_RECORD_OVERDUE'
+                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                  : 'bg-indigo-50 text-indigo-800 border-indigo-200',
+            };
+          })
+        : notifications;
   const unreadCount = familyOwner
     ? familyNotifications.data?.unreadCount ?? 0
     : facilityOwner
       ? facilityNotifications.data?.unreadCount ?? 0
-      : notifications.filter((n) => !n.isRead).length;
+      : doctorOwner
+        ? doctorNotifications.data?.unreadCount ?? 0
+        : notifications.filter((n) => !n.isRead).length;
   const hasVisibleUnread = visibleNotifications.some((item) => !item.isRead);
 
   function markFamilyRead(ids: string[]) {
@@ -162,6 +193,10 @@ export function DashboardTopbarNotifications() {
     void markFacilityNotificationsRead(ids).catch((error: Error) => toast.error(error.message));
   }
 
+  function markDoctorRead(ids: string[]) {
+    void markDoctorNotificationsRead(ids).catch((error: Error) => toast.error(error.message));
+  }
+
   const markAllAsRead = () => {
     if (familyOwner) {
       markFamilyRead(visibleNotifications.filter((item) => !item.isRead).map((item) => item.id));
@@ -169,6 +204,10 @@ export function DashboardTopbarNotifications() {
     }
     if (facilityOwner) {
       markFacilityRead(visibleNotifications.filter((item) => !item.isRead).map((item) => item.id));
+      return;
+    }
+    if (doctorOwner) {
+      markDoctorRead(visibleNotifications.filter((item) => !item.isRead).map((item) => item.id));
       return;
     }
     setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
@@ -183,6 +222,10 @@ export function DashboardTopbarNotifications() {
       if (visibleNotifications.some((item) => item.id === id && !item.isRead)) markFacilityRead([id]);
       return;
     }
+    if (doctorOwner) {
+      if (visibleNotifications.some((item) => item.id === id && !item.isRead)) markDoctorRead([id]);
+      return;
+    }
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
   };
 
@@ -193,6 +236,7 @@ export function DashboardTopbarNotifications() {
         onClick={() => {
           if (familyOwner && !isOpen) familyNotifications.reload();
           if (facilityOwner && !isOpen) facilityNotifications.reload();
+          if (doctorOwner && !isOpen) doctorNotifications.reload();
           setIsOpen(!isOpen);
         }}
         aria-label={
@@ -233,7 +277,9 @@ export function DashboardTopbarNotifications() {
                   ? 'Thông báo Quản trị viên'
                   : facilityOwner
                     ? 'Thông báo Cơ sở Y tế'
-                    : 'Thông báo hệ thống'}
+                    : doctorOwner
+                      ? 'Thông báo Bác sĩ'
+                      : 'Thông báo hệ thống'}
               </span>
               {unreadCount > 0 && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200 tabular-nums">
@@ -248,7 +294,7 @@ export function DashboardTopbarNotifications() {
                 onClick={markAllAsRead}
                 className="text-[11px] font-semibold text-slate-500 hover:text-[#0046c0] transition-colors cursor-pointer"
               >
-                {familyOwner || facilityOwner ? 'Đọc các tin này' : 'Đọc tất cả'}
+                {familyOwner || facilityOwner || doctorOwner ? 'Đọc các tin này' : 'Đọc tất cả'}
               </button>
             )}
           </div>

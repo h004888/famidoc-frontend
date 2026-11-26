@@ -81,7 +81,16 @@ async function get<T>(path: string, params?: Record<string, string | number | un
   return unwrapApiEnvelope(await httpClient.get(path, params, { cache: 'no-store' }));
 }
 
+export interface AdminRevenueConfig {
+  facilityRevenueRate: number;
+  platformCommissionRate: number;
+  updatedAt: string | null;
+}
+
 export const adminApi = {
+  revenueConfig: () => get<AdminRevenueConfig>('/api/v1/admin/revenue-config'),
+  updateRevenueConfig: async (payload: { facilityRevenueRate: number; platformCommissionRate: number }): Promise<AdminRevenueConfig> =>
+    unwrapApiEnvelope(await httpClient.patch('/api/v1/admin/revenue-config', payload)),
   overview: (period: AdminPeriod, environment: 'LIVE' | 'TEST' = 'LIVE') => get<AdminOverview>('/api/v1/admin/overview', { period, environment }),
   financeReport: (year: number, environment: AdminFinanceReport['environment']) =>
     get<AdminFinanceReport>('/api/v1/admin/finance-report', { year, environment }),

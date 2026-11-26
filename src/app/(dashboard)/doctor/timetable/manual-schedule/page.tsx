@@ -49,7 +49,7 @@ export default function DoctorManualSchedulePage() {
     void loadManualQueue();
   }, [loadManualQueue]);
 
-  useEffect(() => {
+  const reloadAvailability = useCallback(() => {
     if (!selectedItem?.doctorId) return;
     setLoadingCal(true);
     encountersApi
@@ -58,6 +58,10 @@ export default function DoctorManualSchedulePage() {
       .catch(() => setDays([]))
       .finally(() => setLoadingCal(false));
   }, [selectedItem?.doctorId, selectedItem?.contractId, month]);
+
+  useEffect(() => {
+    reloadAvailability();
+  }, [reloadAvailability]);
 
   const handleConfirmManual = async () => {
     if (!selectedItem || !selectedDay) return;
@@ -71,10 +75,17 @@ export default function DoctorManualSchedulePage() {
       toast.success('Đã chốt lịch xếp tay thành công.');
       setSelectedDay(null);
       await loadManualQueue();
-    } catch (err) {
-      setAlertMessage(
-        err instanceof Error ? err.message : 'Không thể chốt lịch. Vui lòng kiểm tra lại.',
-      );
+    } catch (err: any) {
+      const code = err?.code ?? err?.data?.code ?? err?.response?.data?.code;
+      if (code === 'SLOT_TAKEN' || (err instanceof Error && err.message.includes('Ca này vừa có người đặt'))) {
+        toast.error('Ca này vừa có người đặt, vui lòng chọn ca khác');
+        setSelectedDay(null);
+        reloadAvailability();
+      } else {
+        setAlertMessage(
+          err instanceof Error ? err.message : 'Không thể chốt lịch. Vui lòng kiểm tra lại.',
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -157,16 +168,13 @@ export default function DoctorManualSchedulePage() {
               month={month}
               days={days}
               selectedDate={selectedDay?.date ?? null}
+              selectedSlotWindow={slotWindow}
               isLoading={loadingCal}
               onMonthChange={setMonth}
-              onSelectValidDay={(day) => {
+              onSelectSlot={(day, win) => {
                 setAlertMessage(null);
                 setSelectedDay(day);
-                setSlotWindow(day.morning.available ? 'MORNING' : 'AFTERNOON');
-              }}
-              onUnavailableClick={(msg) => {
-                setSelectedDay(null);
-                setAlertMessage(msg);
+                setSlotWindow(win);
               }}
             />
 

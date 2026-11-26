@@ -5,8 +5,7 @@ import type { MonthlyAvailabilityDay } from '@/lib/api/encounters.api';
 
 describe('FullMonthSlotCalendar', () => {
   it('khóa các ngày ngoài hạn hiệu lực hợp đồng (isOutOfContract=true) và không cho chọn', () => {
-    const onSelectValidDay = vi.fn();
-    const onUnavailableClick = vi.fn();
+    const onSelectSlot = vi.fn();
     const days: MonthlyAvailabilityDay[] = [
       {
         date: '2099-05-20',
@@ -33,19 +32,20 @@ describe('FullMonthSlotCalendar', () => {
         days={days}
         selectedDate={null}
         onMonthChange={vi.fn()}
-        onSelectValidDay={onSelectValidDay}
-        onUnavailableClick={onUnavailableClick}
+        onSelectSlot={onSelectSlot}
       />,
     );
 
-    const validBtn = screen.getByRole('button', { name: /20/ });
-    const expiredBtn = screen.getByRole('button', { name: /21/ });
+    const morningBtns = screen.getAllByRole('button', { name: /Sáng/i });
+    const afternoonBtns = screen.getAllByRole('button', { name: /Chiều/i });
 
-    expect(validBtn).not.toBeDisabled();
-    expect(expiredBtn).toBeDisabled();
-    expect(expiredBtn).toHaveTextContent(/Ngoài hạn gói/i);
+    expect(morningBtns[0]).not.toBeDisabled();
+    expect(afternoonBtns[0]).not.toBeDisabled();
+    expect(morningBtns[1]).toBeDisabled();
+    expect(afternoonBtns[1]).toBeDisabled();
+    expect(screen.getByText(/Ngoài hạn/i)).toBeInTheDocument();
 
-    fireEvent.click(expiredBtn);
-    expect(onSelectValidDay).not.toHaveBeenCalled();
+    fireEvent.click(morningBtns[1]);
+    expect(onSelectSlot).not.toHaveBeenCalled();
   });
 });

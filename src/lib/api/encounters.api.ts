@@ -95,6 +95,7 @@ export interface EncounterContract {
     homeAddress?: string;
     emergencyPhone?: string;
     representativeUser?: {
+      id?: string;
       fullName?: string;
       name?: string;
       phone?: string;
@@ -118,6 +119,8 @@ export type EncounterVisitScope = 'FAMILY' | 'INDIVIDUAL';
 export interface EncounterParticipant {
   id: string;
   patientId: string;
+  attendanceStatus?: 'PLANNED' | 'EXAMINED' | 'ABSENT';
+  absenceReason?: string | null;
   patient?: EncounterPatient;
 }
 
@@ -142,6 +145,18 @@ export interface EncounterItem {
   onTheWayAt?: string | null;
   arrivedAt?: string | null;
   familyConfirmedArrivalAt?: string | null;
+  slotWindow?: string | null;
+  doctorCompletedAt?: string | null;
+  recordOverdueAt?: string | null;
+  lateCompletionReason?: string | null;
+  sessionDeadlines?: {
+    sessionWindow: 'MORNING' | 'AFTERNOON';
+    sessionEndAt: string;
+    reminder21hAt: string;
+    recordDeadlineAt: string;
+    escalationAt: string;
+    autoCloseAt: string;
+  };
   scheduleStage?: EncounterScheduleStage;
   milestoneIndex?: number | null;
   totalMilestones?: number | null;
@@ -163,6 +178,7 @@ export interface EncounterItem {
     id: string;
     patientId: string;
     isFinalized: boolean;
+    prescriptions?: Array<{ id: string }>;
   }>;
   telehealthSession?: {
     id: string;
@@ -272,8 +288,18 @@ export interface DoctorRescheduleReviewDto {
   notes?: string;
 }
 
+export type SlotReasonCode =
+  | 'AVAILABLE'
+  | 'TAKEN'
+  | 'OWN_VISIT'
+  | 'FAMILY_SAME_DAY'
+  | 'DAY_OFF'
+  | 'PAST'
+  | 'OUT_OF_CONTRACT';
+
 export interface MonthlySlotStatus {
   available: boolean;
+  reasonCode?: SlotReasonCode;
   reason?: string | null;
   label?: string | null;
 }
@@ -355,19 +381,43 @@ export const encountersApi = {
     return unwrapApiEnvelope(raw);
   },
 
-  markOnTheWay: async (id: string): Promise<EncounterItem> => {
-    const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/on-the-way`, {});
-    return unwrapApiEnvelope(raw) as EncounterItem;
-  },
-
-  markArrived: async (id: string): Promise<EncounterItem> => {
-    const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/arrive`, {});
-    return unwrapApiEnvelope(raw) as EncounterItem;
-  },
-
   confirmArrival: async (id: string): Promise<EncounterItem> => {
     const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/confirm-arrival`, {});
     return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  completeEncounter: async (
+    id: string,
+    payload: { lateCompletionReason?: string } = {},
+  ): Promise<EncounterItem> => {
+    const raw = await httpClient.patch<EncounterItem>(`/api/v1/encounters/${id}/complete`, payload);
+    return unwrapApiEnvelope(raw) as EncounterItem;
+  },
+
+  updateParticipantAttendance: async (
+    id: string,
+    patientId: string,
+    attendanceStatus: 'PLANNED' | 'ABSENT',
+    absenceReason?: string,
+  ): Promise<{
+    encounterId: string;
+    patientId: string;
+    attendanceStatus: string;
+    absenceReason?: string | null;
+  }> => {
+    const raw = await httpClient.patch(
+      `/api/v1/encounters/${id}/participants/${patientId}/attendance`,
+      {
+        attendanceStatus,
+        ...(absenceReason !== undefined ? { absenceReason } : {}),
+      },
+    );
+    return unwrapApiEnvelope(raw) as {
+      encounterId: string;
+      patientId: string;
+      attendanceStatus: string;
+      absenceReason?: string | null;
+    };
   },
 
   requestReschedule: async (id: string, payload: RequestRescheduleDto): Promise<any> => {

@@ -32,12 +32,23 @@ export interface BookVisit {
   diagnosis: string | null;
 }
 
+export interface VisitVitals {
+  systolicBp?: number;
+  diastolicBp?: number;
+  heartRate?: number;
+  temperature?: number;
+  spo2?: number;
+  respiratoryRate?: number;
+  weightKg?: number;
+}
+
 export interface BookVisitDetail extends Omit<BookVisit, 'diagnosis'> {
   visitScope?: 'FAMILY' | 'INDIVIDUAL';
   participants?: Array<{ id: string; fullName: string }>;
   patient: BookMember & { familyId: string; gender?: string };
   facility?: { facilityName: string; address: string | null; phone?: string };
   exam: PrescriptionExam | null;
+  vitals?: (VisitVitals & { recordedAt: string; source: 'DRAFT' | 'PREVIOUS' }) | null;
   finalizedAt: string | null;
   recipient: { id: string; name: string } | null;
   prescription: Pick<
@@ -71,6 +82,7 @@ export interface ConfirmBookVisit {
   patientId: string;
   confirmed: true;
   exam?: PrescriptionExam;
+  vitals?: VisitVitals;
   prescription?: {
     clinicalContext?: PrescriptionContext;
     details: PrescriptionLine[];
@@ -190,6 +202,22 @@ export const medicalBooksApi = {
         `${path}/visits/${encodeURIComponent(id)}`,
         patientId ? { patientId } : undefined,
         { signal, cache: 'no-store' },
+      ),
+    );
+  },
+  async saveDraft(
+    id: string,
+    body: { patientId: string; exam?: Partial<PrescriptionExam>; vitals?: VisitVitals },
+  ) {
+    return unwrapApiEnvelope<{
+      encounterId: string;
+      emrId: string;
+      isFinalized: boolean;
+      savedAt: string;
+    }>(
+      await httpClient.put(
+        `${path}/visits/${encodeURIComponent(id)}/draft`,
+        body,
       ),
     );
   },

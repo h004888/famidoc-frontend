@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { contractsApi, extractErrorMessage } from '@/lib/api';
 import { facilitiesApi, type AdminFacilityItem } from '@/lib/api/facilities.api';
+import { adminApi } from '@/lib/api/admin.api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
@@ -49,6 +50,16 @@ export function CreateB2BContractDialog({
   const [highlightedIndex, setHighlightedIndex] = useState(0);
 
   const [newFacilityShare, setNewFacilityShare] = useState(85);
+  useEffect(() => {
+    let active = true;
+    adminApi
+      .revenueConfig()
+      .then((config) => active && setNewFacilityShare(config.facilityRevenueRate))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
   const [validFromDate, setValidFromDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [validToDate, setValidToDate] = useState(() => {
     const d = new Date();
