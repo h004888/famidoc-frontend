@@ -452,9 +452,9 @@ export function FamilyFeedbackView() {
 
     try {
       await reviewsApi.submitDoctorReview({
-        doctorId: selectedEncounterForReview.id,
-        rating: ratingOverall,
-        comment:
+        encounterId: selectedEncounterForReview.id,
+        ratingStars: ratingOverall,
+        reviewComment:
           reviewComment.trim() ||
           'Dịch vụ chu đáo, bác sĩ chuyên môn vững vàng.',
       });

@@ -6,9 +6,9 @@ import type { ComplaintCategory } from '@/lib/complaint-labels';
 export type { ComplaintCategory, ComplaintOutcome, ComplaintStatus };
 
 export interface DoctorReviewPayload {
-  doctorId: string;
-  rating: number; // 1-5
-  comment: string;
+  encounterId: string;
+  ratingStars: number; // 1-5
+  reviewComment?: string;
 }
 
 export interface SubmitComplaintPayload {

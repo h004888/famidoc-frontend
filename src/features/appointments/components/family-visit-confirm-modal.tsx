@@ -59,10 +59,11 @@ export function FamilyVisitConfirmModal({
     try {
       await encountersApi.confirmArrival(encounter.id);
       if (withReview && encounter.doctorId) {
+        const trimmedComment = comment.trim();
         await reviewsApi.submitDoctorReview({
-          doctorId: encounter.doctorId,
-          rating,
-          comment: comment.trim(),
+          encounterId: encounter.id,
+          ratingStars: rating,
+          ...(trimmedComment ? { reviewComment: trimmedComment } : {}),
         });
       }
       onCompleted({ action: 'ARRIVED', reviewed: withReview });
