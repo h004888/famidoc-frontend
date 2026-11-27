@@ -79,4 +79,31 @@ describe('Contract payment summary from the backend', () => {
     expect(mapped.hasPaidContractInvoice).toBe(false);
     expect(mapped.addenda?.[0].hasPaidInvoice).toBe(false);
   });
+
+  it('maps renewal contract statuses (PENDING_PAYMENT with 1 sig, PENDING_ACTIVATION, CANCELLED) accurately', () => {
+    const pendingPayment = mapMedicalContractToFourParty({
+      ...contract(),
+      upgradedFromId: 'old-1',
+      contractStatus: 'PENDING_PAYMENT',
+      signatures: [{ signerRole: 'FAMILY_REP', signerUserId: 'u1', signedAt: '2026-11-26' }],
+    });
+    expect(pendingPayment.status).toBe('PENDING_PAYMENT');
+    expect(pendingPayment.upgradedFromId).toBe('old-1');
+
+    const pendingActivation = mapMedicalContractToFourParty({
+      ...contract(),
+      upgradedFromId: 'old-1',
+      contractStatus: 'PENDING_ACTIVATION' as any,
+      signatures: [{ signerRole: 'FAMILY_REP', signerUserId: 'u1', signedAt: '2026-11-26' }],
+    });
+    expect(pendingActivation.rawContractStatus).toBe('PENDING_ACTIVATION');
+    expect(pendingActivation.upgradedFromId).toBe('old-1');
+
+    const cancelled = mapMedicalContractToFourParty({
+      ...contract(),
+      upgradedFromId: 'old-1',
+      contractStatus: 'CANCELLED' as any,
+    });
+    expect(cancelled.status).toBe('CANCELLED');
+  });
 });

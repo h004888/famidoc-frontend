@@ -160,15 +160,34 @@ function asRecord(value: unknown): ErrorRecord | undefined {
 }
 
 function invalidReason(payload: ErrorRecord): string | undefined {
+  const nestedError = asRecord(payload.error);
   for (const params of [
-    asRecord(payload.error)?.invalidParams,
+    nestedError?.invalidParams,
     payload.invalidParams,
   ]) {
     if (!Array.isArray(params)) continue;
-    for (const param of params) {
-      const reason = asRecord(param)?.reason;
-      if (typeof reason === 'string' && reason.trim()) return reason;
-    }
+    const messages = params
+      .map((param) => {
+        const record = asRecord(param);
+        const msg = record?.message ?? record?.reason;
+        return typeof msg === 'string' && msg.trim() ? msg.trim() : '';
+      })
+      .filter(Boolean);
+    if (messages.length > 0) return messages.join(' ');
+  }
+  for (const conditions of [
+    nestedError?.conditions,
+    payload.conditions,
+  ]) {
+    if (!Array.isArray(conditions)) continue;
+    const messages = conditions
+      .map((cond) => {
+        const record = asRecord(cond);
+        const msg = record?.message;
+        return typeof msg === 'string' && msg.trim() ? msg.trim() : '';
+      })
+      .filter(Boolean);
+    if (messages.length > 0) return messages.join(' ');
   }
   return undefined;
 }
@@ -202,10 +221,10 @@ export function extractErrorMessage(
         .join('; ');
     }
     const nested = asRecord(payload.error);
-    // Giữ thông báo nghiệp vụ tiếng Việt khi detail chỉ là Bad Request/Not Found.
+    // Ưu tiên error.detail theo chuẩn mới (không dùng root message chung chung).
     const candidates = [
-      payload.message,
       nested?.detail,
+      payload.message,
       payload.detail,
       nested?.message,
       payload.title,

@@ -41,9 +41,9 @@ describe('DoctorTimetableView (D2)', () => {
   it('shows ACTIVE badge and direct Workspace link, Chờ EHR badge, and no check-in buttons', async () => {
     const user = userEvent.setup();
     const now = new Date();
-    const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    const todayIso = now.toISOString().slice(0, 10);
     const yesterday = new Date(now.getTime() - 24 * 3600 * 1000);
-    const yesterdayIso = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')}`;
+    const yesterdayIso = yesterday.toISOString().slice(0, 10);
 
     vi.mocked(encountersApi.getDoctorTimetable).mockResolvedValue({
       data: [
@@ -69,7 +69,10 @@ describe('DoctorTimetableView (D2)', () => {
           encounterType: 'HOME_VISIT',
           category: 'PERIODIC_ROUTINE',
           encounterStatus: 'CONFIRMED',
-          familyConfirmedArrivalAt: '2026-11-24T09:15:00+07:00',
+          familyConfirmedArrivalAt: yesterday.toISOString(),
+          sessionDeadlines: {
+            recordDeadlineAt: new Date(now.getTime() + 6 * 3600 * 1000).toISOString(),
+          },
           clinicalEmrs: [],
           patient: { id: 'p-2', fullName: 'Hộ Lê Thị B' },
         },

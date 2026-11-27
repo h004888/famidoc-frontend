@@ -146,10 +146,12 @@ describe('FamilyTodayVisitCard (F1)', () => {
 
   it('FamilyDashboardView places Thăm khám hôm nay banner when an active today visit exists', async () => {
     const now = new Date();
-    const yyyy = now.getFullYear();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    const todayIso = `${yyyy}-${mm}-${dd}`;
+    const todayIso = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(now);
 
     vi.mocked(encountersApi.getFamilyTimetable).mockResolvedValue({
       data: [makeEncounter({ scheduledDate: todayIso, scheduledTime: '00:01' })],

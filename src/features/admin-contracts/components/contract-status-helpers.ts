@@ -49,6 +49,13 @@ export function resolveMedicalContractBadge(contract: FourPartyContract): Medica
     };
   }
 
+  if (contract.rawContractStatus === 'PENDING_ACTIVATION') {
+    return {
+      label: 'Đã thanh toán – chờ hiệu lực',
+      className: 'bg-sky-50 text-sky-700 border-sky-200',
+    };
+  }
+
   if (contract.status === 'ACTIVE') {
     return {
       label: 'Đang hiệu lực',
@@ -56,7 +63,7 @@ export function resolveMedicalContractBadge(contract: FourPartyContract): Medica
     };
   }
 
-  if (contract.status === 'PENDING_PAYMENT') {
+  if (contract.status === 'PENDING_PAYMENT' || contract.upgradedFromId) {
     return {
       label: 'Chờ thanh toán VietQR',
       className: 'bg-sky-50 text-sky-700 border-sky-200',

@@ -11,10 +11,10 @@ export interface PackageTerms {
   includedMembers: number;
   maxMembers: number;
   additionalMemberMonthlyPriceVnd: number;
-  quotaPeriod: 'PER_TERM' | 'PER_MONTH';
+  quotaPeriod?: 'PER_TERM' | 'PER_MONTH';
   videoQuotaPolicy?: 'FIXED' | 'CONTRACT';
   homeVisitUnitPriceVnd?: number;
-  quotas: { videoConsultations: number; homeVisits: number; facilityVisits: number };
+  quotas: { videoConsultations: number; homeVisits: number };
 }
 
 export interface AdminCarePackageItem extends PackageTerms {
@@ -44,21 +44,35 @@ export interface PackageValidationResult {
   };
   maxContractVideoConsultations: number | null;
 }
-type Ack = { acknowledgedWarnings?: string[] };
 
 const base = '/api/v1/admin/care-packages';
 export const adminPackagesApi = {
-  listPackages: async (params?: { page?: number; limit?: number; status?: PackageStatus; excludeDrafts?: boolean }): Promise<AdminPage<AdminCarePackageItem>> =>
+  listPackages: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: PackageStatus;
+    excludeDrafts?: boolean;
+  }): Promise<AdminPage<AdminCarePackageItem>> =>
     unwrapApiEnvelope(await httpClient.get(base, params, { cache: 'no-store' })),
-  getPackageById: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.get(`${base}/${id}`)),
+  getPackageById: async (id: string): Promise<AdminCarePackageItem> =>
+    unwrapApiEnvelope(await httpClient.get(`${base}/${id}`)),
   validatePackage: async (
-    payload: PackageTerms & { code?: string; packageId?: string },
-  ): Promise<PackageValidationResult> => unwrapApiEnvelope(await httpClient.post(`${base}/validate`, payload)),
-  createPackage: async (payload: PackageTerms & { code: string } & Ack): Promise<AdminCarePackageItem> =>
+    payload: Omit<PackageTerms, 'quotaPeriod' | 'videoQuotaPolicy'> & { packageId?: string },
+  ): Promise<PackageValidationResult> =>
+    unwrapApiEnvelope(await httpClient.post(`${base}/validate`, payload)),
+  createPackage: async (
+    payload: Omit<PackageTerms, 'quotaPeriod' | 'videoQuotaPolicy'>,
+  ): Promise<AdminCarePackageItem> =>
     unwrapApiEnvelope(await httpClient.post(base, payload)),
-  updatePackage: async (id: string, payload: Partial<PackageTerms> & Ack): Promise<AdminCarePackageItem> =>
+  updatePackage: async (
+    id: string,
+    payload: Partial<Omit<PackageTerms, 'quotaPeriod' | 'videoQuotaPolicy'>>,
+  ): Promise<AdminCarePackageItem> =>
     unwrapApiEnvelope(await httpClient.patch(`${base}/${id}`, payload)),
-  reopenPackage: async (id: string, payload?: Ack): Promise<AdminCarePackageItem> =>
-    unwrapApiEnvelope(await httpClient.post(`${base}/${id}/reopen`, payload ?? {})),
-  retirePackage: async (id: string): Promise<AdminCarePackageItem> => unwrapApiEnvelope(await httpClient.post(`${base}/${id}/retire`)),
+  reopenPackage: async (id: string): Promise<AdminCarePackageItem> =>
+    unwrapApiEnvelope(await httpClient.post(`${base}/${id}/reopen`, {})),
+  retirePackage: async (id: string): Promise<AdminCarePackageItem> =>
+    unwrapApiEnvelope(await httpClient.post(`${base}/${id}/retire`)),
+  deletePackage: async (id: string): Promise<{ id: string; deletedAt: string }> =>
+    unwrapApiEnvelope(await httpClient.delete(`${base}/${id}`)),
 };

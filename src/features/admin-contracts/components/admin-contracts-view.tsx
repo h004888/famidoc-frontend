@@ -75,10 +75,14 @@ function formatShortDate(value?: string): string {
 function mapMedicalRow(contract: FourPartyContract): UnifiedAdminContractRow {
   const familySigned = Boolean(contract.signatures?.family);
   const adminSigned = Boolean(contract.signatures?.platform);
+  const isRenewal = Boolean(contract.upgradedFromId);
+  const isPendingActivation = contract.rawContractStatus === 'PENDING_ACTIVATION';
   const isCancelled = contract.status === 'CANCELLED';
-  const isActive = contract.status === 'ACTIVE';
+  const isActive = contract.status === 'ACTIVE' && !isPendingActivation;
   const isPendingPayment = contract.status === 'PENDING_PAYMENT';
   const isReadyForAdmin =
+    !isRenewal &&
+    !isPendingActivation &&
     !isCancelled &&
     !isActive &&
     !isPendingPayment &&
@@ -94,6 +98,10 @@ function mapMedicalRow(contract: FourPartyContract): UnifiedAdminContractRow {
     statusKey = 'CANCELLED';
     statusLabel = 'Đã hủy / Hết hạn';
     statusClassName = 'border-rose-200 bg-rose-50 text-rose-700';
+  } else if (isPendingActivation) {
+    statusKey = 'ACTIVE';
+    statusLabel = 'Đã thanh toán – chờ hiệu lực';
+    statusClassName = 'border-sky-200 bg-sky-50 text-sky-700';
   } else if (isActive) {
     statusKey = 'ACTIVE';
     statusLabel = 'Đang hiệu lực';

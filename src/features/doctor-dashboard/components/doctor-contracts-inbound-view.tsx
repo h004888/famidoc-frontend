@@ -46,6 +46,7 @@ function formatShortDate(value?: string): string {
 
 function isContractPendingForDoctor(c: FourPartyContract): boolean {
   return (
+    !c.upgradedFromId &&
     !c.signatures?.doctor &&
     c.status !== 'ACTIVE' &&
     c.status !== 'DOCTOR_ACCEPTED' &&

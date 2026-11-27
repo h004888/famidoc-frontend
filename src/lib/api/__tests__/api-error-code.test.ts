@@ -18,6 +18,21 @@ describe('getApiErrorCode', () => {
     expect(getApiErrorCode(err)).toBe('VISIT_LOCKED');
   });
 
+  it('đọc error.errorCode từ Unified ApiErrorResponse', () => {
+    const err = new ApiError('Cần xác nhận cảnh báo P2', 409, {
+      success: false,
+      code: 409,
+      data: null,
+      meta: null,
+      error: {
+        title: 'Conflict',
+        errorCode: 'CARE_PACKAGE_RISK_ACK_REQUIRED',
+        detail: 'Cần xác nhận cảnh báo P2',
+      },
+    });
+    expect(getApiErrorCode(err)).toBe('CARE_PACKAGE_RISK_ACK_REQUIRED');
+  });
+
   it('trả về undefined với Error thường hoặc null', () => {
     expect(getApiErrorCode(new Error('x'))).toBeUndefined();
     expect(getApiErrorCode(null)).toBeUndefined();

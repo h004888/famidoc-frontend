@@ -62,10 +62,12 @@ const mapContractStatus = (
   switch (status) {
     case 'PENDING_PAYMENT':
       return 'PENDING_PAYMENT';
+    case 'PENDING_ACTIVATION':
     case 'ACTIVE':
       return 'ACTIVE';
     case 'EXPIRED':
     case 'TERMINATED':
+    case 'CANCELLED':
       return 'CANCELLED';
     default:
       return signedRoles.includes('FAMILY_REP') ? 'FAMILY_SIGNED' : 'DRAFT';

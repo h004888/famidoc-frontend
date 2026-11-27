@@ -59,8 +59,10 @@ export function DoctorContractsView() {
       if (data.length > 0) {
         setSelectedContractId((prev) => {
           if (prev && data.some((c) => c.id === prev)) return prev;
-          // Ưu tiên chọn hợp đồng cần bác sĩ ký trước
-          const pendingSign = data.find((c) => !c.signatures?.doctor?.signedAt);
+          // Ưu tiên chọn hợp đồng cần bác sĩ ký trước (loại trừ kỳ gia hạn R8)
+          const pendingSign = data.find(
+            (c) => !c.upgradedFromId && !c.signatures?.doctor?.signedAt,
+          );
           return pendingSign ? pendingSign.id : data[0].id;
         });
       }
@@ -85,7 +87,7 @@ export function DoctorContractsView() {
   // Lọc danh sách hợp đồng
   const filteredContracts = contracts.filter((c) => {
     const docSigned = Boolean(c.signatures?.doctor?.signedAt);
-    if (filterTab === 'PENDING_SIGN') return !docSigned;
+    if (filterTab === 'PENDING_SIGN') return !c.upgradedFromId && !docSigned;
     if (filterTab === 'ACTIVE') return c.status === 'ACTIVE';
     return true;
   });

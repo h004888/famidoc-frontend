@@ -70,9 +70,9 @@ describe('FamilyVisitConfirmModal', () => {
     await waitFor(() => {
       expect(encountersApi.confirmArrival).toHaveBeenCalledWith('enc-101');
       expect(reviewsApi.submitDoctorReview).toHaveBeenCalledWith({
-        doctorId: 'doc-101',
-        rating: 4,
-        comment: 'Bác sĩ khám kỹ',
+        encounterId: 'enc-101',
+        ratingStars: 4,
+        reviewComment: 'Bác sĩ khám kỹ',
       });
       expect(onCompleted).toHaveBeenCalledWith({ action: 'ARRIVED', reviewed: true });
     });
