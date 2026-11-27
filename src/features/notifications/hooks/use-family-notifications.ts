@@ -47,6 +47,24 @@ export function getNotificationAction(item: FamilyNotification) {
       type: 'Đơn thuốc',
     };
   }
+  // Xếp lịch tự động sau thanh toán chưa xong: referenceId là mã hợp đồng.
+  if (
+    item.type === 'ENCOUNTER_MANUAL_SCHEDULE_REQUIRED' ||
+    item.type === 'ENCOUNTER_AUTO_SCHEDULE_FAILED' ||
+    item.type === 'ENCOUNTER_AUTO_SCHEDULE_MISSING_DATA'
+  ) {
+    return {
+      href: '/family/appointments',
+      label: 'Xem lịch hẹn',
+      icon: 'event_busy',
+      type:
+        item.type === 'ENCOUNTER_MANUAL_SCHEDULE_REQUIRED'
+          ? 'Chờ bác sĩ xếp lịch'
+          : item.type === 'ENCOUNTER_AUTO_SCHEDULE_FAILED'
+            ? 'Xếp lịch chưa thành công'
+            : 'Cần bổ sung thông tin',
+    };
+  }
   if (
     item.type.startsWith('ENCOUNTER_') ||
     item.type.startsWith('RESCHEDULE_')

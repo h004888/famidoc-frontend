@@ -34,6 +34,23 @@ export function getDoctorNotificationTime(item: DoctorNotification) {
 }
 
 export function getDoctorNotificationAction(item: DoctorNotification) {
+  // Thông báo xếp lịch tự động sau thanh toán: referenceId là mã HỢP ĐỒNG, không phải mã ca khám.
+  if (item.type === 'ENCOUNTER_MANUAL_SCHEDULE_REQUIRED') {
+    return {
+      href: '/doctor/timetable/manual-schedule',
+      label: 'Xếp lịch thủ công',
+      icon: 'edit_calendar',
+      type: 'Cần xếp lịch tay',
+    };
+  }
+  if (item.type === 'ENCOUNTER_AUTO_CONFIRMED') {
+    return {
+      href: '/doctor/timetable',
+      label: 'Xem lịch trực',
+      icon: 'calendar_month',
+      type: 'Lịch tự động',
+    };
+  }
   if (item.type.startsWith('ENCOUNTER_')) {
     if (item.referenceId) {
       return {

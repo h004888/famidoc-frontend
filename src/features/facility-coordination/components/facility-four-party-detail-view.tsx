@@ -18,6 +18,8 @@ import {
   type BackendSignerRole,
   type MedicalContractDetailDto,
 } from '@/lib/api';
+import { encountersApi } from '@/lib/api/encounters.api';
+import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -59,6 +61,24 @@ export function FacilityFourPartyDetailView({
   const [pdfReloadTick, setPdfReloadTick] = useState(0);
   const requestSeqRef = useRef(0);
   const hasDetailRef = useRef(false);
+  const [isRetryingSchedule, setIsRetryingSchedule] = useState(false);
+
+  // Xếp lại lịch khám tại nhà khi xếp tự động sau thanh toán bị lỗi/thiếu dữ liệu.
+  const handleRetryAutoSchedule = async () => {
+    setIsRetryingSchedule(true);
+    try {
+      const res = await encountersApi.retryContractAutoSchedule(contractId);
+      toast.success(
+        res.scheduledCount > 0
+          ? `Đã xếp ${res.scheduledCount} buổi khám tại nhà cho hợp đồng.`
+          : 'Hợp đồng đã đủ lịch khám tại nhà, không cần xếp thêm.',
+      );
+    } catch (err) {
+      toast.error(extractErrorMessage(err));
+    } finally {
+      setIsRetryingSchedule(false);
+    }
+  };
 
   const loadData = useCallback(
     async (options?: { showSpinner?: boolean; forceSync?: boolean }) => {
@@ -327,6 +347,23 @@ export function FacilityFourPartyDetailView({
                 className={cn('mr-1.5 size-3.5', isRefreshing && 'animate-spin')}
               />
               {isRefreshing ? 'Đang cập nhật...' : 'Cập nhật tiến độ'}
+            </Button>
+          )}
+
+          {detail.contractStatus === 'ACTIVE' && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isRetryingSchedule}
+              onClick={() => void handleRetryAutoSchedule()}
+              data-testid="facility-retry-auto-schedule"
+              className="h-8 rounded-lg bg-white text-xs font-semibold"
+            >
+              <RefreshCw
+                className={cn('mr-1.5 size-3.5', isRetryingSchedule && 'animate-spin')}
+              />
+              {isRetryingSchedule ? 'Đang xếp lịch...' : 'Xếp lịch lại'}
             </Button>
           )}
 

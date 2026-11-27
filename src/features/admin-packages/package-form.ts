@@ -63,7 +63,7 @@ function getPackageNumberError(field: PackageNumberField, value: string): string
   }
 }
 
-const nameError = 'Tên gói phải có từ 10 đến 120 ký tự, trong đó có ít nhất một chữ cái.';
+const nameError = 'Tên gói phải có từ 5 đến 50 ký tự, trong đó có ít nhất một chữ cái.';
 const descriptionError = 'Mô tả phải có từ 20 đến 2.000 ký tự, trong đó có ít nhất một chữ cái.';
 
 export function validatePackageForm(form: PackageForm, item: AdminCarePackageItem | null): PackageFieldErrors {
@@ -73,7 +73,7 @@ export function validatePackageForm(form: PackageForm, item: AdminCarePackageIte
   const description = form.description.trim();
   const nameLength = [...name].length;
   const descriptionLength = [...description].length;
-  if (nameLength < 10 || nameLength > 120 || !/\p{L}/u.test(name)) errors.name = nameError;
+  if (nameLength < 5 || nameLength > 50 || !/\p{L}/u.test(name)) errors.name = nameError;
   if (descriptionLength < 20 || descriptionLength > 2000 || !/\p{L}/u.test(description)) errors.description = descriptionError;
 
   const fields = Object.keys(packageNumberFields) as PackageNumberField[];

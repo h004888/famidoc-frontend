@@ -76,9 +76,9 @@ describe('package-form (rule mới)', () => {
       error: {
         title: 'Unprocessable Content',
         errorCode: 'VALIDATION_FAILED',
-        detail: 'Tên gói phải có ít nhất 10 ký tự.',
+        detail: 'Tên gói phải có ít nhất 5 ký tự.',
         invalidParams: [
-          { field: 'name', issue: 'MIN_LENGTH', message: 'Tên gói phải có ít nhất 10 ký tự.' },
+          { field: 'name', issue: 'MIN_LENGTH', message: 'Tên gói phải có ít nhất 5 ký tự.' },
           { field: 'quotas.homeVisits', issue: 'MIN_VALUE', message: 'Số lượt khám tại nhà phải lớn hơn 0.' },
           { field: 'quotas.videoConsultations', issue: 'MIN_VALUE', message: 'Số lượt tư vấn video phải lớn hơn 0.' },
         ],
@@ -86,7 +86,7 @@ describe('package-form (rule mới)', () => {
     });
 
     expect(getPackageApiFieldErrors(err)).toEqual({
-      name: 'Tên gói phải có ít nhất 10 ký tự.',
+      name: 'Tên gói phải có ít nhất 5 ký tự.',
       homeVisits: 'Số lượt khám tại nhà phải lớn hơn 0.',
       videoConsultations: 'Số lượt tư vấn video phải lớn hơn 0.',
     });

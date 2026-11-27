@@ -37,6 +37,24 @@ export function getFacilityNotificationTime(item: FacilityNotification) {
 export function getFacilityNotificationAction(item: FacilityNotification) {
   const type = (item.type || '').toUpperCase();
 
+  // Xếp lịch tự động sau thanh toán thất bại / thiếu dữ liệu: referenceId là mã hợp đồng.
+  if (
+    type === 'ENCOUNTER_AUTO_SCHEDULE_FAILED' ||
+    type === 'ENCOUNTER_AUTO_SCHEDULE_MISSING_DATA'
+  ) {
+    return {
+      href: item.referenceId
+        ? `/facility/coordination/${encodeURIComponent(item.referenceId)}`
+        : '/facility/coordination',
+      label: 'Xếp lịch lại',
+      icon: 'event_repeat',
+      type:
+        type === 'ENCOUNTER_AUTO_SCHEDULE_FAILED'
+          ? 'Lỗi xếp lịch'
+          : 'Thiếu thông tin xếp lịch',
+    };
+  }
+
   if (type.startsWith('ENCOUNTER_') || type.startsWith('RESCHEDULE_')) {
     return {
       href: '/facility/coordination',

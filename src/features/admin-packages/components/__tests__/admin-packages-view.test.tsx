@@ -244,7 +244,7 @@ it('normalizes leading zeros and saves the calculated term price with both quota
 
 it('rejects wrong text, invalid numeric input, zero duration/quotas and inconsistent terms with Vietnamese field errors', async () => {
   const { dialog, change, save } = await openCreatePackage();
-  change('Tên gói', '  Gói tháng  ');
+  change('Tên gói', '  Gói  ');
   change('Mô tả', '  Khám tại nhà 2 lượt  ');
   change(/Thời hạn gói/, '0');
   change('Số thành viên mặc định', '3');
@@ -256,7 +256,7 @@ it('rejects wrong text, invalid numeric input, zero duration/quotas and inconsis
   save();
 
   expect(dialog.getByLabelText('Tên gói')).toHaveFocus();
-  expect(dialog.getByLabelText('Tên gói')).toHaveAccessibleDescription(/Tên gói phải có từ 10 đến 120 ký tự/);
+  expect(dialog.getByLabelText('Tên gói')).toHaveAccessibleDescription(/Tên gói phải có từ 5 đến 50 ký tự/);
   expect(dialog.getByLabelText('Mô tả')).toHaveAccessibleDescription(/Mô tả phải có từ 20 đến 2.000 ký tự/);
   expect(dialog.getByLabelText(/Thời hạn gói/)).toHaveAccessibleDescription(/Thời hạn gói phải lớn hơn 0 tháng/);
   expect(dialog.getByLabelText('Số thành viên tối đa')).toHaveAccessibleDescription(/Số người tối đa phải từ số người trong giá/);
